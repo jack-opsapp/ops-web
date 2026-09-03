@@ -12,10 +12,12 @@ import {
   type SalesTruthSourceSnapshot,
 } from "@/lib/agent-control-plane/contracts/sales-truth";
 import {
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
   RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
   SALES_TRUTH_CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
+  MCP_EXPOSURE_V10,
   MCP_EXPOSURE_V7,
   MCP_EXPOSURE_V9,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
@@ -56,7 +58,10 @@ function binding(actorContext: ActorContext) {
       : actorContext.capabilityManifestRevision ===
           RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
         ? MCP_EXPOSURE_V9.revision
-        : null;
+        : actorContext.capabilityManifestRevision ===
+            ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+          ? MCP_EXPOSURE_V10.revision
+          : null;
   if (exposureRevision === null) {
     throw new TypeError("Sales-truth analysis requires a supported MCP actor");
   }

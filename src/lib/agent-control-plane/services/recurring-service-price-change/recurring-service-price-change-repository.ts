@@ -11,8 +11,14 @@ import {
   type RecurringServicePriceChangeDetailRead,
   type RecurringServicePriceChangeRecurrenceCatalog,
 } from "@/lib/agent-control-plane/contracts/recurring-service-price-change";
-import { RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { MCP_EXPOSURE_V9 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+} from "@/lib/agent-control-plane/registry/capability-manifest";
+import {
+  MCP_EXPOSURE_V10,
+  MCP_EXPOSURE_V9,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const TRUSTED_REPOSITORIES = new WeakSet<object>();
 
@@ -120,13 +126,22 @@ function isSourceBound(error: unknown): boolean {
 }
 
 function binding(actorContext: ActorContext) {
-  if (
-    actorContext.auth.channel !== "mcp" ||
-    actorContext.capabilityManifestRevision !==
-      RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
-  ) {
+  if (actorContext.auth.channel !== "mcp") {
     throw new TypeError(
-      "Recurring-service price preview requires a v15 MCP actor"
+      "Recurring-service price preview requires a supported MCP actor"
+    );
+  }
+  const exposureRevision =
+    actorContext.capabilityManifestRevision ===
+    RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+      ? MCP_EXPOSURE_V9.revision
+      : actorContext.capabilityManifestRevision ===
+          ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+        ? MCP_EXPOSURE_V10.revision
+        : null;
+  if (exposureRevision === null) {
+    throw new TypeError(
+      "Recurring-service price preview requires a supported MCP actor"
     );
   }
   return {
@@ -137,9 +152,8 @@ function binding(actorContext: ActorContext) {
     p_grant_revision: actorContext.auth.grantRevision,
     p_granted_scope_ceiling: [...actorContext.auth.scopeCeiling],
     p_permission_snapshot_revision: actorContext.permissionSnapshotRevision,
-    p_capability_manifest_revision:
-      RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
-    p_exposure_revision: MCP_EXPOSURE_V9.revision,
+    p_capability_manifest_revision: actorContext.capabilityManifestRevision,
+    p_exposure_revision: exposureRevision,
     p_capability_id: "prepare_recurring_service_price_change",
     p_capability_revision: RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_REVISION,
   } as const;

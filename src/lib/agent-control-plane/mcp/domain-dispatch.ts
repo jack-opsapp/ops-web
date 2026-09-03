@@ -5,7 +5,9 @@ import type { CurrentProductionMcpToolId } from "@/lib/agent-control-plane/regis
 import type { P2ReadCapabilityId } from "@/lib/agent-control-plane/registry/read-capabilities/p2";
 
 type AsyncDomainMethodName = {
-  [Name in keyof OpsAgentCapabilityService]: OpsAgentCapabilityService[Name] extends (
+  [
+    Name in keyof OpsAgentCapabilityService
+  ]: OpsAgentCapabilityService[Name] extends (
     ...args: never[]
   ) => Promise<unknown>
     ? Name
@@ -54,6 +56,7 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   analyze_sales_truth: "analyzeSalesTruth",
   check_payroll_readiness: "checkPayrollReadiness",
   prepare_recurring_service_price_change: "prepareRecurringServicePriceChange",
+  prepare_estimate_from_past_job: "prepareEstimateFromPastJob",
 } as const satisfies Readonly<
   Record<
     | CurrentProductionMcpToolId
@@ -64,7 +67,8 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
     | "check_customer_reply"
     | "analyze_sales_truth"
     | "check_payroll_readiness"
-    | "prepare_recurring_service_price_change",
+    | "prepare_recurring_service_price_change"
+    | "prepare_estimate_from_past_job",
     AsyncDomainMethodName
   >
 >);
@@ -78,7 +82,8 @@ export type McpDomainCapabilityId =
   | "check_customer_reply"
   | "analyze_sales_truth"
   | "check_payroll_readiness"
-  | "prepare_recurring_service_price_change";
+  | "prepare_recurring_service_price_change"
+  | "prepare_estimate_from_past_job";
 export type McpDomainMethodName =
   (typeof DOMAIN_METHOD_BY_CAPABILITY)[McpDomainCapabilityId];
 

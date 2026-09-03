@@ -13,6 +13,7 @@ import {
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V4,
   MCP_EXPOSURE_V9,
+  MCP_EXPOSURE_V10,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import { READ_CAPABILITY_DEFINITIONS } from "@/lib/agent-control-plane/registry/read-tools";
@@ -114,6 +115,26 @@ describe("dormant recurring-service price-preview scopes", () => {
     ).toEqual(["ops.operations.prepare", "ops.schedule.read"]);
     expect(
       resolveRequestedScopesForExposure("ops.schedule.write", MCP_EXPOSURE_V9)
+    ).toBeNull();
+  });
+});
+
+describe("dormant estimate-draft scopes", () => {
+  it("accepts the exact v10 prepare ceiling without write or send authority", () => {
+    expect(resolveRequestedScopesForExposure(null, MCP_EXPOSURE_V10)).toEqual(
+      MCP_EXPOSURE_V10.grantableScopes
+    );
+    expect(
+      resolveRequestedScopesForExposure(
+        "ops.financials.prepare ops.financial_documents.read",
+        MCP_EXPOSURE_V10
+      )
+    ).toEqual(["ops.financial_documents.read", "ops.financials.prepare"]);
+    expect(
+      resolveRequestedScopesForExposure(
+        "ops.financials.write",
+        MCP_EXPOSURE_V10
+      )
     ).toBeNull();
   });
 });

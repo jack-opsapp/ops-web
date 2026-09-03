@@ -8,10 +8,14 @@ import {
   type HiringWhatIfSourceSnapshot,
 } from "@/lib/agent-control-plane/contracts/hiring-what-if";
 import {
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
   HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION,
   RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { MCP_EXPOSURE_V9 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  MCP_EXPOSURE_V10,
+  MCP_EXPOSURE_V9,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const HIRING_WHAT_IF_EXPOSURE_REVISION = "2026-08-31.mcp-exposure.v5" as const;
 const HIRING_WHAT_IF_MEMBER_LIMIT = 25;
@@ -54,7 +58,10 @@ function binding(actorContext: ActorContext) {
       : actorContext.capabilityManifestRevision ===
           RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
         ? MCP_EXPOSURE_V9.revision
-        : null;
+        : actorContext.capabilityManifestRevision ===
+            ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+          ? MCP_EXPOSURE_V10.revision
+          : null;
   if (exposureRevision === null) {
     throw new TypeError("Hiring analysis requires a supported MCP actor");
   }

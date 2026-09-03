@@ -43,6 +43,7 @@ function runtime(
     payrollReadiness: {} as McpServerRuntime["payrollReadiness"],
     recurringServicePriceChange:
       {} as McpServerRuntime["recurringServicePriceChange"],
+    estimateDraft: {} as McpServerRuntime["estimateDraft"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {

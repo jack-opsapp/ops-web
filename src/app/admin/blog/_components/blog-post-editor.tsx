@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { BlogCategory } from "@/lib/admin/types";
 import { RichTextEditor } from "./rich-text-editor";
 import { FaqEditor } from "./faq-editor";
+import { Button } from "@/components/ui/button";
 
 interface PostData {
   id?: string;
@@ -206,14 +207,16 @@ export function BlogPostEditor({
           </button>
 
           {/* Save */}
-          <button
+          <Button
             type="button"
+            variant="primary"
             onClick={handleSave}
-            disabled={!post.title.trim() || saving}
-            className="w-full py-2 bg-ops-accent hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            loading={saving}
+            disabled={!post.title.trim()}
+            className="w-full"
           >
             {saving ? "Saving..." : "Save"}
-          </button>
+          </Button>
 
           {/* Delete (edit mode only) */}
           {!isNew && (

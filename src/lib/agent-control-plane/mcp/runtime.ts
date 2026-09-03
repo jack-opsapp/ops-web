@@ -51,6 +51,11 @@ import {
   createRecurringServicePriceChangeService,
   type RecurringServicePriceChangeService,
 } from "@/lib/agent-control-plane/services/recurring-service-price-change/recurring-service-price-change-service";
+import { createEstimateDraftRepository } from "@/lib/agent-control-plane/services/estimate-draft/estimate-draft-repository";
+import {
+  createEstimateDraftService,
+  type EstimateDraftService,
+} from "@/lib/agent-control-plane/services/estimate-draft/estimate-draft-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -97,6 +102,7 @@ export interface McpServerRuntime {
   readonly salesTruth: SalesTruthService;
   readonly payrollReadiness: PayrollReadinessService;
   readonly recurringServicePriceChange: RecurringServicePriceChangeService;
+  readonly estimateDraft: EstimateDraftService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -148,8 +154,7 @@ function preserveMcpRpcCancellation(
   let defaultExecution: Promise<McpRpcResult> | null = null;
   const then = <TResult1 = McpRpcResult, TResult2 = never>(
     onfulfilled?:
-      | ((value: McpRpcResult) => TResult1 | PromiseLike<TResult1>)
-      | null,
+      ((value: McpRpcResult) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): PromiseLike<TResult1 | TResult2> => {
     defaultExecution ??= settleMcpRpc(functionName, rawRequest);
@@ -290,6 +295,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const estimateDraft = createEstimateDraftService({
+    repository: createEstimateDraftRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
@@ -301,6 +312,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       salesTruth,
       payrollReadiness,
       recurringServicePriceChange,
+      estimateDraft,
     }),
     dayCloseout,
     collections,
@@ -309,6 +321,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     salesTruth,
     payrollReadiness,
     recurringServicePriceChange,
+    estimateDraft,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

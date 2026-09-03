@@ -4,12 +4,12 @@ import { cn } from "@/lib/utils/cn";
 // `Btn` — workspace-scoped button.
 //
 // Why not reuse `<Button>` from `src/components/ui/button.tsx`?
-// The brand spec v2 mandates the primary CTA is **outlined at rest with
-// `text-ops-accent border-ops-accent`, fills to `bg-ops-accent text-black`
-// on hover**. The existing `<Button>` keeps `bg-ops-accent` filled at rest
-// (and is depended on across dozens of dashboard surfaces). Building a
-// workspace-scoped `Btn` lets the workspace honour the spec without
-// disturbing existing consumers. Documented in the atom mapping doc.
+// Historically the shared `<Button>` kept its primary filled at rest while the
+// brand spec v2 mandates **outlined at rest with `text-ops-accent
+// border-ops-accent`, fills to `bg-ops-accent text-black` on hover** — so the
+// workspace got its own atom (atom mapping doc §5.8). The shared `<Button>`
+// now follows the same rule (2026-09-01); `Btn` remains the workspace's
+// Mohave-voiced, 28/32/40px-laddered variant of it.
 //
 // Variants:
 //   primary      — outlined accent, fills on hover (the default CTA voice)

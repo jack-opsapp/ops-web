@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Check } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import { toast } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -172,21 +173,17 @@ export function ReviewStep({
           {t("wizard.review.back")}
         </button>
 
-        <button
+        <Button
           type="button"
+          variant="primary"
           onClick={handleCreate}
-          disabled={status === "creating" || taskTypes.length === 0}
-          className="flex items-center gap-[8px] px-[24px] py-[10px] rounded bg-ops-accent hover:bg-[#6a8ba8] text-white font-mohave text-body-sm transition-colors disabled:opacity-50"
+          loading={status === "creating"}
+          disabled={taskTypes.length === 0}
         >
-          {status === "creating" ? (
-            <>
-              <Loader2 className="w-[14px] h-[14px] animate-spin" />
-              {t("wizard.review.creating")}
-            </>
-          ) : (
-            t("wizard.review.create")
-          )}
-        </button>
+          {status === "creating"
+            ? t("wizard.review.creating")
+            : t("wizard.review.create")}
+        </Button>
       </div>
     </motion.div>
   );

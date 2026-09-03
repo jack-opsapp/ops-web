@@ -122,8 +122,14 @@ export const PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
     "Prepare recurring-service price-change previews and customer notice drafts",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
+export const ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
+  "ops.financials.prepare":
+    "Prepare exact draft estimates from authorized past jobs",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
 export type LabelledMcpScope =
-  keyof typeof INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS;
+  keyof typeof ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,

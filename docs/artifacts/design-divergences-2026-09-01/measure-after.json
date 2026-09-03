@@ -1,0 +1,274 @@
+{
+  "phase": "after",
+  "capturedAt": "2026-09-02T06:04:26.813Z",
+  "measurements": {
+    "pipeline-new-lead": {
+      "text": "New Lead",
+      "bg": "rgba(0, 0, 0, 0)",
+      "color": "rgb(65, 115, 148)",
+      "border": "rgb(65, 115, 148)",
+      "fontSize": "11px",
+      "fontFamily": "\"JetBrains Mono\"",
+      "height": 28,
+      "className": "flex h-[28px] shrink-0 items-center gap-[5px] rounded-chip border border-ops-accent bg-transparent px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+    },
+    "pipeline-new-lead-hover": {
+      "bg": "rgb(65, 115, 148)",
+      "color": "rgb(0, 0, 0)",
+      "border": "rgb(65, 115, 148)"
+    },
+    "settings-company-save": {
+      "text": "Save changes",
+      "bg": "rgba(0, 0, 0, 0)",
+      "color": "rgb(65, 115, 148)",
+      "border": "rgb(65, 115, 148)",
+      "fontSize": "14px",
+      "fontFamily": "cake-mono",
+      "height": 36,
+      "className": "inline-flex items-center justify-center font-cakemono font-light text-cake-button uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40 no-select cursor-pointer active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 bg-transparent text-ops-accent border border-ops-accent hover:bg-ops-accent hover:text-black h-9 px-4 gap-[6px]"
+    },
+    "settings-company-save-hover": {
+      "bg": "rgb(65, 115, 148)",
+      "color": "rgb(0, 0, 0)",
+      "border": "rgb(65, 115, 148)"
+    },
+    "lockout-primary-buttons": [
+      {
+        "text": "Subscribe",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(111, 148, 176)",
+        "border": "rgb(111, 148, 176)"
+      },
+      {
+        "text": "Ask admin to reactivate",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(111, 148, 176)",
+        "border": "rgb(111, 148, 176)"
+      },
+      {
+        "text": "Open team page",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(111, 148, 176)",
+        "border": "rgb(111, 148, 176)"
+      },
+      {
+        "text": "Ask admin for a seat",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(111, 148, 176)",
+        "border": "rgb(111, 148, 176)"
+      }
+    ],
+    "bug-drawer": {
+      "panel": {
+        "h": 694.17,
+        "w": 360
+      },
+      "bodyScrollHeight": 646,
+      "bodyClientHeight": 646,
+      "groups": [
+        {
+          "label": "CATEGORY",
+          "h": 72.59
+        },
+        {
+          "label": "HOW BAD? (OPTIONAL)",
+          "h": 40.3
+        }
+      ],
+      "chips": [
+        {
+          "text": "BUG",
+          "h": 32.3,
+          "w": 55.45,
+          "fontSize": "11px",
+          "lineHeight": "14.3px",
+          "border": "rgba(255, 255, 255, 0.18)",
+          "color": "rgb(237, 237, 237)",
+          "bg": "rgba(255, 255, 255, 0.08)"
+        },
+        {
+          "text": "UI",
+          "h": 32.3,
+          "w": 48.31,
+          "fontSize": "11px",
+          "lineHeight": "14.3px",
+          "border": "rgba(255, 255, 255, 0.1)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "CRASH",
+          "h": 32.3,
+          "w": 69.75,
+          "fontSize": "11px",
+          "lineHeight": "14.3px",
+          "border": "rgba(255, 255, 255, 0.1)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "FEATURE",
+          "h": 32.3,
+          "w": 84.06,
+          "fontSize": "11px",
+          "lineHeight": "14.3px",
+          "border": "rgba(255, 255, 255, 0.1)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "OTHER",
+          "h": 32.3,
+          "w": 69.75,
+          "fontSize": "11px",
+          "lineHeight": "14.3px",
+          "border": "rgba(255, 255, 255, 0.1)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "BLOCKER",
+          "h": 40.3,
+          "w": 104.66,
+          "fontSize": "11px",
+          "lineHeight": "14.3px",
+          "border": "rgba(255, 255, 255, 0.1)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "MAJOR",
+          "h": 40.3,
+          "w": 104.67,
+          "fontSize": "11px",
+          "lineHeight": "14.3px",
+          "border": "rgba(255, 255, 255, 0.1)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "MINOR",
+          "h": 40.3,
+          "w": 104.67,
+          "fontSize": "11px",
+          "lineHeight": "14.3px",
+          "border": "rgba(255, 255, 255, 0.1)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        }
+      ],
+      "toggles": [
+        {
+          "text": "CATEGORY",
+          "h": 14.3
+        },
+        {
+          "text": "WHAT HAPPENED?",
+          "h": 14.3
+        },
+        {
+          "text": "DETAILS (OPTIONAL)",
+          "h": 14.3
+        },
+        {
+          "text": "HOW BAD? (OPTIONAL)",
+          "h": 14.3
+        },
+        {
+          "text": "NEEDS MY INPUT TO SOLVE",
+          "h": 50
+        },
+        {
+          "text": "[ATTACH SCREENSHOT · 835KB]",
+          "h": 50
+        }
+      ],
+      "under11px": [],
+      "borderColorsInUse": [
+        "rgba(255, 255, 255, 0.1)",
+        "rgba(255, 255, 255, 0.14)",
+        "rgba(255, 255, 255, 0.18)",
+        "rgba(255, 255, 255, 0.4)",
+        "rgba(255, 255, 255, 0.15)",
+        "rgba(255, 255, 255, 0.06)"
+      ]
+    },
+    "estimate-form-buttons": [
+      {
+        "text": "Select project (optional)...",
+        "bg": "rgba(255, 255, 255, 0.04)",
+        "color": "rgb(237, 237, 237)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 36,
+        "className": "flex w-full items-center justify-between gap-1 bg-surface-input text-text font-mohave text-body px-1.5 py-1.5 rounded border border-[rgba(255,255,255,0.10)] transition-all duration-150 focus:border-[r"
+      },
+      {
+        "text": "Add Line Item",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(138, 138, 138)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "14px",
+        "height": 64,
+        "className": "inline-flex items-center justify-center font-cakemono font-light text-cake-button uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] "
+      },
+      {
+        "text": "Cancel",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(181, 181, 181)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "14px",
+        "height": 36,
+        "className": "inline-flex items-center justify-center gap-1 font-cakemono font-light text-cake-button uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1"
+      },
+      {
+        "text": "Create estimate",
+        "bg": "rgba(255, 255, 255, 0.07)",
+        "color": "rgb(181, 181, 181)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "14px",
+        "height": 36,
+        "className": "inline-flex items-center justify-center gap-1 font-cakemono font-light text-cake-button uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1"
+      }
+    ],
+    "invoice-form-buttons": [
+      {
+        "text": "Net 30",
+        "bg": "rgba(255, 255, 255, 0.04)",
+        "color": "rgb(237, 237, 237)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 36,
+        "className": "flex w-full items-center justify-between gap-1 bg-surface-input text-text font-mohave text-body px-1.5 py-1.5 rounded border border-[rgba(255,255,255,0.10)] transition-all duration-150 focus:border-[r"
+      },
+      {
+        "text": "Add Line Item",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(138, 138, 138)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "14px",
+        "height": 64,
+        "className": "inline-flex items-center justify-center font-cakemono font-light text-cake-button uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] "
+      },
+      {
+        "text": "Cancel",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(181, 181, 181)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "14px",
+        "height": 36,
+        "className": "inline-flex items-center justify-center gap-1 font-cakemono font-light text-cake-button uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1"
+      },
+      {
+        "text": "Create invoice",
+        "bg": "rgba(255, 255, 255, 0.07)",
+        "color": "rgb(181, 181, 181)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "14px",
+        "height": 36,
+        "className": "inline-flex items-center justify-center gap-1 font-cakemono font-light text-cake-button uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1"
+      }
+    ]
+  },
+  "consoleErrors": []
+}
