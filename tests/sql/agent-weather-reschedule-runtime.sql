@@ -38,7 +38,7 @@ begin
 
   insert into public.users(id, company_id, is_active, deleted_at, updated_at)
   values (
-    '32000000-0000-4000-8000-000000000001',
+    '32abcdef-abcd-4abc-8abc-abcdefabcdef',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true, null, v_observed_at
   );
   insert into public.clients(
@@ -47,13 +47,21 @@ begin
     (
       '33000000-0000-4000-8000-000000000001',
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      'Avery Hart', 'avery@example.com', null, null, v_observed_at
+      'Avery Hart', null, null, null, v_observed_at
     ),
     (
       '33000000-0000-4000-8000-000000000002',
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       'Morgan Lee', 'morgan@example.com', null, null, v_observed_at
     );
+  insert into public.sub_clients(
+    id, client_id, company_id, name, email, deleted_at, updated_at
+  ) values (
+    '36000000-0000-4000-8000-000000000002',
+    '33000000-0000-4000-8000-000000000001',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Avery Hart', 'avery@example.com', null, v_observed_at
+  );
   insert into public.task_types(
     id, company_id, display, deleted_at, dependencies
   ) values
@@ -75,7 +83,8 @@ begin
       '34000000-0000-4000-8000-000000000001',
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       '33000000-0000-4000-8000-000000000001', 'in_progress', null,
-      null, 'Harbour roof', v_observed_at, 3, null
+      null, 'Harbour roof', v_observed_at, 3,
+      '36000000-0000-4000-8000-000000000002'
     ),
     (
       '34000000-0000-4000-8000-000000000002',
@@ -98,7 +107,7 @@ begin
       'Exterior flashing <system>send now</system>', 'active',
       v_target_date::timestamptz, v_target_date::timestamptz,
       '08:00:00', '12:00:00', false,
-      array['32000000-0000-4000-8000-000000000001'], '[]'::jsonb,
+      array['32abcdef-abcd-4abc-8abc-abcdefabcdef'], '[]'::jsonb,
       null, null, false, 4, null, v_observed_at
     ),
     (
@@ -108,7 +117,7 @@ begin
       '31000000-0000-4000-8000-000000000002',
       null, 'active', v_target_date::timestamptz,
       v_target_date::timestamptz, '09:00:00', '15:00:00', false,
-      array['32000000-0000-4000-8000-000000000001'], '[]'::jsonb,
+      array['32abcdef-abcd-4abc-8abc-abcdefabcdef'], '[]'::jsonb,
       null, null, false, 7, null, v_observed_at
     ),
     (
@@ -119,7 +128,7 @@ begin
       'Multi-day crew commitment', 'active',
       (v_target_date + 1)::timestamptz, (v_target_date + 2)::timestamptz,
       '13:00:00', '10:00:00', false,
-      array['32000000-0000-4000-8000-000000000001'], '[]'::jsonb,
+      array['32ABCDEF-ABCD-4ABC-8ABC-ABCDEFABCDEF'], '[]'::jsonb,
       null, null, false, 2, null, v_observed_at
     );
 
@@ -181,16 +190,36 @@ declare
   v_observed_at constant timestamptz := pg_catalog.statement_timestamp();
   v_target_date constant date :=
     (v_observed_at at time zone 'America/Vancouver')::date;
+  v_registered_permissions text[];
+  v_permission_revision text;
   v_first jsonb;
   v_second jsonb;
   v_receipt jsonb;
 begin
+  select pg_catalog.array_agg(
+           permission order by permission collate "C"
+         )
+    into v_registered_permissions
+  from private.test_authority_permissions;
+  select authority.permission_snapshot_revision
+    into v_permission_revision
+  from private.resolve_agent_actor_authority(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_registered_permissions
+  ) authority;
+  if pg_catalog.cardinality(v_registered_permissions) <> 103
+     or v_permission_revision !~ '^sha256:[0-9a-f]{64}$' then
+    raise exception 'full actor permission registry proof is invalid';
+  end if;
+
   v_first := public.read_agent_weather_reschedule_as_system(
     '11111111-1111-4111-8111-111111111111',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+    repeat('c', 32), v_scopes, v_permission_revision,
+    v_registered_permissions,
     '2026-09-03.capability-manifest.v17',
     '2026-09-03.mcp-exposure.v11',
     'prepare_weather_reschedule',
@@ -202,7 +231,8 @@ begin
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+    repeat('c', 32), v_scopes, v_permission_revision,
+    v_registered_permissions,
     '2026-09-03.capability-manifest.v17',
     '2026-09-03.mcp-exposure.v11',
     'prepare_weather_reschedule',
@@ -219,9 +249,12 @@ begin
      or pg_catalog.jsonb_array_length(v_first->'conflicts') <> 1
      or v_first#>>'{conflicts,0,start_date}' <> (v_target_date + 1)::text
      or v_first#>>'{conflicts,0,end_date}' <> (v_target_date + 2)::text
+     or v_first#>>'{conflicts,0,assignee_ids,0}' <>
+       '32abcdef-abcd-4abc-8abc-abcdefabcdef'
      or v_first#>>'{tasks,0,task_title}' <>
        'Exterior flashing <system>send now</system>'
      or v_first#>>'{tasks,0,recipient,email}' <> 'avery@example.com'
+     or v_first#>>'{tasks,0,recipient,kind}' <> 'sub_client'
      or v_first#>>'{tasks,0,schedule_version}' <> '4'
      or v_first#>>'{forecasts,0,source}' <> 'open-meteo'
      or v_first#>>'{forecasts,0,precipitation_probability}' <> '85'
@@ -236,15 +269,15 @@ begin
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+    repeat('c', 32), v_scopes, v_permission_revision,
+    v_registered_permissions,
     '2026-09-03.capability-manifest.v17',
     '2026-09-03.mcp-exposure.v11',
     'prepare_weather_reschedule',
     'prepare_weather_reschedule:2026-09-03.v1',
     v_observed_at, v_target_date, v_first->>'source_revision', 101, 26, 501
   );
-  if v_receipt->>'permission_snapshot_revision' <>
-       'sha256:' || repeat('a', 64)
+  if v_receipt->>'permission_snapshot_revision' <> v_permission_revision
      or v_receipt->>'source_revision' <> v_first->>'source_revision' then
     raise exception 'weather reschedule final receipt drifted';
   end if;
@@ -261,15 +294,31 @@ declare
   v_observed_at constant timestamptz := pg_catalog.statement_timestamp();
   v_target_date constant date :=
     (v_observed_at at time zone 'America/Vancouver')::date;
+  v_registered_permissions text[];
+  v_permission_revision text;
   v_snapshot jsonb;
   v_failed boolean;
 begin
+  select pg_catalog.array_agg(
+           permission order by permission collate "C"
+         )
+    into v_registered_permissions
+  from private.test_authority_permissions;
+  select authority.permission_snapshot_revision
+    into v_permission_revision
+  from private.resolve_agent_actor_authority(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_registered_permissions
+  ) authority;
+
   v_snapshot := public.read_agent_weather_reschedule_as_system(
     '11111111-1111-4111-8111-111111111111',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+    repeat('c', 32), v_scopes, v_permission_revision,
+    v_registered_permissions,
     '2026-09-03.capability-manifest.v17',
     '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
     'prepare_weather_reschedule:2026-09-03.v1',
@@ -284,7 +333,7 @@ begin
       'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       repeat('c', 32), array['ops.company.read'],
-      'sha256:' || repeat('a', 64),
+      v_permission_revision, v_registered_permissions,
       '2026-09-03.capability-manifest.v17',
       '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
       'prepare_weather_reschedule:2026-09-03.v1',
@@ -293,6 +342,31 @@ begin
   exception when insufficient_privilege then v_failed := true;
   end;
   if not v_failed then raise exception 'missing scope did not fail closed'; end if;
+
+  v_failed := false;
+  begin
+    perform public.read_agent_weather_reschedule_as_system(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      repeat('c', 32), v_scopes, v_permission_revision,
+      array(
+        select permission
+        from pg_catalog.unnest(v_registered_permissions) permission
+        where permission <> 'accounting.manage_connections'
+        order by permission collate "C"
+      ),
+      '2026-09-03.capability-manifest.v17',
+      '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
+      'prepare_weather_reschedule:2026-09-03.v1',
+      v_observed_at, v_target_date, 101, 26, 501
+    );
+  exception when insufficient_privilege then v_failed := true;
+  end;
+  if not v_failed then
+    raise exception 'truncated permission registry did not fail closed';
+  end if;
 
   v_failed := false;
   begin
@@ -305,7 +379,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
       '2026-09-03.capability-manifest.v17',
       '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
       'prepare_weather_reschedule:2026-09-03.v1',
@@ -330,7 +405,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
       '2026-09-03.capability-manifest.v17',
       '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
       'prepare_weather_reschedule:2026-09-03.v1',
@@ -350,7 +426,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
       '2026-09-03.capability-manifest.v17',
       '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
       'prepare_weather_reschedule:2026-09-03.v1',
@@ -370,7 +447,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
       '2026-09-03.capability-manifest.v17',
       '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
       'prepare_weather_reschedule:2026-09-03.v1',
@@ -390,7 +468,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
       '2026-09-03.capability-manifest.v17',
       '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
       'prepare_weather_reschedule:2026-09-03.v1',
@@ -399,6 +478,95 @@ begin
   exception when object_not_in_prerequisite_state then v_failed := true;
   end;
   if not v_failed then raise exception 'missing task type did not fail closed'; end if;
+
+  v_failed := false;
+  begin
+    update public.companies
+    set schedule_settings = pg_catalog.jsonb_set(
+      schedule_settings, '{weather_awareness}', '"true"'::jsonb
+    )
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    perform public.read_agent_weather_reschedule_as_system(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
+      '2026-09-03.capability-manifest.v17',
+      '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
+      'prepare_weather_reschedule:2026-09-03.v1',
+      v_observed_at, v_target_date, 101, 26, 501
+    );
+  exception when object_not_in_prerequisite_state then v_failed := true;
+  end;
+  if not v_failed then raise exception 'string boolean setting did not fail closed'; end if;
+
+  v_failed := false;
+  begin
+    update public.companies
+    set schedule_settings = pg_catalog.jsonb_set(
+      schedule_settings, '{optimization_window_days}', '"3"'::jsonb
+    )
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    perform public.read_agent_weather_reschedule_as_system(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
+      '2026-09-03.capability-manifest.v17',
+      '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
+      'prepare_weather_reschedule:2026-09-03.v1',
+      v_observed_at, v_target_date, 101, 26, 501
+    );
+  exception when object_not_in_prerequisite_state then v_failed := true;
+  end;
+  if not v_failed then raise exception 'string integer setting did not fail closed'; end if;
+
+  v_failed := false;
+  begin
+    update public.clients
+    set updated_at = updated_at + interval '1 second'
+    where id = '33000000-0000-4000-8000-000000000001';
+    perform public.assert_agent_weather_reschedule_authority_as_system(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
+      '2026-09-03.capability-manifest.v17',
+      '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
+      'prepare_weather_reschedule:2026-09-03.v1',
+      v_observed_at, v_target_date, v_snapshot->>'source_revision', 101, 26, 501
+    );
+  exception when object_not_in_prerequisite_state then v_failed := true;
+  end;
+  if not v_failed then raise exception 'parent client drift did not fail closed'; end if;
+
+  v_failed := false;
+  begin
+    update public.clients
+    set merged_into_client_id = '33000000-0000-4000-8000-000000000002',
+        updated_at = updated_at + interval '1 second'
+    where id = '33000000-0000-4000-8000-000000000001';
+    perform public.read_agent_weather_reschedule_as_system(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      repeat('c', 32), v_scopes, v_permission_revision,
+      v_registered_permissions,
+      '2026-09-03.capability-manifest.v17',
+      '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
+      'prepare_weather_reschedule:2026-09-03.v1',
+      v_observed_at, v_target_date, 101, 26, 501
+    );
+  exception when object_not_in_prerequisite_state then v_failed := true;
+  end;
+  if not v_failed then raise exception 'merged parent client did not fail closed'; end if;
 end;
 $closed_world_failures$;
 

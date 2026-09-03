@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod-v4";
 
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
+import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
   WEATHER_RESCHEDULE_CAPABILITY_REVISION,
   WEATHER_RESCHEDULE_MAX_CONFLICTS,
@@ -125,6 +126,7 @@ function binding(actorContext: ActorContext) {
     p_grant_revision: actorContext.auth.grantRevision,
     p_granted_scope_ceiling: [...actorContext.auth.scopeCeiling],
     p_permission_snapshot_revision: actorContext.permissionSnapshotRevision,
+    p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
     p_capability_manifest_revision:
       WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION,
     p_exposure_revision: MCP_EXPOSURE_V11.revision,

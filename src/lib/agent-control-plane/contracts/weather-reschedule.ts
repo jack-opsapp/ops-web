@@ -520,8 +520,8 @@ function intersects(
   left: readonly string[],
   right: readonly string[]
 ): boolean {
-  const rightSet = new Set(right);
-  return left.some((value) => rightSet.has(value));
+  const rightSet = new Set(right.map((value) => value.toLowerCase()));
+  return left.some((value) => rightSet.has(value.toLowerCase()));
 }
 
 const WEEKDAYS = [

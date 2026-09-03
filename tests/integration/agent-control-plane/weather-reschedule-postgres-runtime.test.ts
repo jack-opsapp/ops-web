@@ -8,6 +8,8 @@ import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
+import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
+
 const execFileAsync = promisify(execFile);
 const RUNNER_FILE = fileURLToPath(import.meta.url);
 const ROOT = resolve(dirname(RUNNER_FILE), "../../..");
@@ -30,15 +32,15 @@ const FILES = [
   ],
   [
     "tests/sql/agent-weather-reschedule-schema-setup.sql",
-    "347b7b9ac6bc727aa89e86d11fa9cec59bcf9c48319c46fd1e1b925981fa0b82",
+    "73e99907bc9018d6310983b9c7e7614989642c7c97e2e68597ffc06d4d094345",
   ],
   [
     "supabase/migrations/20260903123200_agent_weather_reschedule_preview.sql",
-    "1b161a70c771711287c20d04519c1c3d819165cda9d26659e523c73af81e684a",
+    "6809661f9c7a22665786e975773ce38455dffafc59410c8099efa6ce95311e45",
   ],
   [
     "tests/sql/agent-weather-reschedule-runtime.sql",
-    "6b566061098d584112930898038b282c518ecb9f4a52a5ef7bc1d1dfcb9b938e",
+    "7c6e1c4414e0eacb2e02a55420290c9bfdf636e1897c925b405d979b0dfc3373",
   ],
 ] as const;
 const RUN_POSTGRES =
@@ -135,6 +137,17 @@ describe("weather reschedule PostgreSQL 17 proof", () => {
         path
       ).toBe(hash);
     }
+    const weatherSetup = await readFile(join(ROOT, FILES[4][0]), "utf8");
+    const registrySection = weatherSetup.match(
+      /truncate private\.test_authority_permissions;([\s\S]+?)create or replace function private\.resolve_agent_actor_authority/
+    )?.[1];
+    expect(
+      [
+        ...(registrySection ?? "").matchAll(
+          /\('([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+)'\)/g
+        ),
+      ].map((match) => match[1])
+    ).toEqual(REGISTERED_ACTOR_PERMISSION_KEYS);
     expect(() => assertSafeTarget("/tmp", "55442")).not.toThrow();
     expect(() => assertSafeTarget("db.ops.test", "55442")).toThrow();
     expect(() => assertSafeTarget("/tmp", "5432")).toThrow();

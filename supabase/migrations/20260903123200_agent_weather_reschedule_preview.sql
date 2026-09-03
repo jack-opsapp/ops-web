@@ -160,6 +160,7 @@ create or replace function private.assert_agent_weather_reschedule_authority(
   p_grant_revision text,
   p_granted_scope_ceiling text[],
   p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],
   p_capability_manifest_revision text,
   p_exposure_revision text,
   p_capability_id text,
@@ -201,6 +202,27 @@ begin
      or nullif(pg_catalog.btrim(p_grant_revision), '') is null
      or p_granted_scope_ceiling is null
      or nullif(pg_catalog.btrim(p_permission_snapshot_revision), '') is null
+     or p_registered_permission_keys is null
+     or pg_catalog.cardinality(p_registered_permission_keys) not between 1 and 256
+     or not v_required_permissions <@ p_registered_permission_keys
+     or p_registered_permission_keys is distinct from (
+       select pg_catalog.array_agg(
+         registry_key.value order by registry_key.value collate "C"
+       )
+       from (
+         select distinct source.value
+         from pg_catalog.unnest(p_registered_permission_keys) source(value)
+       ) registry_key
+     )
+     or exists (
+       select 1
+       from pg_catalog.unnest(p_registered_permission_keys) registry_key(value)
+       where registry_key.value is distinct from
+               pg_catalog.btrim(registry_key.value)
+          or pg_catalog.length(registry_key.value) > 128
+          or registry_key.value !~
+               '^[a-z][a-z0-9_]*([.][a-z][a-z0-9_]*)+$'
+     )
      or p_capability_manifest_revision is distinct from
        '2026-09-03.capability-manifest.v17'
      or p_exposure_revision is distinct from
@@ -227,7 +249,7 @@ begin
   select authority.permission_snapshot_revision
     into v_permission_snapshot_revision
   from private.resolve_agent_actor_authority(
-    p_actor_user_id, p_company_id, v_required_permissions
+    p_actor_user_id, p_company_id, p_registered_permission_keys
   ) authority
   where authority.effective_permissions @> v_required_permission_json;
 
@@ -278,7 +300,7 @@ end;
 $function$;
 
 revoke all on function private.assert_agent_weather_reschedule_authority(
-  uuid, uuid, uuid, uuid, text, text[], text, text, text, text, text
+  uuid, uuid, uuid, uuid, text, text[], text, text[], text, text, text, text
 ) from public, anon, authenticated, service_role;
 
 create or replace function private.build_agent_weather_reschedule_snapshot(
@@ -319,6 +341,7 @@ declare
   v_recipient_name text;
   v_recipient_email text;
   v_recipient_updated_at timestamptz;
+  v_recipient_parent_updated_at timestamptz;
   v_recipient_owner_count integer;
   v_recipient_revision text;
   v_recipient_hash text;
@@ -355,13 +378,21 @@ begin
        select 1 from pg_catalog.pg_timezone_names timezone_row
        where timezone_row.name = v_company.timezone
      )
-     or pg_catalog.jsonb_typeof(v_company.schedule_settings) <> 'object'
-     or v_company.schedule_settings ->> 'weather_awareness' <> 'true'
+     or pg_catalog.jsonb_typeof(v_company.schedule_settings)
+       is distinct from 'object'
+     or pg_catalog.jsonb_typeof(
+       v_company.schedule_settings -> 'weather_awareness'
+     ) is distinct from 'boolean'
+     or v_company.schedule_settings -> 'weather_awareness'
+       is distinct from 'true'::jsonb
+     or pg_catalog.jsonb_typeof(
+       v_company.schedule_settings -> 'optimization_window_days'
+     ) is distinct from 'number'
      or (v_company.schedule_settings ->> 'optimization_window_days')
        !~ '^(?:[1-9]|1[0-4])$'
      or pg_catalog.jsonb_typeof(
        v_company.schedule_settings -> 'outdoor_task_type_ids'
-     ) <> 'array' then
+     ) is distinct from 'array' then
     raise exception 'AGENT_WEATHER_RESCHEDULE_SOURCE_STALE'
       using errcode = '55000';
   end if;
@@ -388,7 +419,8 @@ begin
     raise exception 'AGENT_WEATHER_RESCHEDULE_SOURCE_STALE'
       using errcode = '55000';
   end if;
-  select array_agg(value.id order by value.id), count(*)::integer
+  select array_agg(value.id::uuid::text order by value.id::uuid::text),
+         count(*)::integer
     into v_outdoor_ids, v_task_count
   from pg_catalog.jsonb_array_elements_text(
     v_company.schedule_settings -> 'outdoor_task_type_ids'
@@ -521,7 +553,7 @@ begin
         raise exception 'AGENT_WEATHER_RESCHEDULE_SOURCE_STALE'
           using errcode = '55000';
       end if;
-      select array_agg(member.id order by member.id)
+      select array_agg(member.id::uuid::text order by member.id::uuid::text)
         into v_assignees
       from pg_catalog.unnest(task.team_member_ids) member(id);
       if pg_catalog.cardinality(v_assignees) <> pg_catalog.cardinality(array(
@@ -546,10 +578,16 @@ begin
     if task.primary_sub_client_id is not null then
       select 'sub_client', sub_client.id, sub_client.name,
              pg_catalog.lower(pg_catalog.btrim(sub_client.email)),
-             sub_client.updated_at
+             sub_client.updated_at, parent_client.updated_at
         into v_recipient_kind, v_recipient_id, v_recipient_name,
-             v_recipient_email, v_recipient_updated_at
+             v_recipient_email, v_recipient_updated_at,
+             v_recipient_parent_updated_at
       from public.sub_clients sub_client
+      join public.clients parent_client
+        on parent_client.id = sub_client.client_id
+       and parent_client.company_id = p_company_id
+       and parent_client.deleted_at is null
+       and parent_client.merged_into_client_id is null
       where sub_client.id = task.primary_sub_client_id
         and sub_client.company_id = p_company_id
         and sub_client.client_id = task.client_id
@@ -557,9 +595,10 @@ begin
     else
       select 'client', client.id, client.name,
              pg_catalog.lower(pg_catalog.btrim(client.email)),
-             client.updated_at
+             client.updated_at, client.updated_at
         into v_recipient_kind, v_recipient_id, v_recipient_name,
-             v_recipient_email, v_recipient_updated_at
+             v_recipient_email, v_recipient_updated_at,
+             v_recipient_parent_updated_at
       from public.clients client
       where client.id = task.client_id
         and client.company_id = p_company_id
@@ -625,7 +664,8 @@ begin
       pg_catalog.convert_to(pg_catalog.jsonb_build_object(
         'kind', v_recipient_kind, 'id', v_recipient_id,
         'name', v_recipient_name, 'email', v_recipient_email,
-        'updated_at', v_recipient_updated_at
+        'updated_at', v_recipient_updated_at,
+        'parent_client_updated_at', v_recipient_parent_updated_at
       )::text, 'UTF8'), 'sha256'
     ), 'hex');
     v_recipient_hash := pg_catalog.encode(extensions.digest(
@@ -780,8 +820,15 @@ begin
     )
     and (
       candidate.project_id = any(v_project_ids)
-      or coalesce(candidate.team_member_ids, array[]::text[])
-         && v_target_assignee_ids
+      or exists (
+        select 1
+        from pg_catalog.unnest(
+          coalesce(candidate.team_member_ids, array[]::text[])
+        ) candidate_member(id)
+        where candidate_member.id
+          ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+          and candidate_member.id::uuid::text = any(v_target_assignee_ids)
+      )
     );
   if v_conflict_count >= p_conflict_limit then
     raise exception 'AGENT_WEATHER_RESCHEDULE_SOURCE_BOUND'
@@ -808,8 +855,15 @@ begin
       )
       and (
         candidate.project_id = any(v_project_ids)
-        or coalesce(candidate.team_member_ids, array[]::text[])
-           && v_target_assignee_ids
+        or exists (
+          select 1
+          from pg_catalog.unnest(
+            coalesce(candidate.team_member_ids, array[]::text[])
+          ) candidate_member(id)
+          where candidate_member.id
+            ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+            and candidate_member.id::uuid::text = any(v_target_assignee_ids)
+        )
       )
     order by candidate.id
     limit p_conflict_limit
@@ -849,7 +903,7 @@ begin
         raise exception 'AGENT_WEATHER_RESCHEDULE_SOURCE_STALE'
           using errcode = '55000';
       end if;
-      select array_agg(member.id order by member.id)
+      select array_agg(member.id::uuid::text order by member.id::uuid::text)
         into v_assignees
       from pg_catalog.unnest(conflict.team_member_ids) member(id);
       if pg_catalog.cardinality(v_assignees) <> pg_catalog.cardinality(array(
@@ -924,6 +978,7 @@ create or replace function public.read_agent_weather_reschedule_as_system(
   p_grant_revision text,
   p_granted_scope_ceiling text[],
   p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],
   p_capability_manifest_revision text,
   p_exposure_revision text,
   p_capability_id text,
@@ -943,7 +998,8 @@ begin
   perform private.assert_agent_weather_reschedule_authority(
     p_actor_user_id, p_company_id, p_oauth_grant_id, p_oauth_client_id,
     p_grant_revision, p_granted_scope_ceiling,
-    p_permission_snapshot_revision, p_capability_manifest_revision,
+    p_permission_snapshot_revision, p_registered_permission_keys,
+    p_capability_manifest_revision,
     p_exposure_revision, p_capability_id, p_capability_revision
   );
   return private.build_agent_weather_reschedule_snapshot(
@@ -959,11 +1015,11 @@ end;
 $function$;
 
 revoke all on function public.read_agent_weather_reschedule_as_system(
-  uuid, uuid, uuid, uuid, text, text[], text, text, text, text, text,
+  uuid, uuid, uuid, uuid, text, text[], text, text[], text, text, text, text,
   timestamptz, date, integer, integer, integer
 ) from public, anon, authenticated;
 grant execute on function public.read_agent_weather_reschedule_as_system(
-  uuid, uuid, uuid, uuid, text, text[], text, text, text, text, text,
+  uuid, uuid, uuid, uuid, text, text[], text, text[], text, text, text, text,
   timestamptz, date, integer, integer, integer
 ) to service_role;
 
@@ -975,6 +1031,7 @@ create or replace function public.assert_agent_weather_reschedule_authority_as_s
   p_grant_revision text,
   p_granted_scope_ceiling text[],
   p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],
   p_capability_manifest_revision text,
   p_exposure_revision text,
   p_capability_id text,
@@ -1004,7 +1061,8 @@ begin
     private.assert_agent_weather_reschedule_authority(
       p_actor_user_id, p_company_id, p_oauth_grant_id, p_oauth_client_id,
       p_grant_revision, p_granted_scope_ceiling,
-      p_permission_snapshot_revision, p_capability_manifest_revision,
+      p_permission_snapshot_revision, p_registered_permission_keys,
+      p_capability_manifest_revision,
       p_exposure_revision, p_capability_id, p_capability_revision
     );
   v_snapshot := private.build_agent_weather_reschedule_snapshot(
@@ -1024,11 +1082,11 @@ end;
 $function$;
 
 revoke all on function public.assert_agent_weather_reschedule_authority_as_system(
-  uuid, uuid, uuid, uuid, text, text[], text, text, text, text, text,
+  uuid, uuid, uuid, uuid, text, text[], text, text[], text, text, text, text,
   timestamptz, date, text, integer, integer, integer
 ) from public, anon, authenticated;
 grant execute on function public.assert_agent_weather_reschedule_authority_as_system(
-  uuid, uuid, uuid, uuid, text, text[], text, text, text, text, text,
+  uuid, uuid, uuid, uuid, text, text[], text, text[], text, text, text, text,
   timestamptz, date, text, integer, integer, integer
 ) to service_role;
 
@@ -1042,10 +1100,10 @@ begin
   if exists (
     select 1 from pg_catalog.pg_proc procedure
     where procedure.oid in (
-      'private.assert_agent_weather_reschedule_authority(uuid,uuid,uuid,uuid,text,text[],text,text,text,text,text)'::regprocedure,
+      'private.assert_agent_weather_reschedule_authority(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text)'::regprocedure,
       'private.build_agent_weather_reschedule_snapshot(uuid,uuid,timestamp with time zone,date,integer,integer,integer)'::regprocedure,
-      'public.read_agent_weather_reschedule_as_system(uuid,uuid,uuid,uuid,text,text[],text,text,text,text,text,timestamp with time zone,date,integer,integer,integer)'::regprocedure,
-      'public.assert_agent_weather_reschedule_authority_as_system(uuid,uuid,uuid,uuid,text,text[],text,text,text,text,text,timestamp with time zone,date,text,integer,integer,integer)'::regprocedure
+      'public.read_agent_weather_reschedule_as_system(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text,timestamp with time zone,date,integer,integer,integer)'::regprocedure,
+      'public.assert_agent_weather_reschedule_authority_as_system(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text,timestamp with time zone,date,text,integer,integer,integer)'::regprocedure
     ) and (
       procedure.provolatile <> 's'
       or not procedure.prosecdef
@@ -1063,7 +1121,7 @@ begin
       procedure.proacl, pg_catalog.acldefault('f', procedure.proowner)
     )) access
     where procedure.oid in (
-      'private.assert_agent_weather_reschedule_authority(uuid,uuid,uuid,uuid,text,text[],text,text,text,text,text)'::regprocedure,
+      'private.assert_agent_weather_reschedule_authority(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text)'::regprocedure,
       'private.build_agent_weather_reschedule_snapshot(uuid,uuid,timestamp with time zone,date,integer,integer,integer)'::regprocedure,
       'private.mcp_oauth_labels_for_scopes(text[],text)'::regprocedure,
       'private.assert_agent_weather_reschedule_catalog()'::regprocedure
@@ -1076,8 +1134,8 @@ begin
       procedure.proacl, pg_catalog.acldefault('f', procedure.proowner)
     )) access
     where procedure.oid in (
-      'public.read_agent_weather_reschedule_as_system(uuid,uuid,uuid,uuid,text,text[],text,text,text,text,text,timestamp with time zone,date,integer,integer,integer)'::regprocedure,
-      'public.assert_agent_weather_reschedule_authority_as_system(uuid,uuid,uuid,uuid,text,text[],text,text,text,text,text,timestamp with time zone,date,text,integer,integer,integer)'::regprocedure
+      'public.read_agent_weather_reschedule_as_system(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text,timestamp with time zone,date,integer,integer,integer)'::regprocedure,
+      'public.assert_agent_weather_reschedule_authority_as_system(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text,timestamp with time zone,date,text,integer,integer,integer)'::regprocedure
     ) and access.privilege_type = 'EXECUTE'
       and access.grantee <> procedure.proowner
       and access.grantee is distinct from 'service_role'::regrole::oid

@@ -88,8 +88,14 @@ describe("weather reschedule SQL contract", () => {
       expect(sql).toContain(relation);
     }
     expect(sql).toContain("schedule_settings -> 'outdoor_task_type_ids'");
-    expect(sql).toContain("schedule_settings ->> 'weather_awareness'");
+    expect(sql).toContain("schedule_settings -> 'weather_awareness'");
     expect(sql).toContain("schedule_settings ->> 'optimization_window_days'");
+    expect(sql).toContain("is distinct from 'boolean'");
+    expect(sql).toContain("is distinct from 'number'");
+    expect(sql).toContain("member.id::uuid::text");
+    expect(sql).toContain(
+      "candidate_member.id::uuid::text = any(v_target_assignee_ids)"
+    );
     expect(sql).toContain("source_forecast.source = 'open-meteo'");
     expect(sql).toContain(
       "source_forecast.retrieved_at >= p_observed_at - interval '12 hours'"
@@ -112,6 +118,8 @@ describe("weather reschedule SQL contract", () => {
     expect(sql).toContain("task_type_dependency_count");
     expect(sql).toContain("dependency_override_count");
     expect(sql).toContain("recipient_owner_count");
+    expect(sql).toContain("parent_client.merged_into_client_id is null");
+    expect(sql).toContain("parent_client_updated_at");
     expect(sql).toContain("suppression.list = 'global'");
     expect(sql).toContain(
       "pg_catalog.jsonb_array_length(v_tasks) <> v_task_count"
@@ -120,6 +128,12 @@ describe("weather reschedule SQL contract", () => {
       "(candidate.end_date at time zone 'UTC')::date >= p_target_date + 1"
     );
     expect(sql).toContain("private.agent_user_can_access_entity(");
+    expect(sql).toContain(
+      "p_actor_user_id, p_company_id, p_registered_permission_keys"
+    );
+    expect(sql).not.toContain(
+      "p_actor_user_id, p_company_id, v_required_permissions"
+    );
     expect(sql).toContain("AGENT_WEATHER_RESCHEDULE_SOURCE_BOUND");
     expect(sql).toContain("AGENT_WEATHER_RESCHEDULE_SOURCE_STALE");
   });

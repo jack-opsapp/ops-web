@@ -85,11 +85,152 @@ as $function$
     and p_action in ('view', 'edit')
 $function$;
 
+truncate private.test_authority_permissions;
 insert into private.test_authority_permissions(permission)
 values
-  ('calendar.edit'), ('inbox.send'), ('inbox.view'),
-  ('projects.edit'), ('tasks.edit')
-on conflict (permission) do nothing;
+  ('accounting.manage_connections'),
+  ('accounting.view'),
+  ('agent.review'),
+  ('calendar.create'),
+  ('calendar.delete'),
+  ('calendar.edit'),
+  ('calendar.view'),
+  ('catalog.import'),
+  ('catalog.manage'),
+  ('catalog.orders.manage'),
+  ('catalog.orders.view'),
+  ('catalog.products.manage'),
+  ('catalog.products.view'),
+  ('catalog.run_setup'),
+  ('catalog.stock.adjust'),
+  ('catalog.view'),
+  ('clients.create'),
+  ('clients.delete'),
+  ('clients.edit'),
+  ('clients.view'),
+  ('deck_builder.create'),
+  ('deck_builder.edit'),
+  ('deck_builder.view'),
+  ('documents.manage_templates'),
+  ('documents.view'),
+  ('email.configure_ai'),
+  ('email.connect'),
+  ('email.manage'),
+  ('email.view'),
+  ('estimates.convert'),
+  ('estimates.create'),
+  ('estimates.delete'),
+  ('estimates.edit'),
+  ('estimates.send'),
+  ('estimates.view'),
+  ('expenses.approve'),
+  ('expenses.configure'),
+  ('expenses.create'),
+  ('expenses.delete'),
+  ('expenses.edit'),
+  ('expenses.view'),
+  ('finances.view'),
+  ('inbox.archive'),
+  ('inbox.categorize'),
+  ('inbox.configure_phase_c'),
+  ('inbox.send'),
+  ('inbox.snooze'),
+  ('inbox.view'),
+  ('inbox.view_company'),
+  ('inventory.manage'),
+  ('invoices.create'),
+  ('invoices.delete'),
+  ('invoices.edit'),
+  ('invoices.record_payment'),
+  ('invoices.send'),
+  ('invoices.view'),
+  ('invoices.void'),
+  ('job_board.manage_sections'),
+  ('job_board.view'),
+  ('map.view'),
+  ('map.view_crew_locations'),
+  ('notifications.manage_preferences'),
+  ('notifications.view'),
+  ('photos.annotate'),
+  ('photos.delete'),
+  ('photos.upload'),
+  ('photos.view'),
+  ('pipeline.assign'),
+  ('pipeline.configure_stages'),
+  ('pipeline.convert'),
+  ('pipeline.create'),
+  ('pipeline.edit'),
+  ('pipeline.manage'),
+  ('pipeline.manage_views'),
+  ('pipeline.view'),
+  ('portal.manage_branding'),
+  ('portal.view'),
+  ('products.manage'),
+  ('products.view'),
+  ('profile.edit'),
+  ('projects.archive'),
+  ('projects.assign_team'),
+  ('projects.create'),
+  ('projects.delete'),
+  ('projects.edit'),
+  ('projects.manage_views'),
+  ('projects.view'),
+  ('projects.view_financials'),
+  ('reports.view'),
+  ('settings.billing'),
+  ('settings.company'),
+  ('settings.integrations'),
+  ('settings.preferences'),
+  ('tasks.assign'),
+  ('tasks.change_status'),
+  ('tasks.create'),
+  ('tasks.delete'),
+  ('tasks.edit'),
+  ('tasks.view'),
+  ('team.assign_roles'),
+  ('team.manage'),
+  ('team.view'),
+  ('time_off.approve');
+
+create or replace function private.resolve_agent_actor_authority(
+  p_actor_user_id uuid,
+  p_company_id uuid,
+  p_permissions text[]
+) returns table(permission_snapshot_revision text, effective_permissions jsonb)
+language sql stable
+as $function$
+  with registry as materialized (
+    select array_agg(permission order by permission collate "C") as permissions
+    from (
+      select distinct permission
+      from pg_catalog.unnest(p_permissions) permission
+    ) canonical
+  ), effective as materialized (
+    select permission
+    from pg_catalog.unnest(p_permissions) permission
+    join private.test_authority_permissions allowed using (permission)
+  )
+  select
+    'sha256:' || pg_catalog.encode(extensions.digest(
+      pg_catalog.convert_to(pg_catalog.to_jsonb(registry.permissions)::text,
+                            'UTF8'),
+      'sha256'
+    ), 'hex'),
+    coalesce(
+      (
+        select pg_catalog.jsonb_agg(
+          pg_catalog.jsonb_build_object(
+            'permission', effective.permission, 'scope', 'all'
+          ) order by effective.permission
+        )
+        from effective
+      ),
+      '[]'::jsonb
+    )
+  from registry
+  where p_actor_user_id = '11111111-1111-4111-8111-111111111111'::uuid
+    and p_company_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid
+$function$;
 
 update public.users
 set company_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',

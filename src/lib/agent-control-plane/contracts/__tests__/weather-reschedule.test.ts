@@ -16,7 +16,7 @@ const OUTDOOR_TASK_ID = "00000000-0000-4000-8000-000000000020";
 const INDOOR_TASK_ID = "00000000-0000-4000-8000-000000000021";
 const OUTDOOR_TYPE_ID = "00000000-0000-4000-8000-000000000030";
 const INDOOR_TYPE_ID = "00000000-0000-4000-8000-000000000031";
-const CREW_ID = "00000000-0000-4000-8000-000000000040";
+const CREW_ID = "40abcdef-abcd-4abc-8abc-abcdefabcdef";
 const OUTDOOR_CLIENT_ID = "00000000-0000-4000-8000-000000000050";
 const INDOOR_CLIENT_ID = "00000000-0000-4000-8000-000000000051";
 const HASH_A = "a".repeat(64);
@@ -251,7 +251,7 @@ describe("weather reschedule contract", () => {
       start_time: "10:00:00",
       end_time: "14:00:00",
       all_day: false,
-      assignee_ids: [CREW_ID],
+      assignee_ids: [CREW_ID.toUpperCase()],
       source_sha256: HASH_A,
     });
     const result = prepareWeatherReschedulePreview({

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
   WeatherRescheduleRepositoryAuthorityError,
   WeatherRescheduleRepositoryBoundError,
@@ -51,6 +52,7 @@ describe("weather reschedule repository", () => {
         p_grant_revision: "b".repeat(32),
         p_granted_scope_ceiling: WEATHER_RESCHEDULE_SCOPES,
         p_permission_snapshot_revision: `sha256:${"a".repeat(64)}`,
+        p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
         p_capability_manifest_revision: "2026-09-03.capability-manifest.v17",
         p_exposure_revision: "2026-09-03.mcp-exposure.v11",
         p_capability_id: "prepare_weather_reschedule",
