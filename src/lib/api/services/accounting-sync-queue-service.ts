@@ -1,25 +1,33 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AccountingSyncProvider, AccountingSyncQueueRow } from "./accounting-sync-queue-types";
+import type {
+  AccountingSyncProvider,
+  AccountingSyncQueueEntityType,
+  AccountingSyncQueueRow,
+} from "./accounting-sync-queue-types";
 
 type QueueDbRow = Record<string, unknown>;
 type WorkerGuard = { workerId: string };
 type TerminalGuard = WorkerGuard & { externalId?: string | null };
 
 function stringOrNull(value: unknown): string | null {
-  return value === null || value === undefined || value === "" ? null : String(value);
+  return value === null || value === undefined || value === ""
+    ? null
+    : String(value);
 }
 
 function stringValue(value: unknown): string {
   return String(value ?? "");
 }
 
-function mapQueueRow(row: QueueDbRow): AccountingSyncQueueRow {
+function mapQueueRow<TEntity extends AccountingSyncQueueEntityType>(
+  row: QueueDbRow
+): AccountingSyncQueueRow<TEntity> {
   return {
     id: stringValue(row.id),
     companyId: stringValue(row.company_id),
     connectionId: stringValue(row.connection_id),
     provider: row.provider as AccountingSyncQueueRow["provider"],
-    entityType: row.entity_type as AccountingSyncQueueRow["entityType"],
+    entityType: row.entity_type as TEntity,
     entityId: stringValue(row.entity_id),
     externalId: stringOrNull(row.external_id),
     operation: row.operation as AccountingSyncQueueRow["operation"],
@@ -34,7 +42,8 @@ function mapQueueRow(row: QueueDbRow): AccountingSyncQueueRow {
     lockedAt: stringOrNull(row.locked_at),
     lockedBy: stringOrNull(row.locked_by),
     lastError: stringOrNull(row.last_error),
-    payloadSnapshot: (row.payload_snapshot as Record<string, unknown> | null) ?? {},
+    payloadSnapshot:
+      (row.payload_snapshot as Record<string, unknown> | null) ?? {},
     createdAt: stringValue(row.created_at),
     updatedAt: stringValue(row.updated_at),
   };
@@ -47,25 +56,36 @@ function retryDelaySeconds(attempts: number): number {
 export class AccountingSyncQueueService {
   constructor(private readonly supabase: SupabaseClient) {}
 
-  async claimDue(input: {
+  async claimDue<
+    TEntity extends AccountingSyncQueueEntityType =
+      "customer" | "invoice" | "estimate" | "payment",
+  >(input: {
     provider: AccountingSyncProvider;
     limit: number;
     workerId: string;
-  }): Promise<AccountingSyncQueueRow[]> {
-    const { data, error } = await this.supabase.rpc("claim_accounting_sync_queue", {
-      p_provider: input.provider,
-      p_limit: input.limit,
-      p_worker_id: input.workerId,
-    });
+  }): Promise<AccountingSyncQueueRow<TEntity>[]> {
+    const { data, error } = await this.supabase.rpc(
+      "claim_accounting_sync_queue",
+      {
+        p_provider: input.provider,
+        p_limit: input.limit,
+        p_worker_id: input.workerId,
+      }
+    );
 
     if (error) {
       throw error;
     }
 
-    return ((data ?? []) as QueueDbRow[]).map(mapQueueRow);
+    return ((data ?? []) as QueueDbRow[]).map((row) =>
+      mapQueueRow<TEntity>(row)
+    );
   }
 
-  async markSucceeded(id: string, input: { externalId?: string | null; workerId: string }): Promise<void> {
+  async markSucceeded(
+    id: string,
+    input: { externalId?: string | null; workerId: string }
+  ): Promise<void> {
     const patch: Record<string, unknown> = {
       status: "succeeded",
       locked_at: null,
@@ -78,31 +98,32 @@ export class AccountingSyncQueueService {
       patch.external_id = input.externalId;
     }
 
-    await this.updateQueueRow(
-      id,
-      patch,
-      { workerId: input.workerId }
-    );
+    await this.updateQueueRow(id, patch, { workerId: input.workerId });
   }
 
-  async scheduleRetry(
-    row: AccountingSyncQueueRow,
+  async scheduleRetry<TEntity extends AccountingSyncQueueEntityType>(
+    row: AccountingSyncQueueRow<TEntity>,
     errorMessage: string,
     guard: WorkerGuard
-  ): Promise<AccountingSyncQueueRow | null> {
+  ): Promise<AccountingSyncQueueRow<TEntity> | null> {
     const exhausted = row.attempts >= row.maxAttempts;
     if (exhausted) {
       await this.markBlocked(row.id, errorMessage, guard);
       return null;
     }
 
-    const runAfter = new Date(Date.now() + retryDelaySeconds(row.attempts) * 1000).toISOString();
-    const { data, error } = await this.supabase.rpc("retry_accounting_sync_queue", {
-      p_queue_id: row.id,
-      p_worker_id: guard.workerId,
-      p_error: errorMessage,
-      p_run_after: runAfter,
-    });
+    const runAfter = new Date(
+      Date.now() + retryDelaySeconds(row.attempts) * 1000
+    ).toISOString();
+    const { data, error } = await this.supabase.rpc(
+      "retry_accounting_sync_queue",
+      {
+        p_queue_id: row.id,
+        p_worker_id: guard.workerId,
+        p_error: errorMessage,
+        p_run_after: runAfter,
+      }
+    );
 
     if (error) {
       throw error;
@@ -113,10 +134,14 @@ export class AccountingSyncQueueService {
       throw new Error("Accounting sync queue retry lost ownership");
     }
 
-    return mapQueueRow(returnedRow as QueueDbRow);
+    return mapQueueRow<TEntity>(returnedRow as QueueDbRow);
   }
 
-  async markBlocked(id: string, errorMessage: string, guard: WorkerGuard): Promise<void> {
+  async markBlocked(
+    id: string,
+    errorMessage: string,
+    guard: WorkerGuard
+  ): Promise<void> {
     await this.updateQueueRow(
       id,
       {
@@ -130,7 +155,11 @@ export class AccountingSyncQueueService {
     );
   }
 
-  async markNeedsReview(id: string, errorMessage: string, guard: TerminalGuard): Promise<void> {
+  async markNeedsReview(
+    id: string,
+    errorMessage: string,
+    guard: TerminalGuard
+  ): Promise<void> {
     const patch: Record<string, unknown> = {
       status: "needs_review",
       locked_at: null,
@@ -143,15 +172,18 @@ export class AccountingSyncQueueService {
       patch.external_id = guard.externalId;
     }
 
-    await this.updateQueueRow(
-      id,
-      patch,
-      guard
-    );
+    await this.updateQueueRow(id, patch, guard);
   }
 
-  private async updateQueueRow(id: string, patch: Record<string, unknown>, guard: WorkerGuard): Promise<void> {
-    const query = this.supabase.from("accounting_sync_queue").update(patch).eq("id", id);
+  private async updateQueueRow(
+    id: string,
+    patch: Record<string, unknown>,
+    guard: WorkerGuard
+  ): Promise<void> {
+    const query = this.supabase
+      .from("accounting_sync_queue")
+      .update(patch)
+      .eq("id", id);
 
     const { data, error } = await query
       .eq("status", "claimed")
