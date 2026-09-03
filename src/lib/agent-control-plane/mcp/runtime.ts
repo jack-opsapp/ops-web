@@ -26,6 +26,41 @@ import {
   createCollectionsService,
   type CollectionsService,
 } from "@/lib/agent-control-plane/services/collections/collections-service";
+import { createHiringWhatIfRepository } from "@/lib/agent-control-plane/services/hiring-what-if/hiring-what-if-repository";
+import {
+  createHiringWhatIfService,
+  type HiringWhatIfService,
+} from "@/lib/agent-control-plane/services/hiring-what-if/hiring-what-if-service";
+import { createPromiseRecoveryRepository } from "@/lib/agent-control-plane/services/promise-recovery/promise-recovery-repository";
+import {
+  createPromiseRecoveryService,
+  type PromiseRecoveryService,
+} from "@/lib/agent-control-plane/services/promise-recovery/promise-recovery-service";
+import { createSalesTruthRepository } from "@/lib/agent-control-plane/services/sales-truth/sales-truth-repository";
+import {
+  createSalesTruthService,
+  type SalesTruthService,
+} from "@/lib/agent-control-plane/services/sales-truth/sales-truth-service";
+import { createPayrollReadinessRepository } from "@/lib/agent-control-plane/services/payroll-readiness/payroll-readiness-repository";
+import {
+  createPayrollReadinessService,
+  type PayrollReadinessService,
+} from "@/lib/agent-control-plane/services/payroll-readiness/payroll-readiness-service";
+import { createRecurringServicePriceChangeRepository } from "@/lib/agent-control-plane/services/recurring-service-price-change/recurring-service-price-change-repository";
+import {
+  createRecurringServicePriceChangeService,
+  type RecurringServicePriceChangeService,
+} from "@/lib/agent-control-plane/services/recurring-service-price-change/recurring-service-price-change-service";
+import { createEstimateDraftRepository } from "@/lib/agent-control-plane/services/estimate-draft/estimate-draft-repository";
+import {
+  createEstimateDraftService,
+  type EstimateDraftService,
+} from "@/lib/agent-control-plane/services/estimate-draft/estimate-draft-service";
+import { createWeatherRescheduleRepository } from "@/lib/agent-control-plane/services/weather-reschedule/weather-reschedule-repository";
+import {
+  createWeatherRescheduleService,
+  type WeatherRescheduleService,
+} from "@/lib/agent-control-plane/services/weather-reschedule/weather-reschedule-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -67,6 +102,13 @@ export interface McpServerRuntime {
   readonly domainService: OpsAgentCapabilityService;
   readonly dayCloseout: DayCloseoutService;
   readonly collections: CollectionsService;
+  readonly hiringWhatIf: HiringWhatIfService;
+  readonly promiseRecovery: PromiseRecoveryService;
+  readonly salesTruth: SalesTruthService;
+  readonly payrollReadiness: PayrollReadinessService;
+  readonly recurringServicePriceChange: RecurringServicePriceChangeService;
+  readonly estimateDraft: EstimateDraftService;
+  readonly weatherReschedule: WeatherRescheduleService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -232,15 +274,69 @@ export function getMcpServerRuntime(): McpServerRuntime {
     repository: createCollectionsRepository(rpcClient),
     authorityRepository,
   });
+  const hiringWhatIf = createHiringWhatIfService({
+    repository: createHiringWhatIfRepository(rpcClient),
+    authorityRepository,
+  });
+  const promiseRecovery = createPromiseRecoveryService({
+    repository: createPromiseRecoveryRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
+  const salesTruth = createSalesTruthService({
+    repository: createSalesTruthRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
+  const payrollReadiness = createPayrollReadinessService({
+    repository: createPayrollReadinessRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
+  const recurringServicePriceChange = createRecurringServicePriceChangeService({
+    repository: createRecurringServicePriceChangeRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
+  const estimateDraft = createEstimateDraftService({
+    repository: createEstimateDraftRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
+  const weatherReschedule = createWeatherRescheduleService({
+    repository: createWeatherRescheduleRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
       reads: readService,
       dayCloseout,
       collections,
+      hiringWhatIf,
+      promiseRecovery,
+      salesTruth,
+      payrollReadiness,
+      recurringServicePriceChange,
+      estimateDraft,
+      weatherReschedule,
     }),
     dayCloseout,
     collections,
+    hiringWhatIf,
+    promiseRecovery,
+    salesTruth,
+    payrollReadiness,
+    recurringServicePriceChange,
+    estimateDraft,
+    weatherReschedule,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

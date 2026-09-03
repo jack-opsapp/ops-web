@@ -184,6 +184,13 @@ describe("verified principal source boundary", () => {
       "src/lib/agent-control-plane/services/collections/collections-service.ts",
       "src/lib/agent-control-plane/services/day-closeout/day-closeout-routine-service.ts",
       "src/lib/agent-control-plane/services/day-closeout/day-closeout-service.ts",
+      "src/lib/agent-control-plane/services/estimate-draft/estimate-draft-service.ts",
+      "src/lib/agent-control-plane/services/hiring-what-if/hiring-what-if-service.ts",
+      "src/lib/agent-control-plane/services/payroll-readiness/payroll-readiness-service.ts",
+      "src/lib/agent-control-plane/services/promise-recovery/promise-recovery-service.ts",
+      "src/lib/agent-control-plane/services/recurring-service-price-change/recurring-service-price-change-service.ts",
+      "src/lib/agent-control-plane/services/sales-truth/sales-truth-service.ts",
+      "src/lib/agent-control-plane/services/weather-reschedule/weather-reschedule-service.ts",
     ]);
     const violations: string[] = [];
 

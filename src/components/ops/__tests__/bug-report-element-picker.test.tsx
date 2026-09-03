@@ -184,7 +184,9 @@ describe("BugReportElementPicker — pointer", () => {
   it("selects on click, capturing a crop for the picked element", async () => {
     const target = setupTarget();
     const crop = new Blob(["crop"], { type: "image/png" });
-    const captureCrop = vi.fn(async () => crop);
+    const captureCrop = vi.fn<(element: HTMLElement) => Promise<Blob | null>>(
+      async () => crop
+    );
     const { onSelect } = renderPicker({ captureCrop });
 
     fireEvent.pointerMove(overlayRoot(), { clientX: 150, clientY: 250 });

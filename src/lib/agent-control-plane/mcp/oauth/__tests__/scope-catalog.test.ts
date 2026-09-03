@@ -4,6 +4,9 @@ import {
   ACTIVE_MCP_CONSENT_CATALOG_REVISION,
   MCP_CONSENT_CATALOG_V1,
   MCP_CONSENT_CATALOG_V2,
+  MCP_CONSENT_CATALOG_V3,
+  MCP_CONSENT_CATALOG_V4,
+  MCP_CONSENT_CATALOG_V5,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,
   resolveMcpConsentCatalogRevision,
@@ -11,12 +14,18 @@ import {
 import {
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V3,
+  MCP_EXPOSURE_V4,
+  MCP_EXPOSURE_V9,
+  MCP_EXPOSURE_V10,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   MCP_SCOPE_CONSENT_LABELS,
+  COLLECTIONS_MCP_SCOPE_CONSENT_LABELS,
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
+  PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
+  ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
@@ -169,12 +178,84 @@ describe("versioned MCP consent catalogue", () => {
       "read",
       "prepare",
     ]);
+    expect(
+      resolveMcpConsentCatalogRevision(MCP_CONSENT_CATALOG_V3.revision)
+    ).toBe(MCP_CONSENT_CATALOG_V3);
+    expect(MCP_CONSENT_CATALOG_V3.consentLabels).toBe(
+      COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
+    );
+    expect(resolveActiveMcpConsentCatalog()).not.toBe(MCP_CONSENT_CATALOG_V3);
+    expect(
+      resolveMcpConsentCatalogRevision(MCP_CONSENT_CATALOG_V4.revision)
+    ).toBe(MCP_CONSENT_CATALOG_V4);
+    expect(MCP_CONSENT_CATALOG_V4.consentLabels).toBe(
+      PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
+    );
+    expect(
+      resolveMcpConsentCatalogRevision(MCP_CONSENT_CATALOG_V5.revision)
+    ).toBe(MCP_CONSENT_CATALOG_V5);
+    expect(MCP_CONSENT_CATALOG_V5.consentLabels).toBe(
+      ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
+    );
+  });
+
+  it("binds dormant exposure v10 to the exact estimate-draft consent snapshot", () => {
+    expect(() =>
+      consentSnapshotForExposure(MCP_EXPOSURE_V10, MCP_CONSENT_CATALOG_V4)
+    ).toThrow("MCP exposure consent catalogue mismatch");
+    const snapshot = consentSnapshotForExposure(
+      MCP_EXPOSURE_V10,
+      MCP_CONSENT_CATALOG_V5
+    );
+    expect(snapshot).toMatchObject({
+      consentCatalogRevision: "2026-09-02.mcp-consent-catalog.v5",
+      exposureRevision: MCP_EXPOSURE_V10.revision,
+      scopeCeiling: MCP_EXPOSURE_V10.grantableScopes,
+    });
+    expect(snapshot.acceptedLabels).toContain(
+      "Prepare exact draft estimates from authorized past jobs"
+    );
+  });
+
+  it("binds dormant exposure v9 to an exact price-preview consent snapshot", () => {
+    expect(() =>
+      consentSnapshotForExposure(MCP_EXPOSURE_V9, MCP_CONSENT_CATALOG_V2)
+    ).toThrow("MCP exposure consent catalogue mismatch");
+    const snapshot = consentSnapshotForExposure(
+      MCP_EXPOSURE_V9,
+      MCP_CONSENT_CATALOG_V4
+    );
+    expect(snapshot).toMatchObject({
+      consentCatalogRevision: "2026-09-01.mcp-consent-catalog.v4",
+      exposureRevision: MCP_EXPOSURE_V9.revision,
+      scopeCeiling: MCP_EXPOSURE_V9.grantableScopes,
+    });
+    expect(snapshot.acceptedLabels).toContain(
+      "Prepare recurring-service price-change previews and customer notice drafts"
+    );
+  });
+
+  it("binds collections exposure v4 to an exact customer-draft consent label", () => {
+    expect(() =>
+      consentSnapshotForExposure(MCP_EXPOSURE_V4, MCP_CONSENT_CATALOG_V2)
+    ).toThrow("MCP exposure consent catalogue mismatch");
+    const snapshot = consentSnapshotForExposure(
+      MCP_EXPOSURE_V4,
+      MCP_CONSENT_CATALOG_V3
+    );
+    expect(snapshot).toMatchObject({
+      consentCatalogRevision: "2026-08-31.mcp-consent-catalog.v3",
+      exposureRevision: MCP_EXPOSURE_V4.revision,
+    });
+    expect(snapshot.acceptedLabels).toContain(
+      "Prepare collections aging and customer drafts for approval"
+    );
   });
 
   it("makes the inactive v3 prepare scope consentable only through catalogue v2", () => {
     expect(() =>
       consentSnapshotForExposure(MCP_EXPOSURE_V3, MCP_CONSENT_CATALOG_V1)
-    ).toThrow("MCP exposure scope is not consentable");
+    ).toThrow("MCP exposure consent catalogue mismatch");
     expect(
       consentSnapshotForExposure(MCP_EXPOSURE_V3, MCP_CONSENT_CATALOG_V2)
     ).toMatchObject({

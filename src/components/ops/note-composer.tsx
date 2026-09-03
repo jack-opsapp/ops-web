@@ -10,6 +10,7 @@ import { PhotoCaptionDialog } from "@/components/ops/photo-caption-dialog";
 import { PhotoMarkupDialog } from "@/components/ops/photo-markup/photo-markup-dialog";
 import { uploadImage } from "@/lib/api/services/image-service";
 import { toast } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 import type { User } from "@/lib/types/models";
 import type { NoteAttachment } from "@/lib/types/pipeline";
 
@@ -123,17 +124,17 @@ export function NoteComposer({
                 }}
                 className="absolute -right-1.5 -top-1.5 rounded-full bg-red-500 p-0.5 text-white opacity-0 transition group-hover/att:opacity-100"
               >
-                <X className="h-3 w-3" />
+                <X className="h-icon-16 w-icon-16" aria-hidden="true" />
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setMarkupTarget(i);
                 }}
-                className="absolute bottom-1 left-1 rounded bg-black/60 p-1 text-white opacity-0 transition group-hover/att:opacity-100"
+                className="absolute bottom-1 left-1 rounded bg-black/60 p-0.5 text-white opacity-0 transition group-hover/att:opacity-100"
                 title="Mark up photo"
               >
-                <Pencil className="h-3 w-3" />
+                <Pencil className="h-icon-16 w-icon-16" aria-hidden="true" />
               </button>
               {att.caption && (
                 <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-black/70 px-1 py-0.5">
@@ -146,7 +147,7 @@ export function NoteComposer({
           ))}
           {uploadingCount > 0 && (
             <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-white/20">
-              <Loader2 className="h-5 w-5 animate-spin text-[#999]" />
+              <Loader2 className="h-icon-20 w-icon-20 animate-spin text-text-3" aria-hidden="true" />
             </div>
           )}
         </div>
@@ -192,10 +193,10 @@ export function NoteComposer({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded p-1.5 text-[#999] transition hover:bg-white/10 hover:text-[#EDEDED]"
+            className="rounded p-0.5 text-text-3 transition hover:text-text"
             title="Attach photos"
           >
-            <ImageIcon className="h-4 w-4" />
+            <ImageIcon className="h-icon-16 w-icon-16" aria-hidden="true" />
           </button>
           <input
             ref={fileInputRef}
@@ -207,26 +208,26 @@ export function NoteComposer({
           />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#666]">
+          <span className="font-mono text-micro text-text-mute">
             {(content.length > 0 || attachments.length > 0) &&
               "Ctrl+Enter to send"}
           </span>
           {onCancel && (
-            <button
-              onClick={onCancel}
-              className="rounded-md px-3 py-1.5 text-xs text-[#999] hover:text-[#EDEDED]"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
               Cancel
-            </button>
+            </Button>
           )}
-          <button
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
             onClick={handleSubmit}
+            loading={!!isSubmitting}
             disabled={!canSubmit}
-            className="flex items-center gap-1.5 rounded-md bg-ops-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#4d8ab0] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Send className="h-3.5 w-3.5" />
+            <Send className="h-icon-16 w-icon-16" aria-hidden="true" />
             {onCancel ? "Save" : "Post"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

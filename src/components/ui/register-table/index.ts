@@ -2,6 +2,7 @@ export {
   RegisterTable,
   type RegisterTableColumn,
   type RegisterTableProps,
+  type RegisterTableSort,
 } from "./register-table";
 export {
   TableNumber,

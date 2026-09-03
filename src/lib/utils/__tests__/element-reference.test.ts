@@ -516,11 +516,14 @@ describe("captureElementCrop", () => {
     drawImage = vi.fn();
     lastCanvas = null;
     croppedBlob = new Blob(["cropped"], { type: "image/png" });
+    const rememberCanvas = (canvas: HTMLCanvasElement) => {
+      lastCanvas = canvas;
+    };
 
     HTMLCanvasElement.prototype.getContext = function (
       this: HTMLCanvasElement
     ) {
-      lastCanvas = this;
+      rememberCanvas(this);
       return { drawImage } as unknown as CanvasRenderingContext2D;
     } as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
@@ -554,7 +557,9 @@ describe("captureElementCrop", () => {
   it("captures the whole page once and resolves with the crop blob and rect", async () => {
     const el = mountTarget();
     const fullPage = new Blob(["full"], { type: "image/png" });
-    const capture = vi.fn(async () => fullPage);
+    const capture = vi.fn<
+      (root: HTMLElement, options: { scale: number }) => Promise<Blob>
+    >(async () => fullPage);
 
     const result = await captureElementCrop(el, { capture, scale: 2 });
 
@@ -573,7 +578,9 @@ describe("captureElementCrop", () => {
 
   it("sizes the canvas to the crop rect and draws only that region", async () => {
     const el = mountTarget();
-    const capture = vi.fn(async () => new Blob(["full"], { type: "image/png" }));
+    const capture = vi.fn<
+      (root: HTMLElement, options: { scale: number }) => Promise<Blob>
+    >(async () => new Blob(["full"], { type: "image/png" }));
 
     const { cropRect } = await captureElementCrop(el, { capture, scale: 2 });
 
@@ -595,7 +602,9 @@ describe("captureElementCrop", () => {
 
   it("surfaces a capture failure instead of swallowing it", async () => {
     const el = mountTarget();
-    const capture = vi.fn(async () => {
+    const capture = vi.fn<
+      (root: HTMLElement, options: { scale: number }) => Promise<Blob>
+    >(async () => {
       throw new Error("dom-to-blob exploded");
     });
 
@@ -629,7 +638,9 @@ describe("captureElementCrop", () => {
     }
     globalThis.Image = FakeImage as unknown as typeof Image;
 
-    const capture = vi.fn(async () => new Blob(["full"], { type: "image/png" }));
+    const capture = vi.fn<
+      (root: HTMLElement, options: { scale: number }) => Promise<Blob>
+    >(async () => new Blob(["full"], { type: "image/png" }));
     const result = await captureElementCrop(el, { capture, scale: 1 });
 
     expect(result.blob).toBe(croppedBlob);

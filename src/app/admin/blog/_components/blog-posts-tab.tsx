@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { BlogPost, BlogCategory } from "@/lib/admin/types";
+import { Button } from "@/components/ui/button";
 
 interface BlogPostsTabProps {
   posts: (BlogPost & { ga4_views: number })[];
@@ -103,12 +104,9 @@ function BlogPreviewModal({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href={`/admin/blog/${post.id}/edit`}
-              className="px-3 py-1.5 bg-ops-accent hover:bg-[#6B8AA6] rounded font-mohave text-[12px] uppercase tracking-wider text-white transition-colors"
-            >
-              Edit
-            </Link>
+            <Button variant="primary" size="sm" asChild>
+              <Link href={`/admin/blog/${post.id}/edit`}>Edit</Link>
+            </Button>
             <button
               type="button"
               onClick={onClose}
@@ -333,12 +331,9 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
 
         <div className="flex-1" />
 
-        <Link
-          href="/admin/blog/new"
-          className="px-4 py-2 bg-ops-accent hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white"
-        >
-          New Post
-        </Link>
+        <Button variant="primary" size="sm" asChild>
+          <Link href="/admin/blog/new">New Post</Link>
+        </Button>
       </div>
 
       {/* Table */}

@@ -188,7 +188,7 @@ export function FeatureFlagsTab() {
           <button
             onClick={() => { setMode("user"); setUsers([]); setCompanies([]); setSelectedCompany(null); setSearchQuery(""); }}
             className={`px-4 py-2 font-mohave text-[13px] uppercase tracking-wider transition-colors ${
-              mode === "user" ? "bg-ops-accent/30 text-[#EDEDED]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
+              mode === "user" ? "bg-surface-active text-text" : "text-text-3 hover:text-text"
             }`}
           >
             By User
@@ -196,7 +196,7 @@ export function FeatureFlagsTab() {
           <button
             onClick={() => { setMode("company"); setUsers([]); setCompanies([]); setSelectedCompany(null); setSearchQuery(""); }}
             className={`px-4 py-2 font-mohave text-[13px] uppercase tracking-wider transition-colors ${
-              mode === "company" ? "bg-ops-accent/30 text-[#EDEDED]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
+              mode === "company" ? "bg-surface-active text-text" : "text-text-3 hover:text-text"
             }`}
           >
             By Company

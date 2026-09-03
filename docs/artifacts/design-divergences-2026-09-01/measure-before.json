@@ -1,0 +1,353 @@
+{
+  "phase": "before",
+  "capturedAt": "2026-09-02T05:09:54.717Z",
+  "measurements": {
+    "pipeline-new-lead": {
+      "text": "New Lead",
+      "bg": "rgb(65, 115, 148)",
+      "color": "rgb(0, 0, 0)",
+      "border": "rgb(65, 115, 148)",
+      "fontSize": "11px",
+      "fontFamily": "\"JetBrains Mono\"",
+      "height": 28,
+      "className": "flex h-[28px] shrink-0 items-center gap-[5px] rounded-chip border border-ops-accent bg-ops-accent px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-black transition-colors hover:border-ops-accent-hover hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+    },
+    "pipeline-new-lead-hover": {
+      "bg": "rgb(85, 135, 168)",
+      "color": "rgb(0, 0, 0)",
+      "border": "rgb(85, 135, 168)"
+    },
+    "estimate-form-buttons": [
+      {
+        "text": "Select project (optional)...",
+        "bg": "rgba(255, 255, 255, 0.04)",
+        "color": "rgb(237, 237, 237)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 36,
+        "className": "flex w-full items-center justify-between gap-1 bg-surface-input text-text font-mohave text-body px-1.5 py-1.5 rounded border border-[rgba(255,255,255,0.10)] transition-all duration-150 focus:border-[r"
+      },
+      {
+        "text": "Add Line Item",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(138, 138, 138)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 64,
+        "className": "inline-flex items-center justify-center font-cakemono font-light uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:rin"
+      },
+      {
+        "text": "Cancel",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(181, 181, 181)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 36,
+        "className": "inline-flex items-center justify-center gap-1 font-cakemono font-light uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visib"
+      },
+      {
+        "text": "Create estimate",
+        "bg": "rgba(255, 255, 255, 0.07)",
+        "color": "rgb(181, 181, 181)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 36,
+        "className": "inline-flex items-center justify-center gap-1 font-cakemono font-light uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visib"
+      }
+    ],
+    "invoice-form-buttons": [
+      {
+        "text": "Net 30",
+        "bg": "rgba(255, 255, 255, 0.04)",
+        "color": "rgb(237, 237, 237)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 36,
+        "className": "flex w-full items-center justify-between gap-1 bg-surface-input text-text font-mohave text-body px-1.5 py-1.5 rounded border border-[rgba(255,255,255,0.10)] transition-all duration-150 focus:border-[r"
+      },
+      {
+        "text": "Add Line Item",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(138, 138, 138)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 64,
+        "className": "inline-flex items-center justify-center font-cakemono font-light uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:rin"
+      },
+      {
+        "text": "Cancel",
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(181, 181, 181)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 36,
+        "className": "inline-flex items-center justify-center gap-1 font-cakemono font-light uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visib"
+      },
+      {
+        "text": "Create invoice",
+        "bg": "rgba(255, 255, 255, 0.07)",
+        "color": "rgb(181, 181, 181)",
+        "border": "rgba(255, 255, 255, 0.1)",
+        "fontSize": "16px",
+        "height": 36,
+        "className": "inline-flex items-center justify-center gap-1 font-cakemono font-light uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visib"
+      }
+    ],
+    "settings-company-save": {
+      "text": "Save changes",
+      "bg": "rgb(65, 115, 148)",
+      "color": "rgb(0, 0, 0)",
+      "border": "rgb(65, 115, 148)",
+      "fontSize": "16px",
+      "fontFamily": "cake-mono",
+      "height": 36,
+      "className": "inline-flex items-center justify-center font-cakemono font-light uppercase whitespace-nowrap rounded transition-all duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40 no-select cursor-pointer active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 bg-ops-accent text-black border border-ops-accent hover:bg-ops-accent-hover h-9 px-4 gap-[6px]"
+    },
+    "settings-company-save-hover": {
+      "bg": "rgb(85, 135, 168)",
+      "color": "rgb(0, 0, 0)",
+      "border": "rgb(65, 115, 148)"
+    },
+    "lockout-primary-buttons": [
+      {
+        "text": "Subscribe",
+        "bg": "rgb(111, 148, 176)",
+        "color": "rgb(0, 0, 0)",
+        "border": "rgb(111, 148, 176)"
+      },
+      {
+        "text": "Ask admin to reactivate",
+        "bg": "rgb(111, 148, 176)",
+        "color": "rgb(0, 0, 0)",
+        "border": "rgb(111, 148, 176)"
+      },
+      {
+        "text": "Open team page",
+        "bg": "rgb(111, 148, 176)",
+        "color": "rgb(0, 0, 0)",
+        "border": "rgb(111, 148, 176)"
+      },
+      {
+        "text": "Ask admin for a seat",
+        "bg": "rgb(111, 148, 176)",
+        "color": "rgb(0, 0, 0)",
+        "border": "rgb(111, 148, 176)"
+      }
+    ],
+    "__error__bug-drawer-panel": "page.waitForSelector: Timeout 30000ms exceeded.",
+    "bug-drawer": {
+      "panel": {
+        "h": 696.28,
+        "w": 360
+      },
+      "bodyScrollHeight": 648,
+      "bodyClientHeight": 648,
+      "groups": [
+        {
+          "label": "CATEGORY",
+          "h": 74
+        },
+        {
+          "label": "HOW BAD? (OPTIONAL)",
+          "h": 41
+        }
+      ],
+      "chips": [
+        {
+          "text": "BUG",
+          "h": 33,
+          "w": 53.5,
+          "fontSize": "10px",
+          "lineHeight": "15px",
+          "border": "rgba(255, 255, 255, 0.18)",
+          "color": "rgb(237, 237, 237)",
+          "bg": "rgba(255, 255, 255, 0.08)"
+        },
+        {
+          "text": "UI",
+          "h": 33,
+          "w": 47,
+          "fontSize": "10px",
+          "lineHeight": "15px",
+          "border": "rgba(255, 255, 255, 0.08)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "CRASH",
+          "h": 33,
+          "w": 66.5,
+          "fontSize": "10px",
+          "lineHeight": "15px",
+          "border": "rgba(255, 255, 255, 0.08)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "FEATURE",
+          "h": 33,
+          "w": 79.5,
+          "fontSize": "10px",
+          "lineHeight": "15px",
+          "border": "rgba(255, 255, 255, 0.08)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "OTHER",
+          "h": 33,
+          "w": 66.5,
+          "fontSize": "10px",
+          "lineHeight": "15px",
+          "border": "rgba(255, 255, 255, 0.08)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "BLOCKER",
+          "h": 41,
+          "w": 104.66,
+          "fontSize": "10px",
+          "lineHeight": "15px",
+          "border": "rgba(255, 255, 255, 0.08)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "MAJOR",
+          "h": 41,
+          "w": 104.67,
+          "fontSize": "10px",
+          "lineHeight": "15px",
+          "border": "rgba(255, 255, 255, 0.08)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "text": "MINOR",
+          "h": 41,
+          "w": 104.67,
+          "fontSize": "10px",
+          "lineHeight": "15px",
+          "border": "rgba(255, 255, 255, 0.08)",
+          "color": "rgb(106, 106, 106)",
+          "bg": "rgba(0, 0, 0, 0)"
+        }
+      ],
+      "toggles": [
+        {
+          "text": "CATEGORY",
+          "h": 14.3
+        },
+        {
+          "text": "WHAT HAPPENED?",
+          "h": 14.3
+        },
+        {
+          "text": "DETAILS (OPTIONAL)",
+          "h": 14.3
+        },
+        {
+          "text": "HOW BAD? (OPTIONAL)",
+          "h": 14.3
+        },
+        {
+          "text": "NEEDS MY INPUT TO SOLVE",
+          "h": 50
+        },
+        {
+          "text": "[ATTACH SCREENSHOT · 761KB]",
+          "h": 50
+        }
+      ],
+      "under11px": [
+        {
+          "tag": "SPAN",
+          "text": "//",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "SPAN",
+          "text": "`",
+          "fontSize": "9px",
+          "lineHeight": "13.5px"
+        },
+        {
+          "tag": "BUTTON",
+          "text": "BUG",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "BUTTON",
+          "text": "UI",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "BUTTON",
+          "text": "CRASH",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "BUTTON",
+          "text": "FEATURE",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "BUTTON",
+          "text": "OTHER",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "BUTTON",
+          "text": "BLOCKER",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "BUTTON",
+          "text": "MAJOR",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "BUTTON",
+          "text": "MINOR",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        },
+        {
+          "tag": "SPAN",
+          "text": "NEEDS MY INPUT TO SOLVE",
+          "fontSize": "10px",
+          "lineHeight": "15px"
+        }
+      ],
+      "borderColorsInUse": [
+        "rgba(255, 255, 255, 0.1)",
+        "rgba(255, 255, 255, 0.14)",
+        "rgba(255, 255, 255, 0.18)",
+        "rgba(255, 255, 255, 0.08)",
+        "rgba(255, 255, 255, 0.4)",
+        "rgba(255, 255, 255, 0.15)",
+        "rgba(255, 255, 255, 0.06)"
+      ]
+    }
+  },
+  "consoleErrors": [
+    "plan-lockout.json console: [AuthProvider] Auth processing failed: Error: Authentication processing timed out after 10 seconds\n    at AuthProvider.useEffect.processAuthState (http://localhost:3476/_next/static/chunks/_worktrees_",
+    "plan-lockout.json console: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "plan-lockout.json console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — ",
+    "plan-drawer.json console: [AuthProvider] Auth processing failed: Error: Authentication processing timed out after 10 seconds\n    at AuthProvider.useEffect.processAuthState (http://localhost:3476/_next/static/chunks/_worktrees_",
+    "plan-drawer.json console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — ",
+    "plan-drawer.json console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — ",
+    "plan-drawer.json console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — ",
+    "plan-drawer.json console: Access to fetch at 'https://ops-app-files-prod.s3.us-west-2.amazonaws.com/migrated/supabase-storage/images/uploads/1773966338469-fcjxqi.png' from origin 'http://localhost:3476' has been blocked by COR",
+    "plan-drawer.json console: Failed to load resource: net::ERR_FAILED"
+  ]
+}

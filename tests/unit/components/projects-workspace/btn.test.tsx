@@ -4,11 +4,11 @@ import userEvent from "@testing-library/user-event";
 
 import { Btn } from "@/components/ops/projects/workspace/atoms/btn";
 
-// `Btn` — workspace-scoped button. Diverges from the existing dashboard
+// `Btn` — workspace-scoped button. Originally split from the dashboard
 // `<Button>` (`src/components/ui/button.tsx`) because the brand spec v2
-// mandates **outlined at rest, fills on hover** for primary CTAs, but the
-// existing Button keeps `bg-ops-accent` filled at rest for backwards-compat
-// with dashboard surfaces. See atom-mapping doc §5.8 for full rationale.
+// mandates **outlined at rest, fills on hover** for primary CTAs and the
+// shared Button was still filled at rest; both follow the rule now, and `Btn`
+// keeps its Mohave voice + compact ladder. See atom-mapping doc §5.8.
 
 describe("<Btn>", () => {
   it("renders as a button by default", () => {

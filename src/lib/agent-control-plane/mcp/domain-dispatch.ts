@@ -49,12 +49,26 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   get_operational_overview: "getOperationalOverview",
   prepare_day_closeout: "prepareDayCloseout",
   prepare_collections: "prepareCollections",
+  analyze_hiring_break_even: "analyzeHiringBreakEven",
+  check_customer_reply: "checkCustomerReply",
+  analyze_sales_truth: "analyzeSalesTruth",
+  check_payroll_readiness: "checkPayrollReadiness",
+  prepare_recurring_service_price_change: "prepareRecurringServicePriceChange",
+  prepare_estimate_from_past_job: "prepareEstimateFromPastJob",
+  prepare_weather_reschedule: "prepareWeatherReschedule",
 } as const satisfies Readonly<
   Record<
     | CurrentProductionMcpToolId
     | P2ReadCapabilityId
     | "prepare_day_closeout"
-    | "prepare_collections",
+    | "prepare_collections"
+    | "analyze_hiring_break_even"
+    | "check_customer_reply"
+    | "analyze_sales_truth"
+    | "check_payroll_readiness"
+    | "prepare_recurring_service_price_change"
+    | "prepare_estimate_from_past_job"
+    | "prepare_weather_reschedule",
     AsyncDomainMethodName
   >
 >);
@@ -63,7 +77,14 @@ export type McpDomainCapabilityId =
   | CurrentProductionMcpToolId
   | P2ReadCapabilityId
   | "prepare_day_closeout"
-  | "prepare_collections";
+  | "prepare_collections"
+  | "analyze_hiring_break_even"
+  | "check_customer_reply"
+  | "analyze_sales_truth"
+  | "check_payroll_readiness"
+  | "prepare_recurring_service_price_change"
+  | "prepare_estimate_from_past_job"
+  | "prepare_weather_reschedule";
 export type McpDomainMethodName =
   (typeof DOMAIN_METHOD_BY_CAPABILITY)[McpDomainCapabilityId];
 
