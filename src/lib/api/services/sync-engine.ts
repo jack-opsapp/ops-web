@@ -2978,8 +2978,11 @@ async function applyLabel(
  * manual stage, a final Won/discarded lead, or a thread the router held for
  * human review. Engine-owned Lost deferrals remain eligible for a later,
  * evidence-backed acceptance or re-deferral.
- * Non-fatal — a failure here must not break the sync loop. The cheap stage/manual
- * guard runs BEFORE the (heavier) state build to skip the common no-op case.
+ * Fail-closed by design: any error here becomes a LifecyclePersistenceError so
+ * the mailbox cursor holds and the idempotent cycle replays. The single
+ * exception is a lifecycle replay conflict, which runSync isolates to the one
+ * lead — see the accept loop. The cheap stage/manual guard runs BEFORE the
+ * (heavier) state build to skip the common no-op case.
  */
 async function maybeAutoAdvanceOnAccept(args: {
   providerThreadId: string | null;
