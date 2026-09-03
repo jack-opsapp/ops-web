@@ -95,7 +95,7 @@ function snapshot(): WeatherRescheduleSourceSnapshot {
         task_id: INDOOR_TASK_ID,
         project_id: INDOOR_PROJECT_ID,
         project_title: "Shop fabrication",
-        project_status: "scheduled",
+        project_status: "accepted",
         project_status_version: "2",
         task_type_id: INDOOR_TYPE_ID,
         task_title: "Indoor fabrication",

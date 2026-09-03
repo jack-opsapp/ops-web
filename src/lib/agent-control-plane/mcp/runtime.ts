@@ -56,6 +56,11 @@ import {
   createEstimateDraftService,
   type EstimateDraftService,
 } from "@/lib/agent-control-plane/services/estimate-draft/estimate-draft-service";
+import { createWeatherRescheduleRepository } from "@/lib/agent-control-plane/services/weather-reschedule/weather-reschedule-repository";
+import {
+  createWeatherRescheduleService,
+  type WeatherRescheduleService,
+} from "@/lib/agent-control-plane/services/weather-reschedule/weather-reschedule-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -103,6 +108,7 @@ export interface McpServerRuntime {
   readonly payrollReadiness: PayrollReadinessService;
   readonly recurringServicePriceChange: RecurringServicePriceChangeService;
   readonly estimateDraft: EstimateDraftService;
+  readonly weatherReschedule: WeatherRescheduleService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -301,6 +307,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const weatherReschedule = createWeatherRescheduleService({
+    repository: createWeatherRescheduleRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
@@ -313,6 +325,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       payrollReadiness,
       recurringServicePriceChange,
       estimateDraft,
+      weatherReschedule,
     }),
     dayCloseout,
     collections,
@@ -322,6 +335,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     payrollReadiness,
     recurringServicePriceChange,
     estimateDraft,
+    weatherReschedule,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

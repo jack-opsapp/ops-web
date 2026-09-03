@@ -73,7 +73,7 @@ const SourceTaskSchema = z
     task_id: UUIDSchema,
     project_id: UUIDSchema,
     project_title: BusinessTextSchema,
-    project_status: z.enum(["rfq", "quoted", "approved", "in_progress", "scheduled"]),
+    project_status: z.enum(["rfq", "estimated", "accepted", "in_progress"]),
     project_status_version: RevisionSchema,
     task_type_id: UUIDSchema,
     task_title: BusinessTextSchema,

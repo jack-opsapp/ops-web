@@ -16,6 +16,7 @@ const V7_REVISION = "2026-09-01.mcp-exposure.v7";
 const V8_REVISION = "2026-09-01.mcp-exposure.v8";
 const V9_REVISION = "2026-09-01.mcp-exposure.v9";
 const V10_REVISION = "2026-09-02.mcp-exposure.v10";
+const V11_REVISION = "2026-09-03.mcp-exposure.v11";
 const V1_TOOLS = [
   "list_scheduled_jobs",
   "list_job_readiness_issues",
@@ -274,6 +275,70 @@ describe("grant-pinned MCP exposure", () => {
     expect(tools).not.toContain("commit_estimate_draft");
     expect(tools).not.toContain("issue_estimate");
     expect(tools).not.toContain("send_estimate");
+  });
+
+  it("keeps dormant v11 additive with only the prepare-only weather reschedule preview", async () => {
+    const tools = await listTools(V11_REVISION);
+    expect(tools).toEqual([
+      "analyze_hiring_break_even",
+      "check_customer_reply",
+      "analyze_sales_truth",
+      "check_payroll_readiness",
+      "prepare_recurring_service_price_change",
+      "prepare_estimate_from_past_job",
+      "prepare_weather_reschedule",
+    ]);
+    expect(tools).not.toContain("commit_weather_reschedule");
+    expect(tools).not.toContain("update_project_task_schedule");
+    expect(tools).not.toContain("send_weather_schedule_message");
+  });
+
+  it("dispatches only the date-bound v11 preview and preserves zero effects", async () => {
+    const calls: Array<{ actor: ActorContext; args: unknown }> = [];
+    const effects = Object.freeze({
+      project_writes: 0,
+      task_writes: 0,
+      calendar_writes: 0,
+      provider_draft_writes: 0,
+      message_writes: 0,
+      messages_sent: 0,
+    });
+    const service = new Proxy(
+      {},
+      {
+        get(_target, property) {
+          if (property === "prepareWeatherReschedule") {
+            return async (actor: ActorContext, args: unknown) => {
+              calls.push({ actor, args });
+              return { effects };
+            };
+          }
+          if (typeof property !== "string") return undefined;
+          return async () => ({ ok: true });
+        },
+      }
+    ) as OpsAgentDomainService;
+    const args = { target_date: "2026-09-03" };
+    const payload = await callTool(
+      V11_REVISION,
+      service,
+      args,
+      "prepare_weather_reschedule"
+    );
+    expect(payload.error).toBeUndefined();
+    expect(JSON.parse(payload.result?.content[0]?.text ?? "{}")).toEqual({
+      effects,
+    });
+    expect(calls).toEqual([{ actor: ACTOR_CONTEXT, args }]);
+
+    const rejected = await callTool(
+      V11_REVISION,
+      service,
+      { ...args, send: true },
+      "prepare_weather_reschedule"
+    );
+    expect(rejected.error ?? rejected.result?.isError).toBeTruthy();
+    expect(calls).toHaveLength(1);
   });
 
   it("dispatches only the three-field v10 estimate request and preserves zero effects", async () => {

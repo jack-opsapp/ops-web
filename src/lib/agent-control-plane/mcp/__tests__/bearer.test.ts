@@ -44,6 +44,7 @@ function runtime(
     recurringServicePriceChange:
       {} as McpServerRuntime["recurringServicePriceChange"],
     estimateDraft: {} as McpServerRuntime["estimateDraft"],
+    weatherReschedule: {} as McpServerRuntime["weatherReschedule"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {

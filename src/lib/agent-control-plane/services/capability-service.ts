@@ -33,6 +33,10 @@ import {
   type EstimateDraftService,
 } from "./estimate-draft/estimate-draft-service";
 import {
+  isTrustedWeatherRescheduleService,
+  type WeatherRescheduleService,
+} from "./weather-reschedule/weather-reschedule-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -47,7 +51,8 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   SalesTruthService &
   PayrollReadinessService &
   RecurringServicePriceChangeService &
-  EstimateDraftService;
+  EstimateDraftService &
+  WeatherRescheduleService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
@@ -59,6 +64,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly payrollReadiness: PayrollReadinessService;
   readonly recurringServicePriceChange: RecurringServicePriceChangeService;
   readonly estimateDraft: EstimateDraftService;
+  readonly weatherReschedule: WeatherRescheduleService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -93,6 +99,9 @@ export function createOpsAgentCapabilityService(input: {
   if (!isTrustedEstimateDraftService(input.estimateDraft)) {
     throw new TypeError("A trusted estimate draft service is required");
   }
+  if (!isTrustedWeatherRescheduleService(input.weatherReschedule)) {
+    throw new TypeError("A trusted weather reschedule service is required");
+  }
   const service = Object.freeze({
     ...input.reads,
     ...input.dayCloseout,
@@ -103,6 +112,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.payrollReadiness,
     ...input.recurringServicePriceChange,
     ...input.estimateDraft,
+    ...input.weatherReschedule,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;

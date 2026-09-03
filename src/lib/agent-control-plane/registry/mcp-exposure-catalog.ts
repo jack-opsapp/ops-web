@@ -10,6 +10,7 @@ import {
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
   ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
+  WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
@@ -33,6 +34,8 @@ import {
   RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
   ESTIMATE_DRAFT_CAPABILITY_MANIFEST,
   ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
+  WEATHER_RESCHEDULE_CAPABILITY_MANIFEST,
+  WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 
 export interface McpExposure {
@@ -295,6 +298,35 @@ export const MCP_EXPOSURE_V10 = Object.freeze({
   ] as const),
 } as const satisfies McpExposure);
 
+export const MCP_EXPOSURE_V11 = Object.freeze({
+  revision: "2026-09-03.mcp-exposure.v11",
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V10.toolIds,
+    "prepare_weather_reschedule",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze([
+    "ops.catalog.read",
+    "ops.communications.prepare",
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.prepare",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.operations.prepare",
+    "ops.operations.read",
+    "ops.payments.read",
+    "ops.schedule.prepare",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ] as const),
+} as const satisfies McpExposure);
+
 export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V2.revision;
 
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
@@ -309,6 +341,7 @@ export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
     [MCP_EXPOSURE_V8.revision]: MCP_EXPOSURE_V8,
     [MCP_EXPOSURE_V9.revision]: MCP_EXPOSURE_V9,
     [MCP_EXPOSURE_V10.revision]: MCP_EXPOSURE_V10,
+    [MCP_EXPOSURE_V11.revision]: MCP_EXPOSURE_V11,
   });
 
 function requiredNonBlank(value: unknown, field: string): string {
@@ -434,7 +467,9 @@ function validateExposure(exposure: McpExposure): void {
   assertMcpExposureInvariants({
     exposure,
     manifestEntries:
-      exposure.revision === MCP_EXPOSURE_V10.revision
+      exposure.revision === MCP_EXPOSURE_V11.revision
+        ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST
+        : exposure.revision === MCP_EXPOSURE_V10.revision
         ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST
         : exposure.revision === MCP_EXPOSURE_V9.revision
           ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST
@@ -455,7 +490,9 @@ function validateExposure(exposure: McpExposure): void {
     registeredScopes: REGISTERED_MCP_SCOPES,
     scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
     consentLabels:
-      exposure.revision === MCP_EXPOSURE_V10.revision
+      exposure.revision === MCP_EXPOSURE_V11.revision
+        ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
+        : exposure.revision === MCP_EXPOSURE_V10.revision
         ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
         : exposure.revision === MCP_EXPOSURE_V9.revision
           ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
@@ -468,7 +505,8 @@ function validateExposure(exposure: McpExposure): void {
       exposure.revision === MCP_EXPOSURE_V3.revision ||
       exposure.revision === MCP_EXPOSURE_V4.revision ||
       exposure.revision === MCP_EXPOSURE_V9.revision ||
-      exposure.revision === MCP_EXPOSURE_V10.revision
+      exposure.revision === MCP_EXPOSURE_V10.revision ||
+      exposure.revision === MCP_EXPOSURE_V11.revision
         ? ["read", "prepare"]
         : ["read"],
   });
@@ -484,11 +522,14 @@ validateExposure(MCP_EXPOSURE_V7);
 validateExposure(MCP_EXPOSURE_V8);
 validateExposure(MCP_EXPOSURE_V9);
 validateExposure(MCP_EXPOSURE_V10);
+validateExposure(MCP_EXPOSURE_V11);
 
 export function capabilityManifestRevisionForExposure(
   exposureRevision: string
 ): string {
-  return exposureRevision === MCP_EXPOSURE_V10.revision
+  return exposureRevision === MCP_EXPOSURE_V11.revision
+    ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+    : exposureRevision === MCP_EXPOSURE_V10.revision
     ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
     : exposureRevision === MCP_EXPOSURE_V9.revision
       ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION

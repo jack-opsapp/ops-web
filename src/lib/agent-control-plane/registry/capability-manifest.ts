@@ -38,6 +38,7 @@ import { ANALYZE_SALES_TRUTH_CAPABILITY_DEFINITION } from "./sales-truth-capabil
 import { CHECK_PAYROLL_READINESS_CAPABILITY_DEFINITION } from "./payroll-readiness-capability";
 import { PREPARE_RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_DEFINITION } from "./recurring-service-price-change-capability";
 import { PREPARE_ESTIMATE_FROM_PAST_JOB_CAPABILITY_DEFINITION } from "./estimate-draft-capability";
+import { PREPARE_WEATHER_RESCHEDULE_CAPABILITY_DEFINITION } from "./weather-reschedule-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
@@ -58,6 +59,8 @@ export const RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION =
   "2026-09-01.capability-manifest.v15" as const;
 export const ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION =
   "2026-09-02.capability-manifest.v16" as const;
+export const WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-03.capability-manifest.v17" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -448,6 +451,30 @@ const ESTIMATE_DRAFT_CAPABILITY_BY_NAME = new Map(
   )
 );
 
+const weatherRescheduleManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...ESTIMATE_DRAFT_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_WEATHER_RESCHEDULE_CAPABILITY_DEFINITION,
+    WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  weatherRescheduleManifestEntries,
+  WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(weatherRescheduleManifestEntries);
+
+export const WEATHER_RESCHEDULE_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(weatherRescheduleManifestEntries);
+
+const WEATHER_RESCHEDULE_CAPABILITY_BY_NAME = new Map(
+  WEATHER_RESCHEDULE_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -516,6 +543,14 @@ export function getEstimateDraftCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = ESTIMATE_DRAFT_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getWeatherRescheduleCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = WEATHER_RESCHEDULE_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -866,6 +901,16 @@ export function resolveEstimateDraftCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getEstimateDraftCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveWeatherRescheduleCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getWeatherRescheduleCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

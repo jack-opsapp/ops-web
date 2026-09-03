@@ -54,6 +54,7 @@ const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
     "prepareRecurringServicePriceChange",
   ],
   ["prepare_estimate_from_past_job", "prepareEstimateFromPastJob"],
+  ["prepare_weather_reschedule", "prepareWeatherReschedule"],
 ] as const;
 
 describe("typed MCP domain dispatch", () => {
@@ -69,6 +70,7 @@ describe("typed MCP domain dispatch", () => {
       | "check_payroll_readiness"
       | "prepare_recurring_service_price_change"
       | "prepare_estimate_from_past_job"
+      | "prepare_weather_reschedule"
     >();
     expect(Object.entries(DOMAIN_METHOD_BY_CAPABILITY)).toEqual(
       EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD
