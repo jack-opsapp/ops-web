@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readBearerToken, secureTokenEquals } from "@/lib/social/auth";
+import {
+  InstagramConnectionError,
+} from "@/lib/social/instagram-connection-service";
 import { runSocialPublisherBatch } from "@/lib/social/publisher";
 
 interface SocialPublishCronDependencies {
@@ -49,7 +52,23 @@ export function createSocialPublishCronHandler(
         persistence_failed: summary.persistenceFailed,
         results: summary.results,
       });
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof InstagramConnectionError &&
+        error.code === "INSTAGRAM_NOT_CONNECTED"
+      ) {
+        return NextResponse.json({
+          ok: true,
+          skipped: "instagram_not_connected",
+          claimed: 0,
+          recovery_notifications: 0,
+          published: 0,
+          retry_scheduled: 0,
+          failed: 0,
+          persistence_failed: 0,
+          results: [],
+        });
+      }
       console.error("[social-publish-cron] Worker failed");
       return NextResponse.json(
         {

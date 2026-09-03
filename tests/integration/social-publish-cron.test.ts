@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createSocialPublishCronHandler } from "@/lib/social/publish-cron-handler";
+import { InstagramConnectionError } from "@/lib/social/instagram-connection-service";
 
 const CRON_SECRET = "cron-secret-with-at-least-32-characters";
 
@@ -63,6 +64,32 @@ describe("social publish cron", () => {
       results: [],
     });
     expect(runBatch).toHaveBeenCalledWith({ limit: 2 });
+  });
+
+  it("treats an unconnected Instagram account as an idle cron state", async () => {
+    vi.stubEnv("CRON_SECRET", CRON_SECRET);
+    const response = await createSocialPublishCronHandler({
+      runBatch: vi.fn().mockRejectedValue(
+        new InstagramConnectionError(
+          "INSTAGRAM_NOT_CONNECTED",
+          "Instagram is not connected",
+          false
+        )
+      ),
+    })(request(CRON_SECRET));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      skipped: "instagram_not_connected",
+      claimed: 0,
+      recovery_notifications: 0,
+      published: 0,
+      retry_scheduled: 0,
+      failed: 0,
+      persistence_failed: 0,
+      results: [],
+    });
   });
 
   it("returns 500 without exposing an internal worker error", async () => {
