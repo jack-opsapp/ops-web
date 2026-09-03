@@ -255,7 +255,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     permission: "agent.review",
     phaseCOnly: true,
     badge: "agentQueuePending",
-    fullHeight: "padded",
+    fullHeight: "bleed",
   },
   {
     key: "settings",
