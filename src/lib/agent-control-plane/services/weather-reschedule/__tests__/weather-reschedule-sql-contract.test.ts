@@ -113,6 +113,12 @@ describe("weather reschedule SQL contract", () => {
     expect(sql).toContain("dependency_override_count");
     expect(sql).toContain("recipient_owner_count");
     expect(sql).toContain("suppression.list = 'global'");
+    expect(sql).toContain(
+      "pg_catalog.jsonb_array_length(v_tasks) <> v_task_count"
+    );
+    expect(sql).toContain(
+      "(candidate.end_date at time zone 'UTC')::date >= p_target_date + 1"
+    );
     expect(sql).toContain("private.agent_user_can_access_entity(");
     expect(sql).toContain("AGENT_WEATHER_RESCHEDULE_SOURCE_BOUND");
     expect(sql).toContain("AGENT_WEATHER_RESCHEDULE_SOURCE_STALE");

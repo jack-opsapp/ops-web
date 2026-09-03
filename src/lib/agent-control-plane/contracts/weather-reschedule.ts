@@ -486,15 +486,16 @@ function interval(input: {
   readonly end_time: string | null;
   readonly all_day: boolean;
 }): LocalInterval | null {
-  if (input.start_date !== input.end_date) return null;
-  const day = dateNumber(input.start_date) / 60_000;
+  const startDay = dateNumber(input.start_date) / 60_000;
+  const endDay = dateNumber(input.end_date) / 60_000;
+  if (endDay < startDay) return null;
   if (input.all_day) {
     if (input.start_time !== null || input.end_time !== null) return null;
-    return { start: day, end: day + 1_440 };
+    return { start: startDay, end: endDay + 1_440 };
   }
   if (input.start_time === null || input.end_time === null) return null;
-  const start = day + minutes(input.start_time);
-  const end = day + minutes(input.end_time);
+  const start = startDay + minutes(input.start_time);
+  const end = endDay + minutes(input.end_time);
   return end > start ? { start, end } : null;
 }
 

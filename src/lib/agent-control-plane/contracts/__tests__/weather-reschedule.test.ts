@@ -267,6 +267,32 @@ describe("weather reschedule contract", () => {
     ).toEqual(["2026-09-06", "2026-09-06"]);
   });
 
+  it("treats a multi-day future assignment as a collision", () => {
+    const input = snapshot();
+    input.conflicts.push({
+      task_id: "00000000-0000-4000-8000-000000000099",
+      project_id: "00000000-0000-4000-8000-000000000098",
+      start_date: "2026-09-04",
+      end_date: "2026-09-05",
+      start_time: "13:00:00",
+      end_time: "10:00:00",
+      all_day: false,
+      assignee_ids: [CREW_ID],
+      source_sha256: HASH_A,
+    });
+
+    const result = prepareWeatherReschedulePreview({
+      requestId: "req-weather-multi-day-conflict",
+      input: { target_date: "2026-09-03" },
+      snapshot: input,
+    });
+
+    expect(
+      result.proposal.items.find((item) => item.task_id === OUTDOOR_TASK_ID)
+        ?.proposed_start_date
+    ).toBe("2026-09-06");
+  });
+
   it.each([
     [
       "stale forecast",

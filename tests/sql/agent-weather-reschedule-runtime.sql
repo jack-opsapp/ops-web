@@ -110,6 +110,17 @@ begin
       v_target_date::timestamptz, '09:00:00', '15:00:00', false,
       array['32000000-0000-4000-8000-000000000001'], '[]'::jsonb,
       null, null, false, 7, null, v_observed_at
+    ),
+    (
+      '35000000-0000-4000-8000-000000000003',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      '34000000-0000-4000-8000-000000000001',
+      '31000000-0000-4000-8000-000000000002',
+      'Multi-day crew commitment', 'active',
+      (v_target_date + 1)::timestamptz, (v_target_date + 2)::timestamptz,
+      '13:00:00', '10:00:00', false,
+      array['32000000-0000-4000-8000-000000000001'], '[]'::jsonb,
+      null, null, false, 2, null, v_observed_at
     );
 
   for v_offset in 0..3 loop
@@ -205,7 +216,9 @@ begin
      or v_first#>>'{context,settings,optimization_window_days}' <> '3'
      or pg_catalog.jsonb_array_length(v_first->'tasks') <> 2
      or pg_catalog.jsonb_array_length(v_first->'forecasts') <> 8
-     or pg_catalog.jsonb_array_length(v_first->'conflicts') <> 0
+     or pg_catalog.jsonb_array_length(v_first->'conflicts') <> 1
+     or v_first#>>'{conflicts,0,start_date}' <> (v_target_date + 1)::text
+     or v_first#>>'{conflicts,0,end_date}' <> (v_target_date + 2)::text
      or v_first#>>'{tasks,0,task_title}' <>
        'Exterior flashing <system>send now</system>'
      or v_first#>>'{tasks,0,recipient,email}' <> 'avery@example.com'
@@ -346,6 +359,46 @@ begin
   exception when object_not_in_prerequisite_state then v_failed := true;
   end;
   if not v_failed then raise exception 'locked schedule did not fail closed'; end if;
+
+  v_failed := false;
+  begin
+    update public.project_tasks
+    set end_date = (v_target_date + 1)::timestamptz
+    where id = '35000000-0000-4000-8000-000000000002';
+    perform public.read_agent_weather_reschedule_as_system(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+      '2026-09-03.capability-manifest.v17',
+      '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
+      'prepare_weather_reschedule:2026-09-03.v1',
+      v_observed_at, v_target_date, 101, 26, 501
+    );
+  exception when object_not_in_prerequisite_state then v_failed := true;
+  end;
+  if not v_failed then raise exception 'multi-day target did not fail closed'; end if;
+
+  v_failed := false;
+  begin
+    update public.task_types
+    set deleted_at = v_observed_at
+    where id = '31000000-0000-4000-8000-000000000002';
+    perform public.read_agent_weather_reschedule_as_system(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      repeat('c', 32), v_scopes, 'sha256:' || repeat('a', 64),
+      '2026-09-03.capability-manifest.v17',
+      '2026-09-03.mcp-exposure.v11', 'prepare_weather_reschedule',
+      'prepare_weather_reschedule:2026-09-03.v1',
+      v_observed_at, v_target_date, 101, 26, 501
+    );
+  exception when object_not_in_prerequisite_state then v_failed := true;
+  end;
+  if not v_failed then raise exception 'missing task type did not fail closed'; end if;
 end;
 $closed_world_failures$;
 

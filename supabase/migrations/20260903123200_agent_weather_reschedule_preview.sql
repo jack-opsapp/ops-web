@@ -437,7 +437,10 @@ begin
   where source_task.company_id = p_company_id
     and source_task.deleted_at is null
     and source_task.status not in ('completed', 'cancelled')
-    and (source_task.start_date at time zone 'UTC')::date = p_target_date;
+    and source_task.start_date is not null
+    and source_task.end_date is not null
+    and (source_task.start_date at time zone 'UTC')::date <= p_target_date
+    and (source_task.end_date at time zone 'UTC')::date >= p_target_date;
   if v_task_count = 0 then
     raise exception 'AGENT_WEATHER_RESCHEDULE_SOURCE_STALE'
       using errcode = '55000';
@@ -679,6 +682,11 @@ begin
     v_tasks := v_tasks || pg_catalog.jsonb_build_array(v_row_json);
   end loop;
 
+  if pg_catalog.jsonb_array_length(v_tasks) <> v_task_count then
+    raise exception 'AGENT_WEATHER_RESCHEDULE_SOURCE_STALE'
+      using errcode = '55000';
+  end if;
+
   select array_agg(distinct assignee order by assignee)
     into v_target_assignee_ids
   from pg_catalog.jsonb_array_elements(v_tasks) task_json
@@ -763,8 +771,13 @@ begin
     and candidate.deleted_at is null
     and candidate.status not in ('completed', 'cancelled')
     and candidate.id <> all(v_target_task_ids)
-    and (candidate.start_date at time zone 'UTC')::date between
-      p_target_date + 1 and p_target_date + v_window
+    and candidate.start_date is not null
+    and (candidate.start_date at time zone 'UTC')::date <=
+      p_target_date + v_window
+    and (
+      candidate.end_date is null
+      or (candidate.end_date at time zone 'UTC')::date >= p_target_date + 1
+    )
     and (
       candidate.project_id = any(v_project_ids)
       or coalesce(candidate.team_member_ids, array[]::text[])
@@ -786,8 +799,13 @@ begin
       and candidate.deleted_at is null
       and candidate.status not in ('completed', 'cancelled')
       and candidate.id <> all(v_target_task_ids)
-      and (candidate.start_date at time zone 'UTC')::date between
-        p_target_date + 1 and p_target_date + v_window
+      and candidate.start_date is not null
+      and (candidate.start_date at time zone 'UTC')::date <=
+        p_target_date + v_window
+      and (
+        candidate.end_date is null
+        or (candidate.end_date at time zone 'UTC')::date >= p_target_date + 1
+      )
       and (
         candidate.project_id = any(v_project_ids)
         or coalesce(candidate.team_member_ids, array[]::text[])
@@ -797,14 +815,19 @@ begin
     limit p_conflict_limit
   loop
     if conflict.start_date is null or conflict.end_date is null
-       or (conflict.start_date at time zone 'UTC')::date < p_target_date + 1
-       or (conflict.start_date at time zone 'UTC')::date > p_target_date + v_window
+       or (conflict.start_date at time zone 'UTC')::date >
+          p_target_date + v_window
+       or (conflict.end_date at time zone 'UTC')::date < p_target_date + 1
        or (conflict.end_date at time zone 'UTC')::date <
           (conflict.start_date at time zone 'UTC')::date
        or conflict.all_day is null
        or (not conflict.all_day and (
          conflict.start_time is null or conflict.end_time is null
-         or conflict.end_time <= conflict.start_time
+         or (
+           (conflict.start_date at time zone 'UTC')::date =
+             (conflict.end_date at time zone 'UTC')::date
+           and conflict.end_time <= conflict.start_time
+         )
        ))
        or not private.agent_user_can_access_entity(
          p_actor_user_id, p_company_id, 'project', conflict.project_id, 'view'

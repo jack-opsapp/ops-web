@@ -34,11 +34,11 @@ const FILES = [
   ],
   [
     "supabase/migrations/20260903123200_agent_weather_reschedule_preview.sql",
-    "fcf036e75817407a77addb50612921ddcda6719c8888b6f93f632b0036e554b7",
+    "1b161a70c771711287c20d04519c1c3d819165cda9d26659e523c73af81e684a",
   ],
   [
     "tests/sql/agent-weather-reschedule-runtime.sql",
-    "93479bef1333ba25da4ee664a691a62300ac622e9d5008a627be39c1269f8624",
+    "6b566061098d584112930898038b282c518ecb9f4a52a5ef7bc1d1dfcb9b938e",
   ],
 ] as const;
 const RUN_POSTGRES =
