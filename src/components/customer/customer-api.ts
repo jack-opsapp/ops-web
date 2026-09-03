@@ -74,15 +74,15 @@ export function membershipView(state: string | null | undefined): MembershipView
 /** Default resend window when the broker omits one (design I8: 1 send / 60s). */
 export const DEFAULT_RETRY_AFTER_SECONDS = 60;
 
-type FetchLike = typeof fetch;
+export type FetchLike = typeof fetch;
 
-interface JsonResponse {
+export interface JsonResponse {
   status: number;
   headers: Headers;
   body: Record<string, unknown> | null;
 }
 
-async function requestJson(
+export async function requestJson(
   fetchImpl: FetchLike,
   url: string,
   init: RequestInit
@@ -114,7 +114,7 @@ async function requestJson(
   return { status: response.status, headers: response.headers, body };
 }
 
-function postJson(fetchImpl: FetchLike, url: string, payload: unknown) {
+export function postJson(fetchImpl: FetchLike, url: string, payload: unknown) {
   return requestJson(fetchImpl, url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -122,7 +122,7 @@ function postJson(fetchImpl: FetchLike, url: string, payload: unknown) {
   });
 }
 
-function readNonNegativeInt(value: unknown): number | null {
+export function readNonNegativeInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
     return Math.ceil(value);
   }
@@ -132,19 +132,19 @@ function readNonNegativeInt(value: unknown): number | null {
   return null;
 }
 
-function retryAfterFrom(res: JsonResponse): number | null {
+export function retryAfterFrom(res: JsonResponse): number | null {
   return (
     readNonNegativeInt(res.body?.retryAfterSeconds) ??
     readNonNegativeInt(res.headers.get("Retry-After"))
   );
 }
 
-function errorCodeOf(body: Record<string, unknown> | null): string {
+export function errorCodeOf(body: Record<string, unknown> | null): string {
   const raw = body?.error ?? body?.code;
   return typeof raw === "string" ? raw.toLowerCase() : "";
 }
 
-function isUnavailable(res: JsonResponse): boolean {
+export function isUnavailable(res: JsonResponse): boolean {
   return res.status === 503 || errorCodeOf(res.body).includes("unavailable");
 }
 

@@ -140,9 +140,61 @@
   cursor: not-allowed;
 }
 
+/* ── Choice (a day or a time): a secondary control that can be ON.
+      Selection is carried by a bright hairline + the card fill + primary
+      text — never the accent, which belongs to the CTA alone. ───────── */
+.cs-choice {
+  background-color: transparent;
+  border: 1px solid var(--portal-border);
+  color: var(--portal-text-secondary);
+  transition:
+    color var(--d-hover) var(--ease-smooth),
+    border-color var(--d-hover) var(--ease-smooth),
+    background-color var(--d-hover) var(--ease-smooth),
+    opacity var(--d-hover) var(--ease-smooth);
+}
+.cs-choice:hover:not(:disabled),
+.cs-choice:focus-visible:not(:disabled) {
+  border-color: var(--portal-border-strong);
+  color: var(--portal-text);
+}
+.cs-choice[aria-pressed="true"] {
+  background-color: var(--portal-card);
+  border-color: var(--portal-text);
+  color: var(--portal-text);
+}
+.cs-choice:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Panel: the bordered block that carries the chosen time and its hold.
+      Flat, not glass — the hosted surface has no glass tier. ────────── */
+.cs-panel {
+  background-color: transparent;
+  border: 1px solid var(--portal-border);
+}
+
 /* ── Semantic text ────────────────────────────────────────────────────── */
 .cs-error { color: var(--portal-error); }
 .cs-success { color: var(--portal-success); }
+/* Attention, not failure: an expiring hold, a released slot (DESIGN.md §3 tan). */
+.cs-warning { color: var(--portal-warning); }
+
+/* ── Attention tag (DESIGN.md §9 earth-tone tag: 12% fill / 30% line).
+      Both derive from --portal-warning, so a company's theme still owns the
+      hue. The plain border is the fallback where color-mix is unavailable. */
+.cs-tag-attention {
+  color: var(--portal-warning);
+  border: 1px solid var(--portal-border-strong);
+  background-color: transparent;
+}
+@supports (color: color-mix(in srgb, red 10%, transparent)) {
+  .cs-tag-attention {
+    border-color: color-mix(in srgb, var(--portal-warning) 30%, transparent);
+    background-color: color-mix(in srgb, var(--portal-warning) 12%, transparent);
+  }
+}
 
 /* ── Step progress (the signature: two segments, filled in --portal-text) */
 .cs-track { background-color: var(--portal-border); }
@@ -174,7 +226,8 @@
   .cs-input,
   .cs-cta,
   .cs-ghost,
-  .cs-secondary {
+  .cs-secondary,
+  .cs-choice {
     transition: none;
   }
 }
