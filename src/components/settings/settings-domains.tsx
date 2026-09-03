@@ -57,6 +57,7 @@ import { IntegrationsTab } from "./integrations-tab";
 import { EmailTemplatesTab } from "./email-templates-tab";
 import { LifecycleSettingsTab } from "./lifecycle-settings-tab";
 import { PortalBrandingTab } from "./portal-branding-tab";
+import { BookingSettingsTab } from "./booking-settings-tab";
 import { ClientCommsSettingsTab } from "./client-comms-settings-tab";
 import { MapPreferencesTab } from "./map-preferences-tab";
 import { DataPrivacyTab } from "./data-privacy-tab";
@@ -97,6 +98,13 @@ export interface SettingsSection {
   permission?: string;
   /** Company feature flag required (canAccessFeature). Only `phase_c` today. */
   flag?: "phase_c";
+  /**
+   * A fact about the company that must hold for the section to exist at all —
+   * not a feature flag and not a permission. `public_integration`: the company's
+   * website is connected to OPS (PUBLIC API P2, design §8), so there is
+   * something for public booking to govern. Resolved once by the shell.
+   */
+  requires?: "public_integration";
   /** Visible only to dev-flagged operators (`currentUser.devPermission`). */
   devOnly?: boolean;
   /** Section body. */
@@ -170,6 +178,10 @@ export const SETTINGS_DOMAINS: SettingsDomain[] = [
       { id: "templates", labelKey: "sections.emailTemplates", permission: "settings.integrations", component: EmailTemplatesTab, legacyTabIds: ["email-templates"] },
       { id: "lifecycle", labelKey: "sections.lifecycle", permission: "settings.company", component: LifecycleSettingsTab, legacyTabIds: ["lifecycle", "ai"] },
       { id: "portal", labelKey: "sections.portal", permission: "portal.manage_branding", component: PortalBrandingTab, legacyTabIds: ["portal"] },
+      // Public booking: whether the company's own website may put a visit on
+      // the calendar, and how firmly (D9). Absent entirely for a company whose
+      // website is not connected to OPS — nothing to configure, nothing shown.
+      { id: "booking", labelKey: "sections.booking", permission: "settings.company", requires: "public_integration", component: BookingSettingsTab },
       // Client Comms = the agent's outbound-autonomy face → Phase-C only (Canpro).
       { id: "client-comms", labelKey: "sections.clientComms", permission: "settings.integrations", flag: "phase_c", component: ClientCommsSettingsTab, legacyTabIds: ["client-comms"] },
     ],

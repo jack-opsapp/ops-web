@@ -12,6 +12,12 @@
  * `/team`→`/settings?section=team` redirect and stored deep links resolve);
  * legacy `?tab=<id>` canonicalizes to `?section=`. Visibility is granular-permission
  * + company-flag gated — never role-name filtering.
+ *
+ * A section may also declare a `requires` fact about the company itself
+ * (PUBLIC API P2: public booking exists only where the company's website is
+ * connected to OPS). That fact is read once here, behind the same permission
+ * the section needs, and shared with the section body through the query cache —
+ * so the gate and the screen can never disagree and the read costs one request.
  */
 
 import { useCallback, useEffect, useMemo } from "react";
@@ -22,6 +28,7 @@ import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore, selectFlagsReady } from "@/lib/store/feature-flags-store";
+import { useBookingSettings } from "@/lib/hooks/use-booking-settings";
 import { SegmentControl, type SegmentControlOption } from "@/components/ui/segment-control";
 import {
   SETTINGS_DOMAINS,
@@ -44,6 +51,16 @@ export function SettingsShell() {
   const flagsReady = useFeatureFlagsStore(selectFlagsReady);
   const devPermission = !!currentUser?.devPermission;
 
+  // Only asked for once the operator may actually read it; a refusal and a
+  // store that cannot answer both mean "no section", so the gate fails closed
+  // in every case including while it loads.
+  const mayReadBookingSettings =
+    permReady && isPermissionUnlocked("settings.company") && can("settings.company");
+  const bookingSettings = useBookingSettings(mayReadBookingSettings);
+  const hasPublicIntegration =
+    bookingSettings.data?.available === true &&
+    bookingSettings.data.publicIntegration === true;
+
   // ── Section visibility (granular permission + company flag + dev gate) ────
   const isSectionVisible = useCallback(
     (s: SettingsSection): boolean => {
@@ -60,9 +77,19 @@ export function SettingsShell() {
         if (!isPermissionUnlocked(s.permission)) return false;
         if (!can(s.permission)) return false;
       }
+      // A company fact, not a flag: fails closed until it is known to hold.
+      if (s.requires === "public_integration" && !hasPublicIntegration) return false;
       return true;
     },
-    [devPermission, flagsReady, canAccessFeature, permReady, isPermissionUnlocked, can],
+    [
+      devPermission,
+      flagsReady,
+      canAccessFeature,
+      permReady,
+      isPermissionUnlocked,
+      can,
+      hasPublicIntegration,
+    ],
   );
 
   // ── Visible domains (a domain shows iff ≥1 of its sections is visible) ────
