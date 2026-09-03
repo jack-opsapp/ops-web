@@ -123,6 +123,34 @@ function rowOrder(): string[] {
     .map((txt) => (txt.match(/summary [a-z0-9]+/) ?? [""])[0]);
 }
 
+/**
+ * Open a picker trigger. Radix popovers listen for pointer events, not a
+ * synthetic `click`, so `fireEvent.click` renders nothing and the assertion
+ * that follows fails on the portal, not the trigger.
+ */
+function openPicker(trigger: HTMLElement) {
+  // Radix's popover trigger listens on click; the pointer pair is kept for the
+  // builds that gate on it. Either way the portal must end up in the document.
+  fireEvent.pointerDown(trigger, { bubbles: true, button: 0, ctrlKey: false });
+  fireEvent.pointerUp(trigger, { bubbles: true });
+  fireEvent.click(trigger, { bubbles: true });
+}
+
+/**
+ * Pick an option inside the open picker. Scoped deliberately: the same label
+ * also renders in the table's own type cell, and `findByText` would match the
+ * row first — clicking that expands the row instead of filtering.
+ */
+async function pickOption(label: string) {
+  const option = (await screen.findAllByRole("option")).find(
+    (el) => el.textContent?.includes(label)
+  );
+  if (!option) throw new Error(`No picker option matching ${label}`);
+  fireEvent.pointerDown(option, { bubbles: true, button: 0 });
+  fireEvent.pointerUp(option, { bubbles: true });
+  fireEvent.click(option, { bubbles: true });
+}
+
 describe("AgentQueuePage", () => {
   beforeEach(() => {
     useApprovalQueue.mockReset();
@@ -174,7 +202,7 @@ describe("AgentQueuePage", () => {
     expect(screen.getByText("3 rows")).toBeInTheDocument();
   });
 
-  it("derives type chips from loaded rows and filters on click", () => {
+  it("derives the type filter from loaded rows and filters on pick", async () => {
     useApprovalQueue.mockReturnValue(
       queueResult({
         data: [
@@ -187,11 +215,44 @@ describe("AgentQueuePage", () => {
     render(<AgentQueuePage />);
     expect(rowOrder()).toHaveLength(3);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /type\.close_project/ })
-    );
+    // The filters are picker triggers, not an inline chip row — two loose
+    // chips per filter is what ballooned the toolbar to four rows.
+    openPicker(screen.getByRole("button", { name: /filter\.allTypes/ }));
+    await pickOption("type.close_project");
+
     expect(rowOrder()).toEqual(["summary c"]);
     expect(screen.getByText("1 row")).toBeInTheDocument();
+  });
+
+  it("offers only the types present in the loaded rows", async () => {
+    useApprovalQueue.mockReturnValue(
+      queueResult({
+        data: [
+          action("a"),
+          action("b", { actionType: "create_task" as AgentActionType }),
+        ],
+      })
+    );
+    render(<AgentQueuePage />);
+
+    openPicker(screen.getByRole("button", { name: /filter\.allTypes/ }));
+    const labels = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(labels.some((l) => l?.includes("type.reassign_task"))).toBe(true);
+    expect(labels.some((l) => l?.includes("type.create_task"))).toBe(true);
+    // Never a type with nothing behind it.
+    expect(labels.some((l) => l?.includes("type.close_project"))).toBe(false);
+  });
+
+  it("hides a filter that has only one value behind it", () => {
+    useApprovalQueue.mockReturnValue(
+      queueResult({ data: [action("a"), action("b")] })
+    );
+    render(<AgentQueuePage />);
+    // One type, one priority — neither filter earns toolbar space.
+    expect(screen.queryByRole("button", { name: /filter\.allTypes/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /filter\.allPriorities/ })
+    ).toBeNull();
   });
 
   it("narrows the rows by search over the proposal text", () => {

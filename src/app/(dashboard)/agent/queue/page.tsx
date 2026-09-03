@@ -27,12 +27,15 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { ActionDetail } from "@/components/agent/action-detail";
 import { RejectDialog } from "@/components/agent/reject-dialog";
 import {
+  QueueFilterChips,
+  type QueueFilterOption,
+} from "@/components/agent/queue-filter-chips";
+import {
   ACTION_TYPE_ICONS,
   PRIORITY_TAG,
   STATUS_TAG,
 } from "@/components/agent/queue-row";
 import { Button } from "@/components/ui/button";
-import { FilterChips, type FilterChipOption } from "@/components/ui/filter-chip";
 import {
   RegisterEmpty,
   RegisterTable,
@@ -269,38 +272,28 @@ export default function AgentQueuePage() {
   // Chips come from the rows on screen, never a hardcoded catalogue, so a
   // filter can only ever offer a cut that returns something.
 
-  const typeOptions: FilterChipOption<TypeFilter>[] = useMemo(() => {
+  const typeOptions: QueueFilterOption<AgentActionType>[] = useMemo(() => {
     const counts = new Map<AgentActionType, number>();
     for (const a of actions) {
       counts.set(a.actionType, (counts.get(a.actionType) ?? 0) + 1);
     }
-    if (counts.size < 2) return [];
-    return [
-      { value: "all" as const, label: `${t("filter.allTypes")} ${actions.length}` },
-      ...Array.from(counts.entries())
-        .sort((a, b) => typeLabel(a[0]).localeCompare(typeLabel(b[0])))
-        .map(([type, count]) => ({
-          value: type,
-          label: `${typeLabel(type)} ${count}`,
-        })),
-    ];
-  }, [actions, t, typeLabel]);
+    return Array.from(counts.entries())
+      .sort((a, b) => typeLabel(a[0]).localeCompare(typeLabel(b[0])))
+      .map(([type, count]) => ({ id: type, label: typeLabel(type), count }));
+  }, [actions, typeLabel]);
 
-  const priorityOptions: FilterChipOption<PriorityFilter>[] = useMemo(() => {
+  const priorityOptions: QueueFilterOption<AgentActionPriority>[] = useMemo(() => {
     const counts = new Map<AgentActionPriority, number>();
     for (const a of actions) {
       counts.set(a.priority, (counts.get(a.priority) ?? 0) + 1);
     }
-    if (counts.size < 2) return [];
-    return [
-      { value: "all" as const, label: t("filter.allPriorities") },
-      ...Array.from(counts.entries())
-        .sort((a, b) => PRIORITY_RANK[a[0]] - PRIORITY_RANK[b[0]])
-        .map(([priority, count]) => ({
-          value: priority,
-          label: `${t(`priority.${priority}`)} ${count}`,
-        })),
-    ];
+    return Array.from(counts.entries())
+      .sort((a, b) => PRIORITY_RANK[a[0]] - PRIORITY_RANK[b[0]])
+      .map(([priority, count]) => ({
+        id: priority,
+        label: t(`priority.${priority}`),
+        count,
+      }));
   }, [actions, t]);
 
   // A filter that matched a moment ago can vanish when the query refreshes
@@ -686,22 +679,16 @@ export default function AgentQueuePage() {
               />
             }
             filters={
-              <>
-                {typeOptions.length > 0 && (
-                  <FilterChips<TypeFilter>
-                    options={typeOptions}
-                    value={typeFilter}
-                    onChange={setTypeFilter}
-                  />
-                )}
-                {priorityOptions.length > 0 && (
-                  <FilterChips<PriorityFilter>
-                    options={priorityOptions}
-                    value={priorityFilter}
-                    onChange={setPriorityFilter}
-                  />
-                )}
-              </>
+              <QueueFilterChips<AgentActionType, AgentActionPriority>
+                typeValue={typeFilter}
+                typeOptions={typeOptions}
+                allTypesLabel={t("filter.allTypes")}
+                onTypeChange={setTypeFilter}
+                priorityValue={priorityFilter}
+                priorityOptions={priorityOptions}
+                allPrioritiesLabel={t("filter.allPriorities")}
+                onPriorityChange={setPriorityFilter}
+              />
             }
             meta={
               <WorkbarCount>
