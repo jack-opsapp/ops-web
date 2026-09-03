@@ -35,7 +35,11 @@ const FILES = [
     "73e99907bc9018d6310983b9c7e7614989642c7c97e2e68597ffc06d4d094345",
   ],
   [
-    "supabase/migrations/20260903123200_agent_weather_reschedule_preview.sql",
+    "supabase/migrations/20260903194613_agent_weather_reschedule_preview.sql",
+    "6809661f9c7a22665786e975773ce38455dffafc59410c8099efa6ce95311e45",
+  ],
+  [
+    "supabase/migrations/20260903194749_agent_weather_reschedule_preview.sql",
     "6809661f9c7a22665786e975773ce38455dffafc59410c8099efa6ce95311e45",
   ],
   [
@@ -128,7 +132,7 @@ async function dropDatabase(database: string): Promise<void> {
 
 describe("weather reschedule PostgreSQL 17 proof", () => {
   it("pins every SQL input and rejects unsafe lifecycle targets", async () => {
-    expect(FILES).toHaveLength(7);
+    expect(FILES).toHaveLength(8);
     for (const [path, hash] of FILES) {
       expect(
         createHash("sha256")
@@ -202,11 +206,11 @@ describe("weather reschedule PostgreSQL 17 proof", () => {
             timeout: 30_000,
           });
           created = true;
-          for (const [path] of FILES.slice(0, 6)) {
+          for (const [path] of FILES.slice(0, 7)) {
             await runFile(database, join(ROOT, path));
           }
-          await runFile(database, join(ROOT, FILES[6][0]));
-          await runFile(database, join(ROOT, FILES[6][0]));
+          await runFile(database, join(ROOT, FILES[7][0]));
+          await runFile(database, join(ROOT, FILES[7][0]));
         } finally {
           if (created) await dropDatabase(database);
         }

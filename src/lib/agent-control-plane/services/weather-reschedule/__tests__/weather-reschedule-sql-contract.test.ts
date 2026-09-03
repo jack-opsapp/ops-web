@@ -5,7 +5,11 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = path.join(
   process.cwd(),
-  "supabase/migrations/20260903123200_agent_weather_reschedule_preview.sql"
+  "supabase/migrations/20260903194613_agent_weather_reschedule_preview.sql"
+);
+const replayMigrationPath = path.join(
+  process.cwd(),
+  "supabase/migrations/20260903194749_agent_weather_reschedule_preview.sql"
 );
 
 function migration(): string {
@@ -13,6 +17,12 @@ function migration(): string {
 }
 
 describe("weather reschedule SQL contract", () => {
+  it("mirrors both production ledger entries byte-for-byte", () => {
+    expect(fs.readFileSync(replayMigrationPath)).toEqual(
+      fs.readFileSync(migrationPath)
+    );
+  });
+
   it("creates only a stable source snapshot and exact final assertion", () => {
     const sql = migration();
     expect(sql).toContain(
