@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCustomerHosted } from "./customer-context";
 import { CodeInput, CODE_LENGTH, type CodeInputHandle } from "./code-input";
+import { StepMark } from "./step-mark";
 import {
   startCustomerAuth,
   verifyCustomerAuth,
@@ -21,7 +22,6 @@ import {
 import {
   fillCopy,
   formatCountdown,
-  formatStep,
   isPlausibleEmail,
   safeCustomerNext,
   type CustomerCopy,
@@ -34,38 +34,6 @@ const TOTAL_STEPS = 2;
 
 /** Remaining attempts are surfaced only once they are scarce (contract: ≤ 2). */
 const ATTEMPTS_WARNING_THRESHOLD = 2;
-
-function StepMark({
-  step,
-  label,
-  copy,
-}: {
-  step: number;
-  label: string;
-  copy: CustomerCopy;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between font-mono text-micro uppercase tracking-widest cs-text-2">
-        <span>
-          {fillCopy(copy["step.counter"], {
-            step: formatStep(step),
-            total: formatStep(TOTAL_STEPS),
-          })}
-        </span>
-        <span>{label}</span>
-      </div>
-      <div className="mt-1 flex gap-0.5" aria-hidden="true">
-        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-          <span
-            key={i}
-            className={i < step ? "flex-1 h-0.5 rounded-bar cs-track-fill" : "flex-1 h-0.5 rounded-bar cs-track"}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function startFailureCopy(failure: StartFailure, copy: CustomerCopy): string {
   switch (failure.kind) {
@@ -291,7 +259,7 @@ export function SignInFlow() {
         className="cs-step-enter flex flex-col gap-3"
         aria-busy={busy || undefined}
       >
-        <StepMark step={1} label={copy["step.email"]} copy={copy} />
+        <StepMark step={1} total={TOTAL_STEPS} label={copy["step.email"]} copy={copy} />
 
         <div className="flex flex-col gap-1">
           <h1 className="font-cakemono font-light text-cake-display uppercase tracking-widest cs-text leading-none">
@@ -363,7 +331,7 @@ export function SignInFlow() {
       aria-busy={busy || undefined}
       data-challenge-dead={challengeDead ? "true" : undefined}
     >
-      <StepMark step={2} label={copy["step.code"]} copy={copy} />
+      <StepMark step={2} total={TOTAL_STEPS} label={copy["step.code"]} copy={copy} />
 
       <div className="flex flex-col gap-1">
         <h1 className="font-cakemono font-light text-cake-display uppercase tracking-widest cs-text leading-none">
