@@ -44,6 +44,7 @@ import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-clien
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
 import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
 import {
+  isLifecycleDecisionReplayConflict,
   loadPhaseCStageDecisionEvidence,
   recordAndApplyPhaseCStageDecision,
 } from "@/lib/email/phase-c-lifecycle-decision";
@@ -7050,6 +7051,27 @@ export const SyncEngine = {
                 });
                 console.warn(
                   `[sync-engine] commercial outcome recovery deferred for opportunity ${opportunityId}: ${acceptError.message}`
+                );
+                continue;
+              }
+              // A settled receipt refusing a replay is this lead's business,
+              // not the mailbox's. The decision it already carries is durable
+              // and applied, so re-recording it writes nothing — while failing
+              // the run here holds the provider cursor and starves every other
+              // message behind one lead. Bug 2db2e0d0 froze Gmail ingestion for
+              // 44 hours on exactly this path. It stays in result.errors so the
+              // cron still reports 503 and the health monitor still sees it:
+              // the mailbox drains, the alarm keeps ringing.
+              if (isLifecycleDecisionReplayConflict(acceptError)) {
+                const conflict =
+                  acceptError instanceof Error
+                    ? acceptError.message
+                    : "unknown error";
+                console.warn(
+                  `[sync-engine] lifecycle decision replay conflict isolated for opportunity ${opportunityId}; mailbox cursor will advance: ${conflict}`
+                );
+                result.errors.push(
+                  `[sync-engine] lifecycle decision replay conflict isolated for opportunity ${opportunityId}: ${conflict}`
                 );
                 continue;
               }
