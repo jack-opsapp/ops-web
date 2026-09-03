@@ -97,6 +97,11 @@ describe("POST /api/customer/booking/contact — success", () => {
     expect(intent.contactPhone).toBe("+1 403 555 0134");
     expect(fake.otpSends).toEqual([EMAIL]);
     expect(intent.verifiedChannel).toBeNull();
+    // The row keeps a digest and broker ciphertext, never the address itself.
+    expect(intent.contactEmailEncrypted).not.toContain("@");
+    expect(
+      JSON.stringify(fake.callsTo("record_guest_booking_contact_as_system"))
+    ).not.toContain("@");
   });
 
   it("carries the website's own answers through, bounded", async () => {
@@ -105,10 +110,10 @@ describe("POST /api/customer/booking/contact — success", () => {
       handle: HANDLE,
       intentRef,
       ...DETAILS,
-      answers: { gate_code: "west side", dogs: true },
+      answers: [{ question: "Gate code", answer: "west side" }],
     });
     const [intent] = [...fake.intents.values()];
-    expect(intent.answers).toEqual({ gate_code: "west side", dogs: true });
+    expect(intent.answers).toEqual([{ question: "Gate code", answer: "west side" }]);
   });
 
   it("returns no uuid and creates no identity or session", async () => {
@@ -185,8 +190,9 @@ describe("POST /api/customer/booking/contact — refusals", () => {
       { handle: HANDLE, intentRef, email: EMAIL },
       { handle: HANDLE, intentRef, name: "   ", email: EMAIL },
       { handle: HANDLE, intentRef, name: "Jordan", email: "not-an-address" },
-      { handle: HANDLE, intentRef, ...DETAILS, phone: "1".repeat(51) },
-      { handle: HANDLE, intentRef, ...DETAILS, answers: { nested: { deep: 1 } } },
+      { handle: HANDLE, intentRef, ...DETAILS, phone: "1".repeat(41) },
+      { handle: HANDLE, intentRef, ...DETAILS, answers: [{ nested: { deep: 1 } }] },
+      { handle: HANDLE, intentRef, ...DETAILS, answers: { gate: "code" } },
       { handle: HANDLE, intentRef, ...DETAILS, answers: ["a"] },
     ]) {
       const res = await contact(body);

@@ -60,7 +60,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const started = await startBookingContact(deps, {
       intentId: intent.intentId,
-      companyId,
       contact,
       networkFingerprint: requestFingerprint(request),
     });

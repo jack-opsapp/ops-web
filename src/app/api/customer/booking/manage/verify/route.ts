@@ -6,9 +6,8 @@
  * slot validation under the company lock — the new proposal is a proposal like
  * any other, and can be refused as gone (I12) — and a cancel is final.
  *
- * Answers { outcome: "rescheduled", scheduledAt, durationMinutes } or
- * { outcome: "cancelled" }: no uuid, no crew, nothing about anybody else's
- * booking (I4, I11).
+ * Answers { outcome: "rescheduled", scheduledAt } or { outcome: "cancelled" }:
+ * no uuid, no crew, nothing about anybody else's booking (I4, I11).
  */
 
 import type { NextRequest, NextResponse } from "next/server";
@@ -83,7 +82,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const result = await verifyBookingManage(deps, {
       intentId: booking.intentId,
-      companyId,
       challengeId: ref.challengeId,
       email,
       code,
@@ -99,11 +97,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return brokerJson(
       result.outcome === "rescheduled"
-        ? {
-            outcome: "rescheduled",
-            scheduledAt: result.scheduledAt,
-            durationMinutes: result.durationMinutes,
-          }
+        ? { outcome: "rescheduled", scheduledAt: result.scheduledAt }
         : { outcome: "cancelled" },
       200
     );

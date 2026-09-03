@@ -4,8 +4,8 @@
  * Body: { handle, intentRef, challengeId, code, email }. Checks the code at
  * the customer auth project — the broker owns attempt accounting (I8) — and
  * then confirms under the company lock, which is the only step that can say a
- * booking exists (I12). Answers { outcome, bookingRef, scheduledAt,
- * durationMinutes }: `confirmed` when the business books instantly,
+ * booking exists (I12). Answers { outcome, bookingRef, scheduledAt }:
+ * `confirmed` when the business books instantly,
  * `submitted` when it holds requests for its own say-so, and nothing on any
  * calendar in that second case (D9, I14).
  *
@@ -79,7 +79,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const result = await verifyBookingContact(deps, {
       intentId: intent.intentId,
-      companyId,
       challengeId: ref.challengeId,
       email,
       code,
@@ -95,8 +94,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       {
         outcome: result.outcome,
         bookingRef: encodeBookingRef(intent.intentId, companyId, deps.keyRing),
+        // Null in `request` mode: there is no time on any calendar until a
+        // staff member accepts, and saying otherwise would be a lie (I14).
         scheduledAt: result.scheduledAt,
-        durationMinutes: result.durationMinutes,
       },
       200
     );

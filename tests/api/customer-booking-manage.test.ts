@@ -191,7 +191,6 @@ describe("POST /api/customer/booking/manage/verify", () => {
     expect(await res.json()).toEqual({
       outcome: "rescheduled",
       scheduledAt: OTHER_SLOT.toISOString(),
-      durationMinutes: 90,
     });
   });
 

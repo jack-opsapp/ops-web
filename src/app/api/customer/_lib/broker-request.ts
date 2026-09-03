@@ -291,13 +291,6 @@ export function slotGoneResponse(): NextResponse {
   return brokerJson({ error: "slot_no_longer_available" }, 409);
 }
 
-export function rateLimitedResponse(retryAfterSeconds: number): NextResponse {
-  const seconds = Math.max(1, Math.ceil(retryAfterSeconds));
-  return brokerJson({ error: "rate_limited", retryAfterSeconds: seconds }, 429, {
-    "Retry-After": String(seconds),
-  });
-}
-
 function unavailableResponse(): NextResponse {
   return brokerJson({ error: "customer_identity_unavailable" }, 503);
 }

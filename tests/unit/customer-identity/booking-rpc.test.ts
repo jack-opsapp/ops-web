@@ -1,30 +1,34 @@
 /**
- * Typed access to the P2 guest-booking system RPCs (design §5).
+ * Typed access to the P2 guest-booking system RPCs, as the migration
+ * `20260902190000_public_booking_foundation.sql` actually landed them.
  *
- * Every row that crosses this boundary is validated exactly against the
- * contract: a malformed database result is an internal failure, never a
- * partially trusted value. These tests are the executable statement of that
- * contract — the migration (P2-1) must satisfy them literally.
+ * Two things this layer owns and the routes therefore cannot get wrong: the
+ * confirm and management RPCs signal refusals by raising named exceptions, and
+ * they hand back real client, opportunity and site-visit ids. Refusals become
+ * typed outcomes here, and the ids stop here (I4).
  */
 
 import { describe, expect, it, vi } from "vitest";
 
 import { CustomerIdentityStoreError } from "@/lib/customer-identity/errors";
 import {
-  beginBookingContact,
-  beginBookingManage,
   cancelGuestBooking,
   confirmGuestBooking,
   holdBookingSlot,
   readBookingPolicy,
+  readGuestBookingManageable,
   readPublicAvailability,
+  recordBookingContact,
   rescheduleGuestBooking,
   type CustomerIdentityRpcClient,
 } from "@/lib/customer-identity/booking-rpc";
 
 const COMPANY_ID = "ddee107c-33cd-483e-8278-0f8d8a180181";
+const INTEGRATION_ID = "77777777-7777-4777-8777-777777777777";
 const INTENT_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-const CHALLENGE_ID = "11111111-1111-4111-8111-111111111111";
+const CLIENT_ID = "44444444-4444-4444-8444-444444444444";
+const OPPORTUNITY_ID = "55555555-5555-4555-8555-555555555555";
+const SITE_VISIT_ID = "66666666-6666-4666-8666-666666666666";
 const FINGERPRINT = "c".repeat(64);
 const EMAIL_DIGEST = `2:${"b".repeat(64)}`;
 const SLOT = new Date("2026-09-15T16:00:00.000Z");
@@ -36,59 +40,60 @@ function clientReturning(
   return { rpc: vi.fn(async () => ({ data, error })) };
 }
 
-function clientThrowing(): CustomerIdentityRpcClient {
-  return {
-    rpc: async () => {
-      throw new Error("network");
-    },
-  };
+/** How supabase-js surfaces a `raise exception ... using errcode` from plpgsql. */
+function clientRaising(message: string, code = "P0001") {
+  return { rpc: vi.fn(async () => ({ data: null, error: { code, message } })) };
 }
 
 const POLICY_ROW = {
   mode: "instant",
   timezone: "America/Edmonton",
   visit_duration_minutes: 60,
-  horizon_days: 21,
   min_notice_hours: 48,
-  slot_granularity_minutes: 60,
+  horizon_days: 21,
 };
 
 describe("readBookingPolicy", () => {
-  it("calls read_public_booking_policy_as_system with the company", async () => {
+  it("reads the policy header for a company that takes bookings", async () => {
     const client = clientReturning([POLICY_ROW]);
-    const policy = await readBookingPolicy(client, { companyId: COMPANY_ID });
+    await expect(readBookingPolicy(client, { companyId: COMPANY_ID })).resolves.toEqual(
+      POLICY_ROW
+    );
     expect(client.rpc).toHaveBeenCalledWith("read_public_booking_policy_as_system", {
       p_company_id: COMPANY_ID,
     });
-    expect(policy).toEqual(POLICY_ROW);
   });
 
-  it("accepts every mode the policy CHECK allows", async () => {
-    for (const mode of ["off", "request", "instant"]) {
-      const client = clientReturning([{ ...POLICY_ROW, mode }]);
-      await expect(readBookingPolicy(client, { companyId: COMPANY_ID })).resolves.toMatchObject(
-        { mode }
-      );
-    }
+  it("is null when the company does not take bookings — the RPC returns no row", async () => {
+    await expect(
+      readBookingPolicy(clientReturning([]), { companyId: COMPANY_ID })
+    ).resolves.toBeNull();
+    await expect(
+      readBookingPolicy(clientReturning(null), { companyId: COMPANY_ID })
+    ).resolves.toBeNull();
   });
 
-  it("refuses a mode outside the contract", async () => {
-    const client = clientReturning([{ ...POLICY_ROW, mode: "maybe" }]);
-    await expect(readBookingPolicy(client, { companyId: COMPANY_ID })).rejects.toBeInstanceOf(
-      CustomerIdentityStoreError
-    );
+  it("accepts request mode and refuses a mode outside the CHECK", async () => {
+    await expect(
+      readBookingPolicy(clientReturning([{ ...POLICY_ROW, mode: "request" }]), {
+        companyId: COMPANY_ID,
+      })
+    ).resolves.toMatchObject({ mode: "request" });
+    await expect(
+      readBookingPolicy(clientReturning([{ ...POLICY_ROW, mode: "maybe" }]), {
+        companyId: COMPANY_ID,
+      })
+    ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
   });
 
-  it("refuses a missing row, an extra row and a nonsense duration", async () => {
-    for (const data of [
-      [],
-      [POLICY_ROW, POLICY_ROW],
-      [{ ...POLICY_ROW, visit_duration_minutes: 0 }],
-      [{ ...POLICY_ROW, timezone: "" }],
-      null,
+  it("refuses a duration outside the column CHECK and a blank timezone", async () => {
+    for (const row of [
+      { ...POLICY_ROW, visit_duration_minutes: 0 },
+      { ...POLICY_ROW, visit_duration_minutes: 481 },
+      { ...POLICY_ROW, timezone: "" },
     ]) {
       await expect(
-        readBookingPolicy(clientReturning(data), { companyId: COMPANY_ID })
+        readBookingPolicy(clientReturning([row]), { companyId: COMPANY_ID })
       ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
     }
   });
@@ -100,51 +105,41 @@ describe("readBookingPolicy", () => {
     );
     expect(client.rpc).not.toHaveBeenCalled();
   });
-
-  it("wraps a transport failure as a store error", async () => {
-    await expect(
-      readBookingPolicy(clientThrowing(), { companyId: COMPANY_ID })
-    ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
-  });
 });
 
 describe("readPublicAvailability", () => {
-  it("passes the date range through and returns the slot starts in order", async () => {
+  it("passes the range through and parses the slot starts", async () => {
     const client = clientReturning([
       { slot_start_at: "2026-09-15T16:00:00+00:00" },
       { slot_start_at: "2026-09-15T17:00:00+00:00" },
     ]);
-    const slots = await readPublicAvailability(client, {
-      companyId: COMPANY_ID,
-      from: "2026-09-15",
-      to: "2026-09-16",
-    });
+    await expect(
+      readPublicAvailability(client, {
+        companyId: COMPANY_ID,
+        from: "2026-09-15",
+        to: "2026-09-16",
+      })
+    ).resolves.toEqual([SLOT, new Date("2026-09-15T17:00:00.000Z")]);
     expect(client.rpc).toHaveBeenCalledWith("read_public_availability_as_system", {
       p_company_id: COMPANY_ID,
       p_from: "2026-09-15",
       p_to: "2026-09-16",
     });
-    expect(slots).toEqual([SLOT, new Date("2026-09-15T17:00:00.000Z")]);
   });
 
   it("treats an empty result as no availability, not a failure", async () => {
-    await expect(
-      readPublicAvailability(clientReturning([]), {
-        companyId: COMPANY_ID,
-        from: "2026-09-15",
-        to: "2026-09-16",
-      })
-    ).resolves.toEqual([]);
-    await expect(
-      readPublicAvailability(clientReturning(null), {
-        companyId: COMPANY_ID,
-        from: "2026-09-15",
-        to: "2026-09-16",
-      })
-    ).resolves.toEqual([]);
+    for (const data of [[], null]) {
+      await expect(
+        readPublicAvailability(clientReturning(data), {
+          companyId: COMPANY_ID,
+          from: "2026-09-15",
+          to: "2026-09-16",
+        })
+      ).resolves.toEqual([]);
+    }
   });
 
-  it("refuses an unparseable timestamp rather than passing NaN on", async () => {
+  it("refuses an unparseable timestamp and a malformed date bound", async () => {
     await expect(
       readPublicAvailability(clientReturning([{ slot_start_at: "not a time" }]), {
         companyId: COMPANY_ID,
@@ -152,9 +147,6 @@ describe("readPublicAvailability", () => {
         to: "2026-09-16",
       })
     ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
-  });
-
-  it("refuses a malformed date bound before calling anything", async () => {
     const client = clientReturning([]);
     await expect(
       readPublicAvailability(client, {
@@ -168,54 +160,49 @@ describe("readPublicAvailability", () => {
 });
 
 describe("holdBookingSlot", () => {
-  it("returns the intent and its expiry when the hold is granted", async () => {
+  const input = {
+    companyId: COMPANY_ID,
+    integrationId: INTEGRATION_ID,
+    slotStartAt: SLOT,
+    networkFingerprint: FINGERPRINT,
+  };
+
+  it("carries the integration the hold is attributed to", async () => {
     const client = clientReturning([
       {
         intent_id: INTENT_ID,
         hold_expires_at: "2026-09-10T12:05:00+00:00",
         allowed: true,
-        reason: "ok",
-        retry_after_seconds: 0,
+        retry_after_seconds: null,
       },
     ]);
-    const held = await holdBookingSlot(client, {
-      companyId: COMPANY_ID,
-      slotStartAt: SLOT,
-      networkFingerprint: FINGERPRINT,
+    await expect(holdBookingSlot(client, input)).resolves.toMatchObject({
+      allowed: true,
+      intent_id: INTENT_ID,
     });
     expect(client.rpc).toHaveBeenCalledWith("hold_booking_slot_as_system", {
       p_company_id: COMPANY_ID,
+      p_integration_id: INTEGRATION_ID,
       p_slot_start_at: SLOT.toISOString(),
       p_network_fingerprint: FINGERPRINT,
     });
-    expect(held).toEqual({
-      intent_id: INTENT_ID,
-      hold_expires_at: "2026-09-10T12:05:00+00:00",
-      allowed: true,
-      reason: "ok",
-      retry_after_seconds: 0,
-    });
   });
 
-  it("accepts a refusal shaped identically minus the intent (I5)", async () => {
-    for (const reason of ["slot_unavailable", "rate_limited"]) {
-      const client = clientReturning([
-        {
-          intent_id: null,
-          hold_expires_at: null,
-          allowed: false,
-          reason,
-          retry_after_seconds: 60,
-        },
-      ]);
-      await expect(
-        holdBookingSlot(client, {
-          companyId: COMPANY_ID,
-          slotStartAt: SLOT,
-          networkFingerprint: FINGERPRINT,
-        })
-      ).resolves.toMatchObject({ allowed: false, reason, intent_id: null });
-    }
+  it("accepts the one refusal shape — success minus the intent (I5)", async () => {
+    const client = clientReturning([
+      {
+        intent_id: null,
+        hold_expires_at: null,
+        allowed: false,
+        retry_after_seconds: 60,
+      },
+    ]);
+    await expect(holdBookingSlot(client, input)).resolves.toEqual({
+      intent_id: null,
+      hold_expires_at: null,
+      allowed: false,
+      retry_after_seconds: 60,
+    });
   });
 
   it("refuses a granted hold that carries no intent", async () => {
@@ -224,258 +211,287 @@ describe("holdBookingSlot", () => {
         intent_id: null,
         hold_expires_at: null,
         allowed: true,
-        reason: "ok",
-        retry_after_seconds: 0,
+        retry_after_seconds: null,
       },
     ]);
-    await expect(
-      holdBookingSlot(client, {
-        companyId: COMPANY_ID,
-        slotStartAt: SLOT,
-        networkFingerprint: FINGERPRINT,
-      })
-    ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
-  });
-
-  it("refuses a reason outside the contract", async () => {
-    const client = clientReturning([
-      {
-        intent_id: null,
-        hold_expires_at: null,
-        allowed: false,
-        reason: "because",
-        retry_after_seconds: 0,
-      },
-    ]);
-    await expect(
-      holdBookingSlot(client, {
-        companyId: COMPANY_ID,
-        slotStartAt: SLOT,
-        networkFingerprint: FINGERPRINT,
-      })
-    ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
+    await expect(holdBookingSlot(client, input)).rejects.toBeInstanceOf(
+      CustomerIdentityStoreError
+    );
   });
 
   it("refuses a fingerprint that is not a sha-256 digest", async () => {
     const client = clientReturning([]);
     await expect(
-      holdBookingSlot(client, {
-        companyId: COMPANY_ID,
-        slotStartAt: SLOT,
-        networkFingerprint: "203.0.113.7",
-      })
+      holdBookingSlot(client, { ...input, networkFingerprint: "203.0.113.7" })
     ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
     expect(client.rpc).not.toHaveBeenCalled();
   });
 });
 
-describe("beginBookingContact", () => {
+describe("recordBookingContact", () => {
   const input = {
     intentId: INTENT_ID,
-    companyId: COMPANY_ID,
     contactName: "Jordan Reese",
-    contactEmail: "jordan@example.com",
+    contactEmailDigest: EMAIL_DIGEST,
+    contactEmailEncrypted: "v1.1.abcdefghijklmnop.qrstuvwxyz012345678901",
     contactPhone: "+1 403 555 0134",
-    answers: { gate_code: "1234" },
-    emailDigest: EMAIL_DIGEST,
-    networkFingerprint: FINGERPRINT,
+    answers: [{ question: "Gate code", answer: "west side" }],
   };
 
-  it("attaches the contact and begins the challenge in one call", async () => {
+  it("sends the digest and the ciphertext, never the address", async () => {
     const client = clientReturning([
-      { accepted: true, challenge_id: CHALLENGE_ID, allowed: true, retry_after_seconds: 60 },
+      { intent_id: INTENT_ID, hold_expires_at: "2026-09-10T12:05:00+00:00", accepted: true },
     ]);
-    const result = await beginBookingContact(client, input);
-    expect(client.rpc).toHaveBeenCalledWith("begin_guest_booking_contact_as_system", {
-      p_intent_id: INTENT_ID,
-      p_company_id: COMPANY_ID,
-      p_contact_name: "Jordan Reese",
-      p_contact_email: "jordan@example.com",
-      p_contact_phone: "+1 403 555 0134",
-      p_answers: { gate_code: "1234" },
-      p_email_digest: EMAIL_DIGEST,
-      p_network_fingerprint: FINGERPRINT,
+    await expect(recordBookingContact(client, input)).resolves.toMatchObject({
+      accepted: true,
     });
-    expect(result).toMatchObject({ accepted: true, allowed: true });
+    const args = client.rpc.mock.calls[0][1] as Record<string, unknown>;
+    expect(client.rpc.mock.calls[0][0]).toBe("record_guest_booking_contact_as_system");
+    expect(args).toEqual({
+      p_intent_id: INTENT_ID,
+      p_contact_name: "Jordan Reese",
+      p_contact_email_digest: EMAIL_DIGEST,
+      p_contact_email_encrypted: input.contactEmailEncrypted,
+      p_contact_phone: "+1 403 555 0134",
+      p_answers: [{ question: "Gate code", answer: "west side" }],
+    });
+    expect(JSON.stringify(args)).not.toContain("@");
   });
 
-  it("carries a null phone through rather than an empty string", async () => {
+  it("carries a null phone rather than an empty string", async () => {
     const client = clientReturning([
-      { accepted: true, challenge_id: CHALLENGE_ID, allowed: true, retry_after_seconds: 60 },
+      { intent_id: INTENT_ID, hold_expires_at: null, accepted: false },
     ]);
-    await beginBookingContact(client, { ...input, contactPhone: null });
+    await recordBookingContact(client, { ...input, contactPhone: null });
     expect(client.rpc.mock.calls[0][1]).toMatchObject({ p_contact_phone: null });
   });
 
-  it("accepts a refused intent and a refused send, both without a challenge", async () => {
-    for (const row of [
-      { accepted: false, challenge_id: null, allowed: false, retry_after_seconds: 0 },
-      { accepted: true, challenge_id: null, allowed: false, retry_after_seconds: 60 },
-    ]) {
-      await expect(beginBookingContact(clientReturning([row]), input)).resolves.toEqual(row);
-    }
+  it("accepts the refusal for a hold that is dead or already used", async () => {
+    const client = clientReturning([
+      { intent_id: INTENT_ID, hold_expires_at: null, accepted: false },
+    ]);
+    await expect(recordBookingContact(client, input)).resolves.toMatchObject({
+      accepted: false,
+    });
   });
 
-  it("refuses an allowed challenge that carries no challenge id", async () => {
-    const client = clientReturning([
-      { accepted: true, challenge_id: null, allowed: true, retry_after_seconds: 0 },
-    ]);
-    await expect(beginBookingContact(client, input)).rejects.toBeInstanceOf(
-      CustomerIdentityStoreError
-    );
+  it("refuses a malformed digest before calling anything", async () => {
+    const client = clientReturning([]);
+    await expect(
+      recordBookingContact(client, { ...input, contactEmailDigest: "nope" })
+    ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 });
 
 describe("confirmGuestBooking", () => {
   const input = {
     intentId: INTENT_ID,
-    companyId: COMPANY_ID,
-    challengeId: CHALLENGE_ID,
+    contactEmailDigest: EMAIL_DIGEST,
+    contactEmail: "jordan@example.com",
     verifiedChannel: "email" as const,
-    networkFingerprint: FINGERPRINT,
   };
 
-  it("returns the booked window on an instant confirmation", async () => {
+  it("confirms and keeps every id behind the boundary (I4)", async () => {
     const client = clientReturning([
       {
         outcome: "confirmed",
+        intent_id: INTENT_ID,
+        client_id: CLIENT_ID,
+        opportunity_id: OPPORTUNITY_ID,
+        site_visit_id: SITE_VISIT_ID,
         scheduled_at: "2026-09-15T16:00:00+00:00",
-        duration_minutes: 60,
       },
     ]);
     const result = await confirmGuestBooking(client, input);
+    expect(result).toEqual({
+      outcome: "confirmed",
+      scheduledAt: "2026-09-15T16:00:00+00:00",
+    });
+    expect(JSON.stringify(result)).not.toContain(CLIENT_ID);
+    expect(JSON.stringify(result)).not.toContain(OPPORTUNITY_ID);
+    expect(JSON.stringify(result)).not.toContain(SITE_VISIT_ID);
     expect(client.rpc).toHaveBeenCalledWith("confirm_guest_booking_as_system", {
       p_intent_id: INTENT_ID,
-      p_company_id: COMPANY_ID,
-      p_challenge_id: CHALLENGE_ID,
+      p_contact_email_digest: EMAIL_DIGEST,
+      p_contact_email: "jordan@example.com",
       p_verified_channel: "email",
-      p_network_fingerprint: FINGERPRINT,
     });
-    expect(result).toMatchObject({ outcome: "confirmed", duration_minutes: 60 });
   });
 
-  it("returns the proposed window on a request-mode submission (I14)", async () => {
+  it("submits without a scheduled time in request mode (I14)", async () => {
     const client = clientReturning([
       {
         outcome: "submitted",
-        scheduled_at: "2026-09-15T16:00:00+00:00",
-        duration_minutes: 90,
+        intent_id: INTENT_ID,
+        client_id: CLIENT_ID,
+        opportunity_id: OPPORTUNITY_ID,
+        site_visit_id: null,
+        scheduled_at: null,
       },
     ]);
-    await expect(confirmGuestBooking(client, input)).resolves.toMatchObject({
+    await expect(confirmGuestBooking(client, input)).resolves.toEqual({
       outcome: "submitted",
+      scheduledAt: null,
     });
   });
 
-  it("carries the I12 refusal without a window", async () => {
-    for (const outcome of ["slot_no_longer_available", "not_confirmable"]) {
-      const client = clientReturning([
-        { outcome, scheduled_at: null, duration_minutes: null },
-      ]);
-      await expect(confirmGuestBooking(client, input)).resolves.toMatchObject({ outcome });
+  it("turns the slot exceptions into a gone slot", async () => {
+    for (const message of ["booking_slot_unavailable", "booking_not_available"]) {
+      await expect(
+        confirmGuestBooking(clientRaising(message, "55000"), input)
+      ).resolves.toEqual({ outcome: "slot_no_longer_available", scheduledAt: null });
     }
   });
 
-  it("refuses a booked outcome with no window and an outcome outside the contract", async () => {
-    for (const row of [
-      { outcome: "confirmed", scheduled_at: null, duration_minutes: null },
-      { outcome: "confirmed", scheduled_at: "2026-09-15T16:00:00+00:00", duration_minutes: null },
-      { outcome: "booked", scheduled_at: null, duration_minutes: null },
-    ]) {
-      await expect(confirmGuestBooking(clientReturning([row]), input)).rejects.toBeInstanceOf(
-        CustomerIdentityStoreError
-      );
+  it("turns the intent exceptions into a refusal that names nothing", async () => {
+    for (const [message, code] of [
+      ["booking_intent_not_found", "P0002"],
+      ["booking_intent_not_holdable", "55000"],
+      ["booking_hold_expired", "55000"],
+      ["booking_contact_mismatch", "42501"],
+    ] as const) {
+      await expect(
+        confirmGuestBooking(clientRaising(message, code), input)
+      ).resolves.toEqual({ outcome: "not_actionable", scheduledAt: null });
     }
+  });
+
+  it("does not swallow a genuine failure as a refusal", async () => {
+    for (const [message, code] of [
+      ["access_denied", "42501"],
+      ["booking_verified_channel_invalid", "22023"],
+      ["some unrelated database failure", "XX000"],
+    ] as const) {
+      await expect(
+        confirmGuestBooking(clientRaising(message, code), input)
+      ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
+    }
+  });
+
+  it("refuses a confirmed row with no scheduled time", async () => {
+    const client = clientReturning([
+      {
+        outcome: "confirmed",
+        intent_id: INTENT_ID,
+        client_id: CLIENT_ID,
+        opportunity_id: OPPORTUNITY_ID,
+        site_visit_id: SITE_VISIT_ID,
+        scheduled_at: null,
+      },
+    ]);
+    await expect(confirmGuestBooking(client, input)).rejects.toBeInstanceOf(
+      CustomerIdentityStoreError
+    );
   });
 });
 
-describe("beginBookingManage", () => {
-  it("begins a fresh challenge for a management action (I15)", async () => {
-    const client = clientReturning([
-      { accepted: true, challenge_id: CHALLENGE_ID, allowed: true, retry_after_seconds: 60 },
-    ]);
-    await beginBookingManage(client, {
-      intentId: INTENT_ID,
-      companyId: COMPANY_ID,
-      emailDigest: EMAIL_DIGEST,
-      networkFingerprint: FINGERPRINT,
-    });
-    expect(client.rpc).toHaveBeenCalledWith("begin_guest_booking_manage_as_system", {
+describe("readGuestBookingManageable", () => {
+  const input = {
+    intentId: INTENT_ID,
+    companyId: COMPANY_ID,
+    contactEmailDigest: EMAIL_DIGEST,
+  };
+
+  it("asks whether this address may manage this booking", async () => {
+    const client = clientReturning(true);
+    await expect(readGuestBookingManageable(client, input)).resolves.toBe(true);
+    expect(client.rpc).toHaveBeenCalledWith("read_guest_booking_manageable_as_system", {
       p_intent_id: INTENT_ID,
       p_company_id: COMPANY_ID,
-      p_email_digest: EMAIL_DIGEST,
-      p_network_fingerprint: FINGERPRINT,
+      p_contact_email_digest: EMAIL_DIGEST,
     });
+  });
+
+  it("is false, never a throw, when the answer is no", async () => {
+    await expect(readGuestBookingManageable(clientReturning(false), input)).resolves.toBe(
+      false
+    );
+  });
+
+  it("fails closed while the RPC does not exist yet, so no code is ever sent", async () => {
+    for (const [message, code] of [
+      ["Could not find the function public.read_guest_booking_manageable_as_system", "PGRST202"],
+      ["function public.read_guest_booking_manageable_as_system does not exist", "42883"],
+    ] as const) {
+      await expect(
+        readGuestBookingManageable(clientRaising(message, code), input)
+      ).resolves.toBe(false);
+    }
+  });
+
+  it("does not hide a real store failure behind the closed door", async () => {
+    await expect(
+      readGuestBookingManageable(clientRaising("access_denied", "42501"), input)
+    ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
   });
 });
 
 describe("rescheduleGuestBooking and cancelGuestBooking", () => {
-  it("re-runs slot validation and returns the new window", async () => {
+  it("reschedules and returns only the new time", async () => {
     const client = clientReturning([
       {
-        outcome: "rescheduled",
+        intent_id: INTENT_ID,
+        site_visit_id: SITE_VISIT_ID,
         scheduled_at: "2026-09-16T16:00:00+00:00",
-        duration_minutes: 60,
       },
     ]);
     const result = await rescheduleGuestBooking(client, {
       intentId: INTENT_ID,
-      companyId: COMPANY_ID,
-      challengeId: CHALLENGE_ID,
-      slotStartAt: SLOT,
-      networkFingerprint: FINGERPRINT,
+      scheduledAt: SLOT,
     });
+    expect(result).toEqual({
+      outcome: "rescheduled",
+      scheduledAt: "2026-09-16T16:00:00+00:00",
+    });
+    expect(JSON.stringify(result)).not.toContain(SITE_VISIT_ID);
     expect(client.rpc).toHaveBeenCalledWith("reschedule_guest_booking_as_system", {
       p_intent_id: INTENT_ID,
-      p_company_id: COMPANY_ID,
-      p_challenge_id: CHALLENGE_ID,
-      p_slot_start_at: SLOT.toISOString(),
-      p_network_fingerprint: FINGERPRINT,
+      p_scheduled_at: SLOT.toISOString(),
     });
-    expect(result).toMatchObject({ outcome: "rescheduled" });
   });
 
-  it("carries a reschedule refusal without a window", async () => {
-    for (const outcome of ["slot_no_longer_available", "not_manageable"]) {
-      const client = clientReturning([
-        { outcome, scheduled_at: null, duration_minutes: null },
-      ]);
+  it("turns a reschedule's exceptions into typed refusals", async () => {
+    await expect(
+      rescheduleGuestBooking(clientRaising("booking_slot_unavailable", "55000"), {
+        intentId: INTENT_ID,
+        scheduledAt: SLOT,
+      })
+    ).resolves.toMatchObject({ outcome: "slot_no_longer_available" });
+    for (const message of [
+      "booking_not_reschedulable",
+      "booking_intent_not_found",
+      "site_visit_not_reschedulable",
+      "site_visit_not_a_booking",
+      "site_visit_not_found",
+    ]) {
       await expect(
-        rescheduleGuestBooking(client, {
+        rescheduleGuestBooking(clientRaising(message, "55000"), {
           intentId: INTENT_ID,
-          companyId: COMPANY_ID,
-          challengeId: CHALLENGE_ID,
-          slotStartAt: SLOT,
-          networkFingerprint: FINGERPRINT,
+          scheduledAt: SLOT,
         })
-      ).resolves.toMatchObject({ outcome });
+      ).resolves.toMatchObject({ outcome: "not_actionable" });
     }
   });
 
-  it("cancels and refuses an outcome outside the contract", async () => {
-    const client = clientReturning([{ outcome: "cancelled" }]);
+  it("cancels, and turns its exceptions into typed refusals", async () => {
+    const client = clientReturning([
+      { intent_id: INTENT_ID, site_visit_id: SITE_VISIT_ID },
+    ]);
     await expect(
-      cancelGuestBooking(client, {
-        intentId: INTENT_ID,
-        companyId: COMPANY_ID,
-        challengeId: CHALLENGE_ID,
-        networkFingerprint: FINGERPRINT,
-      })
-    ).resolves.toEqual({ outcome: "cancelled" });
+      cancelGuestBooking(client, { intentId: INTENT_ID, reason: "customer_cancelled" })
+    ).resolves.toEqual({ outcome: "cancelled", scheduledAt: null });
     expect(client.rpc).toHaveBeenCalledWith("cancel_guest_booking_as_system", {
       p_intent_id: INTENT_ID,
-      p_company_id: COMPANY_ID,
-      p_challenge_id: CHALLENGE_ID,
-      p_network_fingerprint: FINGERPRINT,
+      p_reason: "customer_cancelled",
     });
-
+    for (const message of ["booking_not_cancellable", "booking_intent_not_found"]) {
+      await expect(
+        cancelGuestBooking(clientRaising(message, "55000"), { intentId: INTENT_ID })
+      ).resolves.toMatchObject({ outcome: "not_actionable" });
+    }
     await expect(
-      cancelGuestBooking(clientReturning([{ outcome: "gone" }]), {
-        intentId: INTENT_ID,
-        companyId: COMPANY_ID,
-        challengeId: CHALLENGE_ID,
-        networkFingerprint: FINGERPRINT,
-      })
+      cancelGuestBooking(clientRaising("access_denied", "42501"), { intentId: INTENT_ID })
     ).rejects.toBeInstanceOf(CustomerIdentityStoreError);
   });
 });

@@ -68,8 +68,7 @@ async function armed(): Promise<{ intentRef: string; challengeId: string }> {
   });
   const started = await startBookingContact(fake.deps(), {
     intentId: intent.intentId,
-    companyId: COMPANY_ID,
-    contact: { name: "Jordan Reese", email: EMAIL, phone: null, answers: {} },
+    contact: { name: "Jordan Reese", email: EMAIL, phone: null, answers: [] },
     networkFingerprint: "f".repeat(64),
   });
   fake.codes.set(EMAIL, CODE);
@@ -100,7 +99,6 @@ describe("POST /api/customer/booking/verify — instant mode", () => {
       outcome: "confirmed",
       bookingRef: expect.stringMatching(/^bk_[A-Za-z0-9_-]{46}$/),
       scheduledAt: SLOT.toISOString(),
-      durationMinutes: 90,
     });
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
@@ -140,7 +138,10 @@ describe("POST /api/customer/booking/verify — request mode (I14)", () => {
     const { intentRef, challengeId } = await armed();
     const res = await verify({ handle: HANDLE, intentRef, challengeId, code: CODE, email: EMAIL });
     expect(res.status).toBe(200);
-    expect((await res.json()).outcome).toBe("submitted");
+    const body = await res.json();
+    expect(body.outcome).toBe("submitted");
+    // Nothing is on any calendar yet, and the answer says so (I14).
+    expect(body.scheduledAt).toBeNull();
     const [intent] = [...fake.intents.values()];
     expect(intent.state).toBe("submitted");
   });

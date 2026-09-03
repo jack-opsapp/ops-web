@@ -5,17 +5,24 @@ import { randomUUID } from "node:crypto";
 import type { CustomerIdentityDeps } from "./config";
 import { emailDigest, normalizeEmail } from "./credentials";
 import {
-  beginBookingContact,
-  beginBookingManage,
   cancelGuestBooking,
   confirmGuestBooking,
   holdBookingSlot,
   readBookingPolicy,
+  readGuestBookingManageable,
   readPublicAvailability,
+  recordBookingContact,
   rescheduleGuestBooking,
+  type BookingAnswer,
   type BookingMode,
 } from "./booking-rpc";
-import { appendIdentityEvent, recordOtpAttempt } from "./rpc";
+import { encryptContactEmail } from "./booking-crypto";
+import {
+  appendIdentityEvent,
+  beginOtpChallenge,
+  ensureHostedIntegration,
+  recordOtpAttempt,
+} from "./rpc";
 import { OTP_MAX_ATTEMPTS } from "./otp";
 
 /**
@@ -33,27 +40,34 @@ import { OTP_MAX_ATTEMPTS } from "./otp";
  * a booking held under another address, and a send the limits refused all
  * answer with a challenge that will never resolve — the caller cannot tell
  * them apart, and neither can anyone probing the surface (I5, I11).
+ *
+ * **Which company an intent belongs to is the ref's binding, checked by the
+ * route before it calls here.** The landed RPCs take an intent id and prove
+ * the rest themselves: the confirm re-checks that the verified address is the
+ * one attached to the intent, so a proved code cannot be moved between
+ * bookings. Nothing in this module re-derives a company from caller input.
  */
 
 const CONTACT_NAME_MAX_LENGTH = 200;
-const CONTACT_PHONE_MAX_LENGTH = 50;
-const ANSWER_KEY_MAX_LENGTH = 64;
-const ANSWER_VALUE_MAX_LENGTH = 500;
+const CONTACT_PHONE_MAX_LENGTH = 40;
+const ANSWER_KEY_MAX_LENGTH = 120;
+const ANSWER_FIELDS_MAX = 8;
+const ANSWERS_SERIALIZED_MAX_LENGTH = 16_384;
 
-/** Same bound the intake ledger holds its answers to (design §4.2). */
+/** `private.booking_answers_valid`: at most 100 entries, each a flat object. */
 export const MAX_BOOKING_ANSWERS = 100 as const;
+
+type BookingAnswerValue = string | number | boolean | null;
 
 const CODE_PATTERN = /^[0-9]{6}$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-export type BookingAnswerValue = string | number | boolean | null;
-
 export interface BookingContact {
   readonly name: string;
   readonly email: string;
   readonly phone: string | null;
-  readonly answers: Readonly<Record<string, BookingAnswerValue>>;
+  readonly answers: readonly BookingAnswer[];
 }
 
 export interface BookingAvailability {
@@ -64,14 +78,14 @@ export interface BookingAvailability {
   readonly slots: readonly Date[];
 }
 
+/**
+ * One refusal, whatever the reason. The migration answers a closed slot, an
+ * inactive integration and a reached cap identically — success minus the
+ * intent — and nothing above it may invent a distinction it cannot see (I5).
+ */
 export type HoldSlotResult =
   | { readonly ok: true; readonly intentId: string; readonly holdExpiresAt: string }
-  | { readonly ok: false; readonly reason: "slot_unavailable" }
-  | {
-      readonly ok: false;
-      readonly reason: "rate_limited";
-      readonly retryAfterSeconds: number;
-    };
+  | { readonly ok: false; readonly reason: "slot_no_longer_available" };
 
 /** Identical for an accepted intent, a refused one and a refused send (I5). */
 export interface BookingChallengeStarted {
@@ -92,8 +106,8 @@ export type ConfirmBookingResult =
   | {
       readonly ok: true;
       readonly outcome: "confirmed" | "submitted";
-      readonly scheduledAt: string;
-      readonly durationMinutes: number;
+      /** Null for `submitted`: a request is on nobody's calendar yet (I14). */
+      readonly scheduledAt: string | null;
     }
   | { readonly ok: false; readonly reason: "slot_no_longer_available" }
   | { readonly ok: false; readonly reason: "not_confirmable" }
@@ -102,12 +116,7 @@ export type ConfirmBookingResult =
 export type ManageBookingAction = "reschedule" | "cancel";
 
 export type ManageBookingResult =
-  | {
-      readonly ok: true;
-      readonly outcome: "rescheduled";
-      readonly scheduledAt: string;
-      readonly durationMinutes: number;
-    }
+  | { readonly ok: true; readonly outcome: "rescheduled"; readonly scheduledAt: string }
   | { readonly ok: true; readonly outcome: "cancelled" }
   | { readonly ok: false; readonly reason: "slot_no_longer_available" }
   | { readonly ok: false; readonly reason: "not_manageable" }
@@ -125,7 +134,7 @@ export async function readBookingAvailability(
   input: { companyId: string; from: string; to: string }
 ): Promise<BookingAvailability | null> {
   const policy = await readBookingPolicy(deps.rpc, { companyId: input.companyId });
-  if (policy.mode === "off") return null;
+  if (policy === null || policy.mode === "off") return null;
 
   const slots = await readPublicAvailability(deps.rpc, {
     companyId: input.companyId,
@@ -146,49 +155,62 @@ export async function holdSlot(
   deps: CustomerIdentityDeps,
   input: { companyId: string; slotStartAt: Date; networkFingerprint: string }
 ): Promise<HoldSlotResult> {
-  const held = await holdBookingSlot(deps.rpc, input);
-  if (held.allowed) {
-    // The schema guarantees both are present on an allowed hold.
-    return Object.freeze({
-      ok: true,
-      intentId: held.intent_id as string,
-      holdExpiresAt: held.hold_expires_at as string,
-    });
+  // Holds are attributed to the company's hosted-pages integration, which the
+  // RPC re-checks is live before it grants anything.
+  const integrationId = await ensureHostedIntegration(deps.rpc, {
+    companyId: input.companyId,
+  });
+  const held = await holdBookingSlot(deps.rpc, {
+    companyId: input.companyId,
+    integrationId,
+    slotStartAt: input.slotStartAt,
+    networkFingerprint: input.networkFingerprint,
+  });
+  if (!held.allowed) {
+    return Object.freeze({ ok: false, reason: "slot_no_longer_available" });
   }
-  if (held.reason === "rate_limited") {
-    return Object.freeze({
-      ok: false,
-      reason: "rate_limited",
-      retryAfterSeconds: held.retry_after_seconds,
-    });
-  }
-  return Object.freeze({ ok: false, reason: "slot_unavailable" });
+  // The schema guarantees both are present on an allowed hold.
+  return Object.freeze({
+    ok: true,
+    intentId: held.intent_id as string,
+    holdExpiresAt: held.hold_expires_at as string,
+  });
 }
 
 // ─── Contact (design §6) ────────────────────────────────────────────────────
 
-function parseAnswers(
-  input: unknown
-): Readonly<Record<string, BookingAnswerValue>> | null {
-  if (input === undefined || input === null) return Object.freeze({});
-  if (typeof input !== "object" || Array.isArray(input)) return null;
-  const entries = Object.entries(input as Record<string, unknown>);
-  if (entries.length > MAX_BOOKING_ANSWERS) return null;
-  const answers: Record<string, BookingAnswerValue> = {};
-  for (const [key, value] of entries) {
-    if (key.length < 1 || key.length > ANSWER_KEY_MAX_LENGTH) return null;
-    if (typeof value === "string") {
-      if (value.length > ANSWER_VALUE_MAX_LENGTH) return null;
-      answers[key] = value;
-    } else if (typeof value === "number") {
-      if (!Number.isFinite(value)) return null;
-      answers[key] = value;
-    } else if (typeof value === "boolean" || value === null) {
-      answers[key] = value;
-    } else {
-      return null;
+/**
+ * `private.booking_answers_valid`: an array of at most 100 flat objects, each
+ * with at most 8 scalar fields, keys under 120 characters, and 16 KB of JSON
+ * in total. Anything else is refused here rather than raised in SQL.
+ */
+function parseAnswers(input: unknown): readonly BookingAnswer[] | null {
+  if (input === undefined || input === null) return Object.freeze([]);
+  if (!Array.isArray(input)) return null;
+  if (input.length > MAX_BOOKING_ANSWERS) return null;
+
+  const answers: BookingAnswer[] = [];
+  for (const entry of input) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return null;
+    const fields = Object.entries(entry as Record<string, unknown>);
+    if (fields.length > ANSWER_FIELDS_MAX) return null;
+    const answer: Record<string, BookingAnswerValue> = {};
+    for (const [key, value] of fields) {
+      if (key.length < 1 || key.length > ANSWER_KEY_MAX_LENGTH) return null;
+      if (typeof value === "number" && !Number.isFinite(value)) return null;
+      if (
+        typeof value !== "string" &&
+        typeof value !== "number" &&
+        typeof value !== "boolean" &&
+        value !== null
+      ) {
+        return null;
+      }
+      answer[key] = value;
     }
+    answers.push(Object.freeze(answer));
   }
+  if (JSON.stringify(answers).length > ANSWERS_SERIALIZED_MAX_LENGTH) return null;
   return Object.freeze(answers);
 }
 
@@ -289,36 +311,40 @@ async function refuse(
 
 export async function startBookingContact(
   deps: CustomerIdentityDeps,
-  input: {
-    intentId: string;
-    companyId: string;
-    contact: BookingContact;
-    networkFingerprint: string;
-  }
+  input: { intentId: string; contact: BookingContact; networkFingerprint: string }
 ): Promise<BookingChallengeStarted> {
-  const started = await beginBookingContact(deps.rpc, {
+  const digest = emailDigest(input.contact.email, deps.keyRing);
+  const recorded = await recordBookingContact(deps.rpc, {
     intentId: input.intentId,
-    companyId: input.companyId,
     contactName: input.contact.name,
-    contactEmail: input.contact.email,
+    contactEmailDigest: digest,
+    // The address is sealed here and opaque to SQL; the plaintext reaches the
+    // confirm RPC as an argument and is never stored on the row.
+    contactEmailEncrypted: encryptContactEmail(input.contact.email, deps.keyRing),
     contactPhone: input.contact.phone,
     answers: input.contact.answers,
-    emailDigest: emailDigest(input.contact.email, deps.keyRing),
+  });
+  if (!recorded.accepted) {
+    return refuse(deps, input.networkFingerprint, "contact", 0);
+  }
+
+  const challenge = await beginOtpChallenge(deps.rpc, {
+    emailDigest: digest,
     networkFingerprint: input.networkFingerprint,
   });
-  if (!started.allowed) {
+  if (!challenge.allowed) {
     return refuse(
       deps,
       input.networkFingerprint,
       "contact",
-      started.retry_after_seconds
+      challenge.retry_after_seconds
     );
   }
 
   await sendCode(deps, input.contact.email, input.networkFingerprint, "contact");
   return Object.freeze({
-    challengeId: started.challenge_id as string,
-    retryAfterSeconds: started.retry_after_seconds,
+    challengeId: challenge.challenge_id as string,
+    retryAfterSeconds: challenge.retry_after_seconds,
   });
 }
 
@@ -335,20 +361,32 @@ export async function startBookingManage(
   if (email === null) {
     return refuse(deps, input.networkFingerprint, "manage", 0);
   }
-  const started = await beginBookingManage(deps.rpc, {
+  const digest = emailDigest(email, deps.keyRing);
+
+  // Nothing is sent until the database says this address is on this booking.
+  // Otherwise a management link — which anyone who books once holds — becomes
+  // a way to mail codes to strangers.
+  const manageable = await readGuestBookingManageable(deps.rpc, {
     intentId: input.intentId,
     companyId: input.companyId,
-    emailDigest: emailDigest(email, deps.keyRing),
+    contactEmailDigest: digest,
+  });
+  if (!manageable) {
+    return refuse(deps, input.networkFingerprint, "manage", 0);
+  }
+
+  const challenge = await beginOtpChallenge(deps.rpc, {
+    emailDigest: digest,
     networkFingerprint: input.networkFingerprint,
   });
-  if (!started.allowed) {
-    return refuse(deps, input.networkFingerprint, "manage", started.retry_after_seconds);
+  if (!challenge.allowed) {
+    return refuse(deps, input.networkFingerprint, "manage", challenge.retry_after_seconds);
   }
 
   await sendCode(deps, email, input.networkFingerprint, "manage");
   return Object.freeze({
-    challengeId: started.challenge_id as string,
-    retryAfterSeconds: started.retry_after_seconds,
+    challengeId: challenge.challenge_id as string,
+    retryAfterSeconds: challenge.retry_after_seconds,
   });
 }
 
@@ -460,7 +498,6 @@ export async function verifyBookingContact(
   deps: CustomerIdentityDeps,
   input: {
     intentId: string;
-    companyId: string;
     challengeId: string;
     email: string;
     code: string;
@@ -481,29 +518,33 @@ export async function verifyBookingContact(
   });
   if (!proof.ok) return proof;
 
+  // The database re-checks that this verified address is the one attached to
+  // the intent, so a proved code for one booking cannot confirm another.
   const confirmed = await confirmGuestBooking(deps.rpc, {
     intentId: input.intentId,
-    companyId: input.companyId,
-    challengeId: input.challengeId,
+    contactEmailDigest: emailDigest(email, deps.keyRing),
+    contactEmail: email,
     verifiedChannel: "email",
-    networkFingerprint: input.networkFingerprint,
   });
-  if (confirmed.outcome === "confirmed" || confirmed.outcome === "submitted") {
-    return Object.freeze({
-      ok: true,
-      outcome: confirmed.outcome,
-      scheduledAt: confirmed.scheduled_at as string,
-      durationMinutes: confirmed.duration_minutes as number,
-    });
+  switch (confirmed.outcome) {
+    case "confirmed":
+    case "submitted":
+      return Object.freeze({
+        ok: true,
+        outcome: confirmed.outcome,
+        scheduledAt: confirmed.scheduledAt,
+      });
+    case "slot_no_longer_available":
+      return Object.freeze({ ok: false, reason: "slot_no_longer_available" });
+    case "not_actionable":
+      return Object.freeze({ ok: false, reason: "not_confirmable" });
   }
-  return Object.freeze({ ok: false, reason: confirmed.outcome });
 }
 
 export async function verifyBookingManage(
   deps: CustomerIdentityDeps,
   input: {
     intentId: string;
-    companyId: string;
     challengeId: string;
     email: string;
     code: string;
@@ -529,32 +570,29 @@ export async function verifyBookingManage(
   });
   if (!proof.ok) return proof;
 
-  if (input.action === "cancel") {
-    const cancelled = await cancelGuestBooking(deps.rpc, {
-      intentId: input.intentId,
-      companyId: input.companyId,
-      challengeId: input.challengeId,
-      networkFingerprint: input.networkFingerprint,
-    });
-    return cancelled.outcome === "cancelled"
-      ? Object.freeze({ ok: true, outcome: "cancelled" })
-      : Object.freeze({ ok: false, reason: "not_manageable" });
-  }
+  const result =
+    input.action === "cancel"
+      ? await cancelGuestBooking(deps.rpc, {
+          intentId: input.intentId,
+          reason: "customer_cancelled",
+        })
+      : await rescheduleGuestBooking(deps.rpc, {
+          intentId: input.intentId,
+          scheduledAt: input.slotStartAt as Date,
+        });
 
-  const rescheduled = await rescheduleGuestBooking(deps.rpc, {
-    intentId: input.intentId,
-    companyId: input.companyId,
-    challengeId: input.challengeId,
-    slotStartAt: input.slotStartAt as Date,
-    networkFingerprint: input.networkFingerprint,
-  });
-  if (rescheduled.outcome === "rescheduled") {
-    return Object.freeze({
-      ok: true,
-      outcome: "rescheduled",
-      scheduledAt: rescheduled.scheduled_at as string,
-      durationMinutes: rescheduled.duration_minutes as number,
-    });
+  switch (result.outcome) {
+    case "cancelled":
+      return Object.freeze({ ok: true, outcome: "cancelled" });
+    case "rescheduled":
+      return Object.freeze({
+        ok: true,
+        outcome: "rescheduled",
+        scheduledAt: result.scheduledAt as string,
+      });
+    case "slot_no_longer_available":
+      return Object.freeze({ ok: false, reason: "slot_no_longer_available" });
+    case "not_actionable":
+      return Object.freeze({ ok: false, reason: "not_manageable" });
   }
-  return Object.freeze({ ok: false, reason: rescheduled.outcome });
 }

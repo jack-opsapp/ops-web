@@ -5,32 +5,24 @@ import { z } from "zod-v4";
 import { PostgresUuidSchema } from "@/lib/agent-control-plane/contracts/postgres-uuid";
 
 import { CustomerIdentityStoreError } from "./errors";
-import {
-  callSystemRpc,
-  scalar,
-  singleRow,
-  type CustomerIdentityRpcClient,
-} from "./rpc";
+import { scalar, singleRow, type CustomerIdentityRpcClient } from "./rpc";
 
 /**
- * Typed access to the P2 guest-booking system RPCs
- * (design: specs/2026-09-02-public-api-availability-and-guest-booking-design.md §5).
+ * Typed access to the P2 guest-booking system RPCs, exactly as
+ * `supabase/migrations/20260902190000_public_booking_foundation.sql` landed
+ * them (design §5).
  *
- * The schemas below are the binding statement of the contract the P2-1
- * migration must satisfy. Every row is validated exactly: a database result
- * the contract does not allow is an internal failure, never a partially
- * trusted value — the same rule `rpc.ts` holds for the identity RPCs.
+ * Two properties of that migration make this layer load-bearing rather than
+ * decorative:
  *
- * Two additions to design §5, both forced by the route contract in §6 and
- * flagged to the PM rather than assumed silently:
- *
- *  1. `read_public_booking_policy_as_system` — §6 answers `timezone` and
- *     `durationMinutes` alongside the slots, and an empty availability set
- *     still has to carry them, so the header cannot ride on the slot rows.
- *  2. `hold_booking_slot_as_system.reason` — §5 fixes the refusal shape as
- *     "success minus the intent", which cannot tell a homeowner whose slot was
- *     taken (pick another) from one who is being rate limited (wait). The
- *     reason names neither a person nor a booking, so it costs no privacy.
+ *  1. **Refusals arrive as raised exceptions**, not as outcome columns. A slot
+ *     that went, a hold that expired and an address that does not match the
+ *     intent all `raise exception` with a named message. Here they become
+ *     typed outcomes; anything unrecognised stays a genuine failure, so a real
+ *     outage can never read as "that time is taken".
+ *  2. **The confirm and management RPCs return real ids** — client,
+ *     opportunity, site visit. They stop at this boundary. Nothing above it
+ *     ever receives one, so no route can leak one (I4).
  */
 
 export type { CustomerIdentityRpcClient } from "./rpc";
@@ -38,56 +30,114 @@ export type { CustomerIdentityRpcClient } from "./rpc";
 const Sha256HexSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const EmailDigestSchema = z.string().regex(/^[1-9][0-9]{0,4}:[0-9a-f]{64}$/);
 const IsoDateSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);
-const NonNegativeIntSchema = z.number().int().min(0);
 const TimestampSchema = z
   .string()
   .min(1)
   .refine((value) => Number.isFinite(Date.parse(value)));
 
-/** Design §4.1: the visit length and slot spacing the policy CHECK allows. */
-const DurationMinutesSchema = z.number().int().min(15).max(480);
-
 export const BOOKING_MODES = ["off", "request", "instant"] as const;
 export type BookingMode = (typeof BOOKING_MODES)[number];
 
-export const HOLD_REASONS = ["ok", "slot_unavailable", "rate_limited"] as const;
-export type HoldReason = (typeof HOLD_REASONS)[number];
+/** What a guest booking answer looks like: a flat object of scalars. */
+export type BookingAnswerValue = string | number | boolean | null;
+export type BookingAnswer = Readonly<Record<string, BookingAnswerValue>>;
 
-export const CONFIRM_OUTCOMES = [
-  "confirmed",
-  "submitted",
-  "slot_no_longer_available",
-  "not_confirmable",
-] as const;
-export type ConfirmOutcome = (typeof CONFIRM_OUTCOMES)[number];
+// ─── Refusal classification ─────────────────────────────────────────────────
 
-export const RESCHEDULE_OUTCOMES = [
-  "rescheduled",
-  "slot_no_longer_available",
-  "not_manageable",
-] as const;
-export type RescheduleOutcome = (typeof RESCHEDULE_OUTCOMES)[number];
+/**
+ * The named exceptions the migration raises. Everything absent from these two
+ * sets — `access_denied`, an input-validation raise, a transport failure — is a
+ * real failure and is never softened into a customer-facing refusal.
+ */
+const SLOT_REFUSAL_MESSAGES = Object.freeze([
+  "booking_slot_unavailable",
+  "booking_not_available",
+]);
+const INTENT_REFUSAL_MESSAGES = Object.freeze([
+  "booking_intent_not_found",
+  "booking_intent_not_holdable",
+  "booking_hold_expired",
+  "booking_contact_mismatch",
+  "booking_not_reschedulable",
+  "booking_not_cancellable",
+  "site_visit_not_found",
+  "site_visit_not_a_booking",
+  "site_visit_not_reschedulable",
+]);
+/** The RPC is not deployed yet — used only where failing closed is correct. */
+const MISSING_FUNCTION_CODES = Object.freeze(["PGRST202", "42883"]);
 
-export const CANCEL_OUTCOMES = ["cancelled", "not_manageable"] as const;
-export type CancelOutcome = (typeof CANCEL_OUTCOMES)[number];
+export type BookingRefusal = "slot_no_longer_available" | "not_actionable";
 
-/** The outcomes that name a real window; every other outcome carries none. */
-const BOOKED_OUTCOMES = new Set(["confirmed", "submitted", "rescheduled"]);
+function errorMessage(error: unknown): string {
+  if (typeof error !== "object" || error === null) return "";
+  const { message } = error as { message?: unknown };
+  return typeof message === "string" ? message : "";
+}
 
-// ─── Row schemas ────────────────────────────────────────────────────────────
+function errorCode(error: unknown): string {
+  if (typeof error !== "object" || error === null) return "";
+  const { code } = error as { code?: unknown };
+  return typeof code === "string" ? code : "";
+}
+
+function classifyRefusal(error: unknown): BookingRefusal | null {
+  const message = errorMessage(error);
+  if (SLOT_REFUSAL_MESSAGES.some((name) => message.includes(name))) {
+    return "slot_no_longer_available";
+  }
+  if (INTENT_REFUSAL_MESSAGES.some((name) => message.includes(name))) {
+    return "not_actionable";
+  }
+  return null;
+}
+
+function isMissingFunction(error: unknown): boolean {
+  const code = errorCode(error);
+  if (MISSING_FUNCTION_CODES.includes(code)) return true;
+  const message = errorMessage(error);
+  return /could not find the function|does not exist/i.test(message);
+}
+
+type RpcResult =
+  | { readonly ok: true; readonly data: unknown }
+  | { readonly ok: false; readonly error: unknown };
+
+async function callBookingRpc(
+  client: CustomerIdentityRpcClient,
+  functionName: string,
+  args: Readonly<Record<string, unknown>>,
+  operation: string
+): Promise<RpcResult> {
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await client.rpc(functionName, args));
+  } catch (cause) {
+    throw new CustomerIdentityStoreError(operation, { cause });
+  }
+  if (error != null) return Object.freeze({ ok: false, error });
+  return Object.freeze({ ok: true, data });
+}
+
+/** A refusal the customer may see, or a rethrow. Never a silent success. */
+function refusalOrThrow(
+  error: unknown,
+  operation: string
+): BookingRefusal {
+  const refusal = classifyRefusal(error);
+  if (refusal === null) throw new CustomerIdentityStoreError(operation, { cause: error });
+  return refusal;
+}
+
+// ─── Policy and availability (design D10) ───────────────────────────────────
 
 const BookingPolicyRowSchema = z.object({
   mode: z.enum(BOOKING_MODES),
   timezone: z.string().min(1).max(64),
-  visit_duration_minutes: DurationMinutesSchema,
-  horizon_days: z.number().int().min(1).max(120),
+  visit_duration_minutes: z.number().int().min(15).max(480),
   min_notice_hours: z.number().int().min(0).max(720),
-  slot_granularity_minutes: z.union([
-    z.literal(15),
-    z.literal(30),
-    z.literal(60),
-    z.literal(120),
-  ]),
+  horizon_days: z.number().int().min(1).max(120),
 });
 
 const AvailabilitySlotRowSchema = z.object({ slot_start_at: TimestampSchema });
@@ -97,90 +147,85 @@ const HoldBookingSlotRowSchema = z
     intent_id: PostgresUuidSchema.nullable(),
     hold_expires_at: TimestampSchema.nullable(),
     allowed: z.boolean(),
-    reason: z.enum(HOLD_REASONS),
-    retry_after_seconds: NonNegativeIntSchema,
+    retry_after_seconds: z.number().int().min(0).nullable(),
   })
-  .refine((row) => row.allowed === (row.reason === "ok"))
   .refine((row) => !row.allowed || (row.intent_id !== null && row.hold_expires_at !== null));
 
-/**
- * One shape for both challenge-issuing RPCs. `accepted` is about the intent,
- * `allowed` about the I8 send limits; a refused intent can never carry an
- * allowed challenge, and neither refusal ever reaches the customer as itself
- * — the routes answer identically either way (I5).
- */
-const BookingChallengeRowSchema = z
+const RecordContactRowSchema = z.object({
+  intent_id: PostgresUuidSchema,
+  hold_expires_at: TimestampSchema.nullable(),
+  accepted: z.boolean(),
+});
+
+// The confirm row carries client, opportunity and site-visit ids. They are
+// validated so a malformed row still fails, and then discarded (I4).
+const ConfirmGuestBookingRowSchema = z
   .object({
-    accepted: z.boolean(),
-    challenge_id: PostgresUuidSchema.nullable(),
-    allowed: z.boolean(),
-    retry_after_seconds: NonNegativeIntSchema,
+    outcome: z.enum(["confirmed", "submitted"]),
+    intent_id: PostgresUuidSchema,
+    client_id: PostgresUuidSchema.nullable(),
+    opportunity_id: PostgresUuidSchema.nullable(),
+    site_visit_id: PostgresUuidSchema.nullable(),
+    scheduled_at: TimestampSchema.nullable(),
   })
-  .refine((row) => row.accepted || !row.allowed)
-  .refine((row) => !row.allowed || row.challenge_id !== null);
+  .refine((row) => row.outcome !== "confirmed" || row.scheduled_at !== null)
+  .refine((row) => row.outcome !== "submitted" || row.scheduled_at === null);
 
-function bookingOutcomeRowSchema<T extends readonly [string, ...string[]]>(
-  outcomes: T
-): z.ZodType<{
-  outcome: T[number];
-  scheduled_at: string | null;
-  duration_minutes: number | null;
-}> {
-  return z
-    .object({
-      outcome: z.enum(outcomes),
-      scheduled_at: TimestampSchema.nullable(),
-      duration_minutes: DurationMinutesSchema.nullable(),
-    })
-    .refine(
-      (row) =>
-        BOOKED_OUTCOMES.has(row.outcome) ===
-        (row.scheduled_at !== null && row.duration_minutes !== null)
-    ) as z.ZodType<{
-    outcome: T[number];
-    scheduled_at: string | null;
-    duration_minutes: number | null;
-  }>;
-}
+const RescheduleRowSchema = z.object({
+  intent_id: PostgresUuidSchema,
+  site_visit_id: PostgresUuidSchema.nullable(),
+  scheduled_at: TimestampSchema,
+});
 
-const ConfirmGuestBookingRowSchema = bookingOutcomeRowSchema(CONFIRM_OUTCOMES);
-const RescheduleGuestBookingRowSchema = bookingOutcomeRowSchema(RESCHEDULE_OUTCOMES);
-const CancelGuestBookingRowSchema = z.object({ outcome: z.enum(CANCEL_OUTCOMES) });
+const CancelRowSchema = z.object({
+  intent_id: PostgresUuidSchema,
+  site_visit_id: PostgresUuidSchema.nullable(),
+});
 
 export type BookingPolicyRow = z.infer<typeof BookingPolicyRowSchema>;
 export type HoldBookingSlotRow = z.infer<typeof HoldBookingSlotRowSchema>;
-export type BookingChallengeRow = z.infer<typeof BookingChallengeRowSchema>;
-export type ConfirmGuestBookingRow = z.infer<typeof ConfirmGuestBookingRowSchema>;
-export type RescheduleGuestBookingRow = z.infer<typeof RescheduleGuestBookingRowSchema>;
-export type CancelGuestBookingRow = z.infer<typeof CancelGuestBookingRowSchema>;
+export type RecordContactRow = z.infer<typeof RecordContactRowSchema>;
 
-// ─── Policy and availability (design §5, D10) ───────────────────────────────
+export interface ConfirmGuestBookingResult {
+  readonly outcome: "confirmed" | "submitted" | BookingRefusal;
+  /** Present only for `confirmed`: a request has no time on any calendar (I14). */
+  readonly scheduledAt: string | null;
+}
+
+export interface ManageGuestBookingResult {
+  readonly outcome: "rescheduled" | "cancelled" | BookingRefusal;
+  readonly scheduledAt: string | null;
+}
 
 /**
- * The public-safe header of a company's booking policy. Always exactly one
- * row: a company with no policy row reads as `mode = 'off'` (design §4.1), so
- * the caller never has to tell "absent" from "off".
+ * The company's public-safe policy header, or `null` when it does not take
+ * bookings — the RPC returns no row for `mode = 'off'` or a deleted company,
+ * so the caller never has to tell "absent" from "off".
  */
 export async function readBookingPolicy(
   client: CustomerIdentityRpcClient,
   input: { companyId: string }
-): Promise<BookingPolicyRow> {
+): Promise<BookingPolicyRow | null> {
   const operation = "read_public_booking_policy";
   scalar(input.companyId, PostgresUuidSchema, operation);
-  const data = await callSystemRpc(
+  const result = await callBookingRpc(
     client,
     "read_public_booking_policy_as_system",
     { p_company_id: input.companyId },
     operation
   );
-  return singleRow(data, BookingPolicyRowSchema, operation);
+  if (!result.ok) throw new CustomerIdentityStoreError(operation, { cause: result.error });
+  if (result.data == null) return null;
+  if (!Array.isArray(result.data)) throw new CustomerIdentityStoreError(operation);
+  if (result.data.length === 0) return null;
+  return singleRow(result.data, BookingPolicyRowSchema, operation);
 }
 
 /**
  * Slot starts the company is currently offering, already net of notice,
  * horizon, existing bookings, live holds and the per-day cap. Empty is an
- * answer, never a failure — a fully booked week and a closed one look the
- * same from outside, which is the point.
+ * answer, never a failure — a fully booked week and a closed one look the same
+ * from outside, which is the point.
  */
 export async function readPublicAvailability(
   client: CustomerIdentityRpcClient,
@@ -190,16 +235,17 @@ export async function readPublicAvailability(
   scalar(input.companyId, PostgresUuidSchema, operation);
   scalar(input.from, IsoDateSchema, operation);
   scalar(input.to, IsoDateSchema, operation);
-  const data = await callSystemRpc(
+  const result = await callBookingRpc(
     client,
     "read_public_availability_as_system",
     { p_company_id: input.companyId, p_from: input.from, p_to: input.to },
     operation
   );
-  if (data == null) return Object.freeze([]);
-  if (!Array.isArray(data)) throw new CustomerIdentityStoreError(operation);
+  if (!result.ok) throw new CustomerIdentityStoreError(operation, { cause: result.error });
+  if (result.data == null) return Object.freeze([]);
+  if (!Array.isArray(result.data)) throw new CustomerIdentityStoreError(operation);
   return Object.freeze(
-    data.map((row) => {
+    result.data.map((row) => {
       const parsed = AvailabilitySlotRowSchema.safeParse(row);
       if (!parsed.success) throw new CustomerIdentityStoreError(operation);
       return new Date(parsed.data.slot_start_at);
@@ -209,186 +255,202 @@ export async function readPublicAvailability(
 
 // ─── Holds (design I13) ─────────────────────────────────────────────────────
 
+/**
+ * One refusal shape for every reason a hold can fail — booking off, integration
+ * inactive, slot closed, or a cap reached. The migration deliberately does not
+ * distinguish them (I5), so neither does anything above.
+ */
 export async function holdBookingSlot(
   client: CustomerIdentityRpcClient,
-  input: { companyId: string; slotStartAt: Date; networkFingerprint: string }
+  input: {
+    companyId: string;
+    integrationId: string;
+    slotStartAt: Date;
+    networkFingerprint: string;
+  }
 ): Promise<HoldBookingSlotRow> {
   const operation = "hold_booking_slot";
   scalar(input.companyId, PostgresUuidSchema, operation);
+  scalar(input.integrationId, PostgresUuidSchema, operation);
   scalar(input.networkFingerprint, Sha256HexSchema, operation);
-  const data = await callSystemRpc(
+  const result = await callBookingRpc(
     client,
     "hold_booking_slot_as_system",
     {
       p_company_id: input.companyId,
+      p_integration_id: input.integrationId,
       p_slot_start_at: isoInstant(input.slotStartAt, operation),
       p_network_fingerprint: input.networkFingerprint,
     },
     operation
   );
-  return singleRow(data, HoldBookingSlotRowSchema, operation);
+  if (!result.ok) throw new CustomerIdentityStoreError(operation, { cause: result.error });
+  return singleRow(result.data, HoldBookingSlotRowSchema, operation);
 }
 
-// ─── Contact + verification (design §5.2, §6) ───────────────────────────────
+// ─── Contact (design §5.2, I1) ──────────────────────────────────────────────
 
-export async function beginBookingContact(
+/**
+ * Attach the details to a held intent. The address crosses as a keyed digest
+ * for matching and as broker ciphertext for later mail; the plaintext is never
+ * stored on the row. `accepted: false` means the hold is dead, already used or
+ * unknown — the caller answers identically either way (I5).
+ */
+export async function recordBookingContact(
   client: CustomerIdentityRpcClient,
   input: {
     intentId: string;
-    companyId: string;
     contactName: string;
-    contactEmail: string;
+    contactEmailDigest: string;
+    contactEmailEncrypted: string;
     contactPhone: string | null;
-    answers: Readonly<Record<string, unknown>>;
-    emailDigest: string;
-    networkFingerprint: string;
+    answers: readonly BookingAnswer[];
   }
-): Promise<BookingChallengeRow> {
-  const operation = "begin_guest_booking_contact";
+): Promise<RecordContactRow> {
+  const operation = "record_guest_booking_contact";
   scalar(input.intentId, PostgresUuidSchema, operation);
-  scalar(input.companyId, PostgresUuidSchema, operation);
-  scalar(input.emailDigest, EmailDigestSchema, operation);
-  scalar(input.networkFingerprint, Sha256HexSchema, operation);
-  const data = await callSystemRpc(
+  scalar(input.contactEmailDigest, EmailDigestSchema, operation);
+  const result = await callBookingRpc(
     client,
-    "begin_guest_booking_contact_as_system",
+    "record_guest_booking_contact_as_system",
     {
       p_intent_id: input.intentId,
-      p_company_id: input.companyId,
       p_contact_name: input.contactName,
-      p_contact_email: input.contactEmail,
+      p_contact_email_digest: input.contactEmailDigest,
+      p_contact_email_encrypted: input.contactEmailEncrypted,
       p_contact_phone: input.contactPhone,
       p_answers: input.answers,
-      p_email_digest: input.emailDigest,
-      p_network_fingerprint: input.networkFingerprint,
     },
     operation
   );
-  return singleRow(data, BookingChallengeRowSchema, operation);
+  if (!result.ok) throw new CustomerIdentityStoreError(operation, { cause: result.error });
+  return singleRow(result.data, RecordContactRowSchema, operation);
 }
 
+// ─── The atomic core (design §5, I12, I14) ──────────────────────────────────
+
 /**
- * The atomic core (design §5). Under the company lock it re-validates the
- * slot against live policy and bookings (I12), resolves the client, creates
- * the lead, then branches on mode: `instant` books the visit, `request` stops
- * at a pending request and touches no calendar (I14).
+ * Under the company lock: re-validate the slot against live policy and
+ * bookings, resolve the client, create the lead, then branch on mode —
+ * `instant` books the visit and answers with the time, `request` stops at a
+ * pending request and answers with no time at all, because there is none on
+ * any calendar (I14).
  */
 export async function confirmGuestBooking(
   client: CustomerIdentityRpcClient,
   input: {
     intentId: string;
-    companyId: string;
-    challengeId: string;
+    contactEmailDigest: string;
+    contactEmail: string;
     verifiedChannel: "email" | "phone";
-    networkFingerprint: string;
   }
-): Promise<ConfirmGuestBookingRow> {
+): Promise<ConfirmGuestBookingResult> {
   const operation = "confirm_guest_booking";
   scalar(input.intentId, PostgresUuidSchema, operation);
-  scalar(input.companyId, PostgresUuidSchema, operation);
-  scalar(input.challengeId, PostgresUuidSchema, operation);
-  scalar(input.networkFingerprint, Sha256HexSchema, operation);
-  const data = await callSystemRpc(
+  scalar(input.contactEmailDigest, EmailDigestSchema, operation);
+  const result = await callBookingRpc(
     client,
     "confirm_guest_booking_as_system",
     {
       p_intent_id: input.intentId,
-      p_company_id: input.companyId,
-      p_challenge_id: input.challengeId,
+      p_contact_email_digest: input.contactEmailDigest,
+      p_contact_email: input.contactEmail,
       p_verified_channel: input.verifiedChannel,
-      p_network_fingerprint: input.networkFingerprint,
     },
     operation
   );
-  return singleRow(data, ConfirmGuestBookingRowSchema, operation);
+  if (!result.ok) {
+    return Object.freeze({
+      outcome: refusalOrThrow(result.error, operation),
+      scheduledAt: null,
+    });
+  }
+  const row = singleRow(result.data, ConfirmGuestBookingRowSchema, operation);
+  return Object.freeze({ outcome: row.outcome, scheduledAt: row.scheduled_at });
 }
 
 // ─── Management after a fresh code (design I15) ─────────────────────────────
 
-export async function beginBookingManage(
+/**
+ * May this address change this booking? Asked before any code is sent, so a
+ * management link cannot be turned into a way to mail codes to strangers.
+ *
+ * **Missing from the P2-1 migration** — flagged to the PM with this exact
+ * signature. Until it is deployed the call fails closed: the answer is "no",
+ * no code is sent, and the surface behaves exactly as it does for a booking
+ * that does not exist. A real store failure is never swallowed this way.
+ */
+export async function readGuestBookingManageable(
   client: CustomerIdentityRpcClient,
-  input: {
-    intentId: string;
-    companyId: string;
-    emailDigest: string;
-    networkFingerprint: string;
-  }
-): Promise<BookingChallengeRow> {
-  const operation = "begin_guest_booking_manage";
+  input: { intentId: string; companyId: string; contactEmailDigest: string }
+): Promise<boolean> {
+  const operation = "read_guest_booking_manageable";
   scalar(input.intentId, PostgresUuidSchema, operation);
   scalar(input.companyId, PostgresUuidSchema, operation);
-  scalar(input.emailDigest, EmailDigestSchema, operation);
-  scalar(input.networkFingerprint, Sha256HexSchema, operation);
-  const data = await callSystemRpc(
+  scalar(input.contactEmailDigest, EmailDigestSchema, operation);
+  const result = await callBookingRpc(
     client,
-    "begin_guest_booking_manage_as_system",
+    "read_guest_booking_manageable_as_system",
     {
       p_intent_id: input.intentId,
       p_company_id: input.companyId,
-      p_email_digest: input.emailDigest,
-      p_network_fingerprint: input.networkFingerprint,
+      p_contact_email_digest: input.contactEmailDigest,
     },
     operation
   );
-  return singleRow(data, BookingChallengeRowSchema, operation);
+  if (!result.ok) {
+    if (isMissingFunction(result.error)) return false;
+    if (classifyRefusal(result.error) !== null) return false;
+    throw new CustomerIdentityStoreError(operation, { cause: result.error });
+  }
+  return scalar(result.data, z.boolean(), operation);
 }
 
 export async function rescheduleGuestBooking(
   client: CustomerIdentityRpcClient,
-  input: {
-    intentId: string;
-    companyId: string;
-    challengeId: string;
-    slotStartAt: Date;
-    networkFingerprint: string;
-  }
-): Promise<RescheduleGuestBookingRow> {
+  input: { intentId: string; scheduledAt: Date }
+): Promise<ManageGuestBookingResult> {
   const operation = "reschedule_guest_booking";
   scalar(input.intentId, PostgresUuidSchema, operation);
-  scalar(input.companyId, PostgresUuidSchema, operation);
-  scalar(input.challengeId, PostgresUuidSchema, operation);
-  scalar(input.networkFingerprint, Sha256HexSchema, operation);
-  const data = await callSystemRpc(
+  const result = await callBookingRpc(
     client,
     "reschedule_guest_booking_as_system",
     {
       p_intent_id: input.intentId,
-      p_company_id: input.companyId,
-      p_challenge_id: input.challengeId,
-      p_slot_start_at: isoInstant(input.slotStartAt, operation),
-      p_network_fingerprint: input.networkFingerprint,
+      p_scheduled_at: isoInstant(input.scheduledAt, operation),
     },
     operation
   );
-  return singleRow(data, RescheduleGuestBookingRowSchema, operation);
+  if (!result.ok) {
+    return Object.freeze({
+      outcome: refusalOrThrow(result.error, operation),
+      scheduledAt: null,
+    });
+  }
+  const row = singleRow(result.data, RescheduleRowSchema, operation);
+  return Object.freeze({ outcome: "rescheduled", scheduledAt: row.scheduled_at });
 }
 
 export async function cancelGuestBooking(
   client: CustomerIdentityRpcClient,
-  input: {
-    intentId: string;
-    companyId: string;
-    challengeId: string;
-    networkFingerprint: string;
-  }
-): Promise<CancelGuestBookingRow> {
+  input: { intentId: string; reason?: string }
+): Promise<ManageGuestBookingResult> {
   const operation = "cancel_guest_booking";
   scalar(input.intentId, PostgresUuidSchema, operation);
-  scalar(input.companyId, PostgresUuidSchema, operation);
-  scalar(input.challengeId, PostgresUuidSchema, operation);
-  scalar(input.networkFingerprint, Sha256HexSchema, operation);
-  const data = await callSystemRpc(
+  const result = await callBookingRpc(
     client,
     "cancel_guest_booking_as_system",
-    {
-      p_intent_id: input.intentId,
-      p_company_id: input.companyId,
-      p_challenge_id: input.challengeId,
-      p_network_fingerprint: input.networkFingerprint,
-    },
+    { p_intent_id: input.intentId, p_reason: input.reason ?? null },
     operation
   );
-  return singleRow(data, CancelGuestBookingRowSchema, operation);
+  if (!result.ok) {
+    return Object.freeze({
+      outcome: refusalOrThrow(result.error, operation),
+      scheduledAt: null,
+    });
+  }
+  singleRow(result.data, CancelRowSchema, operation);
+  return Object.freeze({ outcome: "cancelled", scheduledAt: null });
 }
 
 function isoInstant(value: Date, operation: string): string {

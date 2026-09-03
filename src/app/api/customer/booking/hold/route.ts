@@ -22,7 +22,6 @@ import {
   invalidRequestResponse,
   notFoundResponse,
   parsePublicHandle,
-  rateLimitedResponse,
   readJsonObject,
   requestFingerprint,
   resolveCompanyIdByHandle,
@@ -55,11 +54,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       slotStartAt: slot.slotStartAt,
       networkFingerprint: requestFingerprint(request),
     });
-    if (!held.ok) {
-      return held.reason === "rate_limited"
-        ? rateLimitedResponse(held.retryAfterSeconds)
-        : slotGoneResponse();
-    }
+    // Booking off, integration inactive, slot closed or a hold cap reached all
+    // answer the same, because the migration answers the same (I5, I13).
+    if (!held.ok) return slotGoneResponse();
 
     return brokerJson(
       {

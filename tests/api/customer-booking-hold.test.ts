@@ -142,7 +142,7 @@ describe("POST /api/customer/booking/hold — a signature is not a reservation (
 });
 
 describe("POST /api/customer/booking/hold — abuse bounds (I13)", () => {
-  it("refuses a fourth concurrent hold from one fingerprint with a retry hint", async () => {
+  it("refuses a fourth concurrent hold from one fingerprint, as a gone slot (I5)", async () => {
     fake.setAvailability(COMPANY_ID, [
       SLOT,
       OTHER_SLOT,
@@ -164,9 +164,10 @@ describe("POST /api/customer/booking/hold — abuse bounds (I13)", () => {
         FAKE_KEY_RING
       ),
     });
-    expect(fourth.status).toBe(429);
-    expect(fourth.headers.get("Retry-After")).toBe("60");
-    expect(await fourth.json()).toEqual({ error: "rate_limited", retryAfterSeconds: 60 });
+    // The migration answers a reached cap exactly as it answers a taken slot,
+    // so the surface cannot be used to count anybody's holds.
+    expect(fourth.status).toBe(409);
+    expect(await fourth.json()).toEqual({ error: "slot_no_longer_available" });
   });
 
   it("refuses before touching the database when the per-IP limit is spent", async () => {

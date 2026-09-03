@@ -84,6 +84,7 @@ export const OFF_BOOKING_POLICY: FakeBookingPolicy = Object.freeze({
 export interface FakeIntent {
   intentId: string;
   companyId: string;
+  integrationId: string;
   slotStartAt: string;
   holdExpiresAt: string;
   state: "held" | "verified" | "confirmed" | "submitted" | "expired" | "cancelled";
@@ -93,8 +94,17 @@ export interface FakeIntent {
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  contactEmailEncrypted: string | null;
   answers: unknown;
   verifiedChannel: string | null;
+  clientId: string | null;
+  opportunityId: string | null;
+  siteVisitId: string | null;
+}
+
+/** How supabase-js surfaces a plpgsql `raise exception ... using errcode`. */
+function raiseBooking(message: string, code: string) {
+  return { data: null, error: { code, message } };
 }
 
 interface RpcFailure {
@@ -123,6 +133,7 @@ export class CustomerIdentityFake {
   readonly bookingPolicies = new Map<string, FakeBookingPolicy>();
   readonly availability = new Map<string, string[]>();
   readonly intents = new Map<string, FakeIntent>();
+  readonly integrations = new Map<string, string>();
 
   /** Customer auth project state. */
   readonly authUsers = new Map<string, string>();
@@ -138,8 +149,13 @@ export class CustomerIdentityFake {
   sendError: unknown = null;
   private readonly failures = new Map<string, RpcFailure>();
   companyLookupFailure: RpcFailure | null = null;
-  /** Force the hold RPC's refusal branch regardless of live state. */
-  holdRefusal: "slot_unavailable" | "rate_limited" | null = null;
+  /** Force the hold RPC's single refusal branch regardless of live state. */
+  holdRefusal = false;
+  /**
+   * Stand in for the manageability read the P2-1 migration has not shipped:
+   * the broker must fail closed and send no code while it is absent.
+   */
+  manageableRpcMissing = false;
   /** Force the I12 replay refusal at confirm and at reschedule. */
   slotGoneOnConfirm = false;
   /** Refuse the intent at the contact or manage step (wrong state, wrong company). */
@@ -239,6 +255,7 @@ export class CustomerIdentityFake {
     const seeded: FakeIntent = {
       intentId: intent.intentId ?? randomUUID(),
       companyId: intent.companyId,
+      integrationId: intent.integrationId ?? randomUUID(),
       slotStartAt: intent.slotStartAt ?? new Date(Date.now() + 86_400_000).toISOString(),
       holdExpiresAt:
         intent.holdExpiresAt ?? new Date(Date.now() + 5 * 60_000).toISOString(),
@@ -249,8 +266,12 @@ export class CustomerIdentityFake {
       contactName: intent.contactName ?? null,
       contactEmail: intent.contactEmail ?? null,
       contactPhone: intent.contactPhone ?? null,
-      answers: intent.answers ?? {},
+      contactEmailEncrypted: intent.contactEmailEncrypted ?? null,
+      answers: intent.answers ?? [],
       verifiedChannel: intent.verifiedChannel ?? null,
+      clientId: intent.clientId ?? null,
+      opportunityId: intent.opportunityId ?? null,
+      siteVisitId: intent.siteVisitId ?? null,
     };
     this.intents.set(seeded.intentId, seeded);
     return seeded;
@@ -292,42 +313,6 @@ export class CustomerIdentityFake {
     if (intent.challengeId === null) return false;
     if (intent.challengeId !== String(challengeId)) return false;
     return this.challenges.get(intent.challengeId)?.consumed === true;
-  }
-
-  private bookingChallengeRow(intent: FakeIntent, args: Record<string, unknown>) {
-    if (this.refuseSends) {
-      return {
-        data: [
-          {
-            accepted: true,
-            challenge_id: null,
-            allowed: false,
-            retry_after_seconds: this.retryAfterSeconds,
-          },
-        ],
-        error: null,
-      };
-    }
-    const challengeId = randomUUID();
-    this.challenges.set(challengeId, {
-      emailDigest: String(args.p_email_digest),
-      networkFingerprint: String(args.p_network_fingerprint),
-      attempts: 0,
-      consumed: false,
-    });
-    intent.challengeId = challengeId;
-    intent.emailDigest = String(args.p_email_digest);
-    return {
-      data: [
-        {
-          accepted: true,
-          challenge_id: challengeId,
-          allowed: true,
-          retry_after_seconds: this.retryAfterSeconds,
-        },
-      ],
-      error: null,
-    };
   }
 
   private membershipFor(identityId: string, companyId: string): FakeMembershipRow | null {
@@ -491,9 +476,33 @@ export class CustomerIdentityFake {
         this.events.push({ type: String(args.p_event_type), args: { ...args } });
         return { data: null, error: null };
       }
-      // ─── Guest booking (design P2 section 5) ─────────────────────────────
+      // ─── Guest booking, as migration 20260902190000 landed it ────────────
+      case "ensure_customer_hosted_integration_as_system": {
+        const companyId = String(args.p_company_id);
+        let integrationId = this.integrations.get(companyId);
+        if (!integrationId) {
+          integrationId = randomUUID();
+          this.integrations.set(companyId, integrationId);
+        }
+        return { data: integrationId, error: null };
+      }
       case "read_public_booking_policy_as_system": {
-        return { data: [this.bookingPolicyFor(String(args.p_company_id))], error: null };
+        const policy = this.bookingPolicies.get(String(args.p_company_id));
+        // The RPC filters `mode <> 'off'`, so a company that does not take
+        // bookings simply has no row.
+        if (!policy || policy.mode === "off") return { data: [], error: null };
+        return {
+          data: [
+            {
+              mode: policy.mode,
+              timezone: policy.timezone,
+              visit_duration_minutes: policy.visit_duration_minutes,
+              min_notice_hours: policy.min_notice_hours,
+              horizon_days: policy.horizon_days,
+            },
+          ],
+          error: null,
+        };
       }
       case "read_public_availability_as_system": {
         const companyId = String(args.p_company_id);
@@ -515,42 +524,36 @@ export class CustomerIdentityFake {
         const companyId = String(args.p_company_id);
         const slot = new Date(String(args.p_slot_start_at)).toISOString();
         const fingerprint = String(args.p_network_fingerprint);
-        const refuse = (reason: string, retryAfterSeconds: number) => ({
+        // One refusal shape for every reason, exactly as the migration does.
+        const refuse = (retryAfterSeconds: number) => ({
           data: [
             {
               intent_id: null,
               hold_expires_at: null,
               allowed: false,
-              reason,
               retry_after_seconds: retryAfterSeconds,
             },
           ],
           error: null,
         });
-        if (this.holdRefusal) {
-          return refuse(
-            this.holdRefusal,
-            this.holdRefusal === "rate_limited" ? this.retryAfterSeconds : 0
-          );
-        }
-        if (this.bookingPolicyFor(companyId).mode === "off") {
-          return refuse("slot_unavailable", 0);
-        }
-        if (!this.slotIsOffered(companyId, slot)) return refuse("slot_unavailable", 0);
+        if (this.holdRefusal) return refuse(60);
+        if (this.bookingPolicyFor(companyId).mode === "off") return refuse(60);
+        if (!this.slotIsOffered(companyId, slot)) return refuse(60);
         if (
           this.liveHolds((intent) => intent.networkFingerprint === fingerprint) >=
           this.maxHoldsPerFingerprint
         ) {
-          return refuse("rate_limited", this.retryAfterSeconds);
+          return refuse(this.retryAfterSeconds);
         }
         if (
           this.liveHolds((intent) => intent.companyId === companyId) >=
           this.maxHoldsPerCompany
         ) {
-          return refuse("rate_limited", this.retryAfterSeconds);
+          return refuse(this.retryAfterSeconds);
         }
         const intent = this.seedIntent({
           companyId,
+          integrationId: String(args.p_integration_id),
           slotStartAt: slot,
           networkFingerprint: fingerprint,
           holdExpiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
@@ -561,22 +564,20 @@ export class CustomerIdentityFake {
               intent_id: intent.intentId,
               hold_expires_at: intent.holdExpiresAt,
               allowed: true,
-              reason: "ok",
-              retry_after_seconds: 0,
+              retry_after_seconds: null,
             },
           ],
           error: null,
         };
       }
-      case "begin_guest_booking_contact_as_system": {
-        const intent = this.intentFor(args.p_intent_id, args.p_company_id);
+      case "record_guest_booking_contact_as_system": {
+        const intent = this.intents.get(String(args.p_intent_id));
         const refused = {
           data: [
             {
+              intent_id: String(args.p_intent_id),
+              hold_expires_at: null,
               accepted: false,
-              challenge_id: null,
-              allowed: false,
-              retry_after_seconds: 0,
             },
           ],
           error: null,
@@ -586,98 +587,110 @@ export class CustomerIdentityFake {
           return refused;
         }
         intent.contactName = String(args.p_contact_name);
-        intent.contactEmail = String(args.p_contact_email);
+        intent.emailDigest = String(args.p_contact_email_digest);
+        intent.contactEmailEncrypted = String(args.p_contact_email_encrypted);
         intent.contactPhone =
           args.p_contact_phone == null ? null : String(args.p_contact_phone);
         intent.answers = args.p_answers;
-        return this.bookingChallengeRow(intent, args);
-      }
-      case "confirm_guest_booking_as_system": {
-        const intent = this.intentFor(args.p_intent_id, args.p_company_id);
-        const refuse = (outcome: string) => ({
-          data: [{ outcome, scheduled_at: null, duration_minutes: null }],
-          error: null,
-        });
-        if (!intent || !this.challengeProven(intent, args.p_challenge_id)) {
-          return refuse("not_confirmable");
-        }
-        if (intent.state !== "held" && intent.state !== "verified") {
-          return refuse("not_confirmable");
-        }
-        intent.state = "verified";
-        intent.verifiedChannel = String(args.p_verified_channel);
-        const policy = this.bookingPolicyFor(intent.companyId);
-        if (policy.mode === "off") return refuse("not_confirmable");
-        if (this.slotGoneOnConfirm) return refuse("slot_no_longer_available");
-        intent.state = policy.mode === "instant" ? "confirmed" : "submitted";
         return {
           data: [
             {
-              outcome: policy.mode === "instant" ? "confirmed" : "submitted",
-              scheduled_at: intent.slotStartAt,
-              duration_minutes: policy.visit_duration_minutes,
+              intent_id: intent.intentId,
+              hold_expires_at: intent.holdExpiresAt,
+              accepted: true,
             },
           ],
           error: null,
         };
       }
-      case "begin_guest_booking_manage_as_system": {
-        const intent = this.intentFor(args.p_intent_id, args.p_company_id);
-        const refused = {
+      case "confirm_guest_booking_as_system": {
+        const intent = this.intents.get(String(args.p_intent_id));
+        if (!intent) return raiseBooking("booking_intent_not_found", "P0002");
+        if (intent.state !== "held") {
+          return raiseBooking("booking_intent_not_holdable", "55000");
+        }
+        if (Date.parse(intent.holdExpiresAt) <= Date.now()) {
+          return raiseBooking("booking_hold_expired", "55000");
+        }
+        if (intent.emailDigest !== String(args.p_contact_email_digest)) {
+          return raiseBooking("booking_contact_mismatch", "42501");
+        }
+        const policy = this.bookingPolicyFor(intent.companyId);
+        if (policy.mode === "off") return raiseBooking("booking_not_available", "55000");
+        if (this.slotGoneOnConfirm) {
+          return raiseBooking("booking_slot_unavailable", "55000");
+        }
+        intent.verifiedChannel = String(args.p_verified_channel);
+        intent.state = policy.mode === "instant" ? "confirmed" : "submitted";
+        intent.clientId = intent.clientId ?? randomUUID();
+        intent.opportunityId = intent.opportunityId ?? randomUUID();
+        if (policy.mode === "instant") intent.siteVisitId = randomUUID();
+        return {
           data: [
             {
-              accepted: false,
-              challenge_id: null,
-              allowed: false,
-              retry_after_seconds: 0,
+              outcome: intent.state,
+              intent_id: intent.intentId,
+              client_id: intent.clientId,
+              opportunity_id: intent.opportunityId,
+              site_visit_id: intent.siteVisitId,
+              scheduled_at: policy.mode === "instant" ? intent.slotStartAt : null,
             },
           ],
           error: null,
         };
-        if (this.refuseIntent || !intent) return refused;
-        if (intent.state !== "confirmed" && intent.state !== "submitted") return refused;
-        if (intent.emailDigest !== String(args.p_email_digest)) return refused;
-        return this.bookingChallengeRow(intent, args);
+      }
+      case "read_guest_booking_manageable_as_system": {
+        if (this.manageableRpcMissing) {
+          return {
+            data: null,
+            error: {
+              code: "PGRST202",
+              message:
+                "Could not find the function public.read_guest_booking_manageable_as_system",
+            },
+          };
+        }
+        const intent = this.intents.get(String(args.p_intent_id));
+        const manageable =
+          intent !== undefined &&
+          intent.companyId === String(args.p_company_id) &&
+          (intent.state === "confirmed" || intent.state === "submitted") &&
+          intent.emailDigest === String(args.p_contact_email_digest);
+        return { data: manageable, error: null };
       }
       case "reschedule_guest_booking_as_system": {
-        const intent = this.intentFor(args.p_intent_id, args.p_company_id);
-        const refuse = (outcome: string) => ({
-          data: [{ outcome, scheduled_at: null, duration_minutes: null }],
-          error: null,
-        });
-        if (!intent || !this.challengeProven(intent, args.p_challenge_id)) {
-          return refuse("not_manageable");
-        }
+        const intent = this.intents.get(String(args.p_intent_id));
+        if (!intent) return raiseBooking("booking_intent_not_found", "P0002");
         if (intent.state !== "confirmed" && intent.state !== "submitted") {
-          return refuse("not_manageable");
+          return raiseBooking("booking_not_reschedulable", "55000");
         }
-        const slot = new Date(String(args.p_slot_start_at)).toISOString();
+        const slot = new Date(String(args.p_scheduled_at)).toISOString();
         if (this.slotGoneOnConfirm || !this.slotIsOffered(intent.companyId, slot)) {
-          return refuse("slot_no_longer_available");
+          return raiseBooking("booking_slot_unavailable", "55000");
         }
         intent.slotStartAt = slot;
         return {
           data: [
             {
-              outcome: "rescheduled",
+              intent_id: intent.intentId,
+              site_visit_id: intent.siteVisitId,
               scheduled_at: slot,
-              duration_minutes:
-                this.bookingPolicyFor(intent.companyId).visit_duration_minutes,
             },
           ],
           error: null,
         };
       }
       case "cancel_guest_booking_as_system": {
-        const intent = this.intentFor(args.p_intent_id, args.p_company_id);
-        if (!intent || !this.challengeProven(intent, args.p_challenge_id)) {
-          return { data: [{ outcome: "not_manageable" }], error: null };
-        }
+        const intent = this.intents.get(String(args.p_intent_id));
+        if (!intent) return raiseBooking("booking_intent_not_found", "P0002");
         if (intent.state !== "confirmed" && intent.state !== "submitted") {
-          return { data: [{ outcome: "not_manageable" }], error: null };
+          return raiseBooking("booking_not_cancellable", "55000");
         }
         intent.state = "cancelled";
-        return { data: [{ outcome: "cancelled" }], error: null };
+        return {
+          data: [{ intent_id: intent.intentId, site_visit_id: intent.siteVisitId }],
+          error: null,
+        };
       }
       default:
         throw new Error(`customer identity fake: unexpected rpc ${fn}`);

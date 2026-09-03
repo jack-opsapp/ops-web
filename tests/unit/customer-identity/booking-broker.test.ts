@@ -34,7 +34,7 @@ const CONTACT = Object.freeze({
   name: "Jordan Reese",
   email: EMAIL,
   phone: "+1 403 555 0134",
-  answers: Object.freeze({ gate_code: "west side" }),
+  answers: Object.freeze([{ question: "Gate code", answer: "west side" }]),
 });
 
 let fake: CustomerIdentityFake;
@@ -60,7 +60,6 @@ async function armedIntent(slot = SLOT) {
   if (!held.ok) throw new Error("hold refused in fixture");
   const started = await startBookingContact(fake.deps(), {
     intentId: held.intentId,
-    companyId: COMPANY_ID,
     contact: CONTACT,
     networkFingerprint: FINGERPRINT,
   });
@@ -141,10 +140,10 @@ describe("holdSlot (design I13)", () => {
       slotStartAt: new Date("2026-09-20T16:00:00.000Z"),
       networkFingerprint: FINGERPRINT,
     });
-    expect(gone).toEqual({ ok: false, reason: "slot_unavailable" });
+    expect(gone).toEqual({ ok: false, reason: "slot_no_longer_available" });
   });
 
-  it("refuses past the concurrent-hold cap with a retry hint", async () => {
+  it("refuses past the concurrent-hold cap, indistinguishably from a taken slot (I5)", async () => {
     fake.setAvailability(COMPANY_ID, [
       SLOT,
       OTHER_SLOT,
@@ -164,7 +163,7 @@ describe("holdSlot (design I13)", () => {
       slotStartAt: new Date("2026-09-15T19:00:00.000Z"),
       networkFingerprint: FINGERPRINT,
     });
-    expect(fourth).toEqual({ ok: false, reason: "rate_limited", retryAfterSeconds: 60 });
+    expect(fourth).toEqual({ ok: false, reason: "slot_no_longer_available" });
   });
 
   it("refuses every hold while booking is off", async () => {
@@ -175,7 +174,7 @@ describe("holdSlot (design I13)", () => {
         slotStartAt: SLOT,
         networkFingerprint: FINGERPRINT,
       })
-    ).resolves.toEqual({ ok: false, reason: "slot_unavailable" });
+    ).resolves.toEqual({ ok: false, reason: "slot_no_longer_available" });
   });
 });
 
@@ -186,13 +185,13 @@ describe("parseBookingContact", () => {
         name: "  Jordan Reese ",
         email: " Jordan@Example.COM ",
         phone: " +1 403 555 0134 ",
-        answers: { gate_code: "west side", dogs: true, storeys: 2, notes: null },
+        answers: [{ gate_code: "west side", dogs: true, storeys: 2, notes: null }],
       })
     ).toEqual({
       name: "Jordan Reese",
       email: EMAIL,
       phone: "+1 403 555 0134",
-      answers: { gate_code: "west side", dogs: true, storeys: 2, notes: null },
+      answers: [{ gate_code: "west side", dogs: true, storeys: 2, notes: null }],
     });
   });
 
@@ -201,7 +200,7 @@ describe("parseBookingContact", () => {
       name: "Jordan",
       email: EMAIL,
       phone: null,
-      answers: {},
+      answers: [],
     });
   });
 
@@ -218,27 +217,47 @@ describe("parseBookingContact", () => {
     }
   });
 
-  it("refuses answers that are not a bounded object of scalars", () => {
-    const tooMany = Object.fromEntries(
-      Array.from({ length: MAX_BOOKING_ANSWERS + 1 }, (_, index) => [`q${index}`, "x"])
-    );
+  it("refuses answers that are not a bounded array of flat objects", () => {
+    const tooMany = Array.from({ length: MAX_BOOKING_ANSWERS + 1 }, () => ({ q: "x" }));
+    const tooManyFields = [
+      Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`f${index}`, "x"])),
+    ];
     for (const answers of [
-      [],
+      {},
       "gate code",
-      { nested: { deep: true } },
-      { list: ["a"] },
-      { long: "x".repeat(501) },
+      [{ nested: { deep: true } }],
+      [{ list: ["a"] }],
+      [[{ q: "x" }]],
+      ["not an object"],
+      [{ ["k".repeat(121)]: "x" }],
+      [{ "": "blank key" }],
+      [{ big: "x".repeat(20_000) }],
       tooMany,
-      { "": "blank key" },
+      tooManyFields,
     ]) {
       expect(parseBookingContact({ name: "Jordan", email: EMAIL, answers })).toBeNull();
     }
   });
 
-  it("refuses a phone longer than the evidence field holds", () => {
+  it("accepts an empty array and the full hundred entries", () => {
     expect(
-      parseBookingContact({ name: "Jordan", email: EMAIL, phone: "1".repeat(51) })
+      parseBookingContact({ name: "Jordan", email: EMAIL, answers: [] })
+    ).toMatchObject({ answers: [] });
+    const full = Array.from({ length: MAX_BOOKING_ANSWERS }, (_, index) => ({
+      q: `question ${index}`,
+    }));
+    expect(
+      parseBookingContact({ name: "Jordan", email: EMAIL, answers: full })
+    ).toMatchObject({ answers: full });
+  });
+
+  it("refuses a phone longer than the evidence column holds", () => {
+    expect(
+      parseBookingContact({ name: "Jordan", email: EMAIL, phone: "1".repeat(41) })
     ).toBeNull();
+    expect(
+      parseBookingContact({ name: "Jordan", email: EMAIL, phone: "1".repeat(40) })
+    ).toMatchObject({ phone: "1".repeat(40) });
   });
 });
 
@@ -252,7 +271,6 @@ describe("startBookingContact", () => {
     if (!held.ok) throw new Error("hold refused");
     const started = await startBookingContact(fake.deps(), {
       intentId: held.intentId,
-      companyId: COMPANY_ID,
       contact: CONTACT,
       networkFingerprint: FINGERPRINT,
     });
@@ -261,16 +279,19 @@ describe("startBookingContact", () => {
     const attached = fake.intents.get(held.intentId);
     expect(attached).toMatchObject({
       contactName: "Jordan Reese",
-      contactEmail: EMAIL,
       contactPhone: "+1 403 555 0134",
     });
+    // The row never holds the address in the clear (design §4.2).
+    expect(attached?.contactEmailEncrypted).not.toContain("@");
+    expect(JSON.stringify(fake.callsTo("record_guest_booking_contact_as_system"))).not.toContain(
+      "@"
+    );
   });
 
   it("answers identically for a refused intent and never sends (I5)", async () => {
     fake.refuseIntent = true;
     const started = await startBookingContact(fake.deps(), {
       intentId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
-      companyId: COMPANY_ID,
       contact: CONTACT,
       networkFingerprint: FINGERPRINT,
     });
@@ -289,7 +310,6 @@ describe("startBookingContact", () => {
     fake.refuseSends = true;
     const started = await startBookingContact(fake.deps(), {
       intentId: held.intentId,
-      companyId: COMPANY_ID,
       contact: CONTACT,
       networkFingerprint: FINGERPRINT,
     });
@@ -309,7 +329,6 @@ describe("verifyBookingContact", () => {
     const { intentId, challengeId } = await armedIntent();
     const result = await verifyBookingContact(fake.deps(), {
       intentId,
-      companyId: COMPANY_ID,
       challengeId,
       email: EMAIL,
       code: CODE,
@@ -319,7 +338,6 @@ describe("verifyBookingContact", () => {
       ok: true,
       outcome: "confirmed",
       scheduledAt: SLOT.toISOString(),
-      durationMinutes: 90,
     });
     expect(fake.intents.get(intentId)?.state).toBe("confirmed");
   });
@@ -333,13 +351,13 @@ describe("verifyBookingContact", () => {
     const { intentId, challengeId } = await armedIntent();
     const result = await verifyBookingContact(fake.deps(), {
       intentId,
-      companyId: COMPANY_ID,
       challengeId,
       email: EMAIL,
       code: CODE,
       networkFingerprint: FINGERPRINT,
     });
-    expect(result).toMatchObject({ ok: true, outcome: "submitted" });
+    // A request has no time on any calendar until staff accept it (I14).
+    expect(result).toEqual({ ok: true, outcome: "submitted", scheduledAt: null });
     expect(fake.intents.get(intentId)?.state).toBe("submitted");
   });
 
@@ -347,7 +365,6 @@ describe("verifyBookingContact", () => {
     const { intentId, challengeId } = await armedIntent();
     await verifyBookingContact(fake.deps(), {
       intentId,
-      companyId: COMPANY_ID,
       challengeId,
       email: EMAIL,
       code: CODE,
@@ -364,7 +381,6 @@ describe("verifyBookingContact", () => {
     const { intentId, challengeId } = await armedIntent();
     const result = await verifyBookingContact(fake.deps(), {
       intentId,
-      companyId: COMPANY_ID,
       challengeId,
       email: EMAIL,
       code: "000000",
@@ -379,7 +395,6 @@ describe("verifyBookingContact", () => {
     const attempt = () =>
       verifyBookingContact(fake.deps(), {
         intentId,
-        companyId: COMPANY_ID,
         challengeId,
         email: EMAIL,
         code: "000000",
@@ -395,7 +410,6 @@ describe("verifyBookingContact", () => {
     await expect(
       verifyBookingContact(fake.deps(), {
         intentId,
-        companyId: COMPANY_ID,
         challengeId: "99999999-9999-4999-8999-999999999999",
         email: EMAIL,
         code: CODE,
@@ -410,7 +424,6 @@ describe("verifyBookingContact", () => {
     await expect(
       verifyBookingContact(fake.deps(), {
         intentId,
-        companyId: COMPANY_ID,
         challengeId,
         email: EMAIL,
         code: CODE,
@@ -419,18 +432,26 @@ describe("verifyBookingContact", () => {
     ).resolves.toEqual({ ok: false, reason: "slot_no_longer_available" });
   });
 
-  it("refuses a confirm addressed at another company's handle", async () => {
+  it("refuses a code proved for an address that is not on this intent", async () => {
     const { intentId, challengeId } = await armedIntent();
+    // A second booking, verified under a different address, cannot confirm the
+    // first: the confirm RPC compares the digest against the intent's own.
+    fake.codes.set("someone.else@example.com", CODE);
+    const other = fake.seedIntent({
+      companyId: COMPANY_ID,
+      emailDigest: "1:" + "a".repeat(64),
+      state: "held",
+    });
     await expect(
       verifyBookingContact(fake.deps(), {
-        intentId,
-        companyId: OTHER_COMPANY_ID,
+        intentId: other.intentId,
         challengeId,
         email: EMAIL,
         code: CODE,
         networkFingerprint: FINGERPRINT,
       })
     ).resolves.toEqual({ ok: false, reason: "not_confirmable" });
+    expect(fake.intents.get(intentId)?.state).toBe("held");
   });
 });
 
@@ -439,7 +460,6 @@ describe("booking management (design I15)", () => {
     const { intentId, challengeId } = await armedIntent();
     await verifyBookingContact(fake.deps(), {
       intentId,
-      companyId: COMPANY_ID,
       challengeId,
       email: EMAIL,
       code: CODE,
@@ -485,6 +505,20 @@ describe("booking management (design I15)", () => {
     expect(fake.otpSends).toEqual([]);
   });
 
+  it("sends nothing while the manageability read is undeployed (fails closed)", async () => {
+    const intentId = await confirmedBooking();
+    fake.otpSends.length = 0;
+    fake.manageableRpcMissing = true;
+    const started = await startBookingManage(fake.deps(), {
+      intentId,
+      companyId: COMPANY_ID,
+      email: EMAIL,
+      networkFingerprint: FINGERPRINT,
+    });
+    expect(Object.keys(started).sort()).toEqual(["challengeId", "retryAfterSeconds"]);
+    expect(fake.otpSends).toEqual([]);
+  });
+
   it("reschedules onto a slot that is still offered", async () => {
     const intentId = await confirmedBooking();
     const started = await startBookingManage(fake.deps(), {
@@ -496,7 +530,6 @@ describe("booking management (design I15)", () => {
     fake.codes.set(EMAIL, CODE);
     const result = await verifyBookingManage(fake.deps(), {
       intentId,
-      companyId: COMPANY_ID,
       challengeId: started.challengeId,
       email: EMAIL,
       code: CODE,
@@ -508,7 +541,6 @@ describe("booking management (design I15)", () => {
       ok: true,
       outcome: "rescheduled",
       scheduledAt: OTHER_SLOT.toISOString(),
-      durationMinutes: 90,
     });
   });
 
@@ -524,7 +556,6 @@ describe("booking management (design I15)", () => {
     await expect(
       verifyBookingManage(fake.deps(), {
         intentId,
-        companyId: COMPANY_ID,
         challengeId: started.challengeId,
         email: EMAIL,
         code: CODE,
@@ -547,7 +578,6 @@ describe("booking management (design I15)", () => {
     await expect(
       verifyBookingManage(fake.deps(), {
         intentId,
-        companyId: COMPANY_ID,
         challengeId: first.challengeId,
         email: EMAIL,
         code: CODE,
@@ -571,7 +601,6 @@ describe("booking management (design I15)", () => {
     await expect(
       verifyBookingManage(fake.deps(), {
         intentId,
-        companyId: COMPANY_ID,
         challengeId: second.challengeId,
         email: EMAIL,
         code: CODE,
@@ -594,7 +623,6 @@ describe("booking management (design I15)", () => {
     await expect(
       verifyBookingManage(fake.deps(), {
         intentId,
-        companyId: COMPANY_ID,
         challengeId: started.challengeId,
         email: EMAIL,
         code: "000000",
