@@ -160,7 +160,18 @@ describe("enforceIpLimit", () => {
   it("has a distinct, bounded policy for every broker route", () => {
     const names = Object.values(IP_LIMITS).map((policy) => policy.name);
     expect(new Set(names).size).toBe(names.length);
-    expect(Object.keys(IP_LIMITS).sort()).toEqual(["authSignout", "authStart", "authVerify", "me"]);
+    expect(Object.keys(IP_LIMITS).sort()).toEqual([
+      "authSignout",
+      "authStart",
+      "authVerify",
+      "bookingAvailability",
+      "bookingContact",
+      "bookingHold",
+      "bookingManageStart",
+      "bookingManageVerify",
+      "bookingVerify",
+      "me",
+    ]);
     for (const policy of Object.values(IP_LIMITS)) {
       expect(policy.limit).toBeGreaterThan(0);
       expect(policy.windowSec).toBeGreaterThan(0);
@@ -169,6 +180,17 @@ describe("enforceIpLimit", () => {
     expect(IP_LIMITS.authStart.limit / IP_LIMITS.authStart.windowSec).toBeLessThan(
       IP_LIMITS.me.limit / IP_LIMITS.me.windowSec
     );
+    // Every step that sends a code or writes a row is bounded tighter than
+    // reading times, which is the only cheap thing a booking page does.
+    for (const policy of [
+      IP_LIMITS.bookingContact,
+      IP_LIMITS.bookingManageStart,
+      IP_LIMITS.bookingHold,
+    ]) {
+      expect(policy.limit / policy.windowSec).toBeLessThan(
+        IP_LIMITS.bookingAvailability.limit / IP_LIMITS.bookingAvailability.windowSec
+      );
+    }
   });
 });
 

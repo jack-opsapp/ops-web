@@ -76,6 +76,27 @@ export const IP_LIMITS = Object.freeze({
   authVerify: Object.freeze({ name: "auth-verify", limit: 40, windowSec: 600 }),
   authSignout: Object.freeze({ name: "auth-signout", limit: 30, windowSec: 60 }),
   me: Object.freeze({ name: "me", limit: 120, windowSec: 60 }),
+  // Guest booking (P2). Reading times is cheap and a picker paginates; every
+  // step that writes a row or sends a code is bounded far tighter, on top of
+  // the hold caps (I13) and the identifier-level send limits (I8).
+  bookingAvailability: Object.freeze({
+    name: "booking-availability",
+    limit: 60,
+    windowSec: 60,
+  }),
+  bookingHold: Object.freeze({ name: "booking-hold", limit: 10, windowSec: 600 }),
+  bookingContact: Object.freeze({ name: "booking-contact", limit: 10, windowSec: 600 }),
+  bookingVerify: Object.freeze({ name: "booking-verify", limit: 40, windowSec: 600 }),
+  bookingManageStart: Object.freeze({
+    name: "booking-manage-start",
+    limit: 10,
+    windowSec: 600,
+  }),
+  bookingManageVerify: Object.freeze({
+    name: "booking-manage-verify",
+    limit: 40,
+    windowSec: 600,
+  }),
 }) satisfies Readonly<Record<string, IpLimitPolicy>>;
 
 export async function enforceIpLimit(
@@ -258,6 +279,23 @@ export function invalidRequestResponse(): NextResponse {
 
 export function unauthenticatedResponse(): NextResponse {
   return brokerJson({ error: "unauthenticated" }, 401);
+}
+
+/**
+ * The one answer for every time that cannot be booked: taken since it was
+ * offered, expired as a proposal, or refused by live policy. A valid slot
+ * signature never proved the slot was free (I12), and the reasons are not
+ * worth telling apart — the customer picks another time either way.
+ */
+export function slotGoneResponse(): NextResponse {
+  return brokerJson({ error: "slot_no_longer_available" }, 409);
+}
+
+export function rateLimitedResponse(retryAfterSeconds: number): NextResponse {
+  const seconds = Math.max(1, Math.ceil(retryAfterSeconds));
+  return brokerJson({ error: "rate_limited", retryAfterSeconds: seconds }, 429, {
+    "Retry-After": String(seconds),
+  });
 }
 
 function unavailableResponse(): NextResponse {
