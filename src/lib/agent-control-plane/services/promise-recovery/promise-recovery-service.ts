@@ -20,8 +20,10 @@ import {
 } from "@/lib/agent-control-plane/contracts/promise-recovery";
 import { reauthorizeResolvedMcpActor } from "@/lib/agent-control-plane/mcp/actor-reauthorization";
 import {
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
   PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION,
   RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+  resolveEstimateDraftCapabilityAuthorization,
   resolvePromiseRecoveryCapabilityAuthorization,
   resolveRecurringServicePriceChangeCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
@@ -433,15 +435,22 @@ export function createPromiseRecoveryService(input: {
         );
       }
       const parsedInput = CheckCustomerReplyInputSchema.parse(rawInput);
+      const usesAdditiveV10Manifest =
+        actorContext.capabilityManifestRevision ===
+        ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION;
       const usesAdditiveV9Manifest =
         actorContext.capabilityManifestRevision ===
         RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION;
-      const resolveAuthorization = usesAdditiveV9Manifest
-        ? resolveRecurringServicePriceChangeCapabilityAuthorization
-        : resolvePromiseRecoveryCapabilityAuthorization;
-      const authorizationManifestRevision = usesAdditiveV9Manifest
-        ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
-        : PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION;
+      const resolveAuthorization = usesAdditiveV10Manifest
+        ? resolveEstimateDraftCapabilityAuthorization
+        : usesAdditiveV9Manifest
+          ? resolveRecurringServicePriceChangeCapabilityAuthorization
+          : resolvePromiseRecoveryCapabilityAuthorization;
+      const authorizationManifestRevision = usesAdditiveV10Manifest
+        ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+        : usesAdditiveV9Manifest
+          ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+          : PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION;
       const initial = resolveAuthorization(CAPABILITY_ID, parsedInput);
       if (initial.variants.length !== 1) {
         throw authorizationInternal(

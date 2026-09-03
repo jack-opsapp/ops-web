@@ -41,7 +41,9 @@ import { toP2ReadAgentError } from "@/lib/agent-control-plane/services/p2/shared
 import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { reauthorizeResolvedMcpActor } from "@/lib/agent-control-plane/mcp/actor-reauthorization";
 import {
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
   RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+  resolveEstimateDraftCapabilityAuthorization,
   resolveRecurringServicePriceChangeCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
@@ -1696,11 +1698,25 @@ export interface RecurringServicePriceChangeService {
   ): Promise<RecurringServicePriceChangeResult>;
 }
 
+function pricePreviewAuthorization(actorContext: ActorContext) {
+  return actorContext.capabilityManifestRevision ===
+    ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+    ? {
+        manifestRevision: ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
+        resolve: resolveEstimateDraftCapabilityAuthorization,
+      }
+    : {
+        manifestRevision:
+          RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+        resolve: resolveRecurringServicePriceChangeCapabilityAuthorization,
+      };
+}
+
 function authorizePricePreview(
   actorContext: ActorContext,
   input: PrepareRecurringServicePriceChangeInput
 ): void {
-  const resolved = resolveRecurringServicePriceChangeCapabilityAuthorization(
+  const resolved = pricePreviewAuthorization(actorContext).resolve(
     CAPABILITY_ID,
     input
   );
@@ -1772,7 +1788,7 @@ export function createRecurringServicePriceChangeService(input: {
         actorContext,
         authorityRepository: input.authorityRepository,
         capabilityManifestRevision:
-          RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+          pricePreviewAuthorization(actorContext).manifestRevision,
         signal: options?.signal,
       });
       authorizePricePreview(currentActor, parsedInput);
@@ -1829,7 +1845,7 @@ export function createRecurringServicePriceChangeService(input: {
           actorContext: currentActor,
           authorityRepository: input.authorityRepository,
           capabilityManifestRevision:
-            RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+            pricePreviewAuthorization(currentActor).manifestRevision,
           signal: options?.signal,
         });
         authorizePricePreview(finalActor, parsedInput);

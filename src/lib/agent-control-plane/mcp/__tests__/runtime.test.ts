@@ -114,12 +114,14 @@ describe("MCP production runtime", () => {
       "analyzeSalesTruth",
       "checkPayrollReadiness",
       "prepareRecurringServicePriceChange",
+      "prepareEstimateFromPastJob",
     ]);
     expect(runtime.hiringWhatIf).toBeDefined();
     expect(runtime.promiseRecovery).toBeDefined();
     expect(runtime.salesTruth).toBeDefined();
     expect(runtime.payrollReadiness).toBeDefined();
     expect(runtime.recurringServicePriceChange).toBeDefined();
+    expect(runtime.estimateDraft).toBeDefined();
     expect(rpc).not.toHaveBeenCalled();
   });
 

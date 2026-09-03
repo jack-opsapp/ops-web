@@ -165,7 +165,7 @@ describe("recurring service price-change repository", () => {
           effective_month: "2026-11",
         },
       })
-    ).rejects.toThrow("requires a v15 MCP actor");
+    ).rejects.toThrow("requires a supported MCP actor");
     expect(rpc).not.toHaveBeenCalled();
 
     const cases: unknown[] = [

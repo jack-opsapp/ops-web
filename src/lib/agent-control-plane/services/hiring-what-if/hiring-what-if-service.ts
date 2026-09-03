@@ -22,8 +22,10 @@ import {
 } from "@/lib/agent-control-plane/contracts";
 import { reauthorizeResolvedMcpActor } from "@/lib/agent-control-plane/mcp/actor-reauthorization";
 import {
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
   HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION,
   RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+  resolveEstimateDraftCapabilityAuthorization,
   resolveHiringWhatIfCapabilityAuthorization,
   resolveRecurringServicePriceChangeCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
@@ -148,15 +150,22 @@ export function createHiringWhatIfService(input: {
         throw error;
       }
 
+      const usesAdditiveV10Manifest =
+        actorContext.capabilityManifestRevision ===
+        ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION;
       const usesAdditiveV9Manifest =
         actorContext.capabilityManifestRevision ===
         RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION;
-      const resolveAuthorization = usesAdditiveV9Manifest
-        ? resolveRecurringServicePriceChangeCapabilityAuthorization
-        : resolveHiringWhatIfCapabilityAuthorization;
-      const authorizationManifestRevision = usesAdditiveV9Manifest
-        ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
-        : HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION;
+      const resolveAuthorization = usesAdditiveV10Manifest
+        ? resolveEstimateDraftCapabilityAuthorization
+        : usesAdditiveV9Manifest
+          ? resolveRecurringServicePriceChangeCapabilityAuthorization
+          : resolveHiringWhatIfCapabilityAuthorization;
+      const authorizationManifestRevision = usesAdditiveV10Manifest
+        ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+        : usesAdditiveV9Manifest
+          ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+          : HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION;
       const initialAuthorization = resolveAuthorization(
         CAPABILITY_ID,
         parsedInput

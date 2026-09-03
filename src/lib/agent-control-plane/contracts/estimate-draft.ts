@@ -4,6 +4,14 @@ import { z } from "zod-v4";
 
 import { CONTRACT_VERSION } from "./version";
 
+const BIGINT_ZERO = BigInt(0);
+const BIGINT_ONE = BigInt(1);
+const BIGINT_TWO = BigInt(2);
+const BIGINT_TEN = BigInt(10);
+const BIGINT_HUNDRED = BigInt(100);
+const BIGINT_TEN_THOUSAND = BigInt(10_000);
+const BIGINT_ONE_MILLION = BigInt(1_000_000);
+
 export const ESTIMATE_DRAFT_SCHEMA_REVISION = "2026-09-02.v1" as const;
 export const ESTIMATE_DRAFT_CAPABILITY_REVISION =
   `prepare_estimate_from_past_job:${ESTIMATE_DRAFT_SCHEMA_REVISION}` as const;
@@ -43,7 +51,7 @@ export const EstimateIncreasePercentSchema = z
   .refine((value) => !value.includes(".") || !value.endsWith("0"))
   .refine((value) => {
     const scaled = percentTenThousandths(value);
-    return scaled > 0n && scaled <= 1_000_000n;
+    return scaled > BIGINT_ZERO && scaled <= BIGINT_ONE_MILLION;
   });
 
 export const PrepareEstimateFromPastJobInputSchema = z
@@ -72,7 +80,7 @@ const EstimateDraftSourceLineSchema = z
     discount_percent: DecimalSchema.refine(
       (value) =>
         decimalRational(value).numerator <=
-        100n * decimalRational(value).denominator
+        BIGINT_HUNDRED * decimalRational(value).denominator
     ),
     minimum_charge: DecimalSchema.nullable(),
     is_taxable: z.boolean(),
@@ -162,7 +170,7 @@ export const EstimateDraftSourceSnapshotSchema = z
           value.deposit_type === "percentage" &&
           value.deposit_value !== null &&
           decimalRational(value.deposit_value).numerator >
-            100n * decimalRational(value.deposit_value).denominator
+            BIGINT_HUNDRED * decimalRational(value.deposit_value).denominator
         ) {
           context.addIssue({
             code: "custom",
@@ -407,7 +415,7 @@ const MAX_MINOR_VALUE = BigInt(Number.MAX_SAFE_INTEGER);
 
 function decimalRational(value: string): Rational {
   const [whole = "0", fraction = ""] = value.split(".");
-  const denominator = 10n ** BigInt(fraction.length);
+  const denominator = BIGINT_TEN ** BigInt(fraction.length);
   return {
     numerator: BigInt(whole) * denominator + BigInt(fraction || "0"),
     denominator,
@@ -416,20 +424,26 @@ function decimalRational(value: string): Rational {
 
 function percentTenThousandths(value: string): bigint {
   const [whole = "0", fraction = ""] = value.split(".");
-  return BigInt(whole) * 10_000n + BigInt(fraction.padEnd(4, "0"));
+  return (
+    BigInt(whole) * BIGINT_TEN_THOUSAND +
+    BigInt(fraction.padEnd(4, "0"))
+  );
 }
 
 function roundHalfAwayFromZero(numerator: bigint, denominator: bigint): bigint {
-  if (denominator <= 0n || numerator < 0n) {
+  if (denominator <= BIGINT_ZERO || numerator < BIGINT_ZERO) {
     throw new TypeError("Estimate draft arithmetic is outside its domain");
   }
   const quotient = numerator / denominator;
   const remainder = numerator % denominator;
-  return quotient + (remainder * 2n >= denominator ? 1n : 0n);
+  return (
+    quotient +
+    (remainder * BIGINT_TWO >= denominator ? BIGINT_ONE : BIGINT_ZERO)
+  );
 }
 
 function checkedMinor(value: bigint): bigint {
-  if (value < 0n || value > MAX_MINOR_VALUE) {
+  if (value < BIGINT_ZERO || value > MAX_MINOR_VALUE) {
     throw new TypeError("Estimate draft amount exceeds its safe bound");
   }
   return value;
@@ -439,7 +453,7 @@ function moneyToMinor(value: string, exponent: number): bigint {
   const parsed = decimalRational(value);
   return checkedMinor(
     roundHalfAwayFromZero(
-      parsed.numerator * 10n ** BigInt(exponent),
+      parsed.numerator * BIGINT_TEN ** BigInt(exponent),
       parsed.denominator
     )
   );
@@ -455,7 +469,10 @@ function rateProductMinor(amount: bigint, rate: string): bigint {
 function percentProductMinor(amount: bigint, percent: string): bigint {
   const parsed = decimalRational(percent);
   return checkedMinor(
-    roundHalfAwayFromZero(amount * parsed.numerator, parsed.denominator * 100n)
+    roundHalfAwayFromZero(
+      amount * parsed.numerator,
+      parsed.denominator * BIGINT_HUNDRED
+    )
   );
 }
 
@@ -469,9 +486,9 @@ function increaseMoneyMinor(
   return checkedMinor(
     roundHalfAwayFromZero(
       amount.numerator *
-        (100n * percent.denominator + percent.numerator) *
-        10n ** BigInt(exponent),
-      amount.denominator * percent.denominator * 100n
+        (BIGINT_HUNDRED * percent.denominator + percent.numerator) *
+        BIGINT_TEN ** BigInt(exponent),
+      amount.denominator * percent.denominator * BIGINT_HUNDRED
     )
   );
 }
@@ -486,8 +503,8 @@ function extensionMinor(
   let denominator = qty.denominator;
   if (discountPercent !== undefined) {
     const discount = decimalRational(discountPercent);
-    numerator *= 100n * discount.denominator - discount.numerator;
-    denominator *= 100n * discount.denominator;
+    numerator *= BIGINT_HUNDRED * discount.denominator - discount.numerator;
+    denominator *= BIGINT_HUNDRED * discount.denominator;
   }
   return checkedMinor(roundHalfAwayFromZero(numerator, denominator));
 }
@@ -531,14 +548,14 @@ export function canonicalEstimateDraftHash(value: unknown): string {
 
 function assertSourceTotals(snapshot: EstimateDraftSourceSnapshot): void {
   const exponent = snapshot.context.currency_minor_exponent;
-  let subtotal = 0n;
-  let discount = 0n;
-  let tax = 0n;
+  let subtotal = BIGINT_ZERO;
+  let discount = BIGINT_ZERO;
+  let tax = BIGINT_ZERO;
   for (const line of snapshot.line_items) {
     const unitPrice = moneyToMinor(line.unit_price, exponent);
     const minimum =
       line.minimum_charge === null
-        ? 0n
+        ? BIGINT_ZERO
         : moneyToMinor(line.minimum_charge, exponent);
     const raw = extensionMinor(line.quantity, unitPrice);
     const discounted = extensionMinor(
@@ -618,10 +635,10 @@ export function calculateEstimateDraft(input: {
     throw new TypeError("Current default tax rate is required");
   }
 
-  let subtotal = 0n;
-  let discountAmount = 0n;
-  let taxableTotal = 0n;
-  let taxAmount = 0n;
+  let subtotal = BIGINT_ZERO;
+  let discountAmount = BIGINT_ZERO;
+  let taxableTotal = BIGINT_ZERO;
+  let taxAmount = BIGINT_ZERO;
   const ordered = [...snapshot.line_items].sort(
     (left, right) =>
       left.sort_order - right.sort_order ||
@@ -654,12 +671,14 @@ export function calculateEstimateDraft(input: {
       minimum !== null && minimum > discountedCalculated
         ? minimum
         : discountedCalculated;
-    const lineTotal = included ? calculatedLineTotal : 0n;
-    const lineDiscount = included ? raw - calculatedLineTotal : 0n;
+    const lineTotal = included ? calculatedLineTotal : BIGINT_ZERO;
+    const lineDiscount = included
+      ? raw - calculatedLineTotal
+      : BIGINT_ZERO;
     const lineTax =
       included && line.is_taxable && snapshot.default_tax_rate !== null
         ? rateProductMinor(calculatedLineTotal, snapshot.default_tax_rate.rate)
-        : 0n;
+        : BIGINT_ZERO;
     if (included) {
       subtotal = addMinor(subtotal, raw);
       discountAmount = addMinor(discountAmount, lineDiscount);
@@ -696,7 +715,7 @@ export function calculateEstimateDraft(input: {
       category: line.category,
       type: line.type,
       resolved_options_label: line.resolved_options_label,
-      raw_extension: formatMinor(included ? raw : 0n, exponent),
+      raw_extension: formatMinor(included ? raw : BIGINT_ZERO, exponent),
       discount_amount: formatMinor(lineDiscount, exponent),
       line_total: formatMinor(lineTotal, exponent),
       tax_amount: formatMinor(lineTax, exponent),

@@ -29,6 +29,10 @@ import {
   type RecurringServicePriceChangeService,
 } from "./recurring-service-price-change/recurring-service-price-change-service";
 import {
+  isTrustedEstimateDraftService,
+  type EstimateDraftService,
+} from "./estimate-draft/estimate-draft-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -42,7 +46,8 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   PromiseRecoveryService &
   SalesTruthService &
   PayrollReadinessService &
-  RecurringServicePriceChangeService;
+  RecurringServicePriceChangeService &
+  EstimateDraftService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
@@ -53,6 +58,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly salesTruth: SalesTruthService;
   readonly payrollReadiness: PayrollReadinessService;
   readonly recurringServicePriceChange: RecurringServicePriceChangeService;
+  readonly estimateDraft: EstimateDraftService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -84,6 +90,9 @@ export function createOpsAgentCapabilityService(input: {
       "A trusted recurring-service price-change service is required"
     );
   }
+  if (!isTrustedEstimateDraftService(input.estimateDraft)) {
+    throw new TypeError("A trusted estimate draft service is required");
+  }
   const service = Object.freeze({
     ...input.reads,
     ...input.dayCloseout,
@@ -93,6 +102,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.salesTruth,
     ...input.payrollReadiness,
     ...input.recurringServicePriceChange,
+    ...input.estimateDraft,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;

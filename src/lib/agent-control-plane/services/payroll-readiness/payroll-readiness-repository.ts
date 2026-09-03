@@ -13,10 +13,12 @@ import {
   type PayrollReadinessSourceSnapshot,
 } from "@/lib/agent-control-plane/contracts/payroll-readiness";
 import {
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
   PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION,
   RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
+  MCP_EXPOSURE_V10,
   MCP_EXPOSURE_V8,
   MCP_EXPOSURE_V9,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
@@ -67,7 +69,10 @@ function binding(actorContext: ActorContext) {
       : actorContext.capabilityManifestRevision ===
           RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
         ? MCP_EXPOSURE_V9.revision
-        : null;
+        : actorContext.capabilityManifestRevision ===
+            ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+          ? MCP_EXPOSURE_V10.revision
+          : null;
   if (exposureRevision === null) {
     throw new TypeError("Payroll readiness requires a supported MCP actor");
   }

@@ -15,6 +15,7 @@ const V6_REVISION = "2026-09-01.mcp-exposure.v6";
 const V7_REVISION = "2026-09-01.mcp-exposure.v7";
 const V8_REVISION = "2026-09-01.mcp-exposure.v8";
 const V9_REVISION = "2026-09-01.mcp-exposure.v9";
+const V10_REVISION = "2026-09-02.mcp-exposure.v10";
 const V1_TOOLS = [
   "list_scheduled_jobs",
   "list_job_readiness_issues",
@@ -115,7 +116,8 @@ function serverInput(
 async function callTool(
   exposureRevision: string,
   domainService: OpsAgentDomainService,
-  args: unknown
+  args: unknown,
+  capabilityName = "prepare_recurring_service_price_change"
 ) {
   const input = serverInput(exposureRevision, domainService);
   const handler = createMcpHandler(
@@ -134,7 +136,7 @@ async function callTool(
         id: 2,
         method: "tools/call",
         params: {
-          name: "prepare_recurring_service_price_change",
+          name: capabilityName,
           arguments: args,
         },
       }),
@@ -257,6 +259,75 @@ describe("grant-pinned MCP exposure", () => {
     ]);
     expect(tools).not.toContain("commit_recurring_service_price_change");
     expect(tools).not.toContain("send_recurring_service_price_change");
+  });
+
+  it("keeps dormant v10 additive with only the prepare-only estimate preview", async () => {
+    const tools = await listTools(V10_REVISION);
+    expect(tools).toEqual([
+      "analyze_hiring_break_even",
+      "check_customer_reply",
+      "analyze_sales_truth",
+      "check_payroll_readiness",
+      "prepare_recurring_service_price_change",
+      "prepare_estimate_from_past_job",
+    ]);
+    expect(tools).not.toContain("commit_estimate_draft");
+    expect(tools).not.toContain("issue_estimate");
+    expect(tools).not.toContain("send_estimate");
+  });
+
+  it("dispatches only the three-field v10 estimate request and preserves zero effects", async () => {
+    const calls: Array<{ actor: ActorContext; args: unknown }> = [];
+    const safety = Object.freeze({
+      estimate_created: false,
+      estimate_number_reserved: false,
+      estimate_issued: false,
+      estimate_approved: false,
+      estimate_published: false,
+      messages_sent: 0,
+      prices_committed: false,
+      commit_capability_available: false,
+    });
+    const service = new Proxy(
+      {},
+      {
+        get(_target, property) {
+          if (property === "prepareEstimateFromPastJob") {
+            return async (actor: ActorContext, args: unknown) => {
+              calls.push({ actor, args });
+              return { safety };
+            };
+          }
+          if (typeof property !== "string") return undefined;
+          return async () => ({ ok: true });
+        },
+      }
+    ) as OpsAgentDomainService;
+    const args = {
+      target_opportunity_id: "10000000-0000-4000-8000-000000000001",
+      source_estimate_id: "30000000-0000-4000-8000-000000000001",
+      increase_percent: "8",
+    };
+    const payload = await callTool(
+      V10_REVISION,
+      service,
+      args,
+      "prepare_estimate_from_past_job"
+    );
+    expect(payload.error).toBeUndefined();
+    expect(JSON.parse(payload.result?.content[0]?.text ?? "{}")).toEqual({
+      safety,
+    });
+    expect(calls).toEqual([{ actor: ACTOR_CONTEXT, args }]);
+
+    const rejected = await callTool(
+      V10_REVISION,
+      service,
+      { ...args, send: true },
+      "prepare_estimate_from_past_job"
+    );
+    expect(rejected.error ?? rejected.result?.isError).toBeTruthy();
+    expect(calls).toHaveLength(1);
   });
 
   it("dispatches the v9 tool with only three exact fields and preserves preview-only safety claims", async () => {

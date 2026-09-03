@@ -129,7 +129,7 @@ export const ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
 export type LabelledMcpScope =
-  keyof typeof INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS;
+  keyof typeof ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,
