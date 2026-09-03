@@ -73,11 +73,16 @@
 }
 
 /* ── Primary CTA (DESIGN.md §9: outlined accent at rest, fills on hover;
-      the one accent element on the screen) ────────────────────────────── */
+      the one accent element on the screen).
+
+      The label reads in --portal-cta-label, which hosted-theme.ts resolves to
+      the accent when the accent clears WCAG AA on this canvas and to the text
+      token when it does not. The outline and the hover fill always carry the
+      company's color, so identity survives either way. ────────────────── */
 .cs-cta {
   background-color: transparent;
   border: 1px solid var(--portal-accent);
-  color: var(--portal-accent);
+  color: var(--portal-cta-label, var(--portal-accent));
   transition:
     background-color var(--d-hover) var(--ease-smooth),
     color var(--d-hover) var(--ease-smooth),

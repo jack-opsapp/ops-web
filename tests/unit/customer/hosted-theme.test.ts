@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  accentCarriesText,
   accentForeground,
   buildHostedThemeStyle,
+  contrastRatio,
   normalizeHexColor,
   relativeLuminance,
   sanitizeBranding,
@@ -82,5 +84,42 @@ describe("buildHostedThemeStyle", () => {
     const branding = { ...defaultPortalBranding("co"), accentColor: "zzz" };
     const style = buildHostedThemeStyle(branding) as Record<string, string>;
     expect(JSON.stringify(style)).not.toContain("NaN");
+  });
+});
+
+describe("CTA label contrast (a business's accent must never hide the one button)", () => {
+  const dark = defaultPortalBranding("c1");
+  const light = { ...dark, themeMode: "light" as const };
+
+  it("measures WCAG ratios both ways", () => {
+    expect(contrastRatio("#ffffff", "#000000")).toBeCloseTo(21, 1);
+    expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 1);
+    expect(contrastRatio("#417394", "#0a0a0a")).toBeCloseTo(3.87, 2);
+    expect(contrastRatio("#6f94b0", "#0a0a0a")).toBeCloseTo(6.16, 2);
+  });
+
+  it("lets a legible accent carry the label", () => {
+    expect(accentCarriesText("#6f94b0", "#0a0a0a")).toBe(true);
+    expect(buildHostedThemeStyle({ ...dark, accentColor: "#6f94b0" })).toMatchObject({
+      "--portal-cta-label": "var(--portal-accent)",
+    });
+  });
+
+  it("hands the label back to the text token when the accent cannot carry it", () => {
+    // The database default is exactly this case: 3.87:1 on the dark canvas.
+    expect(accentCarriesText(PORTAL_DEFAULT_ACCENT, "#0a0a0a")).toBe(false);
+    expect(buildHostedThemeStyle(dark)).toMatchObject({
+      "--portal-cta-label": "var(--portal-text)",
+    });
+  });
+
+  it("judges the accent against the canvas it is actually drawn on", () => {
+    // The same accent passes on the light canvas and fails on the dark one.
+    expect(buildHostedThemeStyle(light)).toMatchObject({
+      "--portal-cta-label": "var(--portal-accent)",
+    });
+    expect(buildHostedThemeStyle({ ...light, accentColor: "#c4a868" })).toMatchObject({
+      "--portal-cta-label": "var(--portal-text)",
+    });
   });
 });

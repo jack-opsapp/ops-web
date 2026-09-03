@@ -68,17 +68,46 @@ export function sanitizeBranding(branding: PortalBranding): PortalBranding {
   return accent === branding.accentColor ? branding : { ...branding, accentColor: accent };
 }
 
+/** WCAG contrast ratio between two `#rrggbb` colors. */
+export function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** WCAG AA for text below the large-text threshold. The CTA label is 14px. */
+export const AA_CONTRAST = 4.5;
+
+/**
+ * Whether a company's accent is legible as *text* on the hosted canvas.
+ *
+ * The primary CTA is outlined at rest, so its label is drawn in the accent
+ * (DESIGN.md §9). That reads at 6.2:1 for the OPS accent but only 3.9:1 for
+ * the `portal_branding` default — a fail. A business may pick any color, and
+ * a homeowner must be able to read the one button that moves them forward, so
+ * an accent that cannot carry text hands the label back to the text token and
+ * keeps its identity in the outline and the hover fill.
+ */
+export function accentCarriesText(accentHex6: string, canvasHex6: string): boolean {
+  return contrastRatio(accentHex6, canvasHex6) >= AA_CONTRAST;
+}
+
 /**
  * CSS custom properties for the hosted shell root: every `--portal-*` var
- * from the shared generator plus a contrast-aware `--portal-accent-text`.
+ * from the shared generator, plus a contrast-aware `--portal-accent-text`
+ * (the label on a filled accent) and `--portal-cta-label` (the label on the
+ * outlined accent at rest).
  */
 export function buildHostedThemeStyle(branding: PortalBranding): CSSProperties {
   const safe = sanitizeBranding(branding);
   const vars = generatePortalTheme(safe);
   const foreground = accentForeground(safe.accentColor);
+  const canvas = normalizeHexColor(vars["--portal-bg"]);
+  const readable = canvas === null || accentCarriesText(safe.accentColor, canvas);
   return {
     ...(vars as unknown as CSSProperties),
     ["--portal-accent-text" as string]:
       foreground === "dark" ? "var(--cs-on-accent-dark)" : "var(--cs-on-accent-light)",
+    ["--portal-cta-label" as string]: readable ? "var(--portal-accent)" : "var(--portal-text)",
   } as CSSProperties;
 }
