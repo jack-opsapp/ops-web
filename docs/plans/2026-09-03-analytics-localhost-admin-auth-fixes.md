@@ -37,12 +37,17 @@
 - Modify in ops-site worktree: `src/components/layout/GoogleAnalytics.tsx`
 - Modify in ops-site worktree: `src/lib/analytics/__tests__/ga-config.test.ts`
 - Modify in ops-site worktree: `src/components/layout/__tests__/google-analytics.test.tsx`
+- Create in try-ops worktree: `lib/analytics/production-boundary.ts`
+- Modify in try-ops worktree: `components/layout/AnalyticsProvider.tsx`
+- Modify in try-ops worktree: client event senders and analytics API routes
+- Create in try-ops worktree: `lib/analytics/production-boundary.test.mjs`
 
 1. Add failing execution tests proving localhost, loopback addresses, Vercel previews, and arbitrary hosts produce no GA configuration call.
 2. Add passing-host expectations for each surface's canonical production hosts.
 3. Run both repositories' focused tests and confirm the new cases fail.
 4. Pass the surface allowlist into the generated config script and exit before initializing GA when the runtime hostname is not allowed.
-5. Re-run both repositories' focused tests.
+5. Apply the same exact-host boundary to the separate `try.opsapp.co` deployment, including its GA/Ads bootstrap and legacy Supabase onboarding/tutorial event paths.
+6. Re-run all three repositories' focused tests.
 
 ## Task 3: Exclude non-production hosts from every GA4 report
 
