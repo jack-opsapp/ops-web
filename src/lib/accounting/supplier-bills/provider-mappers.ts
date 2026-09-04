@@ -222,15 +222,13 @@ export function buildQuickBooksBillPaymentPayload(
 export function buildSageSupplierPayload(
   supplier: SupplierPayloadSource
 ): Record<string, unknown> {
-  return {
-    contact: buildSageContact({
-      name: supplier.displayName,
-      kind: "supplier",
-      email: supplier.email,
-      phone: supplier.phone,
-      taxNumber: supplier.taxNumber,
-    }),
-  };
+  return buildSageContact({
+    name: supplier.displayName,
+    kind: "supplier",
+    email: supplier.email,
+    phone: supplier.phone,
+    taxNumber: supplier.taxNumber,
+  });
 }
 
 export function buildSagePurchaseInvoicePayload(
@@ -243,26 +241,24 @@ export function buildSagePurchaseInvoicePayload(
     "Sage requires a due date before this bill can sync."
   );
   try {
-    return {
-      purchase_invoice: buildSagePurchaseInvoice({
-        contactId: required(
-          vendorId,
-          "sage_vendor_required",
-          "Sage vendor link is required."
-        ),
-        date: bill.invoiceDate,
-        dueDate,
-        reference: bill.invoiceNumber,
-        lines: bill.lines.map((line) => ({
-          description: line.description,
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          subtotal: line.subtotal,
-          ledgerAccountId: line.externalAccountId,
-          taxRateId: line.externalTaxCodeId,
-        })),
-      }),
-    };
+    return buildSagePurchaseInvoice({
+      contactId: required(
+        vendorId,
+        "sage_vendor_required",
+        "Sage vendor link is required."
+      ),
+      date: bill.invoiceDate,
+      dueDate,
+      reference: bill.invoiceNumber,
+      lines: bill.lines.map((line) => ({
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        subtotal: line.subtotal,
+        ledgerAccountId: line.externalAccountId,
+        taxRateId: line.externalTaxCodeId,
+      })),
+    });
   } catch (error) {
     if (error instanceof SageMappingError) {
       throw new ProviderMappingError(error.code, error.message);
@@ -280,31 +276,29 @@ export function buildSageContactPaymentPayload(
     "Sage requires a bank account mapping before this payment can sync."
   );
   try {
-    return {
-      contact_payment: buildSageContactPayment({
-        transactionType: "VENDOR_PAYMENT",
-        contactId: required(
-          payment.vendorId,
-          "sage_vendor_required",
-          "Sage vendor link is required."
-        ),
-        bankAccountId,
-        paymentMethodId: payment.paymentMethodId,
-        date: payment.paymentDate,
-        amount: payment.amount,
-        reference: payment.reference,
-        allocations: [
-          {
-            artefactId: required(
-              payment.billId,
-              "sage_bill_required",
-              "Sage bill link is required."
-            ),
-            amount: payment.amount,
-          },
-        ],
-      }),
-    };
+    return buildSageContactPayment({
+      transactionType: "VENDOR_PAYMENT",
+      contactId: required(
+        payment.vendorId,
+        "sage_vendor_required",
+        "Sage vendor link is required."
+      ),
+      bankAccountId,
+      paymentMethodId: payment.paymentMethodId,
+      date: payment.paymentDate,
+      amount: payment.amount,
+      reference: payment.reference,
+      allocations: [
+        {
+          artefactId: required(
+            payment.billId,
+            "sage_bill_required",
+            "Sage bill link is required."
+          ),
+          amount: payment.amount,
+        },
+      ],
+    });
   } catch (error) {
     if (error instanceof SageMappingError) {
       throw new ProviderMappingError(error.code, error.message);

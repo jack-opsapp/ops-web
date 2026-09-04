@@ -22,28 +22,39 @@ export async function GET(request: NextRequest) {
 
   const supabase = getServiceRoleClient();
 
-  // Find all enabled legacy-provider connections. QuickBooks writes are owned
-  // by /api/cron/accounting/quickbooks/push-queue so this legacy cron must not
-  // call runSyncForConnection for QuickBooks.
+  // Find only enabled providers that still use the legacy orchestrator.
+  // QuickBooks writes and Sage writes are queue-owned. Sage reads are also
+  // excluded until the business-bound reconciler is active; the legacy Sage
+  // client cannot prove an exact X-Business boundary.
   const { data: connections, error } = await supabase
     .from("accounting_connections")
     .select("id, company_id, provider, provider_environment, last_sync_at")
     .eq("is_connected", true)
     .eq("sync_enabled", true)
-    .neq("provider", "quickbooks");
+    .not("provider", "in", '("quickbooks","sage")');
 
   if (error) {
     console.error("Cron: Failed to fetch connections:", error.message);
-    return NextResponse.json({ error: "Failed to fetch connections" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch connections" },
+      { status: 500 }
+    );
   }
 
   const activeConnections = connections ?? [];
 
   if (activeConnections.length === 0) {
-    return NextResponse.json({ message: "No active connections to sync", synced: 0 });
+    return NextResponse.json({
+      message: "No active connections to sync",
+      synced: 0,
+    });
   }
 
-  const results: Array<{ companyId: string; provider: string; status: string }> = [];
+  const results: Array<{
+    companyId: string;
+    provider: string;
+    status: string;
+  }> = [];
 
   for (const conn of activeConnections) {
     try {
@@ -60,7 +71,10 @@ export async function GET(request: NextRequest) {
         status: syncResult.success ? "success" : "error",
       });
     } catch (err) {
-      console.error(`Cron sync error for ${conn.company_id}/${conn.provider}:`, err);
+      console.error(
+        `Cron sync error for ${conn.company_id}/${conn.provider}:`,
+        err
+      );
       results.push({
         companyId: conn.company_id,
         provider: conn.provider,

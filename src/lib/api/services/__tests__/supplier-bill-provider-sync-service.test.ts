@@ -45,6 +45,9 @@ const ROW: SupplierBillQueueRow = {
   runAfter: "2026-09-03T00:00:00Z",
   lockedAt: "2026-09-03T00:00:00Z",
   lockedBy: "worker",
+  providerRequestId: null,
+  providerAcceptedAt: null,
+  idempotencyExpiresAt: null,
   lastError: null,
   payloadSnapshot: {},
   createdAt: "2026-09-03T00:00:00Z",
@@ -135,6 +138,56 @@ describe("SupplierBillProviderSyncService", () => {
       "Vendor",
       expect.objectContaining({ Id: "501", SyncToken: "7", sparse: true }),
       ROW.id
+    );
+  });
+
+  it("uses the business-bound Sage client and queue-derived idempotency identity", async () => {
+    process.env.QB_TOKEN_ENC_KEY = Buffer.alloc(32, 9).toString("base64");
+    const create = vi.fn().mockResolvedValue({
+      data: { id: "sage-supplier-1" },
+      evidence: {
+        requestId: "sage-request-1",
+        status: 201,
+        acceptedAt: "2026-09-03T00:01:00Z",
+      },
+    });
+    const sageRow: SupplierBillQueueRow = { ...ROW, provider: "sage" };
+    const service = new SupplierBillProviderSyncService(
+      fakeDb({
+        [`suppliers:${ROW.entityId}`]: {
+          id: ROW.entityId,
+          display_name: "Example Supply",
+          email: "ap@example.test",
+          phone: null,
+          tax_number: null,
+        },
+      }) as never,
+      sageRow,
+      {
+        accessToken: "token",
+        realmId: null,
+        providerEnvironment: "sandbox",
+        sage: { create } as never,
+      }
+    );
+
+    await expect(service.write()).resolves.toEqual({
+      externalId: "sage-supplier-1",
+      syncToken: null,
+      providerUpdatedAt: null,
+      acceptedEvidence: {
+        requestId: "sage-request-1",
+        status: 201,
+        acceptedAt: "2026-09-03T00:01:00Z",
+      },
+    });
+    expect(create).toHaveBeenCalledWith(
+      "contacts",
+      expect.objectContaining({ name: "Example Supply" }),
+      expect.objectContaining({
+        resource: "contacts",
+        id: expect.stringMatching(/^[a-f0-9]{32}$/),
+      })
     );
   });
 });

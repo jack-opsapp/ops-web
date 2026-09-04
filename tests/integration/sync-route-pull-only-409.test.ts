@@ -79,4 +79,31 @@ describe("POST /api/sync direction gate", () => {
     expect(res.status).toBe(202);
     expect(runSyncForConnection).not.toHaveBeenCalled();
   });
+
+  it("returns queue-managed Sage semantics without invoking the legacy writer", async () => {
+    vi.stubEnv("ACCOUNTING_WRITE_ENABLED", "true");
+    vi.stubEnv("SAGE_WRITE_ENABLED", "true");
+    vi.stubEnv("SAGE_ACTIVE_PROFILE", "sandbox");
+    connSingle.mockResolvedValue({
+      data: {
+        id: "sage-conn-1",
+        is_connected: true,
+        last_sync_at: null,
+        sync_direction: "bidirectional",
+      },
+      error: null,
+    });
+    const { POST } = await import("@/app/api/sync/route");
+    const res = await POST(post({ companyId: CO, provider: "sage" }));
+
+    await expect(res.json()).resolves.toEqual(
+      expect.objectContaining({
+        success: true,
+        status: "queue_managed",
+        message: expect.stringContaining("Sage writes"),
+      })
+    );
+    expect(res.status).toBe(202);
+    expect(runSyncForConnection).not.toHaveBeenCalled();
+  });
 });

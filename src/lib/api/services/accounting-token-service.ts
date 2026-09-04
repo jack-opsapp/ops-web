@@ -458,6 +458,46 @@ function refreshSingleFlight(
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 export const AccountingTokenService = {
+  async forceRefresh(
+    supabase: SupabaseClient,
+    connectionId: string
+  ): Promise<string> {
+    const { data: conn, error } = await supabase
+      .from("accounting_connections")
+      .select("id, provider, provider_environment, refresh_token")
+      .eq("id", connectionId)
+      .single();
+
+    if (error || !conn) {
+      throw new Error(`Connection not found: ${connectionId}`);
+    }
+    if (conn.provider !== "quickbooks" && conn.provider !== "sage") {
+      throw new Error(`Unsupported accounting provider: ${conn.provider}`);
+    }
+    const provider = conn.provider as AccountingRefreshProvider;
+    const refreshToken = decryptToken(conn.refresh_token as string | null);
+    if (!refreshToken) {
+      throw new ReconnectRequiredError(PROVIDER_LABELS[provider]);
+    }
+    const environment: QuickBooksEnvironment =
+      conn.provider_environment === "sandbox" ? "sandbox" : "production";
+    return refreshSingleFlight(
+      supabase,
+      connectionId,
+      provider,
+      environment,
+      refreshToken
+    );
+  },
+
+  async disconnectGrant(
+    supabase: SupabaseClient,
+    connectionId: string,
+    provider: AccountingRefreshProvider
+  ): Promise<void> {
+    await markReconnectRequired(supabase, connectionId, provider);
+  },
+
   /**
    * Returns a valid access token, refreshing if expired or about to expire.
    * Reads ciphertext from the connection row and returns PLAINTEXT (callers

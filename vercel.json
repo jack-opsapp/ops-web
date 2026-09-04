@@ -225,7 +225,7 @@
       "schedule": "14-59/20 13-23,0-4 * * *"
     },
     {
-      "path": "/api/cron/accounting/sage/push-supplier-bills",
+      "path": "/api/cron/accounting/sage/push-queue",
       "schedule": "34-59/20 13-23,0-4 * * *"
     },
     {

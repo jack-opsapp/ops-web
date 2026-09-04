@@ -413,6 +413,126 @@ export type Database = {
         }
         Relationships: []
       }
+      sage_sales_account_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          sage_ledger_account_id: string
+          source_key: string
+          source_kind: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          sage_ledger_account_id: string
+          source_key: string
+          source_kind: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          sage_ledger_account_id?: string
+          source_key?: string
+          source_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_sales_account_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_tax_rate_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          sage_tax_rate_id: string
+          source_tax_key: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          sage_tax_rate_id: string
+          source_tax_key: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          sage_tax_rate_id?: string
+          source_tax_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_tax_rate_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_payment_method_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          payment_method: string
+          sage_bank_account_id: string
+          sage_payment_method_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          payment_method: string
+          sage_bank_account_id: string
+          sage_payment_method_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          payment_method?: string
+          sage_bank_account_id?: string
+          sage_payment_method_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_payment_method_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sage_business_selection_sessions: {
         Row: {
           access_token: string

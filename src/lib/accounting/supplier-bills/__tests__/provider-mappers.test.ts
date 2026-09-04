@@ -144,37 +144,33 @@ describe("supplier bill provider mappers", () => {
 
   it("maps the canonical supplier and bill to Sage vendor purchase contracts", () => {
     expect(buildSageSupplierPayload(bill.supplier)).toEqual({
-      contact: {
-        name: "Example Vinyl Products",
-        contact_type_ids: ["VENDOR"],
-        email: "ap@example.test",
-        telephone: "250-555-0100",
-        tax_number: "GST-TEST",
-      },
+      name: "Example Vinyl Products",
+      contact_type_ids: ["VENDOR"],
+      email: "ap@example.test",
+      telephone: "250-555-0100",
+      tax_number: "GST-TEST",
     });
     expect(buildSagePurchaseInvoicePayload(bill, "sage-vendor-1")).toEqual({
-      purchase_invoice: {
-        contact_id: "sage-vendor-1",
-        date: "2026-08-25",
-        due_date: "2026-09-24",
-        vendor_reference: "INV-42995",
-        invoice_lines: [
-          {
-            description: "Vinyl membrane",
-            quantity: 66,
-            unit_price: 16.92,
-            ledger_account_id: "82",
-            tax_rate_id: "GST",
-          },
-          {
-            description: "Freight",
-            quantity: 1,
-            unit_price: 1250.2,
-            ledger_account_id: "82",
-            tax_rate_id: "GST",
-          },
-        ],
-      },
+      contact_id: "sage-vendor-1",
+      date: "2026-08-25",
+      due_date: "2026-09-24",
+      vendor_reference: "INV-42995",
+      invoice_lines: [
+        {
+          description: "Vinyl membrane",
+          quantity: 66,
+          unit_price: 16.92,
+          ledger_account_id: "82",
+          tax_rate_id: "GST",
+        },
+        {
+          description: "Freight",
+          quantity: 1,
+          unit_price: 1250.2,
+          ledger_account_id: "82",
+          tax_rate_id: "GST",
+        },
+      ],
     });
   });
 
@@ -217,16 +213,14 @@ describe("supplier bill provider mappers", () => {
         reference: "PAY-1",
       })
     ).toEqual({
-      contact_payment: {
-        transaction_type_id: "VENDOR_PAYMENT",
-        contact_id: "vendor",
-        bank_account_id: "bank",
-        date: "2026-09-03",
-        total_amount: 100,
-        payment_method_id: "method",
-        reference: "PAY-1",
-        allocated_artefacts: [{ artefact_id: "bill", amount: 100 }],
-      },
+      transaction_type_id: "VENDOR_PAYMENT",
+      contact_id: "vendor",
+      bank_account_id: "bank",
+      date: "2026-09-03",
+      total_amount: 100,
+      payment_method_id: "method",
+      reference: "PAY-1",
+      allocated_artefacts: [{ artefact_id: "bill", amount: 100 }],
     });
   });
 });

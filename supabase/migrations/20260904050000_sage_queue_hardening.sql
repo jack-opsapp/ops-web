@@ -1,5 +1,76 @@
 begin;
 
+-- Sage requires explicit ledger, tax, and payment-account identifiers on
+-- financial writes. Persist exact, connection-scoped mappings so workers fail
+-- closed instead of guessing provider accounting configuration.
+create table if not exists public.sage_sales_account_mappings (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null,
+  connection_id uuid not null
+    references public.accounting_connections(id) on delete cascade,
+  source_kind text not null
+    check (source_kind in ('product', 'task_type', 'category', 'default')),
+  source_key text not null check (nullif(btrim(source_key), '') is not null),
+  sage_ledger_account_id text not null
+    check (nullif(btrim(sage_ledger_account_id), '') is not null),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (connection_id, source_kind, source_key)
+);
+
+create table if not exists public.sage_tax_rate_mappings (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null,
+  connection_id uuid not null
+    references public.accounting_connections(id) on delete cascade,
+  source_tax_key text not null
+    check (nullif(btrim(source_tax_key), '') is not null),
+  sage_tax_rate_id text not null
+    check (nullif(btrim(sage_tax_rate_id), '') is not null),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (connection_id, source_tax_key)
+);
+
+create table if not exists public.sage_payment_method_mappings (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null,
+  connection_id uuid not null
+    references public.accounting_connections(id) on delete cascade,
+  payment_method text not null
+    check (nullif(btrim(payment_method), '') is not null),
+  sage_bank_account_id text not null
+    check (nullif(btrim(sage_bank_account_id), '') is not null),
+  sage_payment_method_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (connection_id, payment_method)
+);
+
+alter table public.sage_sales_account_mappings enable row level security;
+alter table public.sage_tax_rate_mappings enable row level security;
+alter table public.sage_payment_method_mappings enable row level security;
+
+revoke all on table public.sage_sales_account_mappings
+  from public, anon, authenticated;
+revoke all on table public.sage_tax_rate_mappings
+  from public, anon, authenticated;
+revoke all on table public.sage_payment_method_mappings
+  from public, anon, authenticated;
+grant all on table public.sage_sales_account_mappings to service_role;
+grant all on table public.sage_tax_rate_mappings to service_role;
+grant all on table public.sage_payment_method_mappings to service_role;
+
+create policy sage_sales_account_mappings_service_role_only
+  on public.sage_sales_account_mappings
+  for all to service_role using (true) with check (true);
+create policy sage_tax_rate_mappings_service_role_only
+  on public.sage_tax_rate_mappings
+  for all to service_role using (true) with check (true);
+create policy sage_payment_method_mappings_service_role_only
+  on public.sage_payment_method_mappings
+  for all to service_role using (true) with check (true);
+
 alter table public.accounting_sync_queue
   add column if not exists provider_request_id text,
   add column if not exists provider_accepted_at timestamptz,
@@ -673,6 +744,12 @@ begin
     'execute'
   ) then
     raise exception 'sage_queue_hardening_sentinel: browser can record provider acceptance';
+  end if;
+
+  if has_table_privilege('anon', 'public.sage_sales_account_mappings', 'select')
+     or has_table_privilege('authenticated', 'public.sage_tax_rate_mappings', 'select')
+     or has_table_privilege('anon', 'public.sage_payment_method_mappings', 'insert') then
+    raise exception 'sage_queue_hardening_sentinel: browser can access Sage mappings';
   end if;
 end;
 $$;

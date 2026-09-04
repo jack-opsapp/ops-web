@@ -19,7 +19,8 @@ import type {
 } from "./accounting-sync-queue-types";
 import type { QuickBooksEnvironment } from "./quickbooks-config";
 import { QuickBooksWriteService } from "./quickbooks-write-service";
-import { SagePurchasingService } from "./sage-purchasing-service";
+import type { SageAcceptedWrite, SageWriteClient } from "./sage-api-client";
+import { sageIdempotencyKey } from "./sage-idempotency";
 
 type DbRow = Record<string, unknown>;
 type ApQueueRow = AccountingSyncQueueRow<SupplierBillSyncEntityType>;
@@ -35,11 +36,12 @@ export interface SupplierBillProviderWriteResult {
   externalId: string;
   syncToken: string | null;
   providerUpdatedAt: string | null;
+  acceptedEvidence?: SageAcceptedWrite["evidence"];
 }
 
 interface ProviderServices {
   quickBooks?: QuickBooksWriteService;
-  sage?: SagePurchasingService;
+  sage?: SageWriteClient;
 }
 
 function text(value: unknown): string {
@@ -91,7 +93,7 @@ export class SupplierBillProviderSyncService {
       realmId: string | null;
       providerEnvironment: QuickBooksEnvironment;
       quickBooks?: QuickBooksWriteService;
-      sage?: SagePurchasingService;
+      sage?: SageWriteClient;
     }
   ) {
     this.db = supabase;
@@ -105,11 +107,7 @@ export class SupplierBillProviderSyncService {
               environment: input.providerEnvironment,
             })
           : undefined),
-      sage:
-        input.sage ??
-        (row.provider === "sage"
-          ? new SagePurchasingService({ accessToken: input.accessToken })
-          : undefined),
+      sage: input.sage,
     };
   }
 
@@ -169,14 +167,38 @@ export class SupplierBillProviderSyncService {
     return this.services.quickBooks;
   }
 
-  private sage(): SagePurchasingService {
+  private sage(): SageWriteClient {
     if (!this.services.sage) {
       throw new ProviderMappingError(
         "sage_connection_invalid",
-        "Sage access token is required."
+        "A business-bound Sage client is required."
       );
     }
     return this.services.sage;
+  }
+
+  private sageId(result: SageAcceptedWrite, fallback?: string | null): string {
+    if (result.data && typeof result.data === "object") {
+      const record = result.data as Record<string, unknown>;
+      if (typeof record.id === "string" && record.id.trim()) {
+        return record.id.trim();
+      }
+      for (const nested of Object.values(record)) {
+        if (!nested || typeof nested !== "object" || Array.isArray(nested)) {
+          continue;
+        }
+        const nestedId = (nested as Record<string, unknown>).id;
+        if (typeof nestedId === "string" && nestedId.trim()) {
+          return nestedId.trim();
+        }
+      }
+    }
+    const existing = nullableText(fallback);
+    if (existing) return existing;
+    throw new ProviderMappingError(
+      "sage_response_id_missing",
+      "Sage accepted the supplier write without an entity identifier."
+    );
   }
 
   private async quickBooksSyncToken(
@@ -228,12 +250,22 @@ export class SupplierBillProviderSyncService {
     }
     const payload = buildSageSupplierPayload(supplierSource(supplier));
     const result = link?.external_id
-      ? await this.sage().update("contacts", text(link.external_id), payload)
-      : await this.sage().create("contacts", payload);
+      ? await this.sage().update(
+          "contacts",
+          text(link.external_id),
+          payload,
+          sageIdempotencyKey(this.row.id, "contacts")
+        )
+      : await this.sage().create(
+          "contacts",
+          payload,
+          sageIdempotencyKey(this.row.id, "contacts")
+        );
     return {
-      externalId: result.sageId,
+      externalId: this.sageId(result, nullableText(link?.external_id)),
       syncToken: null,
       providerUpdatedAt: null,
+      acceptedEvidence: result.evidence,
     };
   }
 
@@ -378,8 +410,16 @@ export class SupplierBillProviderSyncService {
           providerUpdatedAt: result.metaUpdatedAt,
         };
       }
-      await this.sage().delete("purchase_invoices", externalId);
-      return { externalId, syncToken: null, providerUpdatedAt: null };
+      const result = await this.sage().voidOrDelete(
+        "purchase_invoices",
+        externalId
+      );
+      return {
+        externalId,
+        syncToken: null,
+        providerUpdatedAt: null,
+        acceptedEvidence: result.evidence,
+      };
     }
 
     const supplierLink = await this.requireLink(
@@ -422,13 +462,19 @@ export class SupplierBillProviderSyncService {
       ? await this.sage().update(
           "purchase_invoices",
           text(link.external_id),
-          payload
+          payload,
+          sageIdempotencyKey(this.row.id, "purchase_invoices")
         )
-      : await this.sage().create("purchase_invoices", payload);
+      : await this.sage().create(
+          "purchase_invoices",
+          payload,
+          sageIdempotencyKey(this.row.id, "purchase_invoices")
+        );
     return {
-      externalId: result.sageId,
+      externalId: this.sageId(result, nullableText(link?.external_id)),
       syncToken: null,
       providerUpdatedAt: null,
+      acceptedEvidence: result.evidence,
     };
   }
 
@@ -484,11 +530,16 @@ export class SupplierBillProviderSyncService {
       paymentMethodId: nullableText(mapping?.external_payment_method_id),
       reference: nullableText(payment.reference),
     });
-    const result = await this.sage().create("contact_payments", payload);
+    const result = await this.sage().create(
+      "contact_payments",
+      payload,
+      sageIdempotencyKey(this.row.id, "contact_payments")
+    );
     return {
-      externalId: result.sageId,
+      externalId: this.sageId(result),
       syncToken: null,
       providerUpdatedAt: null,
+      acceptedEvidence: result.evidence,
     };
   }
 }

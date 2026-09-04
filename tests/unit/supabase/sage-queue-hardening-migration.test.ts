@@ -12,6 +12,21 @@ const migration = readFileSync(
 const sql = migration.toLowerCase().replace(/\s+/g, " ");
 
 describe("Sage durable queue migration", () => {
+  it("stores exact connection-scoped Sage accounting mappings", () => {
+    expect(sql).toContain(
+      "create table if not exists public.sage_sales_account_mappings"
+    );
+    expect(sql).toContain(
+      "create table if not exists public.sage_tax_rate_mappings"
+    );
+    expect(sql).toContain(
+      "create table if not exists public.sage_payment_method_mappings"
+    );
+    expect(sql).toContain("sage_ledger_account_id");
+    expect(sql).toContain("sage_bank_account_id");
+    expect(sql).toContain("browser can access sage mappings");
+  });
+
   it("adds durable provider acceptance evidence without invalidating old rows", () => {
     expect(sql).toContain("add column if not exists provider_request_id text");
     expect(sql).toContain(

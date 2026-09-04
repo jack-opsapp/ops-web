@@ -12,7 +12,11 @@ import {
   AccountingTokenService,
   ReconnectRequiredError,
 } from "./accounting-token-service";
+import { createSageWriteClient } from "./sage-api-client";
+import { assertSageWriteAllowed } from "./sage-config";
+import { AcceptedWriteDurabilityError } from "./sage-queue-processor";
 import { SupplierBillProviderSyncService } from "./supplier-bill-provider-sync-service";
+import { decryptToken } from "./token-cipher";
 
 export type SupplierBillQueueRow =
   AccountingSyncQueueRow<SupplierBillSyncEntityType>;
@@ -77,7 +81,9 @@ export async function processSupplierBillQueueRow(input: {
   try {
     const { data: connection, error: connectionError } = await supabase
       .from("accounting_connections")
-      .select("provider, is_connected, sync_enabled, sync_direction")
+      .select(
+        "id, company_id, provider, provider_environment, is_connected, sync_enabled, sync_direction, sage_business_id"
+      )
       .eq("id", row.connectionId)
       .eq("company_id", row.companyId)
       .maybeSingle();
@@ -92,6 +98,23 @@ export async function processSupplierBillQueueRow(input: {
       throw new ProviderMappingError(
         "accounting_connection_unavailable",
         "Accounting connection is not available for supplier bill writes."
+      );
+    }
+
+    const payloadEnvironment = row.payloadSnapshot.providerEnvironment;
+    if (
+      payloadEnvironment !== "sandbox" &&
+      payloadEnvironment !== "production"
+    ) {
+      throw new ProviderMappingError(
+        "accounting_queue_environment_invalid",
+        "Accounting queue environment is unavailable."
+      );
+    }
+    if (connection.provider_environment !== payloadEnvironment) {
+      throw new ProviderMappingError(
+        "accounting_queue_environment_mismatch",
+        "Accounting queue and connection environments do not match."
       );
     }
 
@@ -112,11 +135,82 @@ export async function processSupplierBillQueueRow(input: {
       );
     }
 
+    if (token.providerEnvironment !== connection.provider_environment) {
+      throw new ProviderMappingError(
+        "accounting_token_environment_mismatch",
+        "Accounting token and connection environments do not match."
+      );
+    }
+
+    let sageClient: ReturnType<typeof createSageWriteClient> | undefined;
+    if (row.provider === "sage") {
+      const businessId = decryptToken(connection.sage_business_id)?.trim();
+      if (!businessId) {
+        throw new ProviderMappingError(
+          "sage_business_unavailable",
+          "Sage business identity is unavailable."
+        );
+      }
+      assertSageWriteAllowed({
+        environment: token.providerEnvironment,
+        businessId,
+      });
+      let accessToken = token.accessToken;
+      sageClient = createSageWriteClient({
+        businessId,
+        getAccessToken: async () => accessToken,
+        refreshAccessToken: async () => {
+          accessToken = await AccountingTokenService.forceRefresh(
+            supabase,
+            row.connectionId
+          );
+          return accessToken;
+        },
+        onDisconnect: () =>
+          AccountingTokenService.disconnectGrant(
+            supabase,
+            row.connectionId,
+            "sage"
+          ),
+      });
+    }
+
     const write = await new SupplierBillProviderSyncService(supabase, row, {
       accessToken: token.accessToken,
       realmId: token.realmId,
       providerEnvironment: token.providerEnvironment,
+      sage: sageClient,
     }).write();
+
+    if (row.provider === "sage") {
+      if (!write.acceptedEvidence) {
+        throw new AcceptedWriteDurabilityError(
+          "Sage supplier write returned no acceptance evidence."
+        );
+      }
+      const acceptedAt = Date.parse(write.acceptedEvidence.acceptedAt);
+      if (!Number.isFinite(acceptedAt)) {
+        throw new AcceptedWriteDurabilityError(
+          "Sage supplier acceptance timestamp is invalid."
+        );
+      }
+      try {
+        await queue.recordProviderAcceptance({
+          id: row.id,
+          workerId,
+          providerRequestId: write.acceptedEvidence.requestId ?? null,
+          acceptedAt: write.acceptedEvidence.acceptedAt,
+          idempotencyExpiresAt: new Date(
+            acceptedAt + 7 * 24 * 60 * 60 * 1_000
+          ).toISOString(),
+        });
+      } catch (cause) {
+        throw new AcceptedWriteDurabilityError(
+          "Sage supplier write was accepted but evidence could not be persisted.",
+          { cause }
+        );
+      }
+    }
 
     const { data: finalized, error: finalizationError } = await supabase.rpc(
       "finalize_supplier_bill_provider_sync",
@@ -163,6 +257,7 @@ export async function processSupplierBillQueueRow(input: {
       externalId: write.externalId,
     };
   } catch (error) {
+    if (error instanceof AcceptedWriteDurabilityError) throw error;
     const errorText = message(error);
     const needsReview =
       error instanceof ProviderMappingError ||

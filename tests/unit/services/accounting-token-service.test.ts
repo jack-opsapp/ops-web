@@ -90,6 +90,7 @@ const PAST = () => new Date(Date.now() - 60 * 1000).toISOString();
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("AccountingTokenService.getValidToken — decrypt on read", () => {
@@ -473,6 +474,41 @@ describe("AccountingTokenService.getValidToken — is_connected repair", () => {
 });
 
 describe("AccountingTokenService.getValidToken — Sage token lifecycle", () => {
+  it("force-refreshes a still-valid Sage token after an API 401 and rotates the grant", async () => {
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_ID", "sage-sandbox-client");
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_SECRET", "sage-sandbox-secret");
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "sage",
+      provider_environment: "sandbox",
+      access_token: encryptToken("still-valid-but-rejected"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: null,
+      token_expires_at: FUTURE(),
+      is_connected: true,
+    });
+    const fetchSpy = vi.fn(async () =>
+      jsonResponse(200, {
+        access_token: "forced-access",
+        refresh_token: "forced-rotated-refresh",
+        expires_in: 300,
+      })
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const accessToken = await AccountingTokenService.forceRefresh(
+      db.client,
+      CONNECTION_ID
+    );
+
+    expect(accessToken).toBe("forced-access");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(decryptToken(db.row.access_token as string)).toBe("forced-access");
+    expect(decryptToken(db.row.refresh_token as string)).toBe(
+      "forced-rotated-refresh"
+    );
+  });
+
   it("uses exact sandbox credentials and persists Sage's rotated five-minute grant", async () => {
     vi.stubEnv("SAGE_SANDBOX_CLIENT_ID", "sage-sandbox-client");
     vi.stubEnv("SAGE_SANDBOX_CLIENT_SECRET", "sage-sandbox-secret");
