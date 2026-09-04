@@ -11,6 +11,13 @@ const SQL = readFileSync(
   "utf8"
 ).toLowerCase();
 const COMPACT = SQL.replace(/\s+/g, " ").trim();
+const ACL_REPAIR = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260903211000_supplier_bill_immutable_acl_repair.sql"
+  ),
+  "utf8"
+).toLowerCase();
 
 function functionDefinition(name: string): string {
   const marker = `create or replace function ${name}(`;
@@ -60,6 +67,37 @@ describe("supplier bills AP migration contract", () => {
     expect(COMPACT).toContain("unique (company_id, idempotency_key)");
   });
 
+  it("covers every supplier-bill foreign key used for joins and parent changes", () => {
+    for (const index of [
+      "supplier_bill_documents_bill_company_idx on public.supplier_bill_documents (bill_id, company_id)",
+      "supplier_bill_documents_created_by_idx on public.supplier_bill_documents (created_by)",
+      "supplier_bill_events_actor_idx on public.supplier_bill_events (actor_user_id)",
+      "supplier_bill_events_company_idx on public.supplier_bill_events (company_id)",
+      "supplier_bill_lines_bill_company_idx on public.supplier_bill_line_items (bill_id, company_id)",
+      "supplier_bill_lines_category_idx on public.supplier_bill_line_items (category_id)",
+      "supplier_bill_lines_company_idx on public.supplier_bill_line_items (company_id)",
+      "supplier_bill_payment_accounts_company_idx on public.supplier_bill_payment_account_mappings (company_id)",
+      "supplier_bill_payments_bill_company_idx on public.supplier_bill_payments (bill_id, company_id)",
+      "supplier_bill_payments_company_idx on public.supplier_bill_payments (company_id)",
+      "supplier_bill_payments_recorded_by_idx on public.supplier_bill_payments (recorded_by)",
+      "supplier_bill_payments_voided_by_idx on public.supplier_bill_payments (voided_by)",
+      "supplier_bill_allocations_line_bill_company_idx on public.supplier_bill_project_allocations (line_item_id, bill_id, company_id)",
+      "supplier_bill_allocations_project_only_idx on public.supplier_bill_project_allocations (project_id)",
+      "supplier_bill_project_mappings_company_idx on public.supplier_bill_project_mappings (company_id)",
+      "supplier_bill_project_mappings_project_idx on public.supplier_bill_project_mappings (project_id)",
+      "supplier_bill_provider_links_company_idx on public.supplier_bill_provider_links (company_id)",
+      "supplier_bill_tax_mappings_company_idx on public.supplier_bill_tax_mappings (company_id)",
+      "supplier_bills_category_idx on public.supplier_bills (category_id)",
+      "supplier_bills_confirmed_by_idx on public.supplier_bills (confirmed_by)",
+      "supplier_bills_created_by_idx on public.supplier_bills (created_by)",
+      "supplier_bills_supplier_company_idx on public.supplier_bills (supplier_id, company_id)",
+      "supplier_bills_voided_by_idx on public.supplier_bills (voided_by)",
+      "suppliers_created_by_idx on public.suppliers (created_by)",
+    ]) {
+      expect(COMPACT).toContain(`create index if not exists ${index}`);
+    }
+  });
+
   it("keeps writes service-only while granting company-scoped authenticated reads", () => {
     expect(COMPACT).toContain(
       "revoke all on table private.supplier_bill_write_intents from public, anon, authenticated"
@@ -70,6 +108,9 @@ describe("supplier bills AP migration contract", () => {
     expect(COMPACT).toContain(
       "grant select, insert, update, delete on public.supplier_bills to service_role"
     );
+    expect(COMPACT).toContain(
+      "revoke all on table public.%i from service_role', v_table"
+    );
     const readScope = functionDefinition(
       "private.can_read_supplier_bill_company"
     );
@@ -77,6 +118,17 @@ describe("supplier bills AP migration contract", () => {
     expect(readScope).toContain("private.get_current_user_id()");
     expect(readScope).toContain("public.has_permission");
     expect(readScope).toContain("'accounting.view'");
+  });
+
+  it("repairs default service-role grants on immutable custody and audit records", () => {
+    for (const table of ["supplier_bill_documents", "supplier_bill_events"]) {
+      expect(ACL_REPAIR).toContain(
+        `revoke all on table public.${table} from service_role`
+      );
+      expect(ACL_REPAIR).toContain(
+        `grant select, insert on table public.${table} to service_role`
+      );
+    }
   });
 
   it("rechecks actor authority at prepare and commit and requires exact confirmation", () => {
