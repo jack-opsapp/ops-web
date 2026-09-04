@@ -4,11 +4,7 @@
  * TanStack Query hooks for accounting connections and sync.
  */
 
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/toast";
 import { queryKeys } from "../api/query-client";
 import { AccountingService } from "../api/services/accounting-service";
@@ -40,6 +36,49 @@ export function useInitiateOAuth() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to connect accounting provider");
+    },
+  });
+}
+
+export function useSageBusinessSelectionSession(
+  companyId: string,
+  sessionId: string,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: queryKeys.accounting.sageBusinessSelection(companyId, sessionId),
+    queryFn: () =>
+      AccountingService.getSageBusinessSelection(companyId, sessionId),
+    enabled: enabled && Boolean(companyId) && Boolean(sessionId),
+    staleTime: 0,
+    retry: false,
+  });
+}
+
+export function useSelectSageBusiness() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      companyId,
+      sessionId,
+      businessId,
+    }: {
+      companyId: string;
+      sessionId: string;
+      businessId: string;
+    }) =>
+      AccountingService.selectSageBusiness(companyId, sessionId, businessId),
+    onSuccess: (_data, { companyId, sessionId }) => {
+      queryClient.removeQueries({
+        queryKey: queryKeys.accounting.sageBusinessSelection(
+          companyId,
+          sessionId
+        ),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.accounting.connections(companyId),
+      });
     },
   });
 }

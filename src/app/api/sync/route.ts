@@ -14,6 +14,7 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { runSyncForConnection } from "@/lib/api/services/sync-orchestrator";
 import { getQuickBooksProviderEnvironment } from "@/lib/api/services/quickbooks-config";
+import { getSageProviderEnvironment } from "@/lib/api/services/sage-config";
 
 // ─── Auth Helper ──────────────────────────────────────────────────────────────
 
@@ -49,9 +50,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (provider !== "quickbooks" && provider !== "sage") {
+      return NextResponse.json(
+        { error: "Unsupported accounting provider" },
+        { status: 400 }
+      );
+    }
+
     const supabase = getServiceRoleClient();
     const providerEnvironment =
-      provider === "quickbooks" ? getQuickBooksProviderEnvironment() : "production";
+      provider === "quickbooks"
+        ? getQuickBooksProviderEnvironment()
+        : getSageProviderEnvironment();
 
     const hasAccess = await verifyCompanyAccess(authUser.uid, authUser.email, companyId);
     if (!hasAccess) {
@@ -103,13 +113,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (provider === "quickbooks") {
+    if (provider === "sage" && process.env.SAGE_WRITE_ENABLED !== "true") {
+      return NextResponse.json(
+        {
+          error:
+            "Sage writes aren't enabled yet — this connection currently imports only.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (provider === "quickbooks" || provider === "sage") {
       return NextResponse.json(
         {
           success: true,
           status: "queue_managed",
           message:
-            "QuickBooks writes are processed by the accounting queue. Pending OPS changes will be synced by the queue worker.",
+            `${provider === "quickbooks" ? "QuickBooks" : "Sage"} writes are processed by the accounting queue. Pending OPS changes will be synced by the queue worker.`,
           results: [],
         },
         { status: 202 }

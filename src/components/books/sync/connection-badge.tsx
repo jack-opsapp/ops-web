@@ -19,12 +19,16 @@ export type ConnectionBadgeTone = "live" | "offline";
 
 export function ConnectionBadge({
   providerName,
+  businessName,
+  sandboxLabel,
   statusLabel,
   tone,
   onClick,
   className,
 }: {
   providerName: string;
+  businessName?: string | null;
+  sandboxLabel?: string;
   statusLabel: string;
   tone: ConnectionBadgeTone;
   onClick: () => void;
@@ -46,13 +50,18 @@ export function ConnectionBadge({
         isLive
           ? "border-olive-line bg-olive-soft text-olive hover:border-olive"
           : "border-tan-line bg-tan-soft text-tan hover:border-tan",
-        className,
+        className
       )}
     >
       <motion.span
         aria-hidden
-        className={cn("h-[6px] w-[6px] rounded-full", isLive ? "bg-olive" : "bg-tan")}
-        animate={isLive && !reduceMotion ? { opacity: [1, 0.35, 1] } : { opacity: 1 }}
+        className={cn(
+          "h-[6px] w-[6px] rounded-full",
+          isLive ? "bg-olive" : "bg-tan"
+        )}
+        animate={
+          isLive && !reduceMotion ? { opacity: [1, 0.35, 1] } : { opacity: 1 }
+        }
         transition={
           isLive && !reduceMotion
             ? { duration: 2.4, repeat: Infinity, ease: EASE_SMOOTH }
@@ -60,6 +69,22 @@ export function ConnectionBadge({
         }
       />
       <span className="text-text-2">{providerName}</span>
+      {businessName && (
+        <>
+          <span aria-hidden className="opacity-50">
+            ·
+          </span>
+          <span className="max-w-40 truncate text-text">{businessName}</span>
+        </>
+      )}
+      {sandboxLabel && (
+        <>
+          <span aria-hidden className="opacity-50">
+            ·
+          </span>
+          <span className="text-tan">{sandboxLabel}</span>
+        </>
+      )}
       <span aria-hidden className="opacity-50">
         ·
       </span>

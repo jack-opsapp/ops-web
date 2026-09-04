@@ -44,9 +44,13 @@ import { TableShell, Workbar, WorkbarCount } from "@/components/ui/table-shell";
 import { QuickBooksImportTab } from "@/components/accounting/qbo/quickbooks-import-tab";
 import { ConnectionBadge } from "../sync/connection-badge";
 import { ConnectPanel } from "../sync/connect-panel";
-import { SyncStatusPanel, type SyncPrimaryAction } from "../sync/sync-status-panel";
+import {
+  SyncStatusPanel,
+  type SyncPrimaryAction,
+} from "../sync/sync-status-panel";
 import { ConnectAccountingModal } from "../sync/connect-accounting-modal";
 import { ConnectionSettingsModal } from "../sync/connection-settings-modal";
+import { SageBusinessSelectionModal } from "../sync/sage-business-selection-modal";
 
 export type SyncView = "connections" | "import";
 
@@ -67,7 +71,8 @@ export function SyncSegment({
   const companyId = company?.id ?? "";
 
   const { data: connections = [] } = useAccountingConnections();
-  const { data: syncHistory = [], isLoading: historyLoading } = useSyncHistory();
+  const { data: syncHistory = [], isLoading: historyLoading } =
+    useSyncHistory();
 
   const initiateOAuth = useInitiateOAuth();
   const disconnectProvider = useDisconnectProvider();
@@ -77,11 +82,17 @@ export function SyncSegment({
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sageSelectionOpen, setSageSelectionOpen] = useState(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const sageSelectionId = searchParams.get("sageSelection")?.trim() ?? "";
+
+  useEffect(() => {
+    if (companyId && sageSelectionId) setSageSelectionOpen(true);
+  }, [companyId, sageSelectionId]);
 
   // Post-OAuth landing (bug eb70d803). The provider callback redirects here
   // with ?connected=<provider> or ?status=error&message=<code>. Consume it
@@ -104,7 +115,7 @@ export function SyncSegment({
       toast.success(
         t("sync.toast.connected", {
           provider: t(`sync.provider.${connectedParam}`),
-        }),
+        })
       );
     } else if (statusParam === "error") {
       // access_denied = the operator backed out at the provider's consent
@@ -123,6 +134,24 @@ export function SyncSegment({
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [searchParams, companyId, queryClient, router, pathname, t]);
+
+  const closeSageSelection = () => {
+    setSageSelectionOpen(false);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("sageSelection");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
+  const handleSageBusinessConnected = () => {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.accounting.connections(companyId),
+    });
+    toast.success(
+      t("sync.toast.connected", { provider: t("sync.provider.sage") })
+    );
+    closeSageSelection();
+  };
 
   // The operative connection — one provider, once. Prefer a live link; fall
   // back to the first row so an offline (expired) connection still surfaces.
@@ -154,11 +183,13 @@ export function SyncSegment({
       },
       {
         onSuccess: () => {
-          toast.success(t("sync.toast.disconnected", { provider: providerName }));
+          toast.success(
+            t("sync.toast.disconnected", { provider: providerName })
+          );
           setSettingsOpen(false);
         },
         onError: () => toast.error(t("sync.toast.error")),
-      },
+      }
     );
   };
 
@@ -176,7 +207,7 @@ export function SyncSegment({
           setPickerOpen(true);
         },
         onError: () => toast.error(t("sync.toast.error")),
-      },
+      }
     );
   };
 
@@ -187,13 +218,13 @@ export function SyncSegment({
       {
         onSuccess: () => toast.success(t("sync.toast.autoSyncUpdated")),
         onError: () => toast.error(t("sync.toast.error")),
-      },
+      }
     );
   };
 
   const handleSetMode = (
     syncDirection: "pull_only" | "bidirectional",
-    propagateDeletes: boolean,
+    propagateDeletes: boolean
   ) => {
     if (!companyId || !active) return;
     updateSyncMode.mutate(
@@ -201,7 +232,7 @@ export function SyncSegment({
       {
         onSuccess: () => toast.success(t("sync.toast.modeUpdated")),
         onError: () => toast.error(t("sync.toast.error")),
-      },
+      }
     );
   };
 
@@ -209,7 +240,7 @@ export function SyncSegment({
     if (!companyId || !active) return;
     triggerSync.mutate(
       { companyId, provider: active.provider },
-      { onError: (e: Error) => toast.error(e.message || t("sync.toast.error")) },
+      { onError: (e: Error) => toast.error(e.message || t("sync.toast.error")) }
     );
   };
 
@@ -229,7 +260,9 @@ export function SyncSegment({
     if (!isPullOnly) {
       return {
         kind: "sync",
-        label: triggerSync.isPending ? t("sync.status.syncing") : t("sync.status.syncNow"),
+        label: triggerSync.isPending
+          ? t("sync.status.syncing")
+          : t("sync.status.syncNow"),
         onClick: handleSyncNow,
         loading: triggerSync.isPending,
       };
@@ -241,6 +274,16 @@ export function SyncSegment({
   const badge = active ? (
     <ConnectionBadge
       providerName={providerShort(active.provider)}
+      businessName={
+        active.provider === AccountingProvider.Sage
+          ? active.sageBusinessName
+          : null
+      }
+      sandboxLabel={
+        active.providerEnvironment === "sandbox"
+          ? t("sync.badge.sandbox")
+          : undefined
+      }
       statusLabel={isConnected ? t("sync.badge.live") : t("sync.badge.offline")}
       tone={isConnected ? "live" : "offline"}
       onClick={() => setSettingsOpen(true)}
@@ -249,7 +292,9 @@ export function SyncSegment({
 
   // ── Body ──────────────────────────────────────────────────────────────────
   const showImport =
-    isConnected && view === "import" && active?.provider === AccountingProvider.QuickBooks;
+    isConnected &&
+    view === "import" &&
+    active?.provider === AccountingProvider.QuickBooks;
 
   let body: React.ReactNode;
   if (!active) {
@@ -332,6 +377,14 @@ export function SyncSegment({
         onClose={() => setPickerOpen(false)}
         onConnect={handleConnect}
         connecting={initiateOAuth.isPending}
+      />
+
+      <SageBusinessSelectionModal
+        open={sageSelectionOpen}
+        companyId={companyId}
+        sessionId={sageSelectionId}
+        onClose={closeSageSelection}
+        onConnected={handleSageBusinessConnected}
       />
 
       {active && (

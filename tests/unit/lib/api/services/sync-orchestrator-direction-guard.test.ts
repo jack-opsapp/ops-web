@@ -1,28 +1,48 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted so the mock fns exist before the vi.mock factories run.
-const { pushClient, pushInvoice, pushEstimate, pushPayment, pullClients, pullInvoices } =
-  vi.hoisted(() => ({
+const {
+  pushClient,
+  pushInvoice,
+  pushEstimate,
+  pushPayment,
+  pullClients,
+  pullInvoices,
+} = vi.hoisted(() => ({
+  pushClient: vi.fn(),
+  pushInvoice: vi.fn(),
+  pushEstimate: vi.fn(),
+  pushPayment: vi.fn(),
+  pullClients: vi.fn(async () => []),
+  pullInvoices: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/api/services/quickbooks-sync-service", () => ({
+  QuickBooksSyncService: {
+    pushClient,
+    pushInvoice,
+    pushEstimate,
+    pushPayment,
+    pullClients,
+    pullInvoices,
+  },
+}));
+vi.mock("@/lib/api/services/sage-sync-service", () => ({
+  SageSyncService: {
     pushClient: vi.fn(),
     pushInvoice: vi.fn(),
     pushEstimate: vi.fn(),
     pushPayment: vi.fn(),
     pullClients: vi.fn(async () => []),
     pullInvoices: vi.fn(async () => []),
-  }));
-
-vi.mock("@/lib/api/services/quickbooks-sync-service", () => ({
-  QuickBooksSyncService: { pushClient, pushInvoice, pushEstimate, pushPayment, pullClients, pullInvoices },
-}));
-vi.mock("@/lib/api/services/sage-sync-service", () => ({
-  SageSyncService: {
-    pushClient: vi.fn(), pushInvoice: vi.fn(), pushEstimate: vi.fn(),
-    pushPayment: vi.fn(), pullClients: vi.fn(async () => []), pullInvoices: vi.fn(async () => []),
   },
 }));
 vi.mock("@/lib/api/services/accounting-token-service", () => ({
   AccountingTokenService: {
-    getValidToken: vi.fn(async () => ({ accessToken: "tok", realmId: "realm-1" })),
+    getValidToken: vi.fn(async () => ({
+      accessToken: "tok",
+      realmId: "realm-1",
+    })),
   },
 }));
 
@@ -55,7 +75,9 @@ function makeSupabaseStub(syncDirection: string) {
   // `await builder` (used for list selects) resolves to an empty rows envelope.
   (builder as { then?: unknown }).then = (resolve: (v: unknown) => void) =>
     resolve({ data: [], error: null });
-  return { from: vi.fn(() => builder) } as unknown as import("@supabase/supabase-js").SupabaseClient;
+  return {
+    from: vi.fn(() => builder),
+  } as unknown as import("@supabase/supabase-js").SupabaseClient;
 }
 
 beforeEach(() => {
@@ -104,5 +126,19 @@ describe("runSyncForConnection direction guard", () => {
     expect(result.results.some((r) => r.direction === "push")).toBe(false);
     expect(pullClients).toHaveBeenCalledTimes(1);
     expect(pullInvoices).toHaveBeenCalledTimes(1);
+  });
+
+  it("cannot invoke the legacy Sage reader or writer", async () => {
+    const supabase = makeSupabaseStub("bidirectional");
+
+    await expect(
+      runSyncForConnection(
+        supabase,
+        "a612edc0-5c18-4c4d-af97-55b9410dd077",
+        "sage",
+        "conn-1",
+        null
+      )
+    ).rejects.toThrow("exact-business queue and reconciliation routes");
   });
 });

@@ -4,6 +4,15 @@ const auditRecord = vi.fn();
 const applyEntity = vi.fn();
 const getValidToken = vi.fn();
 const fetchEntityById = vi.fn();
+const rpc = vi.fn((functionName: string, args: Row) => {
+  if (functionName !== "list_quickbooks_reconcile_candidates") {
+    return Promise.resolve({ data: null, error: { message: `Unexpected RPC: ${functionName}` } });
+  }
+  if (!args.p_provider_environment || !args.p_limit) {
+    return Promise.resolve({ data: null, error: { message: "Missing reconcile RPC arguments" } });
+  }
+  return Promise.resolve({ data: state.reconcile_candidates, error: null });
+});
 const qbWriteCalls = { value: 0 };
 
 type Row = Record<string, unknown>;
@@ -16,6 +25,7 @@ interface State {
   payments: Row[];
   accounting_sync_events: Row[];
   accounting_sync_queue: Row[];
+  reconcile_candidates: Row[];
 }
 
 let state: State;
@@ -78,6 +88,7 @@ function makeBuilder(table: string) {
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({
     from: (table: string) => makeBuilder(table),
+    rpc: (functionName: string, args: Row) => rpc(functionName, args),
   }),
 }));
 
@@ -166,6 +177,22 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
         },
       ],
       accounting_sync_queue: [],
+      reconcile_candidates: [
+        {
+          company_id: COMPANY_ID,
+          connection_id: CONNECTION_ID,
+          last_sync_at: "2026-06-05T10:00:00.000Z",
+          entity_type: "invoice",
+          source_table: "invoices",
+          entity_id: INVOICE_ID,
+          external_id: "130",
+          ops_updated_at: "2026-06-05T10:05:00.000Z",
+          money_touched: true,
+          last_audit_ops_updated_at: "2026-06-05T10:00:00.000Z",
+          last_audit_qb_updated_at: "2026-06-05T10:01:00.000Z",
+          last_reconciled_at: "2026-06-05T10:01:00.000Z",
+        },
+      ],
     };
     auditRecord.mockResolvedValue("evt-new");
     getValidToken.mockResolvedValue({
@@ -210,6 +237,7 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
         error: "Accounting writes are disabled",
       }),
     );
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("enqueues an OPS-won linked record when writes are enabled", async () => {
@@ -242,6 +270,10 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
         decision: "ops_won",
       }),
     );
+    expect(rpc).toHaveBeenCalledWith("list_quickbooks_reconcile_candidates", {
+      p_provider_environment: "production",
+      p_limit: 25,
+    });
   });
 
   it("treats an existing pending reconcile row as an idempotent enqueue", async () => {
@@ -291,6 +323,22 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
         created_at: "2026-06-05T10:01:00.000Z",
       },
     ];
+    state.reconcile_candidates = [
+      {
+        company_id: COMPANY_ID,
+        connection_id: CONNECTION_ID,
+        last_sync_at: "2026-06-05T10:00:00.000Z",
+        entity_type: "estimate",
+        source_table: "estimates",
+        entity_id: "estimate-1",
+        external_id: "estimate-qb-1",
+        ops_updated_at: "2026-06-05T10:05:00.000Z",
+        money_touched: true,
+        last_audit_ops_updated_at: "2026-06-05T10:00:00.000Z",
+        last_audit_qb_updated_at: "2026-06-05T10:01:00.000Z",
+        last_reconciled_at: "2026-06-05T10:01:00.000Z",
+      },
+    ];
     fetchEntityById.mockResolvedValueOnce({
       Id: "estimate-qb-1",
       MetaData: { LastUpdatedTime: "2026-06-05T10:06:00.000Z" },
@@ -328,5 +376,68 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
         }),
       }),
     );
+  });
+
+  it("processes one fair candidate batch across every supported entity lane", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    const candidates = [
+      ["customer", "clients", "customer-1", "customer-qb-1", false],
+      ["invoice", "invoices", "invoice-1", "invoice-qb-1", true],
+      ["estimate", "estimates", "estimate-1", "estimate-qb-1", true],
+      ["payment", "payments", "payment-1", "payment-qb-1", true],
+    ] as const;
+    state.reconcile_candidates = candidates.map(
+      ([entityType, sourceTable, entityId, externalId, moneyTouched]) => ({
+        company_id: COMPANY_ID,
+        connection_id: CONNECTION_ID,
+        last_sync_at: "2026-06-05T10:00:00.000Z",
+        entity_type: entityType,
+        source_table: sourceTable,
+        entity_id: entityId,
+        external_id: externalId,
+        ops_updated_at: "2026-06-05T10:05:00.000Z",
+        money_touched: moneyTouched,
+        last_audit_ops_updated_at: "2026-06-05T10:00:00.000Z",
+        last_audit_qb_updated_at: "2026-06-05T10:01:00.000Z",
+        last_reconciled_at: "2026-06-05T10:01:00.000Z",
+      }),
+    );
+    fetchEntityById.mockImplementation(async (_entityType: string, externalId: string) => ({
+      Id: externalId,
+      MetaData: { LastUpdatedTime: "2026-06-05T10:01:00.000Z" },
+    }));
+
+    const POST = await loadPost();
+    const res = await POST(request());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toEqual({ processed: 4, opsWon: 4, qbWon: 0, needsReview: 0 });
+    expect(fetchEntityById.mock.calls.map(([entityType]) => entityType)).toEqual([
+      "Customer",
+      "Invoice",
+      "Estimate",
+      "Payment",
+    ]);
+    expect(rpc).toHaveBeenCalledWith("list_quickbooks_reconcile_candidates", {
+      p_provider_environment: "production",
+      p_limit: 25,
+    });
+  });
+
+  it("fails closed when the selector returns a source-table contract mismatch", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    state.reconcile_candidates[0] = {
+      ...state.reconcile_candidates[0],
+      source_table: "payments",
+    };
+
+    const POST = await loadPost();
+
+    await expect(POST(request())).rejects.toThrow(
+      "QuickBooks reconcile source table mismatch for invoice",
+    );
+    expect(fetchEntityById).not.toHaveBeenCalled();
+    expect(state.accounting_sync_queue).toEqual([]);
   });
 });

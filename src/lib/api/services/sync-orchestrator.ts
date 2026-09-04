@@ -21,7 +21,6 @@ interface SyncResult {
   count: number;
   errors: string[];
 }
-
 // ─── QB Sync Logic ───────────────────────────────────────────────────────────
 
 async function syncQuickBooks(
@@ -270,8 +269,9 @@ async function syncSage(
   // Hard kill-switch: pushing to the provider also requires
   // ACCOUNTING_WRITE_ENABLED=true. Default/unset keeps all writes disabled.
   // canPull is unaffected (read stays on).
-  const canPush =
-    syncDirection !== "pull_only" && process.env.ACCOUNTING_WRITE_ENABLED === "true";
+  // Sage provider writes are exclusively owned by the durable queue worker.
+  // No runtime flag may reactivate these legacy direct-write loops.
+  const canPush = false;
   const canPull = syncDirection !== "push_only";
 
   if (canPush) {
@@ -518,7 +518,9 @@ export async function runSyncForConnection(
   if (provider === "quickbooks") {
     results = await syncQuickBooks(supabase, companyId, connectionId, lastSyncAt, direction);
   } else if (provider === "sage") {
-    results = await syncSage(supabase, companyId, connectionId, lastSyncAt, direction);
+    throw new Error(
+      "Sage synchronization is owned by the exact-business queue and reconciliation routes"
+    );
   } else {
     throw new Error(`Unsupported provider: ${provider}`);
   }

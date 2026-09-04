@@ -210,6 +210,7 @@ export type Database = {
           error_code: string | null
           estimate_id: string
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string
           response: Json | null
           status: string
@@ -315,6 +316,9 @@ export type Database = {
           realm_id: string | null
           realm_id_lookup: string | null
           refresh_token: string | null
+          sage_business_id: string | null
+          sage_business_id_lookup: string | null
+          sage_business_name: string | null
           sync_direction: string
           sync_enabled: boolean
           token_expires_at: string | null
@@ -334,6 +338,9 @@ export type Database = {
           realm_id?: string | null
           realm_id_lookup?: string | null
           refresh_token?: string | null
+          sage_business_id?: string | null
+          sage_business_id_lookup?: string | null
+          sage_business_name?: string | null
           sync_direction?: string
           sync_enabled?: boolean
           token_expires_at?: string | null
@@ -353,6 +360,9 @@ export type Database = {
           realm_id?: string | null
           realm_id_lookup?: string | null
           refresh_token?: string | null
+          sage_business_id?: string | null
+          sage_business_id_lookup?: string | null
+          sage_business_name?: string | null
           sync_direction?: string
           sync_enabled?: boolean
           token_expires_at?: string | null
@@ -360,6 +370,266 @@ export type Database = {
           webhook_verifier_token?: string | null
         }
         Relationships: []
+      }
+      accounting_oauth_attempts: {
+        Row: {
+          actor_user_id: string
+          company_id: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          pkce_verifier: string
+          provider: string
+          provider_environment: string
+          return_surface: string
+          state_digest: string
+        }
+        Insert: {
+          actor_user_id: string
+          company_id: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          pkce_verifier: string
+          provider?: string
+          provider_environment: string
+          return_surface?: string
+          state_digest: string
+        }
+        Update: {
+          actor_user_id?: string
+          company_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          pkce_verifier?: string
+          provider?: string
+          provider_environment?: string
+          return_surface?: string
+          state_digest?: string
+        }
+        Relationships: []
+      }
+      sage_sales_account_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          sage_ledger_account_id: string
+          source_key: string
+          source_kind: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          sage_ledger_account_id: string
+          source_key: string
+          source_kind: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          sage_ledger_account_id?: string
+          source_key?: string
+          source_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_sales_account_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_tax_rate_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          sage_tax_rate_id: string
+          source_tax_key: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          sage_tax_rate_id: string
+          source_tax_key: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          sage_tax_rate_id?: string
+          source_tax_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_tax_rate_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_payment_method_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          payment_method: string
+          sage_bank_account_id: string
+          sage_payment_method_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          payment_method: string
+          sage_bank_account_id: string
+          sage_payment_method_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          payment_method?: string
+          sage_bank_account_id?: string
+          sage_payment_method_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_payment_method_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_purchase_account_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          expense_category_id: string
+          id: string
+          sage_ledger_account_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          expense_category_id: string
+          id?: string
+          sage_ledger_account_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          expense_category_id?: string
+          id?: string
+          sage_ledger_account_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_purchase_account_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sage_purchase_account_mappings_expense_category_id_fkey"
+            columns: ["expense_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_business_selection_sessions: {
+        Row: {
+          access_token: string
+          actor_user_id: string
+          company_id: string
+          connection_id: string
+          consumed_at: string | null
+          created_at: string
+          eligible_businesses: Json
+          expires_at: string
+          id: string
+          provider_environment: string
+          refresh_token: string
+          token_expires_at: string
+        }
+        Insert: {
+          access_token: string
+          actor_user_id: string
+          company_id: string
+          connection_id: string
+          consumed_at?: string | null
+          created_at?: string
+          eligible_businesses: Json
+          expires_at: string
+          id?: string
+          provider_environment: string
+          refresh_token: string
+          token_expires_at: string
+        }
+        Update: {
+          access_token?: string
+          actor_user_id?: string
+          company_id?: string
+          connection_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          eligible_businesses?: Json
+          expires_at?: string
+          id?: string
+          provider_environment?: string
+          refresh_token?: string
+          token_expires_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_business_selection_sessions_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       accounting_sync_events: {
         Row: {
@@ -491,6 +761,7 @@ export type Database = {
           entity_type: string
           external_id: string | null
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string
           last_error: string | null
           locked_at: string | null
@@ -498,6 +769,8 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider_accepted_at: string | null
+          provider_request_id: string | null
           provider: string
           run_after: string
           source_action: string
@@ -515,6 +788,7 @@ export type Database = {
           entity_type: string
           external_id?: string | null
           id?: string
+          idempotency_expires_at?: string | null
           idempotency_key: string
           last_error?: string | null
           locked_at?: string | null
@@ -522,6 +796,8 @@ export type Database = {
           max_attempts?: number
           operation: string
           payload_snapshot?: Json
+          provider_accepted_at?: string | null
+          provider_request_id?: string | null
           provider?: string
           run_after?: string
           source_action: string
@@ -539,6 +815,7 @@ export type Database = {
           entity_type?: string
           external_id?: string | null
           id?: string
+          idempotency_expires_at?: string | null
           idempotency_key?: string
           last_error?: string | null
           locked_at?: string | null
@@ -546,6 +823,8 @@ export type Database = {
           max_attempts?: number
           operation?: string
           payload_snapshot?: Json
+          provider_accepted_at?: string | null
+          provider_request_id?: string | null
           provider?: string
           run_after?: string
           source_action?: string
@@ -9891,6 +10170,7 @@ export type Database = {
           project_id: string | null
           project_ref: string | null
           qb_id: string | null
+          sage_document_kind: string | null
           sage_id: string | null
           sent_at: string | null
           status: string
@@ -9932,6 +10212,7 @@ export type Database = {
           project_id?: string | null
           project_ref?: string | null
           qb_id?: string | null
+          sage_document_kind?: string | null
           sage_id?: string | null
           sent_at?: string | null
           status?: string
@@ -9973,6 +10254,7 @@ export type Database = {
           project_id?: string | null
           project_ref?: string | null
           qb_id?: string | null
+          sage_document_kind?: string | null
           sage_id?: string | null
           sent_at?: string | null
           status?: string
@@ -14348,6 +14630,7 @@ export type Database = {
           reference_number: string | null
           sage_id: string | null
           stripe_payment_intent: string | null
+          updated_at: string
           voided_at: string | null
           voided_by: string | null
         }
@@ -14366,6 +14649,7 @@ export type Database = {
           reference_number?: string | null
           sage_id?: string | null
           stripe_payment_intent?: string | null
+          updated_at?: string
           voided_at?: string | null
           voided_by?: string | null
         }
@@ -14384,6 +14668,7 @@ export type Database = {
           reference_number?: string | null
           sage_id?: string | null
           stripe_payment_intent?: string | null
+          updated_at?: string
           voided_at?: string | null
           voided_by?: string | null
         }
@@ -20469,6 +20754,7 @@ export type Database = {
           payment_method: string
           recorded_by: string
           reference: string | null
+          updated_at: string
           voided_at: string | null
           voided_by: string | null
         }
@@ -20483,6 +20769,7 @@ export type Database = {
           payment_method: string
           recorded_by: string
           reference?: string | null
+          updated_at?: string
           voided_at?: string | null
           voided_by?: string | null
         }
@@ -20497,6 +20784,7 @@ export type Database = {
           payment_method?: string
           recorded_by?: string
           reference?: string | null
+          updated_at?: string
           voided_at?: string | null
           voided_by?: string | null
         }
@@ -23399,6 +23687,43 @@ export type Database = {
         }
         Returns: Json
       }
+      consume_accounting_oauth_attempt: {
+        Args: { p_state_digest: string }
+        Returns: {
+          actor_user_id: string
+          company_id: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          pkce_verifier: string
+          provider: string
+          provider_environment: string
+          return_surface: string
+          state_digest: string
+        }[]
+      }
+      consume_sage_business_selection_session: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_session_id: string
+        }
+        Returns: {
+          access_token: string
+          actor_user_id: string
+          company_id: string
+          connection_id: string
+          consumed_at: string | null
+          created_at: string
+          eligible_businesses: Json
+          expires_at: string
+          id: string
+          provider_environment: string
+          refresh_token: string
+          token_expires_at: string
+        }[]
+      }
       finalize_paid_supplier_purchase: {
         Args: {
           p_actor_user_id: string
@@ -24368,6 +24693,7 @@ export type Database = {
           entity_type: string
           external_id: string | null
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string
           last_error: string | null
           locked_at: string | null
@@ -24375,6 +24701,8 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider_accepted_at: string | null
+          provider_request_id: string | null
           provider: string
           run_after: string
           source_action: string
@@ -27624,6 +27952,26 @@ export type Database = {
         Args: { p_opportunity_id: string }
         Returns: Json
       }
+      list_quickbooks_reconcile_candidates: {
+        Args: {
+          p_limit?: number
+          p_provider_environment: string
+        }
+        Returns: {
+          company_id: string
+          connection_id: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          last_audit_ops_updated_at: string | null
+          last_audit_qb_updated_at: string | null
+          last_reconciled_at: string | null
+          last_sync_at: string | null
+          money_touched: boolean
+          ops_updated_at: string | null
+          source_table: string
+        }[]
+      }
       list_phase_c_graduation_actor_scopes_as_system: {
         Args: { p_limit?: number }
         Returns: {
@@ -29249,6 +29597,48 @@ export type Database = {
           opportunity_id: string
         }[]
       }
+      record_accounting_sync_acceptance: {
+        Args: {
+          p_idempotency_expires_at: string
+          p_provider_accepted_at: string
+          p_provider_request_id: string
+          p_queue_id: string
+          p_worker_id: string
+        }
+        Returns: {
+          attempts: number
+          company_id: string
+          connection_id: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          external_id: string | null
+          id: string
+          idempotency_expires_at: string | null
+          idempotency_key: string
+          last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          operation: string
+          payload_snapshot: Json
+          provider: string
+          provider_accepted_at: string | null
+          provider_request_id: string | null
+          run_after: string
+          source_action: string
+          source_table: string
+          source_updated_at: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounting_sync_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_auto_bug:
         | {
             Args: {
@@ -30128,6 +30518,7 @@ export type Database = {
           entity_type: string
           external_id: string | null
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string
           last_error: string | null
           locked_at: string | null
@@ -30135,6 +30526,8 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider_accepted_at: string | null
+          provider_request_id: string | null
           provider: string
           run_after: string
           source_action: string
