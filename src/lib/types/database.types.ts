@@ -3165,6 +3165,7 @@ export type Database = {
           meta_title: string | null
           published_at: string | null
           slug: string
+          source: string
           subtitle: string | null
           summary: string | null
           teaser: string | null
@@ -3189,6 +3190,7 @@ export type Database = {
           meta_title?: string | null
           published_at?: string | null
           slug: string
+          source?: string
           subtitle?: string | null
           summary?: string | null
           teaser?: string | null
@@ -3213,6 +3215,7 @@ export type Database = {
           meta_title?: string | null
           published_at?: string | null
           slug?: string
+          source?: string
           subtitle?: string | null
           summary?: string | null
           teaser?: string | null
