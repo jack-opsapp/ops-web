@@ -9,6 +9,7 @@ import {
   MCP_CONSENT_CATALOG_V5,
   MCP_CONSENT_CATALOG_V6,
   MCP_CONSENT_CATALOG_V7,
+  MCP_CONSENT_CATALOG_V8,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,
   resolveMcpConsentCatalogRevision,
@@ -21,6 +22,7 @@ import {
   MCP_EXPOSURE_V10,
   MCP_EXPOSURE_V11,
   MCP_EXPOSURE_V12,
+  MCP_EXPOSURE_V13,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
@@ -32,6 +34,7 @@ import {
   ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
   WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
   CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS,
+  DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
@@ -215,10 +218,16 @@ describe("versioned MCP consent catalogue", () => {
     expect(MCP_CONSENT_CATALOG_V7.consentLabels).toBe(
       CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
     );
+    expect(
+      resolveMcpConsentCatalogRevision(MCP_CONSENT_CATALOG_V8.revision)
+    ).toBe(MCP_CONSENT_CATALOG_V8);
+    expect(MCP_CONSENT_CATALOG_V8.consentLabels).toBe(
+      DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
+    );
     expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V1);
   });
 
-  it("binds dormant v11 and v12 to distinct immutable consent catalogues", () => {
+  it("binds dormant v11-v13 to distinct immutable consent catalogues", () => {
     expect(() =>
       consentSnapshotForExposure(MCP_EXPOSURE_V12, MCP_CONSENT_CATALOG_V6)
     ).toThrow("MCP exposure consent catalogue mismatch");
@@ -241,6 +250,20 @@ describe("versioned MCP consent catalogue", () => {
     );
     expect(v12.acceptedLabels).toContain(
       "Prepare exact client schedule-update and crew recovery messages for approval"
+    );
+    expect(() =>
+      consentSnapshotForExposure(MCP_EXPOSURE_V13, MCP_CONSENT_CATALOG_V7)
+    ).toThrow("MCP exposure consent catalogue mismatch");
+    const v13 = consentSnapshotForExposure(
+      MCP_EXPOSURE_V13,
+      MCP_CONSENT_CATALOG_V8
+    );
+    expect(v13).toMatchObject({
+      consentCatalogRevision: "2026-09-03.mcp-consent-catalog.v8",
+      exposureRevision: MCP_EXPOSURE_V13.revision,
+    });
+    expect(v13.acceptedLabels).toContain(
+      "Prepare one evidence-backed internal dispatch follow-up task for exact approval"
     );
   });
 

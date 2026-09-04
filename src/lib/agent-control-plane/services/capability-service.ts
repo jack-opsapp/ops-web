@@ -41,6 +41,10 @@ import {
   type CrewCalloutRecoveryService,
 } from "./crew-callout-recovery/crew-callout-recovery-service";
 import {
+  isTrustedDispatchConfirmationTaskService,
+  type DispatchConfirmationTaskService,
+} from "./dispatch-confirmation-task/dispatch-confirmation-task-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -57,7 +61,8 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   RecurringServicePriceChangeService &
   EstimateDraftService &
   WeatherRescheduleService &
-  CrewCalloutRecoveryService;
+  CrewCalloutRecoveryService &
+  DispatchConfirmationTaskService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
@@ -71,6 +76,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly estimateDraft: EstimateDraftService;
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
+  readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -111,6 +117,13 @@ export function createOpsAgentCapabilityService(input: {
   if (!isTrustedCrewCalloutRecoveryService(input.crewCalloutRecovery)) {
     throw new TypeError("A trusted crew call-out recovery service is required");
   }
+  if (
+    !isTrustedDispatchConfirmationTaskService(input.dispatchConfirmationTask)
+  ) {
+    throw new TypeError(
+      "A trusted dispatch confirmation task service is required"
+    );
+  }
   const service = Object.freeze({
     ...input.reads,
     ...input.dayCloseout,
@@ -123,6 +136,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.estimateDraft,
     ...input.weatherReschedule,
     ...input.crewCalloutRecovery,
+    ...input.dispatchConfirmationTask,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;

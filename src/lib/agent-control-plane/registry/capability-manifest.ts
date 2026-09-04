@@ -40,6 +40,10 @@ import { PREPARE_RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_DEFINITION } from "./
 import { PREPARE_ESTIMATE_FROM_PAST_JOB_CAPABILITY_DEFINITION } from "./estimate-draft-capability";
 import { PREPARE_WEATHER_RESCHEDULE_CAPABILITY_DEFINITION } from "./weather-reschedule-capability";
 import { PREPARE_CREW_CALLOUT_RECOVERY_CAPABILITY_DEFINITION } from "./crew-callout-recovery-capability";
+import {
+  COMMIT_DISPATCH_CONFIRMATION_TASK_CAPABILITY_DEFINITION,
+  PREPARE_DISPATCH_CONFIRMATION_TASK_CAPABILITY_DEFINITION,
+} from "./dispatch-confirmation-task-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
@@ -64,6 +68,8 @@ export const WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION =
   "2026-09-03.capability-manifest.v17" as const;
 export const CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION =
   "2026-09-03.capability-manifest.v18" as const;
+export const DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-03.capability-manifest.v19" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -502,6 +508,38 @@ const CREW_CALLOUT_RECOVERY_CAPABILITY_BY_NAME = new Map(
   )
 );
 
+const dispatchConfirmationTaskManifestEntries: readonly CapabilityManifestEntry[] =
+  [
+    ...CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST.map((entry) =>
+      remintEntry(
+        entry,
+        DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION
+      )
+    ),
+    mintImplementationEntry(
+      PREPARE_DISPATCH_CONFIRMATION_TASK_CAPABILITY_DEFINITION,
+      DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION
+    ),
+    mintImplementationEntry(
+      COMMIT_DISPATCH_CONFIRMATION_TASK_CAPABILITY_DEFINITION,
+      DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION
+    ),
+  ];
+assertCapabilityManifestInvariants(
+  dispatchConfirmationTaskManifestEntries,
+  DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(dispatchConfirmationTaskManifestEntries);
+
+export const DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(dispatchConfirmationTaskManifestEntries);
+
+const DISPATCH_CONFIRMATION_TASK_CAPABILITY_BY_NAME = new Map(
+  DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -586,6 +624,14 @@ export function getCrewCalloutRecoveryCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = CREW_CALLOUT_RECOVERY_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getDispatchConfirmationTaskCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = DISPATCH_CONFIRMATION_TASK_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -956,6 +1002,16 @@ export function resolveCrewCalloutRecoveryCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getCrewCalloutRecoveryCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveDispatchConfirmationTaskCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getDispatchConfirmationTaskCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

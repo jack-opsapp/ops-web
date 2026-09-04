@@ -140,6 +140,35 @@ describe("durable MCP rate-limit adapter", () => {
     );
   });
 
+  it("routes dispatch task preparation to its separate durable policy", async () => {
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          allowed: true,
+          remaining_units: 5,
+          reset_at: "2026-09-03T18:01:00.000Z",
+        },
+      ],
+      error: null,
+    }));
+    const limiter = createDurableMcpRateLimiter({ rpc });
+
+    await limiter.consume({
+      ...IDENTITY,
+      capabilityId: "prepare_dispatch_confirmation_task",
+      bucket: "prepare",
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "consume_agent_dispatch_prepare_rate_limit_as_system",
+      expect.objectContaining({
+        p_capability_id: "prepare_dispatch_confirmation_task",
+        p_policy_id: "mcp-dispatch-confirmation-prepare:2026-09-03.v1",
+        p_requested_units: 1,
+      })
+    );
+  });
+
   it("keeps the OAuth grant id on the strict RFC boundary", async () => {
     const rpc = vi.fn(async () => ({ data: [], error: null }));
     const limiter = createDurableMcpRateLimiter({ rpc });

@@ -22,7 +22,13 @@
  * values.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { ActionDetail } from "@/components/agent/action-detail";
 import { RejectDialog } from "@/components/agent/reject-dialog";
@@ -87,6 +93,7 @@ type Translate = (key: string) => string;
 const BULK_EXCLUDED: ReadonlySet<AgentActionType> = new Set<AgentActionType>([
   "file_day_closeout",
   "approve_collections_draft",
+  "approve_dispatch_confirmation_task",
 ]);
 
 const HISTORY_FILTER = { statuses: [...HISTORY_STATUSES] };
@@ -282,19 +289,20 @@ export default function AgentQueuePage() {
       .map(([type, count]) => ({ id: type, label: typeLabel(type), count }));
   }, [actions, typeLabel]);
 
-  const priorityOptions: QueueFilterOption<AgentActionPriority>[] = useMemo(() => {
-    const counts = new Map<AgentActionPriority, number>();
-    for (const a of actions) {
-      counts.set(a.priority, (counts.get(a.priority) ?? 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .sort((a, b) => PRIORITY_RANK[a[0]] - PRIORITY_RANK[b[0]])
-      .map(([priority, count]) => ({
-        id: priority,
-        label: t(`priority.${priority}`),
-        count,
-      }));
-  }, [actions, t]);
+  const priorityOptions: QueueFilterOption<AgentActionPriority>[] =
+    useMemo(() => {
+      const counts = new Map<AgentActionPriority, number>();
+      for (const a of actions) {
+        counts.set(a.priority, (counts.get(a.priority) ?? 0) + 1);
+      }
+      return Array.from(counts.entries())
+        .sort((a, b) => PRIORITY_RANK[a[0]] - PRIORITY_RANK[b[0]])
+        .map(([priority, count]) => ({
+          id: priority,
+          label: t(`priority.${priority}`),
+          count,
+        }));
+    }, [actions, t]);
 
   // A filter that matched a moment ago can vanish when the query refreshes
   // (the last row of that type got approved). Fall back to ALL rather than
@@ -329,7 +337,8 @@ export default function AgentQueuePage() {
     const needle = search.trim().toLowerCase();
     const filtered = actions.filter((a) => {
       if (typeFilter !== "all" && a.actionType !== typeFilter) return false;
-      if (priorityFilter !== "all" && a.priority !== priorityFilter) return false;
+      if (priorityFilter !== "all" && a.priority !== priorityFilter)
+        return false;
       if (!needle) return true;
       return (
         a.contextSummary.toLowerCase().includes(needle) ||
@@ -387,7 +396,10 @@ export default function AgentQueuePage() {
   const handleSortChange = useCallback((columnId: string) => {
     setSort((prev) =>
       prev.columnId === columnId
-        ? { columnId: prev.columnId, direction: prev.direction === "asc" ? "desc" : "asc" }
+        ? {
+            columnId: prev.columnId,
+            direction: prev.direction === "asc" ? "desc" : "asc",
+          }
         : { columnId: columnId as SortColumn, direction: "desc" }
     );
   }, []);
@@ -503,10 +515,7 @@ export default function AgentQueuePage() {
           const open = expandedIds.has(row.id);
           const Chevron = open ? ChevronDown : ChevronRight;
           return (
-            <Chevron
-              className="h-icon-16 w-icon-16 text-text-3"
-              aria-hidden
-            />
+            <Chevron className="h-icon-16 w-icon-16 text-text-3" aria-hidden />
           );
         },
       },
@@ -518,7 +527,9 @@ export default function AgentQueuePage() {
             type="button"
             onClick={handleSelectAll}
             aria-pressed={allSelected}
-            aria-label={t(allSelected ? "action.deselectAll" : "action.selectAll")}
+            aria-label={t(
+              allSelected ? "action.deselectAll" : "action.selectAll"
+            )}
             title={t(allSelected ? "action.deselectAll" : "action.selectAll")}
             disabled={bulkEligible.length === 0}
             className="flex items-center disabled:pointer-events-none disabled:opacity-40"

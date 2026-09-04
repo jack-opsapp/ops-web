@@ -8,6 +8,7 @@ import {
   MCP_EXPOSURE_V10,
   MCP_EXPOSURE_V11,
   MCP_EXPOSURE_V12,
+  MCP_EXPOSURE_V13,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
@@ -18,6 +19,7 @@ import {
   ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
   WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
   CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS,
+  DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS,
   type LabelledMcpScope,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
@@ -67,19 +69,21 @@ export function resolveRequestedScopes<const Exposure extends McpExposure>(
   | readonly Extract<Exposure["grantableScopes"][number], LabelledMcpScope>[]
   | null {
   const consentLabels =
-    exposure.revision === MCP_EXPOSURE_V12.revision
-      ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
-      : exposure.revision === MCP_EXPOSURE_V11.revision
-        ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
-        : exposure.revision === MCP_EXPOSURE_V10.revision
-          ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
-          : exposure.revision === MCP_EXPOSURE_V9.revision
-            ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
-            : exposure.revision === MCP_EXPOSURE_V4.revision
-              ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
-              : exposure.revision === MCP_EXPOSURE_V3.revision
-                ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
-                : MCP_SCOPE_CONSENT_LABELS;
+    exposure.revision === MCP_EXPOSURE_V13.revision
+      ? DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
+      : exposure.revision === MCP_EXPOSURE_V12.revision
+        ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
+        : exposure.revision === MCP_EXPOSURE_V11.revision
+          ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
+          : exposure.revision === MCP_EXPOSURE_V10.revision
+            ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
+            : exposure.revision === MCP_EXPOSURE_V9.revision
+              ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
+              : exposure.revision === MCP_EXPOSURE_V4.revision
+                ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
+                : exposure.revision === MCP_EXPOSURE_V3.revision
+                  ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
+                  : MCP_SCOPE_CONSENT_LABELS;
   if (rawScope == null || rawScope.trim() === "") {
     return exposure.grantableScopes as readonly Extract<
       Exposure["grantableScopes"][number],

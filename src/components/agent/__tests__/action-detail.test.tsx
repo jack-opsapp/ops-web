@@ -99,4 +99,81 @@ describe("ActionDetail", () => {
       screen.queryByRole("button", { name: "action.reject" })
     ).not.toBeInTheDocument();
   });
+
+  it("renders the exact evidence, policy, effect boundary, and commit choice for a control-room task", () => {
+    renderDetail({
+      actionType: "approve_dispatch_confirmation_task",
+      contextSource: "control_room",
+      actionData: {
+        schema_revision: "2026-09-03.v1",
+        run_id: "57777777-7777-4777-8777-777777777777",
+        change_set_id: "46666666-6666-4666-8666-666666666666",
+        policy: {
+          policy_id: "dispatch-confirmation",
+          version: "canpro.1",
+          rule_key: "unacknowledged-dispatch-follow-up",
+          source_document_id: "CANPRO-PRD-002",
+          source_document_version: "1.0",
+          source_sha256: "sha256:" + "a".repeat(64),
+          system_document_id: "CANPRO-SYS-001",
+          system_document_version: "1.0",
+          system_source_sha256: "sha256:" + "b".repeat(64),
+        },
+        evidence: {
+          source_kind: "schedule",
+          source_reason: "confirmation_required",
+          source_task_id: "11111111-1111-4111-8111-111111111111",
+          source_task_title: {
+            value: "Dispatch crew to Alder Street",
+            content_kind: "untrusted_business_data",
+          },
+          project_id: "22222222-2222-4222-8222-222222222222",
+          project_title: {
+            value: "Alder Street",
+            content_kind: "untrusted_business_data",
+          },
+          schedule_version: 7,
+          scheduled_start_at: "2026-09-04T15:00:00.000Z",
+          source_sha256: "sha256:" + "c".repeat(64),
+          operational_overview_proof_ref:
+            "ops_proof:v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          work_queue_proof_ref: "ops_proof:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          task_context_proof_ref:
+            "ops_proof:v1:cccccccccccccccccccccccccccccccc",
+        },
+        proposal: {
+          operation: "create_internal_task",
+          task: {
+            task_id: "79999999-9999-4999-8999-999999999999",
+            project_id: "22222222-2222-4222-8222-222222222222",
+            task_type_id: "88888888-8888-4888-8888-888888888888",
+            title: "Confirm dispatch",
+            assigned_user_id: "35555555-5555-4555-8555-555555555555",
+            status: "active",
+          },
+          priority: "high",
+          preview_sha256: "sha256:" + "d".repeat(64),
+          expires_at: "2026-09-04T20:00:00.000Z",
+        },
+        preview_sha256: "sha256:" + "d".repeat(64),
+        expires_at: "2026-09-04T20:00:00.000Z",
+        truth_boundary:
+          "Preview only. No task created or updated. No assignment changed. No message sent. No money moved. No financial document issued.",
+      },
+    });
+
+    expect(screen.getByText("Alder Street")).toBeInTheDocument();
+    expect(
+      screen.getByText("Dispatch crew to Alder Street")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Confirm dispatch")).toBeInTheDocument();
+    expect(screen.getByText("CANPRO-PRD-002 · 1.0")).toBeInTheDocument();
+    expect(screen.getByText(/No task created or updated/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "dispatch.action.create" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "dispatch.action.leaveOpen" })
+    ).toBeInTheDocument();
+  });
 });

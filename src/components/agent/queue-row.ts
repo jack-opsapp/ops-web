@@ -59,6 +59,7 @@ export const ACTION_TYPE_ICONS: Record<
   send_subcontractor_coordination: HardHat,
   file_day_closeout: CalendarCheck,
   approve_collections_draft: Receipt,
+  approve_dispatch_confirmation_task: ListTodo,
 };
 
 // ─── Priority / Status Tag Variants ───────────────────────────────────────────
@@ -133,6 +134,7 @@ export function getSourceUrl(
     case "payment_analysis":
       return `/dashboard?openClient=${sourceId.split(":")[0]}`;
     case "schedule_optimization":
+    case "control_room":
       return "/schedule";
     default:
       return null;

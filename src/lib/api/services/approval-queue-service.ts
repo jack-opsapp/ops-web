@@ -11,6 +11,10 @@ import "server-only";
 import { z } from "zod-v4";
 
 import { CollectionsApprovalReceiptSchema } from "@/lib/agent-control-plane/contracts/collections";
+import {
+  DispatchConfirmationTaskCommitReceiptSchema,
+  DispatchConfirmationTaskRejectionReceiptSchema,
+} from "@/lib/agent-control-plane/contracts/dispatch-confirmation-task";
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import { getCompanyManagerUserIds } from "./company-managers";
 import { ProjectService } from "./project-service";
@@ -96,6 +100,7 @@ const EXPIRY_DAYS: Record<string, number> = {
   process_reschedule_request: 2,
   file_day_closeout: 1,
   approve_collections_draft: 3,
+  approve_dispatch_confirmation_task: 1,
 };
 
 const DayCloseoutCommitResultSchema = z
@@ -1436,6 +1441,76 @@ export const ApprovalQueueService = {
       return mapFromDb(final);
     }
 
+    if (actionIdentity.action_type === "approve_dispatch_confirmation_task") {
+      if (learningAuthority !== "operator_approved") {
+        throw new Error(
+          "Dispatch confirmation tasks require operator approval"
+        );
+      }
+      if (editedActionData && Object.keys(editedActionData).length > 0) {
+        throw new Error("Dispatch confirmation task previews cannot be edited");
+      }
+      const actionData =
+        (actionIdentity.action_data as Record<string, unknown>) ?? {};
+      const previewSha256 = actionData.preview_sha256;
+      const changeSetId = actionData.change_set_id;
+      if (
+        typeof previewSha256 !== "string" ||
+        !/^sha256:[0-9a-f]{64}$/.test(previewSha256) ||
+        typeof changeSetId !== "string" ||
+        !CANONICAL_UUID_PATTERN.test(changeSetId)
+      ) {
+        throw new Error("Dispatch confirmation task preview is invalid");
+      }
+      const rpcArgs = {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: changeSetId,
+        p_preview_sha256: previewSha256,
+        p_idempotency_key: "approve-dispatch-confirmation-task:" + actionId,
+      };
+      let execution = await supabase.rpc(
+        "commit_agent_dispatch_confirmation_task_as_actor" as never,
+        rpcArgs as never
+      );
+      if (execution.error || !execution.data) {
+        execution = await supabase.rpc(
+          "commit_agent_dispatch_confirmation_task_as_actor" as never,
+          rpcArgs as never
+        );
+      }
+      if (execution.error || !execution.data) {
+        throw new Error(
+          "Dispatch confirmation task approval could not be reconciled"
+        );
+      }
+      const receipt = DispatchConfirmationTaskCommitReceiptSchema.parse(
+        execution.data
+      );
+      if (
+        receipt.action_id !== actionId ||
+        receipt.change_set_id !== changeSetId ||
+        receipt.preview_sha256 !== previewSha256
+      ) {
+        throw new Error(
+          "Dispatch confirmation task approval receipt is invalid"
+        );
+      }
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .single();
+      if (finalError || !final) {
+        throw new Error(
+          "Action not found after dispatch confirmation task approval"
+        );
+      }
+      return mapFromDb(final);
+    }
+
     const existingPurposeScheduleAction =
       isPurposeScheduleEmailAction(actionIdentity);
     if (
@@ -1638,6 +1713,9 @@ export const ApprovalQueueService = {
     if (actionIdentity.action_type === "approve_collections_draft") {
       throw new Error("Collection drafts require operator approval");
     }
+    if (actionIdentity.action_type === "approve_dispatch_confirmation_task") {
+      throw new Error("Dispatch confirmation tasks require operator approval");
+    }
     const purposeScheduleAction = isPurposeScheduleEmailAction(actionIdentity);
     try {
       const outcome =
@@ -1811,6 +1889,42 @@ export const ApprovalQueueService = {
       }
       return mapFromDb(final);
     }
+    if (actionIdentity.action_type === "approve_dispatch_confirmation_task") {
+      const decision = await supabase.rpc(
+        "reject_agent_dispatch_confirmation_task_as_actor" as never,
+        {
+          p_actor_user_id: userId,
+          p_company_id: companyId,
+          p_action_id: actionId,
+          p_review_notes: notes?.trim() || null,
+        } as never
+      );
+      if (decision.error || !decision.data) {
+        throw new Error(
+          "Dispatch confirmation task rejection could not be recorded"
+        );
+      }
+      const rejected = DispatchConfirmationTaskRejectionReceiptSchema.parse(
+        decision.data
+      );
+      if (rejected.action_id !== actionId) {
+        throw new Error(
+          "Dispatch confirmation task rejection receipt is invalid"
+        );
+      }
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .single();
+      if (finalError || !final) {
+        throw new Error(
+          "Action not found after dispatch confirmation task rejection"
+        );
+      }
+      return mapFromDb(final);
+    }
 
     const { data: updated, error } = await supabase
       .from("agent_actions")
@@ -1848,13 +1962,25 @@ export const ApprovalQueueService = {
       .from("agent_actions")
       .select("id, action_type")
       .eq("company_id", companyId)
-      .in("action_type", ["file_day_closeout", "approve_collections_draft"])
+      .in("action_type", [
+        "file_day_closeout",
+        "approve_collections_draft",
+        "approve_dispatch_confirmation_task",
+      ])
       .in("id", actionIds)
       .limit(1);
     if (lookupError) throw new Error("Bulk approval could not be validated");
     if (exactConfirmations && exactConfirmations.length > 0) {
       if (exactConfirmations[0]?.action_type === "approve_collections_draft") {
         throw new Error("Collection drafts must be approved one at a time");
+      }
+      if (
+        exactConfirmations[0]?.action_type ===
+        "approve_dispatch_confirmation_task"
+      ) {
+        throw new Error(
+          "Dispatch confirmation tasks must be approved one at a time"
+        );
       }
       throw new Error("Day closeouts must be filed one at a time");
     }

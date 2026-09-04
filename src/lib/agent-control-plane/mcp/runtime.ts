@@ -66,6 +66,11 @@ import {
   createCrewCalloutRecoveryService,
   type CrewCalloutRecoveryService,
 } from "@/lib/agent-control-plane/services/crew-callout-recovery/crew-callout-recovery-service";
+import { createDispatchConfirmationTaskRepository } from "@/lib/agent-control-plane/services/dispatch-confirmation-task/dispatch-confirmation-task-repository";
+import {
+  createDispatchConfirmationTaskService,
+  type DispatchConfirmationTaskService,
+} from "@/lib/agent-control-plane/services/dispatch-confirmation-task/dispatch-confirmation-task-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -115,6 +120,7 @@ export interface McpServerRuntime {
   readonly estimateDraft: EstimateDraftService;
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
+  readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -326,6 +332,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const dispatchConfirmationTask = createDispatchConfirmationTaskService({
+    repository: createDispatchConfirmationTaskRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
@@ -340,6 +352,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       estimateDraft,
       weatherReschedule,
       crewCalloutRecovery,
+      dispatchConfirmationTask,
     }),
     dayCloseout,
     collections,
@@ -351,6 +364,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     estimateDraft,
     weatherReschedule,
     crewCalloutRecovery,
+    dispatchConfirmationTask,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

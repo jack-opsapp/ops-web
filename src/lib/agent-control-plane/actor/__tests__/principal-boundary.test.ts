@@ -185,6 +185,7 @@ describe("verified principal source boundary", () => {
       "src/lib/agent-control-plane/services/crew-callout-recovery/crew-callout-recovery-service.ts",
       "src/lib/agent-control-plane/services/day-closeout/day-closeout-routine-service.ts",
       "src/lib/agent-control-plane/services/day-closeout/day-closeout-service.ts",
+      "src/lib/agent-control-plane/services/dispatch-confirmation-task/dispatch-confirmation-task-service.ts",
       "src/lib/agent-control-plane/services/estimate-draft/estimate-draft-service.ts",
       "src/lib/agent-control-plane/services/hiring-what-if/hiring-what-if-service.ts",
       "src/lib/agent-control-plane/services/payroll-readiness/payroll-readiness-service.ts",

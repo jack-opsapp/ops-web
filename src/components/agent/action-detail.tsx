@@ -41,6 +41,7 @@ import type {
   ProcessRescheduleRequestActionData,
   FileDayCloseoutActionData,
   ApproveCollectionsDraftActionData,
+  ApproveDispatchConfirmationTaskActionData,
 } from "@/lib/types/approval-queue";
 import { FinancialInsightCard } from "./financial-insight-card";
 import { CollectionsDraftPreview } from "./collections-draft-preview";
@@ -103,7 +104,6 @@ function interpolate(
     return v != null ? String(v) : `{{${key}}}`;
   });
 }
-
 
 /** Format a date-time string (ISO or date-only) in the current locale. */
 function formatDateTime(
@@ -303,6 +303,12 @@ export const ActionDetail = memo(function ActionDetail({
   const isCollectionsDraft = action.actionType === "approve_collections_draft";
   const collectionsDraftData = isCollectionsDraft
     ? (action.actionData as unknown as ApproveCollectionsDraftActionData)
+    : null;
+
+  const isDispatchConfirmation =
+    action.actionType === "approve_dispatch_confirmation_task";
+  const dispatchConfirmationData = isDispatchConfirmation
+    ? (action.actionData as unknown as ApproveDispatchConfirmationTaskActionData)
     : null;
 
   // ── Editable state for status email ──
@@ -940,6 +946,85 @@ export const ActionDetail = memo(function ActionDetail({
               approvalSeal: t("collections.approvalSeal"),
             }}
           />
+        )}
+
+        {isDispatchConfirmation && dispatchConfirmationData && (
+          <div className="space-y-3 rounded-chip border border-border-subtle bg-fill-neutral-dim p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-mohave text-body-sm uppercase text-text">
+                {t("dispatch.reviewHeading")}
+              </span>
+              <span className="text-earth-tan font-mono text-micro uppercase">
+                {t("dispatch.priority")}
+              </span>
+            </div>
+
+            <div className="grid gap-3 border-y border-border-subtle py-3 md:grid-cols-2">
+              <div className="space-y-1">
+                <span className="font-mono text-micro uppercase text-text-3">
+                  {t("dispatch.project")}
+                </span>
+                <p className="font-mohave text-body-sm text-text">
+                  {dispatchConfirmationData.evidence.project_title.value}
+                </p>
+                <p className="font-mono text-caption text-text-2">
+                  {dispatchConfirmationData.evidence.source_task_title.value}
+                </p>
+                <p className="font-mono text-micro text-text-3">
+                  {t("dispatch.scheduled")} ·{" "}
+                  {formatDateTime(
+                    dispatchConfirmationData.evidence.scheduled_start_at,
+                    null,
+                    locale
+                  )}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="font-mono text-micro uppercase text-text-3">
+                  {t("dispatch.proposal")}
+                </span>
+                <p className="font-mohave text-body-sm text-text">
+                  {dispatchConfirmationData.proposal.task.title}
+                </p>
+                <p className="font-mono text-caption text-text-2">
+                  {t("dispatch.assignee")}
+                </p>
+                <p className="font-mono text-micro text-text-3">
+                  {t("dispatch.sourceUnchanged")}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <span className="font-mono text-micro uppercase text-text-3">
+                  {t("dispatch.policy")}
+                </span>
+                <p className="mt-1 font-mono text-caption text-text-2">
+                  {dispatchConfirmationData.policy.source_document_id} ·{" "}
+                  {dispatchConfirmationData.policy.source_document_version}
+                </p>
+              </div>
+              <div>
+                <span className="font-mono text-micro uppercase text-text-3">
+                  {t("dispatch.evidence")}
+                </span>
+                <p className="mt-1 font-mono text-caption text-text-2">
+                  {t("dispatch.evidenceCount")} · v
+                  {dispatchConfirmationData.evidence.schedule_version}
+                </p>
+              </div>
+            </div>
+
+            <p className="font-mono text-micro text-text-3">
+              {dispatchConfirmationData.truth_boundary}
+            </p>
+            <p className="break-all border-t border-border-subtle pt-3 font-mono text-micro text-text-mute">
+              {t("dispatch.approvalSeal")} ·{" "}
+              {dispatchConfirmationData.preview_sha256}
+            </p>
+          </div>
         )}
 
         {/* ── Task-specific editable details ── */}
@@ -2864,6 +2949,7 @@ export const ActionDetail = memo(function ActionDetail({
           !isSubcontractorCoord &&
           !isDayCloseout &&
           !isCollectionsDraft &&
+          !isDispatchConfirmation &&
           !isPending && (
             <div>
               <span className="font-mono text-[11px] uppercase text-text-3">
@@ -2913,9 +2999,11 @@ export const ActionDetail = memo(function ActionDetail({
                 ? t("dayCloseout.action.file")
                 : isCollectionsDraft
                   ? t("collections.action.approve")
-                  : isFinancialInsight
-                    ? t("financial.action.acknowledge")
-                    : t("action.approve")}
+                  : isDispatchConfirmation
+                    ? t("dispatch.action.create")
+                    : isFinancialInsight
+                      ? t("financial.action.acknowledge")
+                      : t("action.approve")}
             </Button>
             <Button
               variant="ghost"
@@ -2926,9 +3014,11 @@ export const ActionDetail = memo(function ActionDetail({
                 ? t("dayCloseout.action.leaveOpen")
                 : isCollectionsDraft
                   ? t("collections.action.leaveOpen")
-                  : isFinancialInsight
-                    ? t("financial.action.dismiss")
-                    : t("action.reject")}
+                  : isDispatchConfirmation
+                    ? t("dispatch.action.leaveOpen")
+                    : isFinancialInsight
+                      ? t("financial.action.dismiss")
+                      : t("action.reject")}
             </Button>
           </div>
         )}

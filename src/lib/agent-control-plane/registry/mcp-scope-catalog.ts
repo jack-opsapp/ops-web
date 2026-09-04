@@ -144,8 +144,15 @@ export const CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
     "Prepare exact weather and crew recovery schedule proposals for approval",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
+export const DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS =
+  Object.freeze({
+    ...CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS,
+    "ops.operations.prepare":
+      "Prepare one evidence-backed internal dispatch follow-up task for exact approval",
+  } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
 export type LabelledMcpScope =
-  keyof typeof CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS;
+  keyof typeof DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,

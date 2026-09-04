@@ -46,6 +46,8 @@ function runtime(
     estimateDraft: {} as McpServerRuntime["estimateDraft"],
     weatherReschedule: {} as McpServerRuntime["weatherReschedule"],
     crewCalloutRecovery: {} as McpServerRuntime["crewCalloutRecovery"],
+    dispatchConfirmationTask:
+      {} as McpServerRuntime["dispatchConfirmationTask"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {

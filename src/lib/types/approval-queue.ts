@@ -5,6 +5,11 @@
  */
 
 import type { CollectionsDraftPreview } from "@/lib/agent-control-plane/contracts/collections";
+import type {
+  DispatchConfirmationPolicyIdentitySchema,
+  DispatchConfirmationTaskResult,
+} from "@/lib/agent-control-plane/contracts/dispatch-confirmation-task";
+import type { z } from "zod-v4";
 
 // ─── Action Types ─────────────────────────────────────────────────────────────
 
@@ -30,7 +35,8 @@ export type AgentActionType =
   | "send_subcontractor_coordination"
   | "process_reschedule_request"
   | "file_day_closeout"
-  | "approve_collections_draft";
+  | "approve_collections_draft"
+  | "approve_dispatch_confirmation_task";
 
 export type AgentActionStatus =
   | "pending"
@@ -68,7 +74,20 @@ export type AgentActionContextSource =
   | "inbound_email"
   | "subcontractor_coordination"
   | "day_closeout"
-  | "collections";
+  | "collections"
+  | "control_room";
+
+export interface ApproveDispatchConfirmationTaskActionData {
+  schema_revision: "2026-09-03.v1";
+  run_id: string;
+  change_set_id: string;
+  policy: z.infer<typeof DispatchConfirmationPolicyIdentitySchema>;
+  evidence: DispatchConfirmationTaskResult["evidence"];
+  proposal: DispatchConfirmationTaskResult["proposal"];
+  preview_sha256: string;
+  expires_at: string;
+  truth_boundary: DispatchConfirmationTaskResult["truth_boundary"];
+}
 
 export interface ApproveCollectionsDraftActionData {
   schema_revision: "2026-08-31.v1";

@@ -7,6 +7,7 @@ import {
   MCP_EXPOSURE_V10,
   MCP_EXPOSURE_V11,
   MCP_EXPOSURE_V12,
+  MCP_EXPOSURE_V13,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
@@ -17,6 +18,7 @@ import {
   ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
   WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
   CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS,
+  DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
   type LabelledMcpScope,
@@ -93,6 +95,14 @@ export const MCP_CONSENT_CATALOG_V7 = Object.freeze({
   allowedOperations: Object.freeze(["read", "prepare"] as const),
 } as const satisfies McpConsentCatalog);
 
+export const MCP_CONSENT_CATALOG_V8 = Object.freeze({
+  revision: "2026-09-03.mcp-consent-catalog.v8",
+  registeredScopes: REGISTERED_MCP_SCOPES,
+  operations: MCP_SCOPE_OPERATION_BY_ID,
+  consentLabels: DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS,
+  allowedOperations: Object.freeze(["read", "prepare"] as const),
+} as const satisfies McpConsentCatalog);
+
 export const ACTIVE_MCP_CONSENT_CATALOG_REVISION =
   MCP_CONSENT_CATALOG_V1.revision;
 
@@ -105,6 +115,7 @@ export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
     [MCP_CONSENT_CATALOG_V5.revision]: MCP_CONSENT_CATALOG_V5,
     [MCP_CONSENT_CATALOG_V6.revision]: MCP_CONSENT_CATALOG_V6,
     [MCP_CONSENT_CATALOG_V7.revision]: MCP_CONSENT_CATALOG_V7,
+    [MCP_CONSENT_CATALOG_V8.revision]: MCP_CONSENT_CATALOG_V8,
   });
 
 function assertConsentCatalog(catalog: McpConsentCatalog): void {
@@ -154,6 +165,7 @@ assertConsentCatalog(MCP_CONSENT_CATALOG_V4);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V5);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V6);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V7);
+assertConsentCatalog(MCP_CONSENT_CATALOG_V8);
 
 export function resolveMcpConsentCatalogRevision(
   revision: string
@@ -177,19 +189,21 @@ export function consentSnapshotForExposure(
   catalog: McpConsentCatalog
 ): McpConsentSnapshot {
   const requiredCatalogRevision =
-    exposure.revision === MCP_EXPOSURE_V12.revision
-      ? MCP_CONSENT_CATALOG_V7.revision
-      : exposure.revision === MCP_EXPOSURE_V11.revision
-        ? MCP_CONSENT_CATALOG_V6.revision
-        : exposure.revision === MCP_EXPOSURE_V10.revision
-          ? MCP_CONSENT_CATALOG_V5.revision
-          : exposure.revision === MCP_EXPOSURE_V9.revision
-            ? MCP_CONSENT_CATALOG_V4.revision
-            : exposure.revision === MCP_EXPOSURE_V4.revision
-              ? MCP_CONSENT_CATALOG_V3.revision
-              : exposure.revision === MCP_EXPOSURE_V3.revision
-                ? MCP_CONSENT_CATALOG_V2.revision
-                : null;
+    exposure.revision === MCP_EXPOSURE_V13.revision
+      ? MCP_CONSENT_CATALOG_V8.revision
+      : exposure.revision === MCP_EXPOSURE_V12.revision
+        ? MCP_CONSENT_CATALOG_V7.revision
+        : exposure.revision === MCP_EXPOSURE_V11.revision
+          ? MCP_CONSENT_CATALOG_V6.revision
+          : exposure.revision === MCP_EXPOSURE_V10.revision
+            ? MCP_CONSENT_CATALOG_V5.revision
+            : exposure.revision === MCP_EXPOSURE_V9.revision
+              ? MCP_CONSENT_CATALOG_V4.revision
+              : exposure.revision === MCP_EXPOSURE_V4.revision
+                ? MCP_CONSENT_CATALOG_V3.revision
+                : exposure.revision === MCP_EXPOSURE_V3.revision
+                  ? MCP_CONSENT_CATALOG_V2.revision
+                  : null;
   if (
     requiredCatalogRevision !== null &&
     catalog.revision !== requiredCatalogRevision

@@ -117,6 +117,7 @@ describe("MCP production runtime", () => {
       "prepareEstimateFromPastJob",
       "prepareWeatherReschedule",
       "prepareCrewCalloutRecovery",
+      "prepareDispatchConfirmationTask",
     ]);
     expect(runtime.hiringWhatIf).toBeDefined();
     expect(runtime.promiseRecovery).toBeDefined();
@@ -126,6 +127,7 @@ describe("MCP production runtime", () => {
     expect(runtime.estimateDraft).toBeDefined();
     expect(runtime.weatherReschedule).toBeDefined();
     expect(runtime.crewCalloutRecovery).toBeDefined();
+    expect(runtime.dispatchConfirmationTask).toBeDefined();
     expect(rpc).not.toHaveBeenCalled();
   });
 
