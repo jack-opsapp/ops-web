@@ -122,7 +122,7 @@ Detail push:
 **Files:**
 
 - Create: `src/lib/accounting/supplier-bills/__tests__/intake-migration-contract.test.ts`
-- Create through Supabase CLI: `supabase/migrations/<generated>_supplier_bill_intake_clearance.sql`
+- Create through Supabase CLI: `supabase/migrations/20260904040358_supplier_bill_intake_clearance.sql`
 
 ### Steps
 
@@ -285,7 +285,7 @@ Detail push:
 - Modify: `04_API_AND_INTEGRATION.md`
 - Modify: `07_SPECIALIZED_FEATURES.md`
 - Create: `specs/2026-09-03-canpro-supplier-bill-clearance.md`
-- Copy from web commit: `migrations/<generated>_supplier_bill_intake_clearance.sql`
+- Copy from web commit: `migrations/20260904040358_supplier_bill_intake_clearance.sql`
 
 ### Steps
 
@@ -318,4 +318,3 @@ Detail push:
 6. Render and inspect the web list/detail/capture states and iOS list/detail/capture states. Fix visual deviations before completion.
 7. Confirm all worktrees are clean except deliberate commits and the untouched pre-existing iOS artifact directory in the primary checkout.
 8. Report local completion and proof separately from the unreleased production state. Ask for release approval only after all local proof is green.
-

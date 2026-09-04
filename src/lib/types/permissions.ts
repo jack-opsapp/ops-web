@@ -329,8 +329,24 @@ const expensesModule: PermissionModule = {
 const accountingModule: PermissionModule = {
   id: "accounting",
   label: "Accounting",
+  editorMode: "action",
   actions: [
     { id: "accounting.view", label: "View accounting", scopes: ["all"] },
+    {
+      id: "accounting.bills.capture",
+      label: "Capture supplier bills",
+      scopes: ["all"],
+    },
+    {
+      id: "accounting.bills.approve",
+      label: "Approve supplier bills",
+      scopes: ["all"],
+    },
+    {
+      id: "accounting.bills.pay",
+      label: "Pay supplier bills",
+      scopes: ["all"],
+    },
     {
       id: "accounting.manage_connections",
       label: "Manage integrations",
