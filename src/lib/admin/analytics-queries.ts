@@ -6,6 +6,7 @@
  */
 import { getGA4Client, getPropertyId, buildDateRange } from "@/lib/analytics/ga4-client";
 import type { GA4PropertyKey } from "@/lib/analytics/ga4-properties";
+import { composeGA4ProductionHostnameFilter } from "@/lib/analytics/ga4-report-filter";
 import type { WebsiteOverview, ChartDataPoint } from "@/lib/admin/types";
 
 // ─── Website Overview ────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ export async function getWebsiteOverview(
       { name: "averageSessionDuration" },
       { name: "bounceRate" },
     ],
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey),
     dateRanges: [buildDateRange(days)],
   });
 
@@ -50,6 +52,7 @@ export async function getSessionsByDate(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "date" }],
     metrics: [{ name: "sessions" }],
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
   });
@@ -79,6 +82,7 @@ export async function getTopPages(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "pagePath" }],
     metrics: [{ name: "screenPageViews" }],
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
     limit,
@@ -102,6 +106,7 @@ export async function getTopReferrers(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "sessionSource" }],
     metrics: [{ name: "sessions" }],
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
     limit,
@@ -124,6 +129,7 @@ export async function getDeviceBreakdown(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "deviceCategory" }],
     metrics: [{ name: "sessions" }],
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
   });
