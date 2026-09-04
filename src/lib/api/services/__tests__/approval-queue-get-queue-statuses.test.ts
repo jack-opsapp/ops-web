@@ -106,10 +106,7 @@ describe("ApprovalQueueService.getQueue", () => {
     });
 
     expect(calls.in).toEqual([["status", [...HISTORY_STATUSES]]]);
-    expect(calls.order).toEqual([
-      ["reviewed_at", { ascending: false, nullsFirst: false }],
-      ["updated_at", { ascending: false }],
-    ]);
+    expect(calls.order).toEqual([["updated_at", { ascending: false }]]);
     // Chronological order from the DB is preserved — no priority re-sort.
     expect(actions.map((a) => a.id)).toEqual(["a", "b"]);
     expect(calls.limit).toEqual([[200]]);
