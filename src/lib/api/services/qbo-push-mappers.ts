@@ -99,6 +99,23 @@ function qboLimitedString(
   return cleaned ? cleaned.slice(0, maxLength) : undefined;
 }
 
+function qboDocumentNumber(
+  value: string | null | undefined,
+  entityId: string,
+): string | undefined {
+  const cleaned = cleanString(value);
+  if (!cleaned || cleaned.length <= QBO_DOC_NUMBER_MAX_LENGTH) return cleaned;
+
+  const normalizedId = entityId.replaceAll("-", "").toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(normalizedId)) {
+    throw new Error("Invalid OPS record id for QuickBooks document number");
+  }
+
+  const suffix = normalizedId.slice(-12);
+  const prefixLength = QBO_DOC_NUMBER_MAX_LENGTH - suffix.length - 1;
+  return `${cleaned.slice(0, prefixLength)}-${suffix}`;
+}
+
 function cleanAmount(
   value: number | string | null | undefined,
   label: string,
@@ -423,7 +440,7 @@ export function mapInvoiceToQboInvoice(input: {
   addDefined(
     payload,
     "DocNumber",
-    qboLimitedString(input.invoice.docNumber, QBO_DOC_NUMBER_MAX_LENGTH),
+    qboDocumentNumber(input.invoice.docNumber, input.invoice.id),
   );
   addDefined(payload, "TxnDate", cleanDate(input.invoice.issueDate));
   addDefined(payload, "DueDate", cleanDate(input.invoice.dueDate));
@@ -455,7 +472,7 @@ export function mapEstimateToQboEstimate(input: {
   addDefined(
     payload,
     "DocNumber",
-    qboLimitedString(input.estimate.docNumber, QBO_DOC_NUMBER_MAX_LENGTH),
+    qboDocumentNumber(input.estimate.docNumber, input.estimate.id),
   );
   addDefined(payload, "TxnDate", cleanDate(input.estimate.issueDate));
   addDefined(payload, "ExpirationDate", cleanDate(input.estimate.expirationDate));
