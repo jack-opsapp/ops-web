@@ -70,6 +70,15 @@ describe("dispatch confirmation task SQL contract", () => {
     }
   });
 
+  it("binds the current scoped canonical task-creation signature", () => {
+    expect(sql).toContain(
+      "public.create_task_with_event_as_system(uuid,uuid,uuid,uuid,text,text,text,uuid[],timestamp with time zone,timestamp with time zone,integer,jsonb)"
+    );
+    expect(sql).toMatch(
+      /array\[v_change\.proposed_assignee_id\]\s*,\s*null\s*,\s*null\s*,\s*1\s*,\s*null::jsonb/
+    );
+  });
+
   it("creates one persistent approval notification and resolves it on either decision", () => {
     expect(sql).toContain("'approve_dispatch_confirmation_task'");
     expect(sql).toContain("'dispatch confirmation ready'");

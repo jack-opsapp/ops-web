@@ -30,7 +30,7 @@ begin
     'private.agent_user_can_access_entity(uuid,uuid,text,uuid,text)',
     'private.agent_mcp_rate_limit_bucket_digest(text,uuid,uuid,uuid,text,text,timestamp with time zone)',
     'private.prune_agent_mcp_rate_limit_buckets(integer)',
-    'public.create_task_with_event_as_system(uuid,uuid,uuid,uuid,text,text,text,uuid[],timestamp with time zone,timestamp with time zone,integer)',
+    'public.create_task_with_event_as_system(uuid,uuid,uuid,uuid,text,text,text,uuid[],timestamp with time zone,timestamp with time zone,integer,jsonb)',
     'extensions.digest(bytea,text)'
   ] loop
     if pg_catalog.to_regprocedure(v_signature) is null then
@@ -1081,7 +1081,7 @@ begin
     p_actor_user_id,v_change.proposed_task_id,v_change.proposed_project_id,
     v_change.proposed_task_type_id,v_change.proposed_task_title,
     'Created from an approved dispatch-confirmation policy finding.',null,
-    array[v_change.proposed_assignee_id],null,null,1
+    array[v_change.proposed_assignee_id],null,null,1,null::jsonb
   );
   if coalesce((v_create ->> 'created')::boolean,false) is distinct from true
      or v_create ->> 'task_id' is distinct from
