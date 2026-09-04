@@ -57,30 +57,30 @@ const config: Config = {
         text: {
           // Legacy aliases — values shifted to spec v2. Hardcoded `text-text-primary`
           // class usage across the codebase auto-upgrades via these.
-          primary: "#EDEDED",           // was #E5E5E5
-          secondary: "#B5B5B5",         // was #A7A7A7
-          tertiary: "#8A8A8A",          // was #777777
-          disabled: "#6A6A6A",          // was #555555
-          inactive: "#6A6A6A",          // was #878787 — now aligns with text-mute
-          placeholder: "#8A8A8A",       // was #999999
+          primary: "#EDEDED", // was #E5E5E5
+          secondary: "#B5B5B5", // was #A7A7A7
+          tertiary: "#8A8A8A", // was #777777
+          disabled: "#6A6A6A", // was #555555
+          inactive: "#6A6A6A", // was #878787 — now aligns with text-mute
+          placeholder: "#8A8A8A", // was #999999
           inverse: "#000000",
           // Command Deck spec tokens (WCAG AA verified vs #000)
-          DEFAULT: "#EDEDED",           // 18.8:1 AAA — primary body, hero, names
-          "2": "#B5B5B5",               // 10.3:1 AAA — secondary values, ghost buttons, links
-          "3": "#8A8A8A",               // 5.4:1 AA — labels, metadata, subtitles
-          mute: "#6A6A6A",              // 3.4:1 AA large — decorative only: // slashes, separators
+          DEFAULT: "#EDEDED", // 18.8:1 AAA — primary body, hero, names
+          "2": "#B5B5B5", // 10.3:1 AAA — secondary values, ghost buttons, links
+          "3": "#8A8A8A", // 5.4:1 AA — labels, metadata, subtitles
+          mute: "#6A6A6A", // 3.4:1 AA large — decorative only: // slashes, separators
         },
 
         // === Border System (spec v2 — 10% default, not 20%) ===
         border: {
-          DEFAULT: "rgba(255, 255, 255, 0.10)",     // was 0.2 — spec is 0.10
+          DEFAULT: "rgba(255, 255, 255, 0.10)", // was 0.2 — spec is 0.10
           subtle: "rgba(255, 255, 255, 0.05)",
-          medium: "rgba(255, 255, 255, 0.18)",      // was 0.2 — aligned to active-state border
-          strong: "rgba(255, 255, 255, 0.25)",      // was 0.3 — aligned to border-hover
-          button: "rgba(255, 255, 255, 0.10)",      // was 0.4 — buttons use standard hairline now
-          separator: "rgba(255, 255, 255, 0.10)",   // was 0.15
-          input: "rgba(255, 255, 255, 0.10)",       // was 0.2 — aligned to spec
-          glass: "rgba(255, 255, 255, 0.09)",       // spec glass-border
+          medium: "rgba(255, 255, 255, 0.18)", // was 0.2 — aligned to active-state border
+          strong: "rgba(255, 255, 255, 0.25)", // was 0.3 — aligned to border-hover
+          button: "rgba(255, 255, 255, 0.10)", // was 0.4 — buttons use standard hairline now
+          separator: "rgba(255, 255, 255, 0.10)", // was 0.15
+          input: "rgba(255, 255, 255, 0.10)", // was 0.2 — aligned to spec
+          glass: "rgba(255, 255, 255, 0.09)", // spec glass-border
         },
 
         // === Status Colors (spec v2 Thermal Map — globally unique hexes) ===
@@ -88,32 +88,32 @@ const config: Config = {
         // Every status across all enums has a globally unique hex.
         status: {
           // ProjectStatus — "Thermal Map" (slate → moss → marigold HOT → terracotta → graphite)
-          rfq: "#8F9AA3",                // was #BCBCBC
-          estimated: "#B6AC97",          // was #B5A381
-          accepted: "#8FA577",           // was #9DB582
-          "in-progress": "#D99A3E",      // was #8195B5 — now HOT marigold
-          completed: "#BA7458",          // was #B58289
-          closed: "#8C6A57",             // was #E9E9E9
-          archived: "#4E4B48",           // was #A182B5
+          rfq: "#8F9AA3", // was #BCBCBC
+          estimated: "#B6AC97", // was #B5A381
+          accepted: "#8FA577", // was #9DB582
+          "in-progress": "#D99A3E", // was #8195B5 — now HOT marigold
+          completed: "#BA7458", // was #B58289
+          closed: "#8C6A57", // was #E9E9E9
+          archived: "#4E4B48", // was #A182B5
           // TaskStatus — tan → warm steel → sage → dim rose
-          booked: "#CFB074",             // was #9DB582
+          booked: "#CFB074", // was #9DB582
           "task-in-progress": "#6E9CB8",
           "task-completed": "#95B07A",
-          cancelled: "#8E6E73",          // was #93321A — now dim rose
+          cancelled: "#8E6E73", // was #93321A — now dim rose
           // Earth-tone semantic (prefer these for generic success/warning/error)
-          success: "#9DB582",            // olive — was #A5B368
-          warning: "#C4A868",            // tan
-          error: "#B58289",              // rose (for text); #93321A brick for borders only
+          success: "#9DB582", // olive — was #A5B368
+          warning: "#C4A868", // tan
+          error: "#B58289", // rose (for text); #93321A brick for borders only
         },
 
         // === Task Type Default Colors (spec v2 — from system.md default TaskType table) ===
         tasktype: {
-          estimate: "#9DB582",           // olive
-          quote: "#6F94B0",              // steel (= ops-accent) — was #59779F
-          material: "#C4A868",           // tan
-          installation: "#B58289",       // rose — was #931A32 (was a non-spec red)
-          inspection: "#A69AB5",         // lilac
-          completion: "#9C938A",         // stone — was #4A4A4A
+          estimate: "#9DB582", // olive
+          quote: "#6F94B0", // steel (= ops-accent) — was #59779F
+          material: "#C4A868", // tan
+          installation: "#B58289", // rose — was #931A32 (was a non-spec red)
+          inspection: "#A69AB5", // lilac
+          completion: "#9C938A", // stone — was #4A4A4A
         },
 
         // === Accounting & Financial Colors ===
@@ -123,7 +123,7 @@ const config: Config = {
           cost: "#B58289",
           receivables: "#D4A574",
           overdue: "#93321A",
-          current: "#9DB582",            // current / not-yet-due A/R (healthy) — = olive/profit
+          current: "#9DB582", // current / not-yet-due A/R (healthy) — = olive/profit
         },
 
         // === Neutral Fills (non-interactive data: bars, tracks, skeletons) ===
@@ -210,18 +210,18 @@ const config: Config = {
       fontSize: {
         // Headers
         "display-lg": ["32px", { lineHeight: "1.2", fontWeight: "700" }],
-        "display": ["28px", { lineHeight: "1.2", fontWeight: "600" }],
-        "heading": ["22px", { lineHeight: "1.3", fontWeight: "600" }],
+        display: ["28px", { lineHeight: "1.2", fontWeight: "600" }],
+        heading: ["22px", { lineHeight: "1.3", fontWeight: "600" }],
         // Body
         "body-lg": ["18px", { lineHeight: "1.5", fontWeight: "500" }],
-        "body": ["16px", { lineHeight: "1.5", fontWeight: "400" }],
+        body: ["16px", { lineHeight: "1.5", fontWeight: "400" }],
         "body-sm": ["14px", { lineHeight: "1.5", fontWeight: "300" }],
         // Supporting
-        "caption": ["14px", { lineHeight: "1.4", fontWeight: "400" }],
+        caption: ["14px", { lineHeight: "1.4", fontWeight: "400" }],
         "caption-bold": ["14px", { lineHeight: "1.4", fontWeight: "600" }],
         "caption-sm": ["12px", { lineHeight: "1.4", fontWeight: "400" }],
         // Micro (labels, shortcuts, metadata)
-        "micro": ["11px", { lineHeight: "1.3", fontWeight: "400" }],
+        micro: ["11px", { lineHeight: "1.3", fontWeight: "400" }],
         "micro-sm": ["10px", { lineHeight: "1.3", fontWeight: "400" }],
         "micro-xs": ["9px", { lineHeight: "1.3", fontWeight: "400" }],
         // Cards
@@ -229,12 +229,12 @@ const config: Config = {
         "card-subtitle": ["15px", { lineHeight: "1.4", fontWeight: "400" }],
         "card-body": ["14px", { lineHeight: "1.5", fontWeight: "400" }],
         // UI
-        "button": ["16px", { lineHeight: "1", fontWeight: "400" }],
+        button: ["16px", { lineHeight: "1", fontWeight: "400" }],
         "button-sm": ["14px", { lineHeight: "1", fontWeight: "500" }],
-        "status": ["12px", { lineHeight: "1", fontWeight: "500" }],
+        status: ["12px", { lineHeight: "1", fontWeight: "500" }],
         // Data display (monospace)
         "data-lg": ["20px", { lineHeight: "1.2", fontWeight: "600" }],
-        "data": ["16px", { lineHeight: "1.3", fontWeight: "400" }],
+        data: ["16px", { lineHeight: "1.3", fontWeight: "400" }],
         "data-sm": ["13px", { lineHeight: "1.3", fontWeight: "400" }],
         // Cake Mono display (uppercase, weight 300 ONLY) — the three sanctioned
         // Cake roles: display (page titles / section headers), button (buttons /
@@ -246,6 +246,18 @@ const config: Config = {
         "cake-section": ["16px", { fontWeight: "300" }],
         "cake-button": ["14px", { fontWeight: "300" }],
         "cake-badge": ["11px", { fontWeight: "300" }],
+      },
+
+      // === Typography Tracking ===
+      // DESIGN.md: JetBrains Mono tactical labels use 0.16em tracking.
+      letterSpacing: {
+        authority: "0.16em",
+      },
+
+      // === Focus Treatment ===
+      // DESIGN.md: the canonical focus indicator is a 1.5px accent ring.
+      ringWidth: {
+        focus: "1.5px",
       },
 
       // === Spacing (8-point grid) ===
@@ -261,11 +273,11 @@ const config: Config = {
         "control-36": "36px",
         "control-40": "40px",
         "admin-sidebar": "220px",
-        "table": "768px",
+        table: "768px",
         "content-table": "720px",
         "content-label": "320px",
-        "chart": "160px",
-        "data": "48px",
+        chart: "160px",
+        data: "48px",
         "0.5": "4px",
         "1": "8px",
         "1.5": "12px",
@@ -295,9 +307,9 @@ const config: Config = {
 
       // === Box Shadow (subtle elevation, no glows) ===
       boxShadow: {
-        "card": "0 1px 3px rgba(0, 0, 0, 0.3)",
-        "elevated": "0 4px 12px rgba(0, 0, 0, 0.4)",
-        "floating": "0 8px 24px rgba(0, 0, 0, 0.5)",
+        card: "0 1px 3px rgba(0, 0, 0, 0.3)",
+        elevated: "0 4px 12px rgba(0, 0, 0, 0.4)",
+        floating: "0 8px 24px rgba(0, 0, 0, 0.5)",
       },
 
       // === Animations ===
@@ -323,7 +335,10 @@ const config: Config = {
           to: { transform: "translateY(0)", opacity: "1" },
         },
         "scale-in": {
-          from: { transform: "translate(-50%, -50%) scale(0.95)", opacity: "0" },
+          from: {
+            transform: "translate(-50%, -50%) scale(0.95)",
+            opacity: "0",
+          },
           to: { transform: "translate(-50%, -50%) scale(1)", opacity: "1" },
         },
         "anchored-in": {

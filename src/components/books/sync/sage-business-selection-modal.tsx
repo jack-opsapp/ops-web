@@ -134,7 +134,7 @@ export function SageBusinessSelectionModal({
       >
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+            <DialogTitle className="font-mono text-micro uppercase tracking-authority text-text-3">
               <span className="text-text-mute">{"// "}</span>
               {t("sync.sageBusiness.title")}
             </DialogTitle>
@@ -200,7 +200,7 @@ export function SageBusinessSelectionModal({
                     className={cn(
                       "flex min-h-control-40 w-full cursor-pointer items-center gap-2 rounded border px-2 py-1.5 text-left",
                       "transition-colors duration-150 ease-smooth motion-reduce:transition-none",
-                      "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                      "focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
                       selected
                         ? "border-line-hi bg-surface-active"
                         : "border-border hover:bg-surface-hover"
