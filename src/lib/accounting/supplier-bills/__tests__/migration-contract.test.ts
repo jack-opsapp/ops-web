@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const SQL = readFileSync(
   join(
     process.cwd(),
-    "supabase/migrations/20260903130000_supplier_bills_ap_vertical.sql"
+    "supabase/migrations/20260903210504_supplier_bills_ap_vertical.sql"
   ),
   "utf8"
 ).toLowerCase();
@@ -14,7 +14,7 @@ const COMPACT = SQL.replace(/\s+/g, " ").trim();
 const ACL_REPAIR = readFileSync(
   join(
     process.cwd(),
-    "supabase/migrations/20260903211000_supplier_bill_immutable_acl_repair.sql"
+    "supabase/migrations/20260903211009_supplier_bill_immutable_acl_repair.sql"
   ),
   "utf8"
 ).toLowerCase();
