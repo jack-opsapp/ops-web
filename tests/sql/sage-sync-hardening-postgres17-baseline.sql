@@ -133,6 +133,75 @@ create table public.line_items (
   check (num_nonnulls(invoice_id, estimate_id) = 1)
 );
 
+-- Existing production invariant from the earlier QBO hardening migration:
+-- every payment mutation recalculates both old/new invoice parents while the
+-- derivative invoice update remains provider-origin suppressed.
+create or replace function public.update_invoice_balance()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare
+  v_invoice_id uuid;
+  v_total_paid numeric(14,2);
+  v_invoice_total numeric(14,2);
+  v_invoice_status text;
+  v_due_date date;
+  v_paid_at timestamptz;
+  v_previous_sync_source text;
+begin
+  for v_invoice_id in
+    select distinct candidate.invoice_id
+    from unnest(array[
+      case when tg_op in ('UPDATE', 'DELETE') then old.invoice_id else null end,
+      case when tg_op in ('INSERT', 'UPDATE') then new.invoice_id else null end
+    ]) as candidate(invoice_id)
+    where candidate.invoice_id is not null
+    order by candidate.invoice_id
+  loop
+    select total, status, due_date, paid_at
+    into v_invoice_total, v_invoice_status, v_due_date, v_paid_at
+    from public.invoices where id = v_invoice_id for update;
+    if not found then
+      continue;
+    end if;
+    select coalesce(sum(amount), 0) into v_total_paid
+    from public.payments
+    where invoice_id = v_invoice_id and voided_at is null;
+    v_previous_sync_source := current_setting('ops.sync_source', true);
+    perform set_config('ops.sync_source', 'quickbooks', true);
+    update public.invoices
+    set amount_paid = v_total_paid,
+        balance_due = greatest(v_invoice_total - v_total_paid, 0),
+        status = case
+          when v_invoice_status in ('void', 'written_off') then v_invoice_status
+          when v_invoice_total > 0 and v_total_paid >= v_invoice_total then 'paid'
+          when v_total_paid > 0 then 'partially_paid'
+          when v_invoice_status in ('draft', 'sent') then v_invoice_status
+          when v_due_date is not null and v_due_date < current_date then 'past_due'
+          else 'awaiting_payment'
+        end,
+        paid_at = case
+          when v_invoice_status in ('void', 'written_off') then v_paid_at
+          when v_invoice_total > 0 and v_total_paid >= v_invoice_total
+            then coalesce(v_paid_at, now())
+          else null
+        end,
+        updated_at = now()
+    where id = v_invoice_id;
+    perform set_config(
+      'ops.sync_source', coalesce(v_previous_sync_source, ''), true
+    );
+  end loop;
+  return coalesce(new, old);
+end;
+$$;
+
+create trigger trg_payment_balance
+after insert or delete or update of invoice_id, amount, voided_at
+on public.payments
+for each row execute function public.update_invoice_balance();
+
 create table public.accounting_sync_queue (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null,

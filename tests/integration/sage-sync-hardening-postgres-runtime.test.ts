@@ -129,4 +129,8 @@ describe.runIf(RUN_POSTGRES)("Sage OAuth PostgreSQL 17 runtime", () => {
   it("reconciles full documents atomically without echoes or starvation", async () => {
     await withDatabase("tests/sql/sage-sync-hardening-reconcile-runtime.sql");
   });
+
+  it("moves and voids AR/AP payments while restoring every parent balance", async () => {
+    await withDatabase("tests/sql/sage-sync-hardening-payment-runtime.sql");
+  });
 });

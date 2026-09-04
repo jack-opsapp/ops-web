@@ -58,6 +58,21 @@ describe("Sage reconciliation migration", () => {
     expect(sql).toContain("'sage_won'");
   });
 
+  it("moves payments between parents and recalculates both AP balances", () => {
+    expect(sql).toContain(
+      "update public.payments set invoice_id = v_parent_id"
+    );
+    expect(sql).toContain(
+      "update public.supplier_bill_payments set bill_id = v_parent_id"
+    );
+    expect(sql).toContain(
+      "private.accounting_sync_recalculate_supplier_bill_balance"
+    );
+    expect(sql).toContain(
+      "after insert or delete or update of bill_id, amount, voided_at"
+    );
+  });
+
   it("is service-role-only and atomic", () => {
     expect(sql).toContain(
       "sage_reconciliation_sentinel: browser privilege leak"

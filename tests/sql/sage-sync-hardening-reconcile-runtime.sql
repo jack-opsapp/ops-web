@@ -71,6 +71,9 @@ insert into public.payments (
   '40000000-0000-0000-0000-000000000001', 'sage-payment-1', 10,
   '2026-09-02', 'eft', '2026-09-04T08:00:00Z'
 );
+update public.invoices
+set updated_at = '2026-09-04T08:00:00Z'
+where id = '50000000-0000-0000-0000-000000000001';
 commit;
 
 insert into public.suppliers (
@@ -110,6 +113,9 @@ insert into public.supplier_bill_payments (
   '70000000-0000-0000-0000-000000000001', '2026-09-02', 5, 'eft',
   '2026-09-04T08:00:00Z'
 );
+update public.supplier_bills
+set updated_at = '2026-09-04T08:00:00Z'
+where id = '70000000-0000-0000-0000-000000000001';
 insert into public.supplier_bill_provider_links (
   company_id, connection_id, provider, entity_type, entity_id, external_id,
   provider_updated_at

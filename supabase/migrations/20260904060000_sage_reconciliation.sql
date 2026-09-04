@@ -59,6 +59,68 @@ create trigger supplier_bill_payments_accounting_sync_touch_updated_at
 before update on public.supplier_bill_payments
 for each row execute function private.accounting_sync_touch_updated_at();
 
+-- Payment changes are the financial event. Recalculate both the old and new
+-- AP parents without emitting a second, derivative supplier-bill sync job.
+create or replace function private.accounting_sync_recalculate_supplier_bill_balance()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare
+  v_bill_id uuid;
+  v_total numeric;
+  v_paid numeric;
+  v_status text;
+  v_previous_sync_source text;
+begin
+  for v_bill_id in
+    select distinct candidate.bill_id
+    from unnest(array[
+      case when tg_op in ('UPDATE', 'DELETE') then old.bill_id else null end,
+      case when tg_op in ('INSERT', 'UPDATE') then new.bill_id else null end
+    ]) as candidate(bill_id)
+    where candidate.bill_id is not null
+    order by candidate.bill_id
+  loop
+    select bill.total, bill.status into v_total, v_status
+    from public.supplier_bills bill
+    where bill.id = v_bill_id
+    for update;
+    if not found then
+      continue;
+    end if;
+
+    select coalesce(sum(payment.amount), 0) into v_paid
+    from public.supplier_bill_payments payment
+    where payment.bill_id = v_bill_id and payment.voided_at is null;
+
+    v_previous_sync_source := current_setting('ops.sync_source', true);
+    perform set_config('ops.sync_source', 'sage', true);
+    update public.supplier_bills
+    set balance = greatest(v_total - v_paid, 0),
+        status = case
+          when v_status = 'void' then v_status
+          when v_total > 0 and v_paid >= v_total then 'paid'
+          when v_paid > 0 then 'partial'
+          else 'open'
+        end,
+        updated_at = clock_timestamp()
+    where id = v_bill_id;
+    perform set_config(
+      'ops.sync_source', coalesce(v_previous_sync_source, ''), true
+    );
+  end loop;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists supplier_bill_payments_recalculate_balance
+  on public.supplier_bill_payments;
+create trigger supplier_bill_payments_recalculate_balance
+after insert or delete or update of bill_id, amount, voided_at
+on public.supplier_bill_payments
+for each row execute function private.accounting_sync_recalculate_supplier_bill_balance();
+
 alter table public.accounting_sync_events
   drop constraint if exists accounting_sync_events_decision_check;
 alter table public.accounting_sync_events
@@ -535,7 +597,8 @@ begin
     if v_parent_id is null or not exists (
       select 1 from public.payments payment
       join public.clients client on client.id = payment.client_id
-      where payment.id = p_entity_id and payment.invoice_id = v_parent_id
+      where payment.id = p_entity_id and payment.company_id = p_company_id
+        and client.company_id = p_company_id
         and client.sage_id = p_payload->>'contactId'
     ) then
       raise foreign_key_violation using
@@ -553,7 +616,8 @@ begin
       raise foreign_key_violation using
         message = 'apply_sage_reconcile_entity: payment mapping unavailable';
     end if;
-    update public.payments set amount = (p_payload->>'amount')::numeric,
+    update public.payments set invoice_id = v_parent_id,
+      amount = (p_payload->>'amount')::numeric,
       payment_date = (p_payload->>'date')::date,
       reference_number = nullif(p_payload->>'reference', ''),
       payment_method = v_payment_method, voided_at = null,
@@ -655,7 +719,7 @@ begin
       and link.external_id = p_payload#>>'{allocations,0,artefactId}';
     if v_parent_id is null or not exists (
       select 1 from public.supplier_bill_payments payment
-      where payment.id = p_entity_id and payment.bill_id = v_parent_id
+      where payment.id = p_entity_id and payment.company_id = p_company_id
     ) then
       raise foreign_key_violation using
         message = 'apply_sage_reconcile_entity: supplier payment dependency changed';
@@ -673,7 +737,7 @@ begin
         message = 'apply_sage_reconcile_entity: supplier payment mapping unavailable';
     end if;
     update public.supplier_bill_payments set
-      amount = (p_payload->>'amount')::numeric,
+      bill_id = v_parent_id, amount = (p_payload->>'amount')::numeric,
       payment_date = (p_payload->>'date')::date,
       reference = nullif(p_payload->>'reference', ''),
       payment_method = v_payment_method, voided_at = null,
