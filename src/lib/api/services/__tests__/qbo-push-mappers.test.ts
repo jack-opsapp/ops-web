@@ -466,10 +466,10 @@ describe("QBO push mappers", () => {
     ).toEqual(expect.objectContaining({ Id: "90", SyncToken: "5" }));
   });
 
-  it("caps invoice document numbers at QuickBooks' doc_num limit", () => {
-    const payload = mapInvoiceToQboInvoice({
+  it("suffixes overlength invoice numbers with stable record identity", () => {
+    const first = mapInvoiceToQboInvoice({
       invoice: {
-        id: "inv-1",
+        id: "11111111-1111-4111-8111-0000aaaa1111",
         qbId: null,
         docNumber: "OPS-QB-INV-123456789012",
         total: 125,
@@ -480,15 +480,31 @@ describe("QBO push mappers", () => {
       lineItems: invoiceLineItems,
       fallbackServiceItem,
     });
+    const second = mapInvoiceToQboInvoice({
+      invoice: {
+        id: "22222222-2222-4222-8222-0000bbbb2222",
+        qbId: null,
+        docNumber: "OPS-QB-INV-123456789099",
+        total: 125,
+        issueDate: "2026-06-05",
+        dueDate: "2026-06-20",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: invoiceLineItems,
+      fallbackServiceItem,
+    });
 
-    expect(payload.DocNumber).toBe("OPS-QB-INV-1234567890");
-    expect(String(payload.DocNumber)).toHaveLength(21);
+    expect(first.DocNumber).toBe("OPS-QB-I-0000aaaa1111");
+    expect(second.DocNumber).toBe("OPS-QB-I-0000bbbb2222");
+    expect(first.DocNumber).not.toBe(second.DocNumber);
+    expect(String(first.DocNumber)).toHaveLength(21);
+    expect(String(second.DocNumber)).toHaveLength(21);
   });
 
-  it("caps estimate document numbers at QuickBooks' doc_num limit", () => {
-    const payload = mapEstimateToQboEstimate({
+  it("suffixes overlength estimate numbers with stable record identity", () => {
+    const first = mapEstimateToQboEstimate({
       estimate: {
-        id: "est-1",
+        id: "11111111-1111-4111-8111-0000aaaa1111",
         qbId: null,
         docNumber: "OPS-QB-EST-123456789012",
         total: 125,
@@ -499,9 +515,25 @@ describe("QBO push mappers", () => {
       lineItems: invoiceLineItems,
       fallbackServiceItem,
     });
+    const second = mapEstimateToQboEstimate({
+      estimate: {
+        id: "22222222-2222-4222-8222-0000bbbb2222",
+        qbId: null,
+        docNumber: "OPS-QB-EST-123456789099",
+        total: 125,
+        issueDate: "2026-06-05",
+        expirationDate: "2026-07-05",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: invoiceLineItems,
+      fallbackServiceItem,
+    });
 
-    expect(payload.DocNumber).toBe("OPS-QB-EST-1234567890");
-    expect(String(payload.DocNumber)).toHaveLength(21);
+    expect(first.DocNumber).toBe("OPS-QB-E-0000aaaa1111");
+    expect(second.DocNumber).toBe("OPS-QB-E-0000bbbb2222");
+    expect(first.DocNumber).not.toBe(second.DocNumber);
+    expect(String(first.DocNumber)).toHaveLength(21);
+    expect(String(second.DocNumber)).toHaveLength(21);
   });
 
   it("maps a payment to a linked QuickBooks invoice", () => {

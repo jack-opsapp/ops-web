@@ -41,6 +41,9 @@ function mapQueueRow<TEntity extends AccountingSyncQueueEntityType>(
     runAfter: stringValue(row.run_after),
     lockedAt: stringOrNull(row.locked_at),
     lockedBy: stringOrNull(row.locked_by),
+    providerRequestId: stringOrNull(row.provider_request_id),
+    providerAcceptedAt: stringOrNull(row.provider_accepted_at),
+    idempotencyExpiresAt: stringOrNull(row.idempotency_expires_at),
     lastError: stringOrNull(row.last_error),
     payloadSnapshot:
       (row.payload_snapshot as Record<string, unknown> | null) ?? {},
@@ -58,7 +61,10 @@ export class AccountingSyncQueueService {
 
   async claimDue<
     TEntity extends AccountingSyncQueueEntityType =
-      "customer" | "invoice" | "estimate" | "payment",
+      | "customer"
+      | "invoice"
+      | "estimate"
+      | "payment",
   >(input: {
     provider: AccountingSyncProvider;
     limit: number;
@@ -101,11 +107,47 @@ export class AccountingSyncQueueService {
     await this.updateQueueRow(id, patch, { workerId: input.workerId });
   }
 
+  async recordProviderAcceptance(input: {
+    id: string;
+    workerId: string;
+    providerRequestId?: string | null;
+    acceptedAt: string;
+    idempotencyExpiresAt: string;
+  }): Promise<AccountingSyncQueueRow> {
+    const { data, error } = await this.supabase.rpc(
+      "record_accounting_sync_acceptance",
+      {
+        p_queue_id: input.id,
+        p_worker_id: input.workerId,
+        p_provider_request_id: input.providerRequestId ?? null,
+        p_provider_accepted_at: input.acceptedAt,
+        p_idempotency_expires_at: input.idempotencyExpiresAt,
+      }
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    const returnedRow = Array.isArray(data) ? data[0] : data;
+    if (!returnedRow) {
+      throw new Error("Accounting sync provider acceptance lost ownership");
+    }
+
+    return mapQueueRow(returnedRow as QueueDbRow);
+  }
+
   async scheduleRetry<TEntity extends AccountingSyncQueueEntityType>(
     row: AccountingSyncQueueRow<TEntity>,
     errorMessage: string,
     guard: WorkerGuard
   ): Promise<AccountingSyncQueueRow<TEntity> | null> {
+    if (row.providerAcceptedAt) {
+      throw new Error(
+        "Accepted accounting write cannot be retried automatically"
+      );
+    }
+
     const exhausted = row.attempts >= row.maxAttempts;
     if (exhausted) {
       await this.markBlocked(row.id, errorMessage, guard);

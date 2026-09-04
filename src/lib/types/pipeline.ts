@@ -843,6 +843,8 @@ export interface AccountingConnection {
   companyId: string;
   provider: AccountingProvider;
   providerEnvironment: "production" | "sandbox";
+  /** Display-only Sage identity. The provider business id never enters the client. */
+  sageBusinessName: string | null;
   accessToken: string | null;
   refreshToken: string | null;
   tokenExpiresAt: Date | null;

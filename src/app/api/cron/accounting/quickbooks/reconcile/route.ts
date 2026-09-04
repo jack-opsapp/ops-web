@@ -48,6 +48,12 @@ interface LatestAudit {
   qbUpdatedAt: string | null;
 }
 
+interface ReconcileCandidate {
+  connection: ConnectionRow;
+  record: LinkedRecord;
+  latestAudit: LatestAudit | null;
+}
+
 const ENTITY_TABLES: Array<{
   entityType: AccountingSyncEntityType;
   sourceTable: LinkedRecord["sourceTable"];
@@ -156,65 +162,69 @@ async function recordWriteDisabledAudit(
   }
 }
 
-async function selectLinkedRows(
-  supabase: SupabaseClient,
-  companyId: string,
-  config: (typeof ENTITY_TABLES)[number],
-  limit: number,
-): Promise<LinkedRecord[]> {
-  if (limit <= 0) return [];
-
-  const { data, error } = await supabase
-    .from(config.sourceTable)
-    .select("id, qb_id, updated_at")
-    .eq("company_id", companyId)
-    .not("qb_id", "is", null)
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    throw new Error(`Failed to fetch linked ${config.sourceTable}: ${error.message}`);
+function entityTypeValue(value: unknown): AccountingSyncEntityType {
+  const entityType = cleanString(value);
+  if (
+    entityType === "customer" ||
+    entityType === "invoice" ||
+    entityType === "estimate" ||
+    entityType === "payment"
+  ) {
+    return entityType;
   }
-
-  return ((data ?? []) as DbRow[])
-    .map((row) => ({
-      entityType: config.entityType,
-      sourceTable: config.sourceTable,
-      entityId: stringValue(row.id),
-      externalId: cleanString(row.qb_id) ?? "",
-      opsUpdatedAt: cleanString(row.updated_at),
-      moneyTouched: config.moneyTouched,
-    }))
-    .filter((row) => row.entityId && row.externalId);
+  throw new Error(`Unsupported QuickBooks reconcile entity type: ${entityType ?? "missing"}`);
 }
 
-async function latestAuditFor(
+async function selectReconcileCandidates(
   supabase: SupabaseClient,
-  connection: ConnectionRow,
-  record: LinkedRecord,
-): Promise<LatestAudit | null> {
-  const { data, error } = await supabase
-    .from("accounting_sync_events")
-    .select("ops_updated_at, qb_updated_at, created_at")
-    .eq("company_id", connection.companyId)
-    .eq("connection_id", connection.id)
-    .eq("provider", PROVIDER)
-    .eq("entity_type", record.entityType)
-    .eq("external_id", record.externalId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+): Promise<ReconcileCandidate[]> {
+  const providerEnvironment = getQuickBooksProviderEnvironment();
+  const { data, error } = await supabase.rpc("list_quickbooks_reconcile_candidates", {
+    p_provider_environment: providerEnvironment,
+    p_limit: BATCH_LIMIT,
+  });
 
   if (error) {
-    throw new Error(`Failed to fetch latest QuickBooks audit event: ${error.message}`);
+    throw new Error(`Failed to fetch QuickBooks reconcile candidates: ${error.message}`);
   }
 
-  if (!data) return null;
-  const row = data as DbRow;
-  return {
-    opsUpdatedAt: cleanString(row.ops_updated_at),
-    qbUpdatedAt: cleanString(row.qb_updated_at),
-  };
+  return ((data ?? []) as DbRow[]).map((row) => {
+    const companyId = stringValue(row.company_id);
+    const connectionId = stringValue(row.connection_id);
+    const entityId = stringValue(row.entity_id);
+    const externalId = cleanString(row.external_id);
+    const entityType = entityTypeValue(row.entity_type);
+    const sourceTable = sourceTableFor(entityType);
+
+    if (!companyId || !connectionId || !entityId || !externalId) {
+      throw new Error("QuickBooks reconcile candidate is missing a required identity");
+    }
+    if (cleanString(row.source_table) !== sourceTable) {
+      throw new Error(`QuickBooks reconcile source table mismatch for ${entityType}`);
+    }
+
+    return {
+      connection: {
+        id: connectionId,
+        companyId,
+        lastSyncAt: cleanString(row.last_sync_at),
+      },
+      record: {
+        entityType,
+        sourceTable,
+        entityId,
+        externalId,
+        opsUpdatedAt: cleanString(row.ops_updated_at),
+        moneyTouched: row.money_touched === true,
+      },
+      latestAudit: cleanString(row.last_reconciled_at)
+        ? {
+            opsUpdatedAt: cleanString(row.last_audit_ops_updated_at),
+            qbUpdatedAt: cleanString(row.last_audit_qb_updated_at),
+          }
+        : null,
+    };
+  });
 }
 
 async function enqueueReconcileUpdate(
@@ -384,9 +394,9 @@ export async function POST(request: Request) {
 
   const supabase = getServiceRoleClient();
   const audit = new AccountingSyncAuditService(supabase);
-  const connections = await selectConnections(supabase);
 
   if (process.env.ACCOUNTING_WRITE_ENABLED !== "true") {
+    const connections = await selectConnections(supabase);
     await recordWriteDisabledAudit(audit, connections);
     return NextResponse.json(
       {
@@ -407,62 +417,48 @@ export async function POST(request: Request) {
   });
   const applyService = new QuickBooksWebhookApplyService(supabase);
   const summary = { processed: 0, opsWon: 0, qbWon: 0, needsReview: 0 };
-  let remaining = BATCH_LIMIT;
+  const candidates = await selectReconcileCandidates(supabase);
 
-  for (const connection of connections) {
-    if (remaining <= 0) break;
-
-    for (const config of ENTITY_TABLES) {
-      if (remaining <= 0) break;
-
-      const rows = await selectLinkedRows(supabase, connection.companyId, config, remaining);
-      for (const record of rows) {
-        if (remaining <= 0) break;
-
-        try {
-          const latestAudit = await latestAuditFor(supabase, connection, record);
-          const currentQbUpdatedAt = await fetchCurrentQbUpdatedAt(supabase, connection, record);
-          const result = await service.reconcileLinkedRecord({
-            companyId: connection.companyId,
-            connectionId: connection.id,
-            entityType: record.entityType,
-            entityId: record.entityId,
-            externalId: record.externalId,
-            opsUpdatedAt: record.opsUpdatedAt,
-            qbUpdatedAt: currentQbUpdatedAt,
-            materialDiff: materialDiff(record, latestAudit, currentQbUpdatedAt),
-            moneyTouched: record.moneyTouched,
-          });
-          applySummary(summary, result);
-          if (result.decision === "qb_won") {
-            await applyQbEntityFromReconcile(applyService, audit, connection, record);
-          }
-        } catch (error) {
-          summary.processed += 1;
-          summary.needsReview += 1;
-          try {
-            await audit.record({
-              companyId: connection.companyId,
-              connectionId: connection.id,
-              provider: PROVIDER,
-              direction: "reconcile",
-              entityType: record.entityType,
-              entityId: record.entityId,
-              externalId: record.externalId,
-              operation: "reconcile",
-              status: "needs_review",
-              source: "reconcile",
-              decision: "needs_review",
-              opsUpdatedAt: record.opsUpdatedAt,
-              qbUpdatedAt: null,
-              error: errorMessage(error),
-            });
-          } catch {
-            // Keep the bounded reconcile moving; the route summary remains visible to cron.
-          }
-        }
-
-        remaining -= 1;
+  for (const { connection, record, latestAudit } of candidates) {
+    try {
+      const currentQbUpdatedAt = await fetchCurrentQbUpdatedAt(supabase, connection, record);
+      const result = await service.reconcileLinkedRecord({
+        companyId: connection.companyId,
+        connectionId: connection.id,
+        entityType: record.entityType,
+        entityId: record.entityId,
+        externalId: record.externalId,
+        opsUpdatedAt: record.opsUpdatedAt,
+        qbUpdatedAt: currentQbUpdatedAt,
+        materialDiff: materialDiff(record, latestAudit, currentQbUpdatedAt),
+        moneyTouched: record.moneyTouched,
+      });
+      applySummary(summary, result);
+      if (result.decision === "qb_won") {
+        await applyQbEntityFromReconcile(applyService, audit, connection, record);
+      }
+    } catch (error) {
+      summary.processed += 1;
+      summary.needsReview += 1;
+      try {
+        await audit.record({
+          companyId: connection.companyId,
+          connectionId: connection.id,
+          provider: PROVIDER,
+          direction: "reconcile",
+          entityType: record.entityType,
+          entityId: record.entityId,
+          externalId: record.externalId,
+          operation: "reconcile",
+          status: "needs_review",
+          source: "reconcile",
+          decision: "needs_review",
+          opsUpdatedAt: record.opsUpdatedAt,
+          qbUpdatedAt: null,
+          error: errorMessage(error),
+        });
+      } catch {
+        // Keep the bounded reconcile moving; the route summary remains visible to cron.
       }
     }
   }

@@ -16,7 +16,11 @@ import {
   AccountingTokenService,
   ReconnectRequiredError,
 } from "@/lib/api/services/accounting-token-service";
-import { encryptToken, isEncrypted } from "@/lib/api/services/token-cipher";
+import {
+  decryptToken,
+  encryptToken,
+  isEncrypted,
+} from "@/lib/api/services/token-cipher";
 
 const CONNECTION_ID = "conn-1";
 
@@ -86,6 +90,7 @@ const PAST = () => new Date(Date.now() - 60 * 1000).toISOString();
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("AccountingTokenService.getValidToken — decrypt on read", () => {
@@ -99,7 +104,10 @@ describe("AccountingTokenService.getValidToken — decrypt on read", () => {
       token_expires_at: FUTURE(), // not expired → no refresh
     });
 
-    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const result = await AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
 
     expect(result.accessToken).toBe("plain-access");
     expect(result.realmId).toBe("realm-123");
@@ -131,7 +139,10 @@ describe("AccountingTokenService.getValidToken — refresh persists encrypted", 
       )
     );
 
-    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const result = await AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
 
     // Caller receives the PLAINTEXT new access token.
     expect(result.accessToken).toBe("new-access");
@@ -201,7 +212,10 @@ describe("AccountingTokenService.getValidToken — transient 429 retries once", 
       );
     vi.stubGlobal("fetch", fetchSpy);
 
-    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const result = await AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(2); // initial + one retry
     expect(result.accessToken).toBe("after-retry-access");
@@ -218,9 +232,7 @@ describe("AccountingTokenService.getValidToken — transient 429 retries once", 
       token_expires_at: PAST(),
     });
 
-    const fetchSpy = vi
-      .fn()
-      .mockResolvedValue(jsonResponse(403, "forbidden"));
+    const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(403, "forbidden"));
     vi.stubGlobal("fetch", fetchSpy);
 
     await expect(
@@ -256,8 +268,14 @@ describe("AccountingTokenService.getValidToken — concurrent refresh single-fli
     });
     vi.stubGlobal("fetch", fetchSpy);
 
-    const first = AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
-    const second = AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const first = AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
+    const second = AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
     // Let both callers reach the refresh before the endpoint responds.
     await new Promise((resolve) => setTimeout(resolve, 10));
     release();
@@ -295,7 +313,10 @@ describe("AccountingTokenService.getValidToken — cross-instance rotation race"
     });
     vi.stubGlobal("fetch", fetchSpy);
 
-    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const result = await AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
 
     // Recovered with the sibling's fresh access token — no reconnect prompt,
     // no is_connected=false flip for a connection that is actually alive.
@@ -319,27 +340,34 @@ describe("AccountingTokenService.getValidToken — cross-instance rotation race"
     const bodies: string[] = [];
     const fetchSpy = vi
       .fn()
-      .mockImplementationOnce(async (_url: string, init: { body: URLSearchParams }) => {
-        bodies.push(String(init.body));
-        // Sibling rotated the pair but its access token is ALSO expired now.
-        Object.assign(db.row, {
-          access_token: encryptToken("sibling-access"),
-          refresh_token: encryptToken("sibling-refresh"),
-          token_expires_at: PAST(),
-        });
-        return jsonResponse(400, { error: "invalid_grant" });
-      })
-      .mockImplementationOnce(async (_url: string, init: { body: URLSearchParams }) => {
-        bodies.push(String(init.body));
-        return jsonResponse(200, {
-          access_token: "second-hop-access",
-          refresh_token: "second-hop-refresh",
-          expires_in: 3600,
-        });
-      });
+      .mockImplementationOnce(
+        async (_url: string, init: { body: URLSearchParams }) => {
+          bodies.push(String(init.body));
+          // Sibling rotated the pair but its access token is ALSO expired now.
+          Object.assign(db.row, {
+            access_token: encryptToken("sibling-access"),
+            refresh_token: encryptToken("sibling-refresh"),
+            token_expires_at: PAST(),
+          });
+          return jsonResponse(400, { error: "invalid_grant" });
+        }
+      )
+      .mockImplementationOnce(
+        async (_url: string, init: { body: URLSearchParams }) => {
+          bodies.push(String(init.body));
+          return jsonResponse(200, {
+            access_token: "second-hop-access",
+            refresh_token: "second-hop-refresh",
+            expires_in: 3600,
+          });
+        }
+      );
     vi.stubGlobal("fetch", fetchSpy);
 
-    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const result = await AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
 
     expect(result.accessToken).toBe("second-hop-access");
     expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -373,7 +401,10 @@ describe("AccountingTokenService.getValidToken — token-endpoint HTTP 401", () 
       );
     vi.stubGlobal("fetch", fetchSpy);
 
-    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const result = await AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(result.accessToken).toBe("after-401-access");
@@ -390,7 +421,9 @@ describe("AccountingTokenService.getValidToken — token-endpoint HTTP 401", () 
       is_connected: true,
     });
 
-    const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(401, "unauthorized"));
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(401, "unauthorized"));
     vi.stubGlobal("fetch", fetchSpy);
 
     await expect(
@@ -428,11 +461,152 @@ describe("AccountingTokenService.getValidToken — is_connected repair", () => {
       )
     );
 
-    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const result = await AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
 
     expect(result.accessToken).toBe("repaired-access");
     // The refresh succeeding proves the grant is alive — the row must say so.
     expect(db.row.is_connected).toBe(true);
     expect(db.updates.some((u) => u.is_connected === true)).toBe(true);
+  });
+});
+
+describe("AccountingTokenService.getValidToken — Sage token lifecycle", () => {
+  it("force-refreshes a still-valid Sage token after an API 401 and rotates the grant", async () => {
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_ID", "sage-sandbox-client");
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_SECRET", "sage-sandbox-secret");
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "sage",
+      provider_environment: "sandbox",
+      access_token: encryptToken("still-valid-but-rejected"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: null,
+      token_expires_at: FUTURE(),
+      is_connected: true,
+    });
+    const fetchSpy = vi.fn(async () =>
+      jsonResponse(200, {
+        access_token: "forced-access",
+        refresh_token: "forced-rotated-refresh",
+        expires_in: 300,
+      })
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const accessToken = await AccountingTokenService.forceRefresh(
+      db.client,
+      CONNECTION_ID
+    );
+
+    expect(accessToken).toBe("forced-access");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(decryptToken(db.row.access_token as string)).toBe("forced-access");
+    expect(decryptToken(db.row.refresh_token as string)).toBe(
+      "forced-rotated-refresh"
+    );
+  });
+
+  it("uses exact sandbox credentials and persists Sage's rotated five-minute grant", async () => {
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_ID", "sage-sandbox-client");
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_SECRET", "sage-sandbox-secret");
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "sage",
+      provider_environment: "sandbox",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: null,
+      token_expires_at: PAST(),
+      is_connected: true,
+    });
+    const bodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: { body: URLSearchParams }) => {
+        bodies.push(String(init.body));
+        return jsonResponse(200, {
+          access_token: "sage-access",
+          refresh_token: "sage-rotated-refresh",
+          expires_in: 300,
+        });
+      })
+    );
+
+    const result = await AccountingTokenService.getValidToken(
+      db.client,
+      CONNECTION_ID
+    );
+
+    expect(result.accessToken).toBe("sage-access");
+    expect(result.providerEnvironment).toBe("sandbox");
+    expect(bodies[0]).toContain("client_id=sage-sandbox-client");
+    expect(bodies[0]).toContain("client_secret=sage-sandbox-secret");
+    expect(bodies[0]).toContain("refresh_token=old-refresh");
+    expect(decryptToken(db.row.refresh_token as string)).toBe(
+      "sage-rotated-refresh"
+    );
+    const remaining =
+      new Date(db.row.token_expires_at as string).getTime() - Date.now();
+    expect(remaining).toBeGreaterThan(290_000);
+    expect(remaining).toBeLessThanOrEqual(300_000);
+  });
+
+  it("refuses a Sage refresh response that omits the rotated refresh token", async () => {
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_ID", "sage-sandbox-client");
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_SECRET", "sage-sandbox-secret");
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "sage",
+      provider_environment: "sandbox",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: null,
+      token_expires_at: PAST(),
+      is_connected: true,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(200, { access_token: "unsafe-access" }))
+    );
+
+    await expect(
+      AccountingTokenService.getValidToken(db.client, CONNECTION_ID)
+    ).rejects.toThrow(/rotated refresh token/);
+    expect(db.updates).toHaveLength(0);
+  });
+
+  it("disconnects Sage after a persistent 403 without exposing the provider body", async () => {
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_ID", "sage-sandbox-client");
+    vi.stubEnv("SAGE_SANDBOX_CLIENT_SECRET", "sage-sandbox-secret");
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "sage",
+      provider_environment: "sandbox",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: null,
+      token_expires_at: PAST(),
+      is_connected: true,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(403, { token: "never-leak-me", error: "forbidden" })
+      )
+    );
+
+    let error: Error | undefined;
+    try {
+      await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    } catch (caught) {
+      error = caught as Error;
+    }
+    expect(error).toBeInstanceOf(ReconnectRequiredError);
+    if (!error) throw new Error("expected ReconnectRequiredError");
+    expect(error.message).not.toContain("never-leak-me");
+    expect(db.row.is_connected).toBe(false);
   });
 });

@@ -22,19 +22,15 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  encryptToken,
-  decryptToken,
-} from "./token-cipher";
+import { encryptToken, decryptToken } from "./token-cipher";
 import {
   getQuickBooksConfigForEnvironment,
   type QuickBooksEnvironment,
 } from "./quickbooks-config";
+import { getSageCredentials } from "./sage-config";
 
-const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID ?? "";
-const SAGE_CLIENT_SECRET = process.env.SAGE_CLIENT_SECRET ?? "";
-
-const INTUIT_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+const INTUIT_TOKEN_URL =
+  "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 const SAGE_TOKEN_URL = "https://oauth.accounting.sage.com/token";
 
 // Refresh buffer — refresh 5 minutes before expiry
@@ -98,9 +94,19 @@ class InvalidGrantError extends Error {
  * string-matching its own message.
  */
 class TokenEndpointHttpError extends Error {
-  constructor(providerLabel: string, readonly status: number) {
+  constructor(
+    providerLabel: string,
+    readonly status: number
+  ) {
     super(`${providerLabel} token refresh failed (HTTP ${status})`);
     this.name = "TokenEndpointHttpError";
+  }
+}
+
+class MissingRotatedRefreshTokenError extends Error {
+  constructor() {
+    super("Sage token refresh omitted the required rotated refresh token");
+    this.name = "MissingRotatedRefreshTokenError";
   }
 }
 
@@ -144,12 +150,33 @@ function isInvalidGrant(body: string): boolean {
  */
 async function markReconnectRequired(
   supabase: SupabaseClient,
-  connectionId: string
+  connectionId: string,
+  provider: AccountingRefreshProvider
 ): Promise<void> {
   try {
+    const patch =
+      provider === "sage"
+        ? {
+            access_token: null,
+            refresh_token: null,
+            token_expires_at: null,
+            sage_business_id: null,
+            sage_business_id_lookup: null,
+            sage_business_name: null,
+            is_connected: false,
+            sync_enabled: false,
+            sync_direction: "pull_only",
+            propagate_deletes: false,
+            updated_at: new Date().toISOString(),
+          }
+        : {
+            is_connected: false,
+            sync_enabled: false,
+            updated_at: new Date().toISOString(),
+          };
     await supabase
       .from("accounting_connections")
-      .update({ is_connected: false, updated_at: new Date().toISOString() })
+      .update(patch)
       .eq("id", connectionId);
   } catch {
     // swallow — the ReconnectRequiredError still propagates
@@ -190,6 +217,7 @@ async function requestRefreshedTokens(
       refresh_token: refreshToken,
     });
   } else {
+    const config = getSageCredentials(providerEnvironment);
     url = SAGE_TOKEN_URL;
     headers = {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -198,8 +226,8 @@ async function requestRefreshedTokens(
     body = new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      client_id: SAGE_CLIENT_ID,
-      client_secret: SAGE_CLIENT_SECRET,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
     });
   }
 
@@ -222,7 +250,33 @@ async function requestRefreshedTokens(
     throw new TokenEndpointHttpError(label, response.status);
   }
 
-  return (await response.json()) as RefreshedTokens;
+  let tokens: RefreshedTokens;
+  try {
+    tokens = (await response.json()) as RefreshedTokens;
+  } catch {
+    throw new Error(`${label} token refresh returned invalid JSON`);
+  }
+  if (
+    !tokens ||
+    typeof tokens.access_token !== "string" ||
+    !tokens.access_token.trim()
+  ) {
+    throw new Error(`${label} token refresh returned an incomplete grant`);
+  }
+  if (provider === "sage" && !tokens.refresh_token?.trim()) {
+    throw new MissingRotatedRefreshTokenError();
+  }
+  return {
+    ...tokens,
+    access_token: tokens.access_token.trim(),
+    refresh_token: tokens.refresh_token?.trim(),
+    expires_in:
+      typeof tokens.expires_in === "number" && tokens.expires_in > 0
+        ? tokens.expires_in
+        : provider === "sage"
+          ? 300
+          : 3600,
+  };
 }
 
 /**
@@ -325,14 +379,27 @@ async function refreshConnectionToken(
       refreshToken,
       providerEnvironment
     );
-    await persistRefreshedTokens(supabase, connectionId, label, tokens, refreshToken);
+    await persistRefreshedTokens(
+      supabase,
+      connectionId,
+      label,
+      tokens,
+      refreshToken
+    );
     return tokens.access_token;
   } catch (err) {
     const invalidGrant = err instanceof InvalidGrantError;
     const unauthorized =
       err instanceof TokenEndpointHttpError && err.status === 401;
+    const sageForbidden =
+      provider === "sage" &&
+      err instanceof TokenEndpointHttpError &&
+      err.status === 403;
 
-    if (opts.allowSiblingAdoption && (invalidGrant || unauthorized)) {
+    if (
+      opts.allowSiblingAdoption &&
+      (invalidGrant || unauthorized || sageForbidden)
+    ) {
       const adopted = await adoptSiblingRefresh(
         supabase,
         connectionId,
@@ -343,10 +410,10 @@ async function refreshConnectionToken(
       if (adopted) return adopted;
     }
 
-    if (invalidGrant) {
+    if (invalidGrant || sageForbidden) {
       // No sibling progress → the grant itself is dead; require a fresh OAuth
       // connect and surface the reconnect UI.
-      await markReconnectRequired(supabase, connectionId);
+      await markReconnectRequired(supabase, connectionId, provider);
       throw new ReconnectRequiredError(label);
     }
 
@@ -391,6 +458,46 @@ function refreshSingleFlight(
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 export const AccountingTokenService = {
+  async forceRefresh(
+    supabase: SupabaseClient,
+    connectionId: string
+  ): Promise<string> {
+    const { data: conn, error } = await supabase
+      .from("accounting_connections")
+      .select("id, provider, provider_environment, refresh_token")
+      .eq("id", connectionId)
+      .single();
+
+    if (error || !conn) {
+      throw new Error(`Connection not found: ${connectionId}`);
+    }
+    if (conn.provider !== "quickbooks" && conn.provider !== "sage") {
+      throw new Error(`Unsupported accounting provider: ${conn.provider}`);
+    }
+    const provider = conn.provider as AccountingRefreshProvider;
+    const refreshToken = decryptToken(conn.refresh_token as string | null);
+    if (!refreshToken) {
+      throw new ReconnectRequiredError(PROVIDER_LABELS[provider]);
+    }
+    const environment: QuickBooksEnvironment =
+      conn.provider_environment === "sandbox" ? "sandbox" : "production";
+    return refreshSingleFlight(
+      supabase,
+      connectionId,
+      provider,
+      environment,
+      refreshToken
+    );
+  },
+
+  async disconnectGrant(
+    supabase: SupabaseClient,
+    connectionId: string,
+    provider: AccountingRefreshProvider
+  ): Promise<void> {
+    await markReconnectRequired(supabase, connectionId, provider);
+  },
+
   /**
    * Returns a valid access token, refreshing if expired or about to expire.
    * Reads ciphertext from the connection row and returns PLAINTEXT (callers
@@ -402,7 +509,9 @@ export const AccountingTokenService = {
   ): Promise<TokenResult> {
     const { data: conn, error } = await supabase
       .from("accounting_connections")
-      .select("id, provider, provider_environment, access_token, refresh_token, token_expires_at, realm_id")
+      .select(
+        "id, provider, provider_environment, access_token, refresh_token, token_expires_at, realm_id"
+      )
       .eq("id", connectionId)
       .single();
 
@@ -410,7 +519,9 @@ export const AccountingTokenService = {
       throw new Error(`Connection not found: ${connectionId}`);
     }
 
-    const expiresAt = conn.token_expires_at ? new Date(conn.token_expires_at).getTime() : 0;
+    const expiresAt = conn.token_expires_at
+      ? new Date(conn.token_expires_at).getTime()
+      : 0;
     const isExpired = Date.now() >= expiresAt - REFRESH_BUFFER_MS;
 
     // Decrypt on read — stored values are AES-encrypted (legacy plaintext is
