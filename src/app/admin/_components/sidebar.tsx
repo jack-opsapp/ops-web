@@ -30,6 +30,7 @@ const NAV_ITEMS: NavEntry[] = [
 
   { type: "section", label: "CONTENT" },
   { type: "item", href: "/admin/blog", label: "BLOG" },
+  { type: "item", href: "/admin/social", label: "SOCIAL" },
   { type: "item", href: "/admin/email", label: "EMAIL" },
   { type: "item", href: "/admin/app-messages", label: "APP MESSAGES" },
   { type: "item", href: "/admin/feature-releases", label: "FEATURE RELEASES" },

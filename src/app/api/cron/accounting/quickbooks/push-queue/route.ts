@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/services/cron-workload-control-service";
 import type {
   AccountingSyncAuditInput,
+  AccountingSyncQueueEntityType,
   AccountingSyncQueueRow,
 } from "@/lib/api/services/accounting-sync-queue-types";
 import {
@@ -40,6 +41,11 @@ import {
   type QuickBooksWriteResult,
 } from "@/lib/api/services/quickbooks-write-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import {
+  isSupplierBillQueueEntity,
+  processSupplierBillQueueRow,
+  type SupplierBillQueueRow,
+} from "@/lib/api/services/supplier-bill-queue-processor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +71,7 @@ interface PreparedPush {
 
 interface RowResult {
   queueId: string;
-  entityType: AccountingSyncQueueRow["entityType"];
+  entityType: AccountingSyncQueueEntityType;
   entityId: string;
   status: "succeeded" | FailureKind | "failed";
   externalId?: string | null;
@@ -1068,6 +1074,16 @@ async function processQueueRow(input: {
   workerId: string;
 }): Promise<RowResult> {
   const { supabase, queue, audit, row, workerId } = input;
+
+  if (isSupplierBillQueueEntity(row.entityType as string)) {
+    return processSupplierBillQueueRow({
+      supabase,
+      queue,
+      audit,
+      row: row as unknown as SupplierBillQueueRow,
+      workerId,
+    });
+  }
 
   try {
     assertSupportedOperation(row);
