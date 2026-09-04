@@ -89,4 +89,20 @@ describe("middleware — public developer reference", () => {
     expect(res.headers.get("location")).toBeNull();
     expect(res.headers.get("x-middleware-next")).toBe("1");
   });
+
+  it("serves the MCP guide without an OPS session", () => {
+    const res = middleware(req("/developers/mcp"));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("does not change the MCP guide response when dashboard cookies exist", () => {
+    const res = middleware(req("/developers/mcp", { authed: true }));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
 });

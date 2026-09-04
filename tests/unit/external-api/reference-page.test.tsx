@@ -30,6 +30,9 @@ describe("public external API reference page", () => {
     });
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(
+      within(screen.getByRole("banner")).getByRole("link", { name: "MCP" })
+    ).toHaveAttribute("href", "/developers/mcp");
+    expect(
       screen.getByRole("heading", {
         level: 1,
         name: "External Lead API",
