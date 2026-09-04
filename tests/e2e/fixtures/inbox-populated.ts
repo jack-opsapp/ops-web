@@ -5,7 +5,8 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const CURRENT_USER_ID = "e2e-user-inbox-operator";
-const AUTH_TOKEN = "mock-id-token";
+const AUTH_TOKEN =
+  "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtb2NrLWZpcmViYXNlLXVzZXIiLCJleHAiOjQxMDI0NDQ4MDB9.signature";
 const E2E_ORIGIN =
   process.env.E2E_BASE_URL ??
   `http://localhost:${process.env.E2E_PORT ?? "3000"}`;

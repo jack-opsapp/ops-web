@@ -1,5 +1,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import {
+  getFirebaseIdTokenCookieMaxAge,
+  LEGACY_SESSION_COOKIE_NAME,
+  OPS_AUTH_COOKIE_NAME,
+  selectFirebaseIdTokenCookie,
+} from "@/lib/auth/firebase-id-token-cookie";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { ReconnectSuccessClient } from "./SuccessClient";
 
@@ -43,13 +49,15 @@ export default async function ReconnectInboxSuccessPage({
 
   const companyName = (company?.name as string) ?? "your company";
 
-  // Mirror middleware's auth heuristic. A live OPS session writes either
-  // `__session` (Firebase server cookie) or `ops-auth-token` (custom).
+  // This unverified freshness check only selects the CTA. Authorization still
+  // requires server-side token verification on the destination route.
   const cookieStore = await cookies();
-  const isAuthenticated = !!(
-    cookieStore.get("__session")?.value ||
-    cookieStore.get("ops-auth-token")?.value
+  const token = selectFirebaseIdTokenCookie(
+    cookieStore.get(OPS_AUTH_COOKIE_NAME)?.value,
+    cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value
   );
+  const isAuthenticated =
+    token !== null && getFirebaseIdTokenCookieMaxAge(token) !== null;
 
   return (
     <ReconnectSuccessClient

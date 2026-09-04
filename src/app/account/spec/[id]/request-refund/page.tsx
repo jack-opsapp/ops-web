@@ -17,6 +17,11 @@
 
 import { notFound, redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
+import {
+  LEGACY_SESSION_COOKIE_NAME,
+  OPS_AUTH_COOKIE_NAME,
+  selectFirebaseIdTokenCookie,
+} from "@/lib/auth/firebase-id-token-cookie";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
@@ -40,11 +45,13 @@ async function resolveCallerUserId(): Promise<{
 } | null> {
   const cookieStore = await cookies();
   const headersList = await headers();
+  const cookieToken = selectFirebaseIdTokenCookie(
+    cookieStore.get(OPS_AUTH_COOKIE_NAME)?.value,
+    cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value
+  );
 
   const token =
-    headersList.get("authorization")?.replace("Bearer ", "") ||
-    cookieStore.get("__session")?.value ||
-    cookieStore.get("ops-auth-token")?.value;
+    headersList.get("authorization")?.replace("Bearer ", "") || cookieToken;
 
   if (!token) return null;
 

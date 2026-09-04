@@ -2,11 +2,37 @@ import { describe, it, expect } from "vitest";
 import { NextRequest } from "next/server";
 import { middleware } from "@/middleware";
 
-/** Build a request; `authed` attaches the Firebase session cookie the
- *  middleware looks for. */
-function req(path: string, opts: { authed?: boolean } = {}) {
+function jwt(exp: number): string {
+  const encode = (value: Record<string, unknown>) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "RS256", typ: "JWT" })}.${encode({
+    sub: "firebase-user",
+    exp,
+  })}.signature`;
+}
+
+const freshToken = () => jwt(Math.floor(Date.now() / 1000) + 10 * 60);
+const expiredToken = () => jwt(Math.floor(Date.now() / 1000) - 60);
+
+function req(
+  path: string,
+  opts: {
+    token?: string;
+    legacyToken?: string;
+    adminReturnHeader?: string;
+  } = {}
+) {
+  const cookies = [
+    opts.token ? `ops-auth-token=${opts.token}` : null,
+    opts.legacyToken ? `__session=${opts.legacyToken}` : null,
+  ].filter(Boolean);
+  const headers = new Headers();
+  if (cookies.length > 0) headers.set("cookie", cookies.join("; "));
+  if (opts.adminReturnHeader) {
+    headers.set("x-ops-admin-return-to", opts.adminReturnHeader);
+  }
   return new NextRequest(`http://localhost${path}`, {
-    headers: opts.authed ? { cookie: "__session=fake-token" } : {},
+    headers,
   });
 }
 
@@ -34,42 +60,47 @@ describe("middleware — protected route → login redirect", () => {
     const res = middleware(req("/projects/new"));
     expect(redirectParam(res)).toBe("/projects/new");
   });
-});
 
-describe("middleware — authenticated user on /login (post-login redirect)", () => {
-  it("returns the user to a safe same-origin path, query intact", () => {
+  it("clears an expired canonical token and preserves the exact admin destination", () => {
     const res = middleware(
-      req("/login?redirect=%2Fprojects%2Fnew%3FclientId%3Dabc", {
-        authed: true,
+      req("/admin/acquisition?range=30d&channel=organic", {
+        token: expiredToken(),
+        legacyToken: freshToken(),
       })
     );
-    const location = new URL(res.headers.get("location")!);
-    expect(location.origin).toBe("http://localhost");
-    expect(location.pathname).toBe("/projects/new");
-    expect(location.search).toBe("?clientId=abc");
-  });
 
-  it("refuses an absolute-URL redirect (open-redirect guard)", () => {
-    const res = middleware(
-      req("/login?redirect=https%3A%2F%2Fevil.com", { authed: true })
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    expect(redirectParam(res)).toBe(
+      "/admin/acquisition?range=30d&channel=organic"
     );
-    const location = new URL(res.headers.get("location")!);
-    expect(location.origin).toBe("http://localhost");
-    expect(location.pathname).toBe("/dashboard");
+    expect(res.cookies.get("ops-auth-token")?.value).toBe("");
+    expect(res.cookies.get("__session")?.value).toBe("");
   });
+});
 
-  it("refuses a scheme-relative redirect (open-redirect guard)", () => {
+describe("middleware — auth recovery routing", () => {
+  it("lets the client auth gate resolve a login request instead of trusting an unverified cookie", () => {
     const res = middleware(
-      req("/login?redirect=%2F%2Fevil.com", { authed: true })
+      req("/login?redirect=%2Fadmin%2Facquisition", { token: freshToken() })
     );
-    const location = new URL(res.headers.get("location")!);
-    expect(location.host).toBe("localhost");
-    expect(location.pathname).toBe("/dashboard");
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
-  it("defaults to /dashboard when no redirect is supplied", () => {
-    const res = middleware(req("/login", { authed: true }));
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
+  it("forwards a trusted exact admin destination and overwrites an inbound spoof", () => {
+    const res = middleware(
+      req("/admin/acquisition?range=30d", {
+        token: freshToken(),
+        adminReturnHeader: "//evil.example/steal",
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-middleware-request-x-ops-admin-return-to")).toBe(
+      "/admin/acquisition?range=30d"
+    );
   });
 });
 
@@ -83,7 +114,7 @@ describe("middleware — public developer reference", () => {
   });
 
   it("does not change the reference response when dashboard cookies exist", () => {
-    const res = middleware(req("/developers/api", { authed: true }));
+    const res = middleware(req("/developers/api", { token: freshToken() }));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();

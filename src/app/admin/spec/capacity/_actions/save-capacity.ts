@@ -11,6 +11,11 @@ import {
   SPEC_CAPACITY_RECORD_IDS,
 } from "@/lib/admin/spec-constants";
 import type { SpecTier } from "@/lib/admin/spec-types";
+import {
+  LEGACY_SESSION_COOKIE_NAME,
+  OPS_AUTH_COOKIE_NAME,
+  selectFirebaseIdTokenCookie,
+} from "@/lib/auth/firebase-id-token-cookie";
 
 /**
  * Save-capacity server action — `/admin/spec/capacity` per-tier submit.
@@ -51,8 +56,10 @@ async function requireOperator(): Promise<{ userId: string } | null> {
 
   const token =
     headersList.get("authorization")?.replace("Bearer ", "") ||
-    cookieStore.get("__session")?.value ||
-    cookieStore.get("ops-auth-token")?.value;
+    selectFirebaseIdTokenCookie(
+      cookieStore.get(OPS_AUTH_COOKIE_NAME)?.value,
+      cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value
+    );
 
   if (!token) return null;
 

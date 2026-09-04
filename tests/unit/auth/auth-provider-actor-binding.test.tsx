@@ -12,14 +12,14 @@ const mocks = vi.hoisted(() => ({
   authStateReady: vi.fn(),
   getFirebaseAuth: vi.fn(),
   getIdToken: vi.fn(),
-  onAuthStateChanged: vi.fn(),
+  onIdTokenChanged: vi.fn(),
   syncUser: vi.fn(),
   checkRedirectResult: vi.fn(),
   isRedirectPending: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/auth", () => ({
-  onAuthStateChanged: mocks.onAuthStateChanged,
+  onIdTokenChanged: mocks.onIdTokenChanged,
   getIdToken: mocks.getIdToken,
   checkRedirectResult: mocks.checkRedirectResult,
   clearRedirectFlag: vi.fn(),
@@ -63,6 +63,15 @@ import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pip
 import { useCommunicationDraftStore } from "@/stores/communication-draft-store";
 
 const ACTOR_BINDING_STORAGE_KEY = "ops-firebase-actor-binding-v1";
+
+function firebaseToken(expiresInSeconds = 10 * 60): string {
+  const encode = (value: Record<string, unknown>) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "RS256", typ: "JWT" })}.${encode({
+    sub: "firebase-user",
+    exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
+  })}.signature`;
+}
 
 type FirebaseUser = import("firebase/auth").User;
 type AuthListener = (user: FirebaseUser | null) => void;
@@ -130,6 +139,7 @@ function MutationBoundaryProbe({
 
 describe("AuthProvider Firebase actor binding", () => {
   let listener: AuthListener;
+  let idTokenListener: AuthListener;
   let fetchPermissions: ReturnType<typeof vi.fn>;
   let fetchFlags: ReturnType<typeof vi.fn>;
 
@@ -139,6 +149,7 @@ describe("AuthProvider Firebase actor binding", () => {
     document.cookie = "ops-auth-token=; path=/; max-age=0";
     document.cookie = "__session=; path=/; max-age=0";
     listener = () => {};
+    idTokenListener = () => {};
     mocks.authStateReady.mockReturnValue(new Promise<void>(() => {}));
     mocks.checkRedirectResult.mockResolvedValue(null);
     mocks.isRedirectPending.mockReturnValue(false);
@@ -146,8 +157,9 @@ describe("AuthProvider Firebase actor binding", () => {
       authStateReady: mocks.authStateReady,
       currentUser: null,
     });
-    mocks.onAuthStateChanged.mockImplementation((callback: AuthListener) => {
+    mocks.onIdTokenChanged.mockImplementation((callback: AuthListener) => {
       listener = callback;
+      idTokenListener = callback;
       return vi.fn();
     });
 
@@ -180,6 +192,42 @@ describe("AuthProvider Firebase actor binding", () => {
     useBreadcrumbStore.getState().clearParentCrumbs();
     usePipelineModeStore.getState().closeDetailPanel();
     useCommunicationDraftStore.getState().clear();
+  });
+
+  it("rewrites the canonical cookie for a same-actor ID-token refresh without revoking actor state", async () => {
+    const queryClient = new QueryClient();
+    const persistedUser = opsUser("ops-a", "company-a");
+    const persistedCompany = company("company-a");
+    const refreshedToken = firebaseToken();
+    useAuthStore.setState({
+      currentUser: persistedUser,
+      company: persistedCompany,
+      isAuthenticated: true,
+      isLoading: false,
+      role: UserRole.Operator,
+    });
+    localStorage.setItem(
+      ACTOR_BINDING_STORAGE_KEY,
+      JSON.stringify({ firebaseUid: "firebase-a", opsUserId: "ops-a" })
+    );
+    document.cookie = "__session=legacy-session; path=/";
+    mocks.getIdToken.mockResolvedValue(refreshedToken);
+    mocks.syncUser.mockResolvedValue({
+      user: persistedUser,
+      company: persistedCompany,
+    });
+
+    const view = renderProvider(queryClient);
+    await waitFor(() => expect(mocks.onIdTokenChanged).toHaveBeenCalledOnce());
+    act(() => idTokenListener(firebaseUser("firebase-a", "a@example.com")));
+
+    await waitFor(() =>
+      expect(document.cookie).toContain(`ops-auth-token=${refreshedToken}`)
+    );
+    expect(document.cookie).not.toContain("__session=");
+    expect(useAuthStore.getState().currentUser?.id).toBe("ops-a");
+    expect(useAuthStore.getState().company?.id).toBe("company-a");
+    view.unmount();
   });
 
   it("synchronously revokes a persisted OPS actor before awaiting a different Firebase actor", async () => {
@@ -269,7 +317,7 @@ describe("AuthProvider Firebase actor binding", () => {
     mocks.getIdToken.mockReturnValue(new Promise<string | null>(() => {}));
 
     renderProvider(queryClient);
-    await waitFor(() => expect(mocks.onAuthStateChanged).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.onIdTokenChanged).toHaveBeenCalled());
 
     act(() => listener(firebaseUser("firebase-b", "b@example.com")));
 
@@ -291,7 +339,7 @@ describe("AuthProvider Firebase actor binding", () => {
 
   it("lets a newer Firebase actor finish while an older actor sync is still in flight", async () => {
     const queryClient = new QueryClient();
-    mocks.getIdToken.mockResolvedValue("token");
+    mocks.getIdToken.mockResolvedValue(firebaseToken());
     let resolveActorA!: (value: unknown) => void;
     const actorASync = new Promise((resolve) => {
       resolveActorA = resolve;
@@ -305,7 +353,7 @@ describe("AuthProvider Firebase actor binding", () => {
       .mockReturnValueOnce(actorBSync);
 
     renderProvider(queryClient);
-    await waitFor(() => expect(mocks.onAuthStateChanged).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.onIdTokenChanged).toHaveBeenCalled());
 
     act(() => listener(firebaseUser("firebase-a", "a@example.com")));
     await waitFor(() => expect(mocks.syncUser).toHaveBeenCalledTimes(1));
@@ -339,7 +387,7 @@ describe("AuthProvider Firebase actor binding", () => {
 
   it("starts a fresh sync when an actor returns during its stale earlier generation", async () => {
     const queryClient = new QueryClient();
-    mocks.getIdToken.mockResolvedValue("token");
+    mocks.getIdToken.mockResolvedValue(firebaseToken());
     const pendingResolvers: Array<(value: unknown) => void> = [];
     for (let index = 0; index < 3; index += 1) {
       mocks.syncUser.mockReturnValueOnce(
@@ -348,7 +396,7 @@ describe("AuthProvider Firebase actor binding", () => {
     }
 
     renderProvider(queryClient);
-    await waitFor(() => expect(mocks.onAuthStateChanged).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.onIdTokenChanged).toHaveBeenCalled());
 
     act(() => listener(firebaseUser("firebase-a", "a@example.com")));
     await waitFor(() => expect(mocks.syncUser).toHaveBeenCalledTimes(1));
@@ -386,7 +434,7 @@ describe("AuthProvider Firebase actor binding", () => {
     mocks.getIdToken.mockRejectedValue(new Error("token unavailable"));
 
     const view = renderProvider(queryClient);
-    await waitFor(() => expect(mocks.onAuthStateChanged).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.onIdTokenChanged).toHaveBeenCalled());
     act(() => listener(firebaseUser("firebase-a", "a@example.com")));
 
     await waitFor(() => expect(useAuthStore.getState().isLoading).toBe(false));
@@ -401,7 +449,7 @@ describe("AuthProvider Firebase actor binding", () => {
     mocks.getIdToken.mockResolvedValue(null);
 
     const view = renderProvider(queryClient);
-    await waitFor(() => expect(mocks.onAuthStateChanged).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.onIdTokenChanged).toHaveBeenCalled());
     act(() => listener(firebaseUser("firebase-a", "a@example.com")));
 
     await waitFor(() => expect(useAuthStore.getState().isLoading).toBe(false));
@@ -413,11 +461,11 @@ describe("AuthProvider Firebase actor binding", () => {
 
   it("fails closed when the canonical OPS user sync rejects", async () => {
     const queryClient = new QueryClient();
-    mocks.getIdToken.mockResolvedValue("token");
+    mocks.getIdToken.mockResolvedValue(firebaseToken());
     mocks.syncUser.mockRejectedValue(new Error("sync unavailable"));
 
     const view = renderProvider(queryClient);
-    await waitFor(() => expect(mocks.onAuthStateChanged).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.onIdTokenChanged).toHaveBeenCalled());
     act(() => listener(firebaseUser("firebase-a", "a@example.com")));
 
     await waitFor(() => expect(useAuthStore.getState().isLoading).toBe(false));
@@ -454,7 +502,7 @@ describe("AuthProvider Firebase actor binding", () => {
     vi.useFakeTimers();
     try {
       const queryClient = new QueryClient();
-      mocks.getIdToken.mockResolvedValue("token");
+      mocks.getIdToken.mockResolvedValue(firebaseToken());
       mocks.syncUser.mockReturnValue(new Promise(() => {}));
       const view = renderProvider(queryClient);
       await act(async () => Promise.resolve());
@@ -511,7 +559,7 @@ describe("AuthProvider Firebase actor binding", () => {
     );
 
     const view = renderProvider(queryClient);
-    await waitFor(() => expect(mocks.onAuthStateChanged).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.onIdTokenChanged).toHaveBeenCalled());
     act(() => listener(null));
 
     await waitFor(() => expect(useAuthStore.getState().isLoading).toBe(false));
@@ -527,7 +575,7 @@ describe("AuthProvider Firebase actor binding", () => {
       authStateReady: mocks.authStateReady,
       currentUser: actor,
     });
-    mocks.getIdToken.mockResolvedValue("actor-a-token");
+    mocks.getIdToken.mockResolvedValue(firebaseToken());
     let resolveSync!: (value: unknown) => void;
     mocks.syncUser.mockReturnValue(
       new Promise((resolve) => {
