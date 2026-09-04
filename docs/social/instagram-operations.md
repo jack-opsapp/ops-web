@@ -119,6 +119,33 @@ Published and cancelled rows are immutable in the admin API.
 
 ## Failure response
 
+### OAuth completion incident — 2026-09-04
+
+The redirect allowlist change reached the OPS callback. Production request
+`2w868-1788560282142-8defd3a8dfff` at 22:18:02 UTC failed during connection
+completion on deployment `dpl_7BCJY52J5SB6KwmY7qdCrLSzCUH3`. Its one-time state
+was consumed; no connection or social post was stored. The existing callback
+log contains only a generic failure, and Vercel has no saved trace. The exact
+completion failure is not yet proven.
+
+The diagnostic change in this worktree is **local, pending production approval**.
+It logs source-defined stages (`state_validation`, `admin_validation`,
+`code_exchange`, `token_upgrade`, `profile_lookup`, `token_encryption`, and
+`connection_storage`), allowlisted local error codes, numeric HTTP/provider
+codes, and fixed response-shape labels. The service also records `oauth_exchange`
+when the nested Meta flow fails. It never logs credentials, authorization codes,
+state, emails, URLs, provider messages, stack traces, or response bodies. Public
+callback responses and all OAuth/publishing behavior are unchanged.
+
+After an approved deployment, start one fresh `CONNECT INSTAGRAM` attempt and
+read the two stage-level log entries for that request. Correct the evidenced
+failure, then verify the encrypted account row and displayed username. An
+expired or consumed authorization code must never be replayed. Do not infer a
+successful connection from callback HTTP 307 alone, and do not publish a test
+post.
+
+### Publishing failures
+
 1. Open `/admin/social` and record the post ID, error code, attempt count, and latest audit event.
 2. For `PUBLISH_OUTCOME_UNKNOWN` or `PUBLISHED_ACK_NOT_PERSISTED`, stop. Do not retry. Reconcile Instagram first.
 3. For quota exhaustion, wait for the `content_publishing_limit` window to recover.

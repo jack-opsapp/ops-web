@@ -34,7 +34,113 @@ function fetchSequence(...responses: Response[]) {
 }
 
 describe("Instagram OAuth client", () => {
-  afterEach(() => vi.unstubAllEnvs());
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    { stage: "code_exchange", before: [] },
+    {
+      stage: "token_upgrade",
+      before: [
+        {
+          data: [
+            {
+              access_token: SHORT_TOKEN,
+              permissions:
+                "instagram_business_basic,instagram_business_content_publish",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      stage: "profile_lookup",
+      before: [
+        {
+          data: [
+            {
+              access_token: SHORT_TOKEN,
+              permissions:
+                "instagram_business_basic,instagram_business_content_publish",
+            },
+          ],
+        },
+        { access_token: LONG_TOKEN, expires_in: 5_184_000 },
+      ],
+    },
+  ])(
+    "identifies a Meta rejection at $stage without exposing the response",
+    async ({ stage, before }) => {
+      const fetcher = fetchSequence(
+        ...before.map((body) => response(body)),
+        response(
+          {
+            error: {
+              code: 190,
+              error_subcode: 460,
+              message: `${APP_SECRET} ${SHORT_TOKEN} ${LONG_TOKEN} single-use-code`,
+              fbtrace_id: "private-provider-trace",
+            },
+          },
+          400
+        )
+      );
+      const client = new InstagramOAuthClient(config, { fetcher });
+
+      await expect(
+        client.exchangeAuthorizationCode("single-use-code")
+      ).rejects.toMatchObject({
+        code: "INSTAGRAM_OAUTH_REJECTED",
+        httpStatus: 400,
+      });
+      expect(console.error).toHaveBeenCalledWith(
+        "[admin-social-instagram] OAuth exchange failed",
+        {
+          stage,
+          code: "INSTAGRAM_OAUTH_REJECTED",
+          httpStatus: 400,
+          providerCode: 190,
+          providerSubcode: 460,
+        }
+      );
+      const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+      for (const secret of [
+        APP_SECRET,
+        SHORT_TOKEN,
+        LONG_TOKEN,
+        "single-use-code",
+        "private-provider-trace",
+      ])
+        expect(logged).not.toContain(secret);
+    }
+  );
+
+  it("identifies malformed token responses using only a fixed shape label", async () => {
+    const client = new InstagramOAuthClient(config, {
+      fetcher: fetchSequence(response({ unexpected: SHORT_TOKEN })),
+    });
+    await expect(
+      client.exchangeAuthorizationCode("single-use-code")
+    ).rejects.toMatchObject({
+      code: "INSTAGRAM_OAUTH_RESPONSE_INVALID",
+    });
+    expect(console.error).toHaveBeenCalledWith(
+      "[admin-social-instagram] OAuth exchange failed",
+      {
+        stage: "code_exchange",
+        code: "INSTAGRAM_OAUTH_RESPONSE_INVALID",
+        responseShape: "object",
+      }
+    );
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
+      SHORT_TOKEN
+    );
+  });
 
   it("builds the official Instagram Login authorization URL", () => {
     const client = new InstagramOAuthClient(config);
@@ -51,6 +157,83 @@ describe("Instagram OAuth client", () => {
       "instagram_business_content_publish",
     ]);
   });
+
+  it.each([
+    {
+      stage: "token_upgrade",
+      invalidJson: false,
+      code: "INSTAGRAM_OAUTH_RESPONSE_INVALID",
+      shape: "object",
+    },
+    {
+      stage: "token_upgrade",
+      invalidJson: true,
+      code: "INSTAGRAM_OAUTH_RESPONSE_INVALID",
+      shape: "unavailable",
+    },
+    {
+      stage: "profile_lookup",
+      invalidJson: false,
+      code: "INSTAGRAM_PROFILE_INVALID",
+      shape: "data_array",
+    },
+    {
+      stage: "profile_lookup",
+      invalidJson: true,
+      code: "INSTAGRAM_OAUTH_RESPONSE_INVALID",
+      shape: "unavailable",
+    },
+  ])(
+    "reports the current response at $stage (invalid JSON: $invalidJson)",
+    async ({ stage, invalidJson, code, shape }) => {
+      const responses = [
+        response({
+          data: [
+            {
+              access_token: SHORT_TOKEN,
+              permissions:
+                "instagram_business_basic,instagram_business_content_publish",
+            },
+          ],
+        }),
+      ];
+      if (stage === "profile_lookup")
+        responses.push(
+          response({ access_token: LONG_TOKEN, expires_in: 5_184_000 })
+        );
+      responses.push(
+        invalidJson
+          ? new Response("private-invalid-json")
+          : stage === "token_upgrade"
+            ? response({ access_token: LONG_TOKEN, expires_in: 0 })
+            : response({ data: [] })
+      );
+      const client = new InstagramOAuthClient(config, {
+        fetcher: fetchSequence(...responses),
+      });
+
+      await expect(
+        client.exchangeAuthorizationCode("single-use-code")
+      ).rejects.toMatchObject({ code });
+      expect(console.error).toHaveBeenCalledWith(
+        "[admin-social-instagram] OAuth exchange failed",
+        {
+          stage,
+          code,
+          responseShape: shape,
+          ...(invalidJson ? { httpStatus: 200 } : {}),
+        }
+      );
+      const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+      for (const secret of [
+        SHORT_TOKEN,
+        LONG_TOKEN,
+        "private-invalid-json",
+        "single-use-code",
+      ])
+        expect(logged).not.toContain(secret);
+    }
+  );
 
   it("exchanges, verifies scopes, upgrades, and resolves the professional account", async () => {
     const fetcher = fetchSequence(
@@ -81,6 +264,7 @@ describe("Instagram OAuth client", () => {
 
     const result = await client.exchangeAuthorizationCode("single-use-code");
 
+    expect(console.error).not.toHaveBeenCalled();
     expect(result).toEqual({
       accessToken: LONG_TOKEN,
       instagramUserId: "17841400000000000",

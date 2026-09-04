@@ -1,6 +1,13 @@
 import "server-only";
 
 import { getAppUrl } from "@/lib/utils/app-url";
+import {
+  instagramFailureDiagnostic,
+  instagramProviderFailureDetails,
+  instagramResponseShape,
+  type InstagramFailureStage,
+  type InstagramProviderFailureDetails,
+} from "./instagram-failure-diagnostics";
 
 export const INSTAGRAM_REQUIRED_SCOPES = [
   "instagram_business_basic",
@@ -45,7 +52,8 @@ export class InstagramOAuthError extends Error {
     public readonly code: string,
     message: string,
     public readonly retryable: boolean,
-    public readonly httpStatus?: number
+    public readonly httpStatus?: number,
+    public readonly details: InstagramProviderFailureDetails = {}
   ) {
     super(message);
     this.name = "InstagramOAuthError";
@@ -238,7 +246,8 @@ export class InstagramOAuthClient {
         "INSTAGRAM_OAUTH_REJECTED",
         `Meta rejected the Instagram connection request (HTTP ${response.status})`,
         response.status === 429 || response.status >= 500,
-        response.status
+        response.status,
+        instagramProviderFailureDetails(payload)
       );
     }
     return payload;
@@ -256,118 +265,143 @@ export class InstagramOAuthClient {
       );
     }
 
-    const form = new FormData();
-    form.set("client_id", this.config.appId);
-    form.set("client_secret", this.config.appSecret);
-    form.set("grant_type", "authorization_code");
-    form.set("redirect_uri", this.config.redirectUri);
-    form.set("code", normalizedCode);
-    const shortPayload = await this.requestJson(
-      new URL("/oauth/access_token", this.config.tokenOrigin),
-      { method: "POST", body: form },
-      [normalizedCode]
-    );
-    const shortRow =
-      shortPayload &&
-      typeof shortPayload === "object" &&
-      Array.isArray((shortPayload as { data?: unknown }).data)
-        ? (shortPayload as { data: unknown[] }).data[0]
-        : null;
-    if (!shortRow || typeof shortRow !== "object") {
-      throw new InstagramOAuthError(
-        "INSTAGRAM_OAUTH_RESPONSE_INVALID",
-        "Meta returned an invalid short-lived token response",
-        true
+    let stage: InstagramFailureStage = "code_exchange";
+    let responsePayload: unknown;
+    try {
+      const form = new FormData();
+      form.set("client_id", this.config.appId);
+      form.set("client_secret", this.config.appSecret);
+      form.set("grant_type", "authorization_code");
+      form.set("redirect_uri", this.config.redirectUri);
+      form.set("code", normalizedCode);
+      const shortPayload = await this.requestJson(
+        new URL("/oauth/access_token", this.config.tokenOrigin),
+        { method: "POST", body: form },
+        [normalizedCode]
       );
-    }
-    const shortToken = (shortRow as { access_token?: unknown }).access_token;
-    const rawPermissions = (shortRow as { permissions?: unknown }).permissions;
-    const permissions = Array.isArray(rawPermissions)
-      ? rawPermissions.filter(
-          (value): value is string => typeof value === "string"
-        )
-      : typeof rawPermissions === "string"
-        ? rawPermissions
-            .split(",")
-            .map((value) => value.trim())
-            .filter(Boolean)
-        : [];
-    if (typeof shortToken !== "string" || !shortToken.trim()) {
-      throw new InstagramOAuthError(
-        "INSTAGRAM_OAUTH_RESPONSE_INVALID",
-        "Meta returned an invalid short-lived token response",
-        true
+      responsePayload = shortPayload;
+      const shortRow =
+        shortPayload &&
+        typeof shortPayload === "object" &&
+        Array.isArray((shortPayload as { data?: unknown }).data)
+          ? (shortPayload as { data: unknown[] }).data[0]
+          : null;
+      if (!shortRow || typeof shortRow !== "object") {
+        throw new InstagramOAuthError(
+          "INSTAGRAM_OAUTH_RESPONSE_INVALID",
+          "Meta returned an invalid short-lived token response",
+          true
+        );
+      }
+      const shortToken = (shortRow as { access_token?: unknown }).access_token;
+      const rawPermissions = (shortRow as { permissions?: unknown })
+        .permissions;
+      const permissions = Array.isArray(rawPermissions)
+        ? rawPermissions.filter(
+            (value): value is string => typeof value === "string"
+          )
+        : typeof rawPermissions === "string"
+          ? rawPermissions
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean)
+          : [];
+      if (typeof shortToken !== "string" || !shortToken.trim()) {
+        throw new InstagramOAuthError(
+          "INSTAGRAM_OAUTH_RESPONSE_INVALID",
+          "Meta returned an invalid short-lived token response",
+          true
+        );
+      }
+      const missingScope = INSTAGRAM_REQUIRED_SCOPES.find(
+        (scope) => !permissions.includes(scope)
       );
-    }
-    const missingScope = INSTAGRAM_REQUIRED_SCOPES.find(
-      (scope) => !permissions.includes(scope)
-    );
-    if (missingScope) {
-      throw new InstagramOAuthError(
-        "INSTAGRAM_SCOPE_MISSING",
-        "Instagram publishing permission was not granted",
-        false
-      );
-    }
+      if (missingScope) {
+        throw new InstagramOAuthError(
+          "INSTAGRAM_SCOPE_MISSING",
+          "Instagram publishing permission was not granted",
+          false
+        );
+      }
 
-    const longUrl = new URL("/access_token", this.config.graphOrigin);
-    longUrl.searchParams.set("grant_type", "ig_exchange_token");
-    longUrl.searchParams.set("client_secret", this.config.appSecret);
-    longUrl.searchParams.set("access_token", shortToken.trim());
-    const longPayload = await this.requestJson(longUrl, { method: "GET" }, [
-      shortToken.trim(),
-    ]);
-    const longToken = tokenLifetime(longPayload);
+      stage = "token_upgrade";
+      responsePayload = undefined;
+      const longUrl = new URL("/access_token", this.config.graphOrigin);
+      longUrl.searchParams.set("grant_type", "ig_exchange_token");
+      longUrl.searchParams.set("client_secret", this.config.appSecret);
+      longUrl.searchParams.set("access_token", shortToken.trim());
+      const longPayload = await this.requestJson(longUrl, { method: "GET" }, [
+        shortToken.trim(),
+      ]);
+      responsePayload = longPayload;
+      const longToken = tokenLifetime(longPayload);
 
-    const profileUrl = new URL(
-      `/${this.config.apiVersion}/me`,
-      this.config.graphOrigin
-    );
-    profileUrl.searchParams.set("fields", "user_id,username");
-    profileUrl.searchParams.set("access_token", longToken.accessToken);
-    const profilePayload = await this.requestJson(
-      profileUrl,
-      { method: "GET" },
-      [shortToken.trim(), longToken.accessToken]
-    );
-    const profileRow =
-      profilePayload &&
-      typeof profilePayload === "object" &&
-      Array.isArray((profilePayload as { data?: unknown }).data)
-        ? (profilePayload as { data: unknown[] }).data[0]
-        : null;
-    const userId =
-      profileRow && typeof profileRow === "object"
-        ? (profileRow as { user_id?: unknown }).user_id
-        : null;
-    const username =
-      profileRow && typeof profileRow === "object"
-        ? (profileRow as { username?: unknown }).username
-        : null;
-    if (
-      typeof userId !== "string" ||
-      !userId.trim() ||
-      typeof username !== "string" ||
-      !username.trim()
-    ) {
-      throw new InstagramOAuthError(
-        "INSTAGRAM_PROFILE_INVALID",
-        "Meta did not return a valid Instagram professional account",
-        false
+      stage = "profile_lookup";
+      responsePayload = undefined;
+      const profileUrl = new URL(
+        `/${this.config.apiVersion}/me`,
+        this.config.graphOrigin
       );
-    }
+      profileUrl.searchParams.set("fields", "user_id,username");
+      profileUrl.searchParams.set("access_token", longToken.accessToken);
+      const profilePayload = await this.requestJson(
+        profileUrl,
+        { method: "GET" },
+        [shortToken.trim(), longToken.accessToken]
+      );
+      responsePayload = profilePayload;
+      const profileRow =
+        profilePayload &&
+        typeof profilePayload === "object" &&
+        Array.isArray((profilePayload as { data?: unknown }).data)
+          ? (profilePayload as { data: unknown[] }).data[0]
+          : null;
+      const userId =
+        profileRow && typeof profileRow === "object"
+          ? (profileRow as { user_id?: unknown }).user_id
+          : null;
+      const username =
+        profileRow && typeof profileRow === "object"
+          ? (profileRow as { username?: unknown }).username
+          : null;
+      if (
+        typeof userId !== "string" ||
+        !userId.trim() ||
+        typeof username !== "string" ||
+        !username.trim()
+      ) {
+        throw new InstagramOAuthError(
+          "INSTAGRAM_PROFILE_INVALID",
+          "Meta did not return a valid Instagram professional account",
+          false
+        );
+      }
 
-    const issuedAt = this.dependencies.now();
-    return {
-      accessToken: longToken.accessToken,
-      instagramUserId: userId.trim(),
-      username: username.trim(),
-      scopes: [...INSTAGRAM_REQUIRED_SCOPES],
-      issuedAt: issuedAt.toISOString(),
-      expiresAt: new Date(
-        issuedAt.getTime() + longToken.expiresIn * 1000
-      ).toISOString(),
-    };
+      const issuedAt = this.dependencies.now();
+      return {
+        accessToken: longToken.accessToken,
+        instagramUserId: userId.trim(),
+        username: username.trim(),
+        scopes: [...INSTAGRAM_REQUIRED_SCOPES],
+        issuedAt: issuedAt.toISOString(),
+        expiresAt: new Date(
+          issuedAt.getTime() + longToken.expiresIn * 1000
+        ).toISOString(),
+      };
+    } catch (error) {
+      const diagnostic = instagramFailureDiagnostic(stage, error);
+      if (
+        diagnostic.code === "INSTAGRAM_OAUTH_RESPONSE_INVALID" ||
+        diagnostic.code === "INSTAGRAM_PROFILE_INVALID"
+      ) {
+        diagnostic.responseShape = instagramResponseShape(responsePayload);
+      }
+      console.error(
+        "[admin-social-instagram] OAuth exchange failed",
+        diagnostic
+      );
+      throw error;
+    }
   }
 
   async refreshLongLivedToken(

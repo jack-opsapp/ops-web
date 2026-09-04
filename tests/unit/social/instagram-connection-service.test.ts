@@ -72,12 +72,13 @@ function service(
     repository?: InstagramConnectionRepository;
     oauth?: ReturnType<typeof oauth>;
     isAdminEmail?: (email: string) => Promise<boolean>;
+    encryptToken?: (token: string) => string;
   } = {}
 ) {
   return new InstagramConnectionService({
     repository: overrides.repository ?? repository(),
     oauth: overrides.oauth ?? oauth(),
-    encryptToken: (token) => `enc:${token}`,
+    encryptToken: overrides.encryptToken ?? ((token) => `enc:${token}`),
     decryptToken: (token) =>
       token.replace(/^encrypted-token$/, "long-lived-token"),
     isAdminEmail: overrides.isAdminEmail ?? (async () => true),
@@ -87,6 +88,57 @@ function service(
 }
 
 describe("Instagram connection service", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    "state_validation",
+    "admin_validation",
+    "token_encryption",
+    "connection_storage",
+  ] as const)(
+    "identifies a %s failure without logging arbitrary errors",
+    async (stage) => {
+      const repo = repository();
+      const failure = Object.assign(
+        new Error("private-token-and-database-details"),
+        {
+          code: "private-untrusted-error-code",
+          httpStatus: "private-http-value",
+          providerCode: "private-provider-value",
+        }
+      );
+      if (stage === "state_validation")
+        vi.mocked(repo.consume).mockRejectedValue(failure);
+      if (stage === "connection_storage")
+        vi.mocked(repo.upsertConnection).mockRejectedValue(failure);
+      const subject = service({
+        repository: repo,
+        isAdminEmail: async () => {
+          if (stage === "admin_validation") throw failure;
+          return true;
+        },
+        encryptToken: (token) => {
+          if (stage === "token_encryption") throw failure;
+          return `enc:${token}`;
+        },
+      });
+      await expect(
+        subject.completeAuthorization("opaque-state", "single-use-code")
+      ).rejects.toBe(failure);
+      expect(console.error).toHaveBeenCalledWith(
+        "[admin-social-instagram] Connection completion failed",
+        { stage, code: "INSTAGRAM_CONNECTION_FAILED" }
+      );
+      const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+      expect(logged).not.toContain("private-");
+      expect(logged).not.toContain("opaque-state");
+      expect(logged).not.toContain("single-use-code");
+    }
+  );
+
   it("creates an opaque admin-bound authorization handoff", async () => {
     const repo = repository();
     const oauthClient = oauth();

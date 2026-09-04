@@ -17,6 +17,10 @@ import {
 } from "./instagram-oauth-state";
 import { decryptInstagramToken, encryptInstagramToken } from "./token-cipher";
 import type { InstagramConnectionStatus } from "./instagram-connection-types";
+import {
+  instagramFailureDiagnostic,
+  type InstagramFailureStage,
+} from "./instagram-failure-diagnostics";
 
 export type { InstagramConnectionStatus } from "./instagram-connection-types";
 
@@ -98,47 +102,61 @@ export class InstagramConnectionService {
     state: string,
     code: string
   ): Promise<InstagramConnectionStatus> {
-    const adminEmail = await consumeInstagramOAuthState(
-      this.dependencies.repository,
-      state
-    );
-    if (!adminEmail) {
-      throw new InstagramConnectionError(
-        "INSTAGRAM_OAUTH_STATE_INVALID",
-        "Instagram login expired or was already used",
-        false
+    let stage: InstagramFailureStage = "state_validation";
+    try {
+      const adminEmail = await consumeInstagramOAuthState(
+        this.dependencies.repository,
+        state
       );
-    }
-    if (!(await this.dependencies.isAdminEmail(adminEmail))) {
-      throw new InstagramConnectionError(
-        "INSTAGRAM_OAUTH_ADMIN_REVOKED",
-        "The admin who started this connection no longer has access",
-        false
-      );
-    }
+      if (!adminEmail) {
+        throw new InstagramConnectionError(
+          "INSTAGRAM_OAUTH_STATE_INVALID",
+          "Instagram login expired or was already used",
+          false
+        );
+      }
+      stage = "admin_validation";
+      if (!(await this.dependencies.isAdminEmail(adminEmail))) {
+        throw new InstagramConnectionError(
+          "INSTAGRAM_OAUTH_ADMIN_REVOKED",
+          "The admin who started this connection no longer has access",
+          false
+        );
+      }
 
-    const connected =
-      await this.dependencies.oauth.exchangeAuthorizationCode(code);
-    await this.dependencies.repository.upsertConnection({
-      instagramUserId: connected.instagramUserId,
-      username: connected.username,
-      accountType: null,
-      accessTokenCiphertext: this.dependencies.encryptToken(
+      stage = "oauth_exchange";
+      const connected =
+        await this.dependencies.oauth.exchangeAuthorizationCode(code);
+      stage = "token_encryption";
+      const accessTokenCiphertext = this.dependencies.encryptToken(
         connected.accessToken
-      ),
-      requiredScopes: connected.scopes,
-      tokenIssuedAt: connected.issuedAt,
-      tokenExpiresAt: connected.expiresAt,
-      connectedByEmail: adminEmail,
-    });
-    return {
-      connected: true,
-      username: connected.username,
-      connectedAt: connected.issuedAt,
-      tokenExpiresAt: connected.expiresAt,
-      lastRefreshedAt: null,
-      needsReconnect: false,
-    };
+      );
+      stage = "connection_storage";
+      await this.dependencies.repository.upsertConnection({
+        instagramUserId: connected.instagramUserId,
+        username: connected.username,
+        accountType: null,
+        accessTokenCiphertext,
+        requiredScopes: connected.scopes,
+        tokenIssuedAt: connected.issuedAt,
+        tokenExpiresAt: connected.expiresAt,
+        connectedByEmail: adminEmail,
+      });
+      return {
+        connected: true,
+        username: connected.username,
+        connectedAt: connected.issuedAt,
+        tokenExpiresAt: connected.expiresAt,
+        lastRefreshedAt: null,
+        needsReconnect: false,
+      };
+    } catch (error) {
+      console.error(
+        "[admin-social-instagram] Connection completion failed",
+        instagramFailureDiagnostic(stage, error)
+      );
+      throw error;
+    }
   }
 
   async getPublicStatus(): Promise<InstagramConnectionStatus> {
