@@ -41,6 +41,13 @@ create table public.estimates (
   client_id uuid,
   qb_id text,
   sage_id text,
+  sage_document_kind text,
+  estimate_number text,
+  issue_date date,
+  expiration_date date,
+  subtotal numeric(14,2) not null default 0,
+  tax_amount numeric(14,2) not null default 0,
+  total numeric(14,2) not null default 0,
   status text not null default 'draft',
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
@@ -51,6 +58,8 @@ create table public.clients (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null,
   name text not null default 'Test client',
+  email text,
+  phone_number text,
   qb_id text,
   sage_id text,
   deleted_at timestamptz,
@@ -75,6 +84,15 @@ create table public.invoices (
   client_id uuid,
   qb_id text,
   sage_id text,
+  invoice_number text,
+  issue_date date,
+  due_date date,
+  subtotal numeric(14,2) not null default 0,
+  tax_amount numeric(14,2) not null default 0,
+  total numeric(14,2) not null default 0,
+  balance_due numeric(14,2) not null default 0,
+  amount_paid numeric(14,2) not null default 0,
+  paid_at timestamptz,
   status text not null default 'draft',
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
@@ -85,6 +103,11 @@ create table public.payments (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null,
   invoice_id uuid,
+  client_id uuid,
+  amount numeric(14,2) not null default 1,
+  payment_date date not null default current_date,
+  payment_method text,
+  reference_number text,
   qb_id text,
   sage_id text,
   voided_at timestamptz,
@@ -97,7 +120,14 @@ create table public.line_items (
   company_id uuid not null,
   invoice_id uuid,
   estimate_id uuid,
+  name text not null default 'Test line',
   description text not null default 'Test line',
+  quantity numeric(14,4) not null default 1,
+  unit_price numeric(14,2) not null default 1,
+  line_total numeric(14,2) not null default 1,
+  sort_order integer not null default 0,
+  type text not null default 'custom',
+  is_taxable boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (num_nonnulls(invoice_id, estimate_id) = 1)
@@ -187,21 +217,73 @@ create table public.accounting_sync_suppressions (
 
 create schema private;
 
+create table public.expense_categories (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null,
+  name text not null default 'Materials'
+);
+
 create table public.suppliers (
   id uuid primary key default gen_random_uuid(),
-  company_id uuid not null
+  company_id uuid not null,
+  display_name text not null default 'Test supplier',
+  normalized_name text not null default 'test supplier',
+  email text,
+  phone text,
+  tax_number text,
+  deleted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table public.supplier_bills (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null,
-  supplier_id uuid not null
+  supplier_id uuid not null,
+  invoice_number text not null default 'BILL-1',
+  normalized_invoice_number text not null default 'BILL-1',
+  invoice_date date not null default current_date,
+  due_date date,
+  category_id uuid,
+  currency text not null default 'CAD',
+  subtotal numeric(14,2) not null default 1,
+  tax_total numeric(14,2) not null default 0,
+  total numeric(14,2) not null default 1,
+  balance numeric(14,2) not null default 1,
+  status text not null default 'open',
+  voided_at timestamptz,
+  deleted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.supplier_bill_line_items (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null,
+  bill_id uuid not null,
+  category_id uuid not null,
+  position integer not null,
+  description text not null,
+  quantity numeric(14,4) not null,
+  unit_price numeric(14,2) not null,
+  subtotal numeric(14,2) not null,
+  tax_amount numeric(14,2) not null,
+  tax_rate numeric(9,4) not null,
+  total numeric(14,2) not null,
+  created_at timestamptz not null default now(),
+  unique (bill_id, position)
 );
 
 create table public.supplier_bill_payments (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null,
-  bill_id uuid not null
+  bill_id uuid not null,
+  payment_date date not null default current_date,
+  amount numeric(14,2) not null default 1,
+  payment_method text not null default 'eft',
+  reference text,
+  voided_at timestamptz,
+  created_at timestamptz not null default now()
 );
 
 create table public.supplier_bill_provider_links (
@@ -212,8 +294,37 @@ create table public.supplier_bill_provider_links (
   entity_type text not null,
   entity_id uuid not null,
   external_id text not null,
+  sync_token text,
+  provider_updated_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   unique (connection_id, entity_type, entity_id),
   unique (connection_id, entity_type, external_id)
+);
+
+create table public.supplier_bill_tax_mappings (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null,
+  connection_id uuid not null references public.accounting_connections(id),
+  provider text not null,
+  tax_rate numeric(9,4) not null,
+  external_tax_code_id text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (connection_id, tax_rate)
+);
+
+create table public.supplier_bill_payment_account_mappings (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null,
+  connection_id uuid not null references public.accounting_connections(id),
+  provider text not null,
+  payment_method text not null,
+  external_account_id text not null,
+  external_payment_method_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (connection_id, payment_method)
 );
 
 create or replace function public.enqueue_accounting_sync()

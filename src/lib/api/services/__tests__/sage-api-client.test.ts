@@ -153,6 +153,16 @@ describe("Sage business-bound API client", () => {
     ).rejects.toMatchObject({ code: "invalid_response" });
   });
 
+  it("returns an explicit tombstone for a missing linked record", async () => {
+    const missing = vi.fn(async () => json(404, { error: "not found" }));
+    await expect(
+      createSageReadClient(options(missing as typeof fetch)).get(
+        "sales_invoices",
+        "missing-1"
+      )
+    ).resolves.toBeUndefined();
+  });
+
   it("paginates 201 records, carries the incremental cursor, and deduplicates overlap", async () => {
     const pageOne = Array.from({ length: 200 }, (_, index) => ({
       id: `c-${index}`,

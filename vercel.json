@@ -229,6 +229,10 @@
       "schedule": "34-59/20 13-23,0-4 * * *"
     },
     {
+      "path": "/api/cron/accounting/sage/reconcile",
+      "schedule": "54-59/20 13-23,0-4 * * *"
+    },
+    {
       "path": "/api/cron/site-visit-prompts",
       "schedule": "*/5 * * * *"
     },

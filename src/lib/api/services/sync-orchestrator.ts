@@ -518,7 +518,9 @@ export async function runSyncForConnection(
   if (provider === "quickbooks") {
     results = await syncQuickBooks(supabase, companyId, connectionId, lastSyncAt, direction);
   } else if (provider === "sage") {
-    results = await syncSage(supabase, companyId, connectionId, lastSyncAt, direction);
+    throw new Error(
+      "Sage synchronization is owned by the exact-business queue and reconciliation routes"
+    );
   } else {
     throw new Error(`Unsupported provider: ${provider}`);
   }

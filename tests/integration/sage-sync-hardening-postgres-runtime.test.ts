@@ -98,6 +98,10 @@ async function withDatabase(runtimeFile: string): Promise<void> {
       database,
       join(ROOT, "supabase/migrations/20260904050000_sage_queue_hardening.sql")
     );
+    await runFile(
+      database,
+      join(ROOT, "supabase/migrations/20260904060000_sage_reconciliation.sql")
+    );
     await runFile(database, join(ROOT, runtimeFile));
   } finally {
     if (created) {
@@ -120,5 +124,9 @@ describe.runIf(RUN_POSTGRES)("Sage OAuth PostgreSQL 17 runtime", () => {
 
   it("routes, orders, and safely recovers Sage queue work", async () => {
     await withDatabase("tests/sql/sage-sync-hardening-queue-runtime.sql");
+  });
+
+  it("reconciles full documents atomically without echoes or starvation", async () => {
+    await withDatabase("tests/sql/sage-sync-hardening-reconcile-runtime.sql");
   });
 });

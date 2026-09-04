@@ -53,6 +53,7 @@ export type AccountingSyncDirection =
 export type AccountingSyncDecision =
   | "ops_won"
   | "qb_won"
+  | "sage_won"
   | "skipped"
   | "needs_review"
   | "retry"

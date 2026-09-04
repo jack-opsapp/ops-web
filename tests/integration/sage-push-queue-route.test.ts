@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AccountingSyncQueueRow } from "@/lib/api/services/accounting-sync-queue-types";
+import type {
+  AccountingSyncQueueEntityType,
+  AccountingSyncQueueRow,
+} from "@/lib/api/services/accounting-sync-queue-types";
 
 const {
   claimDue,
@@ -47,8 +50,8 @@ import { GET, POST } from "@/app/api/cron/accounting/sage/push-queue/route";
 
 function queueRow(
   id: string,
-  entityType: AccountingSyncQueueRow["entityType"]
-): AccountingSyncQueueRow {
+  entityType: AccountingSyncQueueEntityType
+): AccountingSyncQueueRow<AccountingSyncQueueEntityType> {
   return {
     id,
     companyId: "20000000-0000-4000-8000-000000000001",
@@ -92,7 +95,11 @@ beforeEach(() => {
   process.env.SAGE_WRITE_ENABLED = "true";
   claimDue.mockResolvedValue([]);
   processSage.mockImplementation(
-    async ({ row }: { row: AccountingSyncQueueRow }) => ({
+    async ({
+      row,
+    }: {
+      row: AccountingSyncQueueRow<AccountingSyncQueueEntityType>;
+    }) => ({
       queueId: row.id,
       entityType: row.entityType,
       entityId: row.entityId,
@@ -100,7 +107,11 @@ beforeEach(() => {
     })
   );
   processSupplier.mockImplementation(
-    async ({ row }: { row: AccountingSyncQueueRow }) => ({
+    async ({
+      row,
+    }: {
+      row: AccountingSyncQueueRow<AccountingSyncQueueEntityType>;
+    }) => ({
       queueId: row.id,
       entityType: row.entityType,
       entityId: row.entityId,

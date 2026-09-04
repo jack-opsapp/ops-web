@@ -122,13 +122,20 @@ class SageApiClient implements SageWriteClient {
   }
 
   async get<T = unknown>(resource: string, id: string): Promise<T | undefined> {
-    return this.requestJson<T>(
-      new URL(
-        `${assertResource(resource)}/${encodeURIComponent(assertId(id))}`,
-        this.baseUrl
-      ),
-      { method: "GET" }
-    );
+    try {
+      return await this.requestJson<T>(
+        new URL(
+          `${assertResource(resource)}/${encodeURIComponent(assertId(id))}`,
+          this.baseUrl
+        ),
+        { method: "GET" }
+      );
+    } catch (error) {
+      if (error instanceof SageApiError && error.status === 404) {
+        return undefined;
+      }
+      throw error;
+    }
   }
 
   async list<T extends Record<string, unknown> = Record<string, unknown>>(

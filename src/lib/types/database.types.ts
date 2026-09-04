@@ -533,6 +533,51 @@ export type Database = {
           },
         ]
       }
+      sage_purchase_account_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          expense_category_id: string
+          id: string
+          sage_ledger_account_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          expense_category_id: string
+          id?: string
+          sage_ledger_account_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          expense_category_id?: string
+          id?: string
+          sage_ledger_account_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_purchase_account_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sage_purchase_account_mappings_expense_category_id_fkey"
+            columns: ["expense_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sage_business_selection_sessions: {
         Row: {
           access_token: string
@@ -14585,6 +14630,7 @@ export type Database = {
           reference_number: string | null
           sage_id: string | null
           stripe_payment_intent: string | null
+          updated_at: string
           voided_at: string | null
           voided_by: string | null
         }
@@ -14603,6 +14649,7 @@ export type Database = {
           reference_number?: string | null
           sage_id?: string | null
           stripe_payment_intent?: string | null
+          updated_at?: string
           voided_at?: string | null
           voided_by?: string | null
         }
@@ -14621,6 +14668,7 @@ export type Database = {
           reference_number?: string | null
           sage_id?: string | null
           stripe_payment_intent?: string | null
+          updated_at?: string
           voided_at?: string | null
           voided_by?: string | null
         }
@@ -20706,6 +20754,7 @@ export type Database = {
           payment_method: string
           recorded_by: string
           reference: string | null
+          updated_at: string
           voided_at: string | null
           voided_by: string | null
         }
@@ -20720,6 +20769,7 @@ export type Database = {
           payment_method: string
           recorded_by: string
           reference?: string | null
+          updated_at?: string
           voided_at?: string | null
           voided_by?: string | null
         }
@@ -20734,6 +20784,7 @@ export type Database = {
           payment_method?: string
           recorded_by?: string
           reference?: string | null
+          updated_at?: string
           voided_at?: string | null
           voided_by?: string | null
         }

@@ -294,17 +294,36 @@ export class SupplierBillProviderSyncService {
     if (allocationError) throw allocationError;
     const allocations = (allocationData ?? []) as DbRow[];
 
-    const { data: categoryData, error: categoryError } = await this.db
-      .from("accounting_category_mappings")
-      .select("expense_category_id, external_account_id")
-      .eq("company_id", this.row.companyId)
-      .eq("provider", this.row.provider)
-      .in("expense_category_id", categoryIds);
+    let categoryQuery = this.db
+      .from(
+        this.row.provider === "sage"
+          ? "sage_purchase_account_mappings"
+          : "accounting_category_mappings"
+      )
+      .select(
+        this.row.provider === "sage"
+          ? "expense_category_id, sage_ledger_account_id"
+          : "expense_category_id, external_account_id"
+      )
+      .eq("company_id", this.row.companyId);
+    if (this.row.provider === "sage") {
+      categoryQuery = categoryQuery.eq("connection_id", this.row.connectionId);
+    } else {
+      categoryQuery = categoryQuery.eq("provider", this.row.provider);
+    }
+    const { data: categoryData, error: categoryError } = await categoryQuery.in(
+      "expense_category_id",
+      categoryIds
+    );
     if (categoryError) throw categoryError;
     const accounts = new Map(
       ((categoryData ?? []) as DbRow[]).map((mapping) => [
         text(mapping.expense_category_id),
-        text(mapping.external_account_id),
+        text(
+          this.row.provider === "sage"
+            ? mapping.sage_ledger_account_id
+            : mapping.external_account_id
+        ),
       ])
     );
 

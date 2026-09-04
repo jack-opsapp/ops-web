@@ -105,4 +105,18 @@ describe("runSyncForConnection direction guard", () => {
     expect(pullClients).toHaveBeenCalledTimes(1);
     expect(pullInvoices).toHaveBeenCalledTimes(1);
   });
+
+  it("cannot invoke the legacy Sage reader or writer", async () => {
+    const supabase = makeSupabaseStub("bidirectional");
+
+    await expect(
+      runSyncForConnection(
+        supabase,
+        "a612edc0-5c18-4c4d-af97-55b9410dd077",
+        "sage",
+        "conn-1",
+        null
+      )
+    ).rejects.toThrow("exact-business queue and reconciliation routes");
+  });
 });
