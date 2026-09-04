@@ -101,26 +101,20 @@ describe("admin social route boundary", () => {
       const dependencies: AdminSocialPostActionHandlerDependencies = {
         authenticate: vi.fn().mockResolvedValue(USER),
         edit: vi.fn(),
-        cancel: vi
-          .fn()
-          .mockResolvedValue({
-            post: socialPostFixture({ status: "cancelled" }),
-          }),
-        publishNow: vi
-          .fn()
-          .mockResolvedValue({
-            outcome: "published",
-            postId: POST_ID,
-            mediaId: "m1",
-            permalink: null,
-          }),
-        retryNow: vi
-          .fn()
-          .mockResolvedValue({
-            outcome: "retry_scheduled",
-            postId: POST_ID,
-            nextAttemptAt: "later",
-          }),
+        cancel: vi.fn().mockResolvedValue({
+          post: socialPostFixture({ status: "cancelled" }),
+        }),
+        publishNow: vi.fn().mockResolvedValue({
+          outcome: "published",
+          postId: POST_ID,
+          mediaId: "m1",
+          permalink: null,
+        }),
+        retryNow: vi.fn().mockResolvedValue({
+          outcome: "retry_scheduled",
+          postId: POST_ID,
+          nextAttemptAt: "later",
+        }),
       };
       const response = await createAdminSocialPostActionHandler(dependencies)(
         request("PATCH", `http://localhost/api/admin/social/posts/${POST_ID}`, {

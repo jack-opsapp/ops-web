@@ -33,9 +33,9 @@ describe("public social media guard", () => {
     "https://[::ffff:127.0.0.1]/image.jpg",
     "https://[::ffff:7f00:1]/image.jpg",
   ])("rejects unsafe URL %s", async (url) => {
-    await expect(validatePublicMediaUrl(url, { lookup: publicLookup })).rejects.toBeInstanceOf(
-      PublicMediaError
-    );
+    await expect(
+      validatePublicMediaUrl(url, { lookup: publicLookup })
+    ).rejects.toBeInstanceOf(PublicMediaError);
   });
 
   it("rejects a public hostname that resolves to a private address", async () => {
@@ -47,17 +47,18 @@ describe("public social media guard", () => {
   });
 
   it("revalidates every redirect before following it", async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(null, {
-          status: 302,
-          headers: { location: "https://127.0.0.1/private.jpg" },
-        })
-      );
+    const fetcher = vi.fn().mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://127.0.0.1/private.jpg" },
+      })
+    );
 
     await expect(
-      downloadPublicImage("https://images.example.com/job.jpg", { lookup: publicLookup, fetcher })
+      downloadPublicImage("https://images.example.com/job.jpg", {
+        lookup: publicLookup,
+        fetcher,
+      })
     ).rejects.toMatchObject({ code: "PRIVATE_ADDRESS" });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
@@ -83,9 +84,14 @@ describe("public social media guard", () => {
   });
 
   it("rejects non-image responses and oversized bodies", async () => {
-    const textFetcher = vi.fn().mockResolvedValue(
-      new Response("not an image", { status: 200, headers: { "content-type": "text/plain" } })
-    );
+    const textFetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response("not an image", {
+          status: 200,
+          headers: { "content-type": "text/plain" },
+        })
+      );
     const largeFetcher = vi.fn().mockResolvedValue(
       new Response(new Uint8Array(13 * 1024 * 1024), {
         status: 200,
@@ -120,9 +126,14 @@ describe("public social media guard", () => {
         cancelled = true;
       },
     });
-    const fetcher = vi.fn().mockResolvedValue(
-      new Response(body, { status: 200, headers: { "content-type": "image/jpeg" } })
-    );
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "image/jpeg" },
+        })
+      );
 
     await expect(
       downloadPublicImage("https://images.example.com/large.jpg", {
@@ -143,10 +154,13 @@ describe("public social media guard", () => {
       })
     );
 
-    const result = await downloadPublicImage("https://images.example.com/job.png", {
-      lookup: publicLookup,
-      fetcher,
-    });
+    const result = await downloadPublicImage(
+      "https://images.example.com/job.png",
+      {
+        lookup: publicLookup,
+        fetcher,
+      }
+    );
     const metadata = await sharp(result.buffer).metadata();
 
     expect(result.contentType).toBe("image/jpeg");
@@ -158,7 +172,9 @@ describe("public social media guard", () => {
   });
 
   it("maps fetch failures to an operator-safe timeout error", async () => {
-    const fetcher = vi.fn().mockRejectedValue(new DOMException("timed out", "AbortError"));
+    const fetcher = vi
+      .fn()
+      .mockRejectedValue(new DOMException("timed out", "AbortError"));
 
     await expect(
       downloadPublicImage("https://images.example.com/job.jpg", {

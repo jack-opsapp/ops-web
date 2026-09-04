@@ -3,7 +3,10 @@ import sharp from "sharp";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { SocialSubmission } from "@/lib/social/contract";
 import type { SocialTemplateSelection } from "@/lib/social/template-selector";
-import type { RenderedSocialAsset, SocialVisualTreatment } from "@/lib/social/types";
+import type {
+  RenderedSocialAsset,
+  SocialVisualTreatment,
+} from "@/lib/social/types";
 import { SocialFrame } from "@/lib/social/render/frame";
 import {
   SOCIAL_RENDER_VERSION,
@@ -25,14 +28,19 @@ const TREATMENTS: SocialVisualTreatment[] = [
 function submission(slideCount = 1): SocialSubmission {
   return {
     contract_version: "2026-09-01",
-    source: { type: "blog", id: "blog-1", url: "https://opsapp.ca/blog/blog-1" },
+    source: {
+      type: "blog",
+      id: "blog-1",
+      url: "https://opsapp.ca/blog/blog-1",
+    },
     content: {
       title: "The operating habit that gives the owner two hours back",
       subtitle: "One plan. Fewer repeat calls.",
       date: "SEP 01 · 2026",
       hook: "Your crew is waiting on an answer you already gave once.",
       angle: "Show the cost of repeated coordination and the practical fix.",
-      caption: "Every repeated answer costs attention. Put the plan where the crew works.",
+      caption:
+        "Every repeated answer costs attention. Put the plan where the crew works.",
       cta: "Read the full field note at the link in bio.",
       alt_text: "An OPS field note about repeated crew coordination.",
       slides: Array.from({ length: slideCount }, (_, index) => ({
@@ -41,8 +49,7 @@ function submission(slideCount = 1): SocialSubmission {
           index === 0
             ? "The operating habit that gives the owner two hours back"
             : `Move ${index + 1}: close the loop before the trucks leave`,
-        body:
-          "Every repeated answer costs attention, time, and margin. One shared plan keeps the decision where the crew can find it.",
+        body: "Every repeated answer costs attention, time, and margin. One shared plan keeps the decision where the crew can find it.",
         image_url: "https://images.opsapp.ca/job-site.jpg",
         alt_text: `Slide ${index + 1} about a shared crew plan.`,
       })),
@@ -61,7 +68,13 @@ function selection(
     postFormat: format,
     preferenceDisposition: "not_provided",
     preferenceReasons: [],
-    scoreBreakdown: { story: 100, fit: 50, cadence: 0, preference: 0, tieBreak: 0.1 },
+    scoreBreakdown: {
+      story: 100,
+      fit: 50,
+      cadence: 0,
+      preference: 0,
+      tieBreak: 0.1,
+    },
     considered: [],
   };
 }
@@ -107,7 +120,12 @@ async function dependencies(): Promise<{
 describe("OPS social renderer", () => {
   it("uses OPS JOURNAL as the social masthead", () => {
     const markup = renderToStaticMarkup(
-      <SocialFrame treatmentLabel="EDITORIAL COVER" index={0} total={1} date="SEP 02 · 2026">
+      <SocialFrame
+        treatmentLabel="EDITORIAL COVER"
+        index={0}
+        total={1}
+        date="SEP 02 · 2026"
+      >
         <div>Preview</div>
       </SocialFrame>
     );
@@ -140,32 +158,47 @@ describe("OPS social renderer", () => {
       }
       return total / samples;
     };
-    const gradientReadings = Array.from(
-      { length: 81 },
-      (_, index) => averageLuminance(300 + index * 10)
+    const gradientReadings = Array.from({ length: 81 }, (_, index) =>
+      averageLuminance(300 + index * 10)
     );
     const largestStep = Math.max(
-      ...gradientReadings.slice(1).map((value, index) =>
-        Math.abs(value - gradientReadings[index])
-      )
+      ...gradientReadings
+        .slice(1)
+        .map((value, index) => Math.abs(value - gradientReadings[index]))
     );
 
     expect(largestStep).toBeLessThan(18);
     expect(gradientReadings[0] - gradientReadings.at(-1)!).toBeGreaterThan(35);
   }, 30_000);
 
-  it.each(TREATMENTS)("renders %s as a 1080 by 1350 JPEG", async (treatment) => {
-    const deps = await dependencies();
-    const assets = await renderSocialPost(
-      { postId: POST_ID, submission: submission(), selection: selection(treatment) },
-      deps.value
-    );
-    const metadata = await sharp(deps.captured[0]).metadata();
+  it.each(TREATMENTS)(
+    "renders %s as a 1080 by 1350 JPEG",
+    async (treatment) => {
+      const deps = await dependencies();
+      const assets = await renderSocialPost(
+        {
+          postId: POST_ID,
+          submission: submission(),
+          selection: selection(treatment),
+        },
+        deps.value
+      );
+      const metadata = await sharp(deps.captured[0]).metadata();
 
-    expect(assets).toHaveLength(1);
-    expect(assets[0]).toMatchObject({ width: 1080, height: 1350, content_type: "image/jpeg" });
-    expect(metadata).toMatchObject({ format: "jpeg", width: 1080, height: 1350 });
-  }, 20_000);
+      expect(assets).toHaveLength(1);
+      expect(assets[0]).toMatchObject({
+        width: 1080,
+        height: 1350,
+        content_type: "image/jpeg",
+      });
+      expect(metadata).toMatchObject({
+        format: "jpeg",
+        width: 1080,
+        height: 1350,
+      });
+    },
+    20_000
+  );
 
   it("renders and stores carousel slides in narrative order", async () => {
     const deps = await dependencies();
@@ -212,7 +245,11 @@ describe("OPS social renderer", () => {
     max.content.slides[0].body = "B".repeat(350);
 
     await renderSocialPost(
-      { postId: POST_ID, submission: max, selection: selection("operator_brief") },
+      {
+        postId: POST_ID,
+        submission: max,
+        selection: selection("operator_brief"),
+      },
       deps.value
     );
     const metadata = await sharp(deps.captured[0]).metadata();

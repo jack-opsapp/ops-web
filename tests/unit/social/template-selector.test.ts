@@ -6,15 +6,22 @@ import {
   type RecentSocialPost,
 } from "@/lib/social/template-selector";
 
-function submission(overrides: Partial<SocialSubmission> = {}): SocialSubmission {
+function submission(
+  overrides: Partial<SocialSubmission> = {}
+): SocialSubmission {
   const base: SocialSubmission = {
     contract_version: "2026-09-01",
-    source: { type: "blog", id: "blog-1", url: "https://opsapp.ca/blog/blog-1" },
+    source: {
+      type: "blog",
+      id: "blog-1",
+      url: "https://opsapp.ca/blog/blog-1",
+    },
     content: {
       title: "Stop answering the same crew question",
       hook: "The answer already exists. Your crew just cannot find it.",
       angle: "Turn repeated coordination into one shared operating plan.",
-      caption: "Every repeated answer costs attention. Put the plan where the crew works.",
+      caption:
+        "Every repeated answer costs attention. Put the plan where the crew works.",
       alt_text: "A field note about repeated crew questions.",
       slides: [
         {
@@ -38,7 +45,16 @@ function submission(overrides: Partial<SocialSubmission> = {}): SocialSubmission
 describe("programmed social template cycle", () => {
   it("uses editorial cover for a short image-backed blog title", () => {
     const result = selectSocialTemplate({
-      submission: submission({ content: { title: "The margin leak", slides: [submission().content.slides[0]], hook: submission().content.hook, angle: submission().content.angle, caption: submission().content.caption, alt_text: submission().content.alt_text } }),
+      submission: submission({
+        content: {
+          title: "The margin leak",
+          slides: [submission().content.slides[0]],
+          hook: submission().content.hook,
+          angle: submission().content.angle,
+          caption: submission().content.caption,
+          alt_text: submission().content.alt_text,
+        },
+      }),
       recentPosts: [],
       idempotencyKey: "blog-margin-leak",
     });
@@ -53,7 +69,8 @@ describe("programmed social template cycle", () => {
       submission: submission({
         content: {
           ...submission().content,
-          title: "Why good crews still lose two hours every week to repeated coordination",
+          title:
+            "Why good crews still lose two hours every week to repeated coordination",
         },
       }),
       recentPosts: [],
@@ -64,13 +81,19 @@ describe("programmed social template cycle", () => {
   });
 
   it("uses operator brief for a long blog title without requiring an image", () => {
-    const longTitle = "The operating habit that keeps a growing crew from turning every job-site decision into another call to the owner";
+    const longTitle =
+      "The operating habit that keeps a growing crew from turning every job-site decision into another call to the owner";
     const result = selectSocialTemplate({
       submission: submission({
         content: {
           ...submission().content,
           title: longTitle,
-          slides: [{ headline: longTitle, body: "One shared plan removes the repeat call." }],
+          slides: [
+            {
+              headline: longTitle,
+              body: "One shared plan removes the repeat call.",
+            },
+          ],
         },
       }),
       recentPosts: [],
@@ -86,7 +109,12 @@ describe("programmed social template cycle", () => {
       submission: submission({
         content: {
           ...submission().content,
-          slides: [{ headline: "One plan. Fewer calls.", body: "Give the crew one source of truth." }],
+          slides: [
+            {
+              headline: "One plan. Fewer calls.",
+              body: "Give the crew one source of truth.",
+            },
+          ],
         },
       }),
       recentPosts: [],
@@ -94,7 +122,10 @@ describe("programmed social template cycle", () => {
     });
 
     expect(["operator_brief", "signal_grid"]).toContain(result.visualTreatment);
-    expect(result.considered.find((item) => item.treatment === "editorial_cover")?.compatible).toBe(false);
+    expect(
+      result.considered.find((item) => item.treatment === "editorial_cover")
+        ?.compatible
+    ).toBe(false);
   });
 
   it("uses pure graphic treatments for text-led protocols and roast cards", () => {
@@ -103,7 +134,12 @@ describe("programmed social template cycle", () => {
         source: { type: "insight", id: "protocol-1" },
         content: {
           ...submission().content,
-          slides: [{ headline: "The Friday close", body: "Three moves before the trucks leave." }],
+          slides: [
+            {
+              headline: "The Friday close",
+              body: "Three moves before the trucks leave.",
+            },
+          ],
         },
       }),
       recentPosts: [],
@@ -114,7 +150,12 @@ describe("programmed social template cycle", () => {
         source: { type: "roast", id: "roast-1" },
         content: {
           ...submission().content,
-          slides: [{ headline: "The human group chat", body: "Knows every update. Writes down none." }],
+          slides: [
+            {
+              headline: "The human group chat",
+              body: "Knows every update. Writes down none.",
+            },
+          ],
         },
       }),
       recentPosts: [],
@@ -129,7 +170,10 @@ describe("programmed social template cycle", () => {
     const first = submission().content.slides[0];
     const result = selectSocialTemplate({
       submission: submission({
-        content: { ...submission().content, slides: [first, { ...first, headline: "The fix" }] },
+        content: {
+          ...submission().content,
+          slides: [first, { ...first, headline: "The fix" }],
+        },
       }),
       recentPosts: [],
       idempotencyKey: "carousel",
@@ -165,7 +209,9 @@ describe("programmed social template cycle", () => {
       submission: submission({
         content: {
           ...submission().content,
-          slides: [{ headline: "The protocol", body: "Close the loop before Friday." }],
+          slides: [
+            { headline: "The protocol", body: "Close the loop before Friday." },
+          ],
         },
         preferences: { visual_treatment: "editorial_cover" },
       }),
@@ -185,6 +231,8 @@ describe("programmed social template cycle", () => {
     };
 
     expect(selectSocialTemplate(input)).toEqual(selectSocialTemplate(input));
-    expect(selectSocialTemplate(input).selectorVersion).toBe(SOCIAL_SELECTOR_VERSION);
+    expect(selectSocialTemplate(input).selectorVersion).toBe(
+      SOCIAL_SELECTOR_VERSION
+    );
   });
 });

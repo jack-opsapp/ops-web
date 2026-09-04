@@ -1125,7 +1125,8 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason: "Deck geometry regression diagnostics, not a customer business record.",
+    reason:
+      "Deck geometry regression diagnostics, not a customer business record.",
   },
   {
     table: "accounting_oauth_attempts",
