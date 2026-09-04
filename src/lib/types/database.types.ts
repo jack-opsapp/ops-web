@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -210,7 +210,6 @@ export type Database = {
           error_code: string | null
           estimate_id: string
           id: string
-          idempotency_expires_at: string | null
           idempotency_key: string
           response: Json | null
           status: string
@@ -247,6 +246,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accept_estimate_to_job_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "accept_estimate_to_job_requests_created_by_fkey"
@@ -413,224 +419,6 @@ export type Database = {
         }
         Relationships: []
       }
-      sage_sales_account_mappings: {
-        Row: {
-          company_id: string
-          connection_id: string
-          created_at: string
-          id: string
-          sage_ledger_account_id: string
-          source_key: string
-          source_kind: string
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          connection_id: string
-          created_at?: string
-          id?: string
-          sage_ledger_account_id: string
-          source_key: string
-          source_kind: string
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          connection_id?: string
-          created_at?: string
-          id?: string
-          sage_ledger_account_id?: string
-          source_key?: string
-          source_kind?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sage_sales_account_mappings_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "accounting_connections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sage_tax_rate_mappings: {
-        Row: {
-          company_id: string
-          connection_id: string
-          created_at: string
-          id: string
-          sage_tax_rate_id: string
-          source_tax_key: string
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          connection_id: string
-          created_at?: string
-          id?: string
-          sage_tax_rate_id: string
-          source_tax_key: string
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          connection_id?: string
-          created_at?: string
-          id?: string
-          sage_tax_rate_id?: string
-          source_tax_key?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sage_tax_rate_mappings_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "accounting_connections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sage_payment_method_mappings: {
-        Row: {
-          company_id: string
-          connection_id: string
-          created_at: string
-          id: string
-          payment_method: string
-          sage_bank_account_id: string
-          sage_payment_method_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          connection_id: string
-          created_at?: string
-          id?: string
-          payment_method: string
-          sage_bank_account_id: string
-          sage_payment_method_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          connection_id?: string
-          created_at?: string
-          id?: string
-          payment_method?: string
-          sage_bank_account_id?: string
-          sage_payment_method_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sage_payment_method_mappings_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "accounting_connections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sage_purchase_account_mappings: {
-        Row: {
-          company_id: string
-          connection_id: string
-          created_at: string
-          expense_category_id: string
-          id: string
-          sage_ledger_account_id: string
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          connection_id: string
-          created_at?: string
-          expense_category_id: string
-          id?: string
-          sage_ledger_account_id: string
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          connection_id?: string
-          created_at?: string
-          expense_category_id?: string
-          id?: string
-          sage_ledger_account_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sage_purchase_account_mappings_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "accounting_connections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sage_purchase_account_mappings_expense_category_id_fkey"
-            columns: ["expense_category_id"]
-            isOneToOne: false
-            referencedRelation: "expense_categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sage_business_selection_sessions: {
-        Row: {
-          access_token: string
-          actor_user_id: string
-          company_id: string
-          connection_id: string
-          consumed_at: string | null
-          created_at: string
-          eligible_businesses: Json
-          expires_at: string
-          id: string
-          provider_environment: string
-          refresh_token: string
-          token_expires_at: string
-        }
-        Insert: {
-          access_token: string
-          actor_user_id: string
-          company_id: string
-          connection_id: string
-          consumed_at?: string | null
-          created_at?: string
-          eligible_businesses: Json
-          expires_at: string
-          id?: string
-          provider_environment: string
-          refresh_token: string
-          token_expires_at: string
-        }
-        Update: {
-          access_token?: string
-          actor_user_id?: string
-          company_id?: string
-          connection_id?: string
-          consumed_at?: string | null
-          created_at?: string
-          eligible_businesses?: Json
-          expires_at?: string
-          id?: string
-          provider_environment?: string
-          refresh_token?: string
-          token_expires_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sage_business_selection_sessions_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "accounting_connections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       accounting_sync_events: {
         Row: {
           after_snapshot: Json
@@ -769,9 +557,9 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider: string
           provider_accepted_at: string | null
           provider_request_id: string | null
-          provider: string
           run_after: string
           source_action: string
           source_table: string
@@ -796,9 +584,9 @@ export type Database = {
           max_attempts?: number
           operation: string
           payload_snapshot?: Json
+          provider?: string
           provider_accepted_at?: string | null
           provider_request_id?: string | null
-          provider?: string
           run_after?: string
           source_action: string
           source_table: string
@@ -823,9 +611,9 @@ export type Database = {
           max_attempts?: number
           operation?: string
           payload_snapshot?: Json
+          provider?: string
           provider_accepted_at?: string | null
           provider_request_id?: string | null
-          provider?: string
           run_after?: string
           source_action?: string
           source_table?: string
@@ -1503,6 +1291,43 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      agent_control_plane_tenant_roots: {
+        Row: {
+          company_id: string
+          created_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_control_plane_tenant_roots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_control_plane_tenant_roots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       agent_knowledge_graph: {
@@ -1567,6 +1392,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_knowledge_graph_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "agent_knowledge_graph_source_entity_id_fkey"
@@ -1660,6 +1492,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agent_memories_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "agent_memories_entity_id_fkey"
             columns: ["entity_id"]
             isOneToOne: false
@@ -1724,6 +1563,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_writing_profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -1815,6 +1661,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ai_draft_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "ai_draft_history_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -1837,18 +1690,18 @@ export type Database = {
           created_at: string
           device_type: string | null
           duration_ms: number | null
+          environment: string
           event_name: string
           event_type: string
-          environment: string
           id: string
           os_version: string | null
           plan: string | null
           platform: string
           properties: Json | null
+          received_at: string
           role: string | null
           schema_version: number
           session_id: string
-          received_at: string
           user_id: string | null
         }
         Insert: {
@@ -1857,18 +1710,18 @@ export type Database = {
           created_at?: string
           device_type?: string | null
           duration_ms?: number | null
+          environment?: string
           event_name: string
           event_type: string
-          environment?: string
           id?: string
           os_version?: string | null
           plan?: string | null
           platform: string
           properties?: Json | null
+          received_at?: string
           role?: string | null
           schema_version?: number
           session_id: string
-          received_at?: string
           user_id?: string | null
         }
         Update: {
@@ -1877,18 +1730,18 @@ export type Database = {
           created_at?: string
           device_type?: string | null
           duration_ms?: number | null
+          environment?: string
           event_name?: string
           event_type?: string
-          environment?: string
           id?: string
           os_version?: string | null
           plan?: string | null
           platform?: string
           properties?: Json | null
+          received_at?: string
           role?: string | null
           schema_version?: number
           session_id?: string
-          received_at?: string
           user_id?: string | null
         }
         Relationships: []
@@ -2020,287 +1873,6 @@ export type Database = {
           status?: string
         }
         Relationships: []
-      }
-      channel_map: {
-        Row: {
-          active: boolean
-          canonical_channel: string
-          classification_reason: string
-          created_at: string
-          id: string
-          is_paid: boolean
-          priority: number
-          raw_channel: string | null
-          raw_medium: string | null
-          raw_source: string | null
-          source_system: string
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          canonical_channel: string
-          classification_reason: string
-          created_at?: string
-          id?: string
-          is_paid?: boolean
-          priority?: number
-          raw_channel?: string | null
-          raw_medium?: string | null
-          raw_source?: string | null
-          source_system: string
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          canonical_channel?: string
-          classification_reason?: string
-          created_at?: string
-          id?: string
-          is_paid?: boolean
-          priority?: number
-          raw_channel?: string | null
-          raw_medium?: string | null
-          raw_source?: string | null
-          source_system?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      channel_metrics: {
-        Row: {
-          as_of: string
-          campaign: string | null
-          canonical_channel: string
-          created_at: string
-          currency: string | null
-          dimensions: Json
-          id: string
-          metric_date: string
-          metric_type: string
-          metric_value: number
-          source_grain: string
-          source_key: string
-          source_system: string
-          sub_channel: string | null
-          territory: string | null
-          updated_at: string
-        }
-        Insert: {
-          as_of: string
-          campaign?: string | null
-          canonical_channel: string
-          created_at?: string
-          currency?: string | null
-          dimensions?: Json
-          id?: string
-          metric_date: string
-          metric_type: string
-          metric_value: number
-          source_grain: string
-          source_key: string
-          source_system: string
-          sub_channel?: string | null
-          territory?: string | null
-          updated_at?: string
-        }
-        Update: {
-          as_of?: string
-          campaign?: string | null
-          canonical_channel?: string
-          created_at?: string
-          currency?: string | null
-          dimensions?: Json
-          id?: string
-          metric_date?: string
-          metric_type?: string
-          metric_value?: number
-          source_grain?: string
-          source_key?: string
-          source_system?: string
-          sub_channel?: string | null
-          territory?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      ga4_daily_acquisition: {
-        Row: {
-          campaign: string
-          created_at: string
-          default_channel_group: string
-          engaged_sessions: number
-          id: string
-          key_events: number
-          landing_path: string
-          medium: string
-          new_users: number
-          property_id: string
-          property_key: string
-          reporting_date: string
-          sessions: number
-          source: string
-          source_updated_at: string
-          total_users: number
-          updated_at: string
-        }
-        Insert: {
-          campaign: string
-          created_at?: string
-          default_channel_group: string
-          engaged_sessions?: number
-          id?: string
-          key_events?: number
-          landing_path: string
-          medium: string
-          new_users?: number
-          property_id: string
-          property_key: string
-          reporting_date: string
-          sessions?: number
-          source: string
-          source_updated_at?: string
-          total_users?: number
-          updated_at?: string
-        }
-        Update: {
-          campaign?: string
-          created_at?: string
-          default_channel_group?: string
-          engaged_sessions?: number
-          id?: string
-          key_events?: number
-          landing_path?: string
-          medium?: string
-          new_users?: number
-          property_id?: string
-          property_key?: string
-          reporting_date?: string
-          sessions?: number
-          source?: string
-          source_updated_at?: string
-          total_users?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      search_console_daily: {
-        Row: {
-          clicks: number
-          country: string
-          created_at: string
-          ctr: number
-          device: string
-          id: string
-          impressions: number
-          page: string
-          position: number
-          query: string
-          reporting_date: string
-          site_url: string
-          source_updated_at: string
-          updated_at: string
-        }
-        Insert: {
-          clicks?: number
-          country?: string
-          created_at?: string
-          ctr?: number
-          device?: string
-          id?: string
-          impressions?: number
-          page: string
-          position?: number
-          query?: string
-          reporting_date: string
-          site_url: string
-          source_updated_at?: string
-          updated_at?: string
-        }
-        Update: {
-          clicks?: number
-          country?: string
-          created_at?: string
-          ctr?: number
-          device?: string
-          id?: string
-          impressions?: number
-          page?: string
-          position?: number
-          query?: string
-          reporting_date?: string
-          site_url?: string
-          source_updated_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      touchpoints: {
-        Row: {
-          anonymous_id: string | null
-          attribution_basis: string
-          attribution_confidence: number
-          campaign: string | null
-          canonical_channel: string
-          capture_version: number
-          click_ids: Json
-          company_id: string | null
-          created_at: string
-          dedupe_key: string
-          expires_at: string | null
-          id: string
-          landing_path: string | null
-          occurred_at: string
-          raw_source: Json
-          referrer_domain: string | null
-          sub_channel: string | null
-        }
-        Insert: {
-          anonymous_id?: string | null
-          attribution_basis: string
-          attribution_confidence: number
-          campaign?: string | null
-          canonical_channel: string
-          capture_version: number
-          click_ids?: Json
-          company_id?: string | null
-          created_at?: string
-          dedupe_key: string
-          expires_at?: string | null
-          id?: string
-          landing_path?: string | null
-          occurred_at: string
-          raw_source?: Json
-          referrer_domain?: string | null
-          sub_channel?: string | null
-        }
-        Update: {
-          anonymous_id?: string | null
-          attribution_basis?: string
-          attribution_confidence?: number
-          campaign?: string | null
-          canonical_channel?: string
-          capture_version?: number
-          click_ids?: Json
-          company_id?: string | null
-          created_at?: string
-          dedupe_key?: string
-          expires_at?: string | null
-          id?: string
-          landing_path?: string | null
-          occurred_at?: string
-          raw_source?: Json
-          referrer_domain?: string | null
-          sub_channel?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "touchpoints_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       app_events: {
         Row: {
@@ -2449,6 +2021,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -2457,6 +2030,7 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -2498,6 +2072,7 @@ export type Database = {
           invoice_id?: string | null
           last_error?: string | null
           learning_authority: string
+          max_reconciliation_attempts?: number
           opportunity_id?: string | null
           profile_type_snapshot?: string
           project_id?: string | null
@@ -2506,6 +2081,7 @@ export type Database = {
           reconciled_activity_id?: string | null
           reconciled_at?: string | null
           reconciliation_attempts?: number
+          reconciliation_exhausted_at?: string | null
           reconciliation_lease_expires_at?: string | null
           reconciliation_lease_token?: string | null
           rendered_body?: string | null
@@ -2547,6 +2123,7 @@ export type Database = {
           invoice_id?: string | null
           last_error?: string | null
           learning_authority?: string
+          max_reconciliation_attempts?: number
           opportunity_id?: string | null
           profile_type_snapshot?: string
           project_id?: string | null
@@ -2555,6 +2132,7 @@ export type Database = {
           reconciled_activity_id?: string | null
           reconciled_at?: string | null
           reconciliation_attempts?: number
+          reconciliation_exhausted_at?: string | null
           reconciliation_lease_expires_at?: string | null
           reconciliation_lease_token?: string | null
           rendered_body?: string | null
@@ -2612,6 +2190,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approved_action_email_intents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "approved_action_email_intents_connection_id_fkey"
@@ -3324,8 +2909,8 @@ export type Database = {
         Row: {
           attachment_id: string
           company_id: string
-          connection_id: string | null
-          email_attachment_id: string | null
+          connection_id: string
+          email_attachment_id: string
           facts: Json
           id: string
           inspected_at: string
@@ -3338,8 +2923,8 @@ export type Database = {
         Insert: {
           attachment_id: string
           company_id: string
-          connection_id?: string | null
-          email_attachment_id?: string | null
+          connection_id: string
+          email_attachment_id: string
           facts?: Json
           id?: string
           inspected_at?: string
@@ -3352,8 +2937,8 @@ export type Database = {
         Update: {
           attachment_id?: string
           company_id?: string
-          connection_id?: string | null
-          email_attachment_id?: string | null
+          connection_id?: string
+          email_attachment_id?: string
           facts?: Json
           id?: string
           inspected_at?: string
@@ -3377,6 +2962,25 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "email_attachments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_inspections_exact_attachment_identity_fkey"
+            columns: [
+              "company_id",
+              "connection_id",
+              "message_id",
+              "attachment_id",
+              "email_attachment_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "email_attachments"
+            referencedColumns: [
+              "company_id",
+              "connection_id",
+              "message_id",
+              "attachment_id",
+              "id",
+            ]
           },
         ]
       }
@@ -3513,6 +3117,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -3898,6 +3509,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "calendar_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "calendar_events_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -4020,6 +3638,48 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_bulk_variant_requests: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          idempotency_key: string
+          request_payload: Json
+          response_payload: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          request_payload: Json
+          response_payload: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          request_payload?: Json
+          response_payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_bulk_variant_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_bulk_variant_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       catalog_categories: {
         Row: {
           color_hex: string | null
@@ -4067,6 +3727,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_categories_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_categories_parent_id_fkey"
@@ -4151,6 +3818,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_guided_setup_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_guided_setup_actions_session_id_fkey"
@@ -4261,6 +3935,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalog_guided_setup_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "catalog_guided_setup_sessions_operator_id_fkey"
             columns: ["operator_id"]
             isOneToOne: false
@@ -4345,6 +4026,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_inventory_import_rows_import_id_fkey"
@@ -4438,6 +4126,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_imports_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_inventory_imports_operator_id_fkey"
@@ -4570,6 +4265,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_items_default_unit_id_fkey"
@@ -4780,6 +4482,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalog_orders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "catalog_orders_created_by_id_fkey"
             columns: ["created_by_id"]
             isOneToOne: false
@@ -4832,6 +4541,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_capability_bindings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_product_capability_bindings_product_id_fkey"
@@ -4915,6 +4631,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalog_product_option_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "catalog_product_option_mappings_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -4982,6 +4705,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "catalog_setup_save_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       catalog_setup_session_locks: {
@@ -5016,6 +4746,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_setup_session_locks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -5078,6 +4815,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_setup_verification_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_setup_verification_items_resolved_by_fkey"
@@ -5204,6 +4948,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalog_snapshots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "catalog_snapshots_created_by_id_fkey"
             columns: ["created_by_id"]
             isOneToOne: false
@@ -5299,6 +5050,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_unit_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_stock_unit_events_related_catalog_stock_unit_id_fkey"
@@ -5403,6 +5161,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalog_stock_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "catalog_stock_units_source_order_item_id_fkey"
             columns: ["source_order_item_id"]
             isOneToOne: false
@@ -5486,6 +5251,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "catalog_supplier_cost_profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       catalog_tags: {
@@ -5526,6 +5298,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_tags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -5573,6 +5352,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -5703,6 +5489,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalog_variants_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "catalog_variants_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
@@ -5806,6 +5599,108 @@ export type Database = {
           },
         ]
       }
+      channel_map: {
+        Row: {
+          active: boolean
+          canonical_channel: string
+          classification_reason: string
+          created_at: string
+          id: string
+          is_paid: boolean
+          priority: number
+          raw_channel: string | null
+          raw_medium: string | null
+          raw_source: string | null
+          source_system: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          canonical_channel: string
+          classification_reason: string
+          created_at?: string
+          id?: string
+          is_paid?: boolean
+          priority?: number
+          raw_channel?: string | null
+          raw_medium?: string | null
+          raw_source?: string | null
+          source_system: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          canonical_channel?: string
+          classification_reason?: string
+          created_at?: string
+          id?: string
+          is_paid?: boolean
+          priority?: number
+          raw_channel?: string | null
+          raw_medium?: string | null
+          raw_source?: string | null
+          source_system?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      channel_metrics: {
+        Row: {
+          as_of: string
+          campaign: string | null
+          canonical_channel: string
+          created_at: string
+          currency: string | null
+          dimensions: Json
+          id: string
+          metric_date: string
+          metric_type: string
+          metric_value: number
+          source_grain: string
+          source_key: string
+          source_system: string
+          sub_channel: string | null
+          territory: string | null
+          updated_at: string
+        }
+        Insert: {
+          as_of: string
+          campaign?: string | null
+          canonical_channel: string
+          created_at?: string
+          currency?: string | null
+          dimensions?: Json
+          id?: string
+          metric_date: string
+          metric_type: string
+          metric_value: number
+          source_grain: string
+          source_key: string
+          source_system: string
+          sub_channel?: string | null
+          territory?: string | null
+          updated_at?: string
+        }
+        Update: {
+          as_of?: string
+          campaign?: string | null
+          canonical_channel?: string
+          created_at?: string
+          currency?: string | null
+          dimensions?: Json
+          id?: string
+          metric_date?: string
+          metric_type?: string
+          metric_value?: number
+          source_grain?: string
+          source_key?: string
+          source_system?: string
+          sub_channel?: string | null
+          territory?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_product_overrides: {
         Row: {
           client_id: string
@@ -5851,6 +5746,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_product_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "client_product_overrides_product_id_fkey"
@@ -5931,6 +5833,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clients_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "clients_merged_into_client_id_fkey"
             columns: ["merged_into_client_id"]
             isOneToOne: false
@@ -5980,6 +5889,7 @@ export type Database = {
           physical_address: string | null
           precise_scheduling_enabled: boolean | null
           priority_support_period: string | null
+          public_handle: string
           referral_method: string | null
           schedule_settings: Json
           seat_grace_start_date: string | null
@@ -5992,6 +5902,7 @@ export type Database = {
           subscription_period: string | null
           subscription_plan: string | null
           subscription_status: string | null
+          task_groups_conversion_enabled: boolean
           timezone: string
           trial_end_date: string | null
           trial_start_date: string | null
@@ -6039,6 +5950,7 @@ export type Database = {
           physical_address?: string | null
           precise_scheduling_enabled?: boolean | null
           priority_support_period?: string | null
+          public_handle: string
           referral_method?: string | null
           schedule_settings?: Json
           seat_grace_start_date?: string | null
@@ -6051,6 +5963,7 @@ export type Database = {
           subscription_period?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          task_groups_conversion_enabled?: boolean
           timezone?: string
           trial_end_date?: string | null
           trial_start_date?: string | null
@@ -6098,6 +6011,7 @@ export type Database = {
           physical_address?: string | null
           precise_scheduling_enabled?: boolean | null
           priority_support_period?: string | null
+          public_handle?: string
           referral_method?: string | null
           schedule_settings?: Json
           seat_grace_start_date?: string | null
@@ -6110,6 +6024,7 @@ export type Database = {
           subscription_period?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          task_groups_conversion_enabled?: boolean
           timezone?: string
           trial_end_date?: string | null
           trial_start_date?: string | null
@@ -6148,6 +6063,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_products_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "company_default_products_product_id_fkey"
@@ -6193,6 +6115,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_inventory_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "company_inventory_settings_updated_by_fkey"
@@ -6699,6 +6628,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "data_setup_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "data_setup_requests_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
@@ -6706,6 +6642,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      deck_design_geometry_regressions: {
+        Row: {
+          company_id: string | null
+          deck_design_id: string
+          id: string
+          new_edge_count: number
+          new_updated_at: string | null
+          new_vertex_count: number
+          observed_at: string
+          old_edge_count: number
+          old_updated_at: string | null
+          old_vertex_count: number
+        }
+        Insert: {
+          company_id?: string | null
+          deck_design_id: string
+          id?: string
+          new_edge_count: number
+          new_updated_at?: string | null
+          new_vertex_count: number
+          observed_at?: string
+          old_edge_count: number
+          old_updated_at?: string | null
+          old_vertex_count: number
+        }
+        Update: {
+          company_id?: string | null
+          deck_design_id?: string
+          id?: string
+          new_edge_count?: number
+          new_updated_at?: string | null
+          new_vertex_count?: number
+          observed_at?: string
+          old_edge_count?: number
+          old_updated_at?: string | null
+          old_vertex_count?: number
+        }
+        Relationships: []
       }
       deck_designs: {
         Row: {
@@ -6757,6 +6732,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deck_designs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "deck_designs_created_by_fkey"
@@ -6854,6 +6836,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deck_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       deck_zoning_parcel_records: {
@@ -6909,6 +6898,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deck_zoning_parcel_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -7067,6 +7063,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duplicate_reviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "duplicate_reviews_resolved_by_fkey"
@@ -7261,6 +7264,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_assignment_contact_form_draft_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "email_assignment_contact_form_draft_queue_connection_id_fkey"
@@ -7666,6 +7676,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "email_autonomy_milestones_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "email_autonomy_milestones_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -7856,6 +7873,7 @@ export type Database = {
           user_id: string | null
           webhook_client_state_hash: string | null
           webhook_expires_at: string | null
+          webhook_history_high_water: string | null
           webhook_subscription_id: string | null
         }
         Insert: {
@@ -7895,6 +7913,7 @@ export type Database = {
           user_id?: string | null
           webhook_client_state_hash?: string | null
           webhook_expires_at?: string | null
+          webhook_history_high_water?: string | null
           webhook_subscription_id?: string | null
         }
         Update: {
@@ -7934,6 +7953,7 @@ export type Database = {
           user_id?: string | null
           webhook_client_state_hash?: string | null
           webhook_expires_at?: string | null
+          webhook_history_high_water?: string | null
           webhook_subscription_id?: string | null
         }
         Relationships: [
@@ -8035,6 +8055,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_conversion_photo_jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "email_conversion_photo_jobs_conversion_event_id_fkey"
@@ -8166,6 +8193,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_conversion_photo_objects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "email_conversion_photo_objects_conversion_event_id_fkey"
@@ -8338,6 +8372,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "email_import_provider_operations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "email_import_provider_operations_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -8379,6 +8420,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_ingest_heartbeat_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -8463,6 +8511,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_ingestion_recovery_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "email_ingestion_recovery_queue_connection_id_fkey"
@@ -8638,6 +8693,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "email_oauth_states_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "email_oauth_states_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -8708,6 +8770,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "email_outbound_edit_evidence_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "email_outbound_edit_evidence_queue_id_fkey"
             columns: ["queue_id"]
             isOneToOne: false
@@ -8773,6 +8842,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_edit_promotions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "email_outbound_edit_promotions_profile_id_fkey"
@@ -8841,6 +8917,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -8892,6 +8969,7 @@ export type Database = {
           profile_type?: string
           provider_message_id: string
           provider_thread_id?: string | null
+          replaced_draft_history_id?: string | null
           requeue_count?: number
           status?: string
           subject?: string
@@ -8943,6 +9021,7 @@ export type Database = {
           profile_type?: string
           provider_message_id?: string
           provider_thread_id?: string | null
+          replaced_draft_history_id?: string | null
           requeue_count?: number
           status?: string
           subject?: string
@@ -8999,6 +9078,13 @@ export type Database = {
             columns: ["opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_learning_queue_replaced_draft_history_id_fkey"
+            columns: ["replaced_draft_history_id"]
+            isOneToOne: false
+            referencedRelation: "ai_draft_history"
             referencedColumns: ["id"]
           },
         ]
@@ -9326,6 +9412,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "email_provider_mutation_attempts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "email_provider_mutation_attempts_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -9521,6 +9614,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "email_send_intents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "email_send_intents_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -9651,6 +9751,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "email_signature_notification_lifecycle_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       email_signatures: {
@@ -9715,6 +9822,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signatures_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "email_signatures_connection_id_fkey"
@@ -9874,6 +9988,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "email_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       email_thread_category_corrections: {
@@ -9932,6 +10053,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_thread_category_corrections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "email_thread_category_corrections_thread_id_fkey"
@@ -10090,6 +10218,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_threads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "email_threads_connection_id_fkey"
@@ -10388,6 +10523,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_auto_approve_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "expense_auto_approve_rules_created_by_fkey"
@@ -10941,7 +11083,74 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "forecast_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
+      }
+      ga4_daily_acquisition: {
+        Row: {
+          campaign: string
+          created_at: string
+          default_channel_group: string
+          engaged_sessions: number
+          id: string
+          key_events: number
+          landing_path: string
+          medium: string
+          new_users: number
+          property_id: string
+          property_key: string
+          reporting_date: string
+          sessions: number
+          source: string
+          source_updated_at: string
+          total_users: number
+          updated_at: string
+        }
+        Insert: {
+          campaign: string
+          created_at?: string
+          default_channel_group: string
+          engaged_sessions?: number
+          id?: string
+          key_events?: number
+          landing_path: string
+          medium: string
+          new_users?: number
+          property_id: string
+          property_key: string
+          reporting_date: string
+          sessions?: number
+          source: string
+          source_updated_at?: string
+          total_users?: number
+          updated_at?: string
+        }
+        Update: {
+          campaign?: string
+          created_at?: string
+          default_channel_group?: string
+          engaged_sessions?: number
+          id?: string
+          key_events?: number
+          landing_path?: string
+          medium?: string
+          new_users?: number
+          property_id?: string
+          property_key?: string
+          reporting_date?: string
+          sessions?: number
+          source?: string
+          source_updated_at?: string
+          total_users?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       gmail_import_jobs: {
         Row: {
@@ -11142,6 +11351,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "google_calendar_sync_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "google_calendar_sync_queue_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -11207,6 +11423,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "graph_entities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -11344,6 +11567,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_deductions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "inventory_deductions_line_item_id_fkey"
@@ -11544,6 +11774,483 @@ export type Database = {
           },
         ]
       }
+      job_conversation_anchors: {
+        Row: {
+          anchor_kind: string
+          company_id: string
+          conversation_id: string
+          created_at: string
+          id: string
+          opportunity_id: string | null
+          project_id: string | null
+          source_id: string | null
+        }
+        Insert: {
+          anchor_kind: string
+          company_id: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          opportunity_id?: string | null
+          project_id?: string | null
+          source_id?: string | null
+        }
+        Update: {
+          anchor_kind?: string
+          company_id?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          opportunity_id?: string | null
+          project_id?: string | null
+          source_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_conversation_anchors_company_id_conversation_id_fkey"
+            columns: ["company_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "job_conversations"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "job_conversation_anchors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_conversation_anchors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "job_conversation_anchors_company_id_opportunity_id_fkey"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "job_conversation_anchors_company_id_project_id_fkey"
+            columns: ["company_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "job_conversation_anchors_company_id_project_id_fkey"
+            columns: ["company_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
+      job_conversation_redaction_events: {
+        Row: {
+          actor_user_id: string | null
+          authority_revision: string
+          company_id: string
+          conversation_id: string
+          created_at: string
+          id: string
+          reason: string
+          redaction_kind: string
+          replacement_plain_text: string | null
+          source_state_revision: number
+          target_turn_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          authority_revision: string
+          company_id: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          reason: string
+          redaction_kind: string
+          replacement_plain_text?: string | null
+          source_state_revision: number
+          target_turn_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          authority_revision?: string
+          company_id?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          redaction_kind?: string
+          replacement_plain_text?: string | null
+          source_state_revision?: number
+          target_turn_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_conversation_redaction_ev_company_id_conversation_id_t_fkey"
+            columns: ["company_id", "conversation_id", "target_turn_id"]
+            isOneToOne: false
+            referencedRelation: "job_conversation_turns"
+            referencedColumns: ["company_id", "conversation_id", "id"]
+          },
+          {
+            foreignKeyName: "job_conversation_redaction_events_company_id_actor_user_id_fkey"
+            columns: ["company_id", "actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "job_conversation_redaction_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_conversation_redaction_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      job_conversation_turns: {
+        Row: {
+          attachment_evidence_ids: string[]
+          cc_recipient_identities: string[]
+          channel: string
+          company_id: string
+          conversation_id: string
+          delivered_at: string
+          direction: string
+          id: string
+          ingested_at: string
+          normalized_plain_text: string
+          original_content_hash: string
+          participant_id: string
+          participant_resolution_revision: string
+          participant_resolution_status: string
+          provider_delivery_source_id: string
+          provider_delivery_source_sha256: string
+          provider_message_id: string
+          recipient_identities: string[]
+          side: string | null
+          source_activity_id: string | null
+          source_connection_id: string
+          source_correspondence_event_id: string | null
+          source_state_revision: number
+          subject: string | null
+          turn_sequence: number
+        }
+        Insert: {
+          attachment_evidence_ids?: string[]
+          cc_recipient_identities?: string[]
+          channel: string
+          company_id: string
+          conversation_id: string
+          delivered_at: string
+          direction: string
+          id?: string
+          ingested_at?: string
+          normalized_plain_text: string
+          original_content_hash: string
+          participant_id: string
+          participant_resolution_revision: string
+          participant_resolution_status: string
+          provider_delivery_source_id: string
+          provider_delivery_source_sha256: string
+          provider_message_id: string
+          recipient_identities?: string[]
+          side?: string | null
+          source_activity_id?: string | null
+          source_connection_id: string
+          source_correspondence_event_id?: string | null
+          source_state_revision: number
+          subject?: string | null
+          turn_sequence: number
+        }
+        Update: {
+          attachment_evidence_ids?: string[]
+          cc_recipient_identities?: string[]
+          channel?: string
+          company_id?: string
+          conversation_id?: string
+          delivered_at?: string
+          direction?: string
+          id?: string
+          ingested_at?: string
+          normalized_plain_text?: string
+          original_content_hash?: string
+          participant_id?: string
+          participant_resolution_revision?: string
+          participant_resolution_status?: string
+          provider_delivery_source_id?: string
+          provider_delivery_source_sha256?: string
+          provider_message_id?: string
+          recipient_identities?: string[]
+          side?: string | null
+          source_activity_id?: string | null
+          source_connection_id?: string
+          source_correspondence_event_id?: string | null
+          source_state_revision?: number
+          subject?: string | null
+          turn_sequence?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_conversation_turns_company_id_conversation_id_fkey"
+            columns: ["company_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "job_conversations"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "job_conversation_turns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_conversation_turns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "job_conversation_turns_company_id_source_activity_id_fkey"
+            columns: ["company_id", "source_activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "job_conversation_turns_company_id_source_correspondence_ev_fkey"
+            columns: ["company_id", "source_correspondence_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "job_conversation_turns_source_connection_id_fkey"
+            columns: ["source_connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_conversations: {
+        Row: {
+          company_id: string
+          created_at: string
+          current_memory_version_id: string | null
+          id: string
+          last_turn_sequence: number
+          source_state_revision: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          current_memory_version_id?: string | null
+          id?: string
+          last_turn_sequence?: number
+          source_state_revision?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          current_memory_version_id?: string | null
+          id?: string
+          last_turn_sequence?: number
+          source_state_revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "job_conversations_current_memory_version_fkey"
+            columns: ["company_id", "id", "current_memory_version_id"]
+            isOneToOne: false
+            referencedRelation: "job_memory_versions"
+            referencedColumns: ["company_id", "conversation_id", "id"]
+          },
+        ]
+      }
+      job_memory_version_evidence: {
+        Row: {
+          company_id: string
+          conversation_id: string
+          created_at: string
+          evidence_id: string
+          id: string
+          memory_version_id: string
+          relationship: string
+          source_content_hash: string | null
+          source_domain: string
+          source_entity_id: string
+          source_revision: string
+          source_type: string
+        }
+        Insert: {
+          company_id: string
+          conversation_id: string
+          created_at?: string
+          evidence_id: string
+          id?: string
+          memory_version_id: string
+          relationship: string
+          source_content_hash?: string | null
+          source_domain: string
+          source_entity_id: string
+          source_revision: string
+          source_type: string
+        }
+        Update: {
+          company_id?: string
+          conversation_id?: string
+          created_at?: string
+          evidence_id?: string
+          id?: string
+          memory_version_id?: string
+          relationship?: string
+          source_content_hash?: string | null
+          source_domain?: string
+          source_entity_id?: string
+          source_revision?: string
+          source_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_memory_version_evidence_company_id_conversation_id_mem_fkey"
+            columns: ["company_id", "conversation_id", "memory_version_id"]
+            isOneToOne: false
+            referencedRelation: "job_memory_versions"
+            referencedColumns: ["company_id", "conversation_id", "id"]
+          },
+          {
+            foreignKeyName: "job_memory_version_evidence_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_memory_version_evidence_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      job_memory_versions: {
+        Row: {
+          company_id: string
+          conversation_id: string
+          created_at: string
+          generation_input_hash: string
+          generator_revision: string
+          id: string
+          memory_document: Json
+          memory_document_hash: string
+          predecessor_version_id: string | null
+          source_state_revision: number
+          turn_high_watermark_id: string
+          turn_high_watermark_sequence: number
+          version_number: number
+        }
+        Insert: {
+          company_id: string
+          conversation_id: string
+          created_at?: string
+          generation_input_hash: string
+          generator_revision: string
+          id?: string
+          memory_document: Json
+          memory_document_hash: string
+          predecessor_version_id?: string | null
+          source_state_revision: number
+          turn_high_watermark_id: string
+          turn_high_watermark_sequence: number
+          version_number: number
+        }
+        Update: {
+          company_id?: string
+          conversation_id?: string
+          created_at?: string
+          generation_input_hash?: string
+          generator_revision?: string
+          id?: string
+          memory_document?: Json
+          memory_document_hash?: string
+          predecessor_version_id?: string | null
+          source_state_revision?: number
+          turn_high_watermark_id?: string
+          turn_high_watermark_sequence?: number
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_memory_versions_company_id_conversation_id_fkey"
+            columns: ["company_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "job_conversations"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "job_memory_versions_company_id_conversation_id_predecessor_fkey"
+            columns: ["company_id", "conversation_id", "predecessor_version_id"]
+            isOneToOne: false
+            referencedRelation: "job_memory_versions"
+            referencedColumns: ["company_id", "conversation_id", "id"]
+          },
+          {
+            foreignKeyName: "job_memory_versions_company_id_conversation_id_turn_high_w_fkey"
+            columns: ["company_id", "conversation_id", "turn_high_watermark_id"]
+            isOneToOne: false
+            referencedRelation: "job_conversation_turns"
+            referencedColumns: ["company_id", "conversation_id", "id"]
+          },
+          {
+            foreignKeyName: "job_memory_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_memory_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       lead_classification_reviews: {
         Row: {
           adjusted_lead_score: number
@@ -11606,6 +12313,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_classification_reviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "lead_classification_reviews_connection_id_fkey"
@@ -11756,6 +12470,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_disposition_feedback_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "lead_disposition_feedback_company_opportunity_fk"
             columns: ["company_id", "opportunity_id"]
             isOneToOne: false
@@ -11877,6 +12598,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_field_provenance_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "lead_field_provenance_confirmed_by_fkey"
             columns: ["confirmed_by"]
             isOneToOne: false
@@ -11941,6 +12669,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_intake_correction_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "lead_intake_correction_runs_source_company_fkey"
             columns: ["company_id", "source_opportunity_id"]
             isOneToOne: false
@@ -11995,6 +12730,77 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: true
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_lifecycle_settings_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      lead_summary_refresh_quarantine: {
+        Row: {
+          company_id: string
+          deferral_count: number
+          last_error: string | null
+          opportunity_id: string
+          quarantined_at: string
+          reason: string
+        }
+        Insert: {
+          company_id: string
+          deferral_count: number
+          last_error?: string | null
+          opportunity_id: string
+          quarantined_at?: string
+          reason: string
+        }
+        Update: {
+          company_id?: string
+          deferral_count?: number
+          last_error?: string | null
+          opportunity_id?: string
+          quarantined_at?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_summary_refresh_quarantine_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: true
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_summary_refresh_requests: {
+        Row: {
+          company_id: string
+          created_at: string
+          opportunity_id: string
+          requested_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          opportunity_id: string
+          requested_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          opportunity_id?: string
+          requested_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_summary_refresh_requests_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: true
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -12501,6 +13307,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "meeting_proposals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "meeting_proposals_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -12913,6 +13726,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "onboarding_email_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "onboarding_email_log_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -13006,11 +13826,16 @@ export type Database = {
           source_thread_key: string | null
           stage: string
           stage_entered_at: string
+          stage_manual_boundary_at: string | null
+          stage_manual_boundary_event_id: string | null
+          stage_manual_corrected_at: string | null
           stage_manually_set: boolean
           tags: string[] | null
           title: string
           updated_at: string
           win_probability: number | null
+          won_prompt_declined_at: string | null
+          won_prompt_declined_by: string | null
         }
         Insert: {
           actual_close_date?: string | null
@@ -13063,11 +13888,16 @@ export type Database = {
           source_thread_key?: string | null
           stage?: string
           stage_entered_at?: string
+          stage_manual_boundary_at?: string | null
+          stage_manual_boundary_event_id?: string | null
+          stage_manual_corrected_at?: string | null
           stage_manually_set?: boolean
           tags?: string[] | null
           title: string
           updated_at?: string
           win_probability?: number | null
+          won_prompt_declined_at?: string | null
+          won_prompt_declined_by?: string | null
         }
         Update: {
           actual_close_date?: string | null
@@ -13120,11 +13950,16 @@ export type Database = {
           source_thread_key?: string | null
           stage?: string
           stage_entered_at?: string
+          stage_manual_boundary_at?: string | null
+          stage_manual_boundary_event_id?: string | null
+          stage_manual_corrected_at?: string | null
           stage_manually_set?: boolean
           tags?: string[] | null
           title?: string
           updated_at?: string
           win_probability?: number | null
+          won_prompt_declined_at?: string | null
+          won_prompt_declined_by?: string | null
         }
         Relationships: [
           {
@@ -13160,6 +13995,13 @@ export type Database = {
             columns: ["project_ref"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_stage_manual_boundary_event_id_fkey"
+            columns: ["stage_manual_boundary_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
             referencedColumns: ["id"]
           },
         ]
@@ -13259,6 +14101,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "opportunity_assignment_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "opportunity_assignment_deliveries_notification_fkey"
             columns: ["notification_id"]
             isOneToOne: false
@@ -13344,6 +14193,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_assignment_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "opportunity_assignment_events_new_assignee_id_fkey"
@@ -13439,6 +14295,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "opportunity_assignment_suggestions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "opportunity_assignment_suggestions_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
@@ -13516,6 +14379,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_conversion_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "opportunity_conversion_events_opportunity_id_fkey"
@@ -13669,6 +14539,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "opportunity_conversion_notification_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "opportunity_conversion_notification_deliveries_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -13779,6 +14656,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "opportunity_correspondence_events_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "opportunity_correspondence_events_connection_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -13850,6 +14734,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_dispositions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "opportunity_dispositions_company_opp_fk"
@@ -14032,6 +14923,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "opportunity_follow_up_drafts_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "opportunity_follow_up_drafts_connection_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -14141,11 +15039,142 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "opportunity_lifecycle_action_audit_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "opportunity_lifecycle_action_audit_opportunity_company_fkey"
             columns: ["company_id", "opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
+      opportunity_lifecycle_decisions: {
+        Row: {
+          applied_at: string | null
+          company_id: string
+          confidence: number
+          created_at: string
+          decision_key: string
+          decision_kind: string
+          evidence_event_ids: string[]
+          evidence_event_ids_high_water: string[]
+          evidence_high_water_at: string | null
+          evidence_message_ids: string[]
+          evidence_message_ids_high_water: string[]
+          guard_reason: string | null
+          id: string
+          initial_review_reason: string | null
+          initial_status: string
+          opportunity_id: string
+          proposed_outcome: string | null
+          proposed_stage: string | null
+          reason: string
+          review_reason: string | null
+          review_required_at: string | null
+          source_event_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          company_id: string
+          confidence: number
+          created_at?: string
+          decision_key?: string
+          decision_kind: string
+          evidence_event_ids: string[]
+          evidence_event_ids_high_water?: string[]
+          evidence_high_water_at?: string | null
+          evidence_message_ids: string[]
+          evidence_message_ids_high_water?: string[]
+          guard_reason?: string | null
+          id?: string
+          initial_review_reason?: string | null
+          initial_status: string
+          opportunity_id: string
+          proposed_outcome?: string | null
+          proposed_stage?: string | null
+          reason: string
+          review_reason?: string | null
+          review_required_at?: string | null
+          source_event_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          company_id?: string
+          confidence?: number
+          created_at?: string
+          decision_key?: string
+          decision_kind?: string
+          evidence_event_ids?: string[]
+          evidence_event_ids_high_water?: string[]
+          evidence_high_water_at?: string | null
+          evidence_message_ids?: string[]
+          evidence_message_ids_high_water?: string[]
+          guard_reason?: string | null
+          id?: string
+          initial_review_reason?: string | null
+          initial_status?: string
+          opportunity_id?: string
+          proposed_outcome?: string | null
+          proposed_stage?: string | null
+          reason?: string
+          review_reason?: string | null
+          review_required_at?: string | null
+          source_event_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_lifecycle_decisions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_decisions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_decisions_opportunity_company_fkey"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_decisions_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_decisions_source_event_company_fkey"
+            columns: ["company_id", "source_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_decisions_source_event_id_fkey"
+            columns: ["source_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -14199,6 +15228,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_state_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "opportunity_lifecycle_state_last_meaningful_event_company_fkey"
@@ -14344,10 +15380,173 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "opportunity_merges_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "opportunity_merges_review_id_fkey"
             columns: ["review_id"]
             isOneToOne: false
             referencedRelation: "duplicate_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_phase_c_work: {
+        Row: {
+          attempt_count: number
+          commercial_completed_event_id: string | null
+          company_id: string
+          completed_at: string | null
+          component_errors: Json
+          component_outcomes: Json
+          created_at: string
+          event_handoff_completed_event_id: string | null
+          last_attempt_at: string | null
+          last_error_code: string | null
+          last_error_message: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          lifecycle_completed_event_id: string | null
+          next_attempt_at: string
+          opportunity_id: string
+          required_activity_id: string | null
+          required_connection_id: string
+          required_event_at: string
+          required_event_id: string
+          required_provider_thread_id: string
+          summary_completed_event_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          commercial_completed_event_id?: string | null
+          company_id: string
+          completed_at?: string | null
+          component_errors?: Json
+          component_outcomes?: Json
+          created_at?: string
+          event_handoff_completed_event_id?: string | null
+          last_attempt_at?: string | null
+          last_error_code?: string | null
+          last_error_message?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          lifecycle_completed_event_id?: string | null
+          next_attempt_at?: string
+          opportunity_id: string
+          required_activity_id?: string | null
+          required_connection_id: string
+          required_event_at: string
+          required_event_id: string
+          required_provider_thread_id: string
+          summary_completed_event_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          commercial_completed_event_id?: string | null
+          company_id?: string
+          completed_at?: string | null
+          component_errors?: Json
+          component_outcomes?: Json
+          created_at?: string
+          event_handoff_completed_event_id?: string | null
+          last_attempt_at?: string | null
+          last_error_code?: string | null
+          last_error_message?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          lifecycle_completed_event_id?: string | null
+          next_attempt_at?: string
+          opportunity_id?: string
+          required_activity_id?: string | null
+          required_connection_id?: string
+          required_event_at?: string
+          required_event_id?: string
+          required_provider_thread_id?: string
+          summary_completed_event_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_phase_c_work_commercial_completed_event_id_fkey"
+            columns: ["commercial_completed_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_event_company_fkey"
+            columns: ["company_id", "required_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_event_handoff_completed_event_id_fkey"
+            columns: ["event_handoff_completed_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_lifecycle_completed_event_id_fkey"
+            columns: ["lifecycle_completed_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_opportunity_company_fkey"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: true
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_required_activity_id_fkey"
+            columns: ["required_activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_required_event_id_fkey"
+            columns: ["required_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_phase_c_work_summary_completed_event_id_fkey"
+            columns: ["summary_completed_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
             referencedColumns: ["id"]
           },
         ]
@@ -14423,6 +15622,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_views_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "opportunity_views_created_by_fkey"
@@ -14553,6 +15759,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payment_reminder_generation_claims_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       payment_review_writeoff_receipts: {
@@ -14597,6 +15810,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_review_writeoff_receipts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "payment_review_writeoff_receipts_project_id_fkey"
@@ -14835,6 +16055,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pending_auto_sends_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "pending_auto_sends_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -14874,6 +16101,185 @@ export type Database = {
             columns: ["source_email_thread_id"]
             isOneToOne: false
             referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phase_c_bilateral_event_handoffs: {
+        Row: {
+          acceptance_event_id: string | null
+          attempt_count: number
+          attendees: Json
+          cancelled_at: string | null
+          canonical_event_id: string | null
+          canonical_event_kind: string | null
+          company_id: string
+          consumed_at: string | null
+          created_at: string
+          decision_id: string | null
+          ends_at: string | null
+          event_kind: string
+          event_timezone: string | null
+          event_title: string | null
+          id: string
+          idempotency_key: string
+          initial_review_reason: string | null
+          initial_status: string
+          last_error_code: string | null
+          last_error_message: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          location: string | null
+          next_attempt_at: string
+          notification_sent_at: string | null
+          opportunity_id: string
+          processing_failed_at: string | null
+          proposal_event_id: string
+          requested_owner_user_id: string | null
+          review_reason: string | null
+          starts_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          acceptance_event_id?: string | null
+          attempt_count?: number
+          attendees?: Json
+          cancelled_at?: string | null
+          canonical_event_id?: string | null
+          canonical_event_kind?: string | null
+          company_id: string
+          consumed_at?: string | null
+          created_at?: string
+          decision_id?: string | null
+          ends_at?: string | null
+          event_kind: string
+          event_timezone?: string | null
+          event_title?: string | null
+          id?: string
+          idempotency_key: string
+          initial_review_reason?: string | null
+          initial_status: string
+          last_error_code?: string | null
+          last_error_message?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          location?: string | null
+          next_attempt_at?: string
+          notification_sent_at?: string | null
+          opportunity_id: string
+          processing_failed_at?: string | null
+          proposal_event_id: string
+          requested_owner_user_id?: string | null
+          review_reason?: string | null
+          starts_at?: string | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          acceptance_event_id?: string | null
+          attempt_count?: number
+          attendees?: Json
+          cancelled_at?: string | null
+          canonical_event_id?: string | null
+          canonical_event_kind?: string | null
+          company_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          decision_id?: string | null
+          ends_at?: string | null
+          event_kind?: string
+          event_timezone?: string | null
+          event_title?: string | null
+          id?: string
+          idempotency_key?: string
+          initial_review_reason?: string | null
+          initial_status?: string
+          last_error_code?: string | null
+          last_error_message?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          location?: string | null
+          next_attempt_at?: string
+          notification_sent_at?: string | null
+          opportunity_id?: string
+          processing_failed_at?: string | null
+          proposal_event_id?: string
+          requested_owner_user_id?: string | null
+          review_reason?: string | null
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_acceptance_event_company_fkey"
+            columns: ["company_id", "acceptance_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_acceptance_event_id_fkey"
+            columns: ["acceptance_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_lifecycle_decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_opportunity_company_fkey"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_proposal_event_company_fkey"
+            columns: ["company_id", "proposal_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_proposal_event_id_fkey"
+            columns: ["proposal_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_c_bilateral_event_handoffs_requested_owner_user_id_fkey"
+            columns: ["requested_owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -14926,6 +16332,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_c_category_auto_send_acceptances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "phase_c_category_auto_send_acceptances_connection_id_fkey"
@@ -15182,6 +16595,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmf_prospects_referred_by_company_id_fkey"
+            columns: ["referred_by_company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -15465,6 +16885,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_bundle_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       product_material_quantity_rules: {
@@ -15529,6 +16956,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_material_quantity_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "product_material_quantity_rules_product_material_id_fkey"
@@ -16059,6 +17493,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "project_material_demands_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "project_material_demands_estimate_id_fkey"
             columns: ["estimate_id"]
             isOneToOne: false
@@ -16219,6 +17660,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "project_material_snapshot_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "project_material_snapshot_items_demand_id_fkey"
             columns: ["demand_id"]
             isOneToOne: false
@@ -16313,6 +17761,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "project_material_snapshots_created_by_fkey"
@@ -16420,6 +17875,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_note_mention_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "project_note_mention_events_note_id_fkey"
@@ -16541,8 +18003,10 @@ export type Database = {
           company_id: string
           created_at: string | null
           deleted_at: string | null
+          email_attachment_id: string | null
           id: string
           is_client_visible: boolean
+          origin_sender_email: string | null
           project_id: string
           rendered_url: string | null
           site_visit_id: string | null
@@ -16558,8 +18022,10 @@ export type Database = {
           company_id: string
           created_at?: string | null
           deleted_at?: string | null
+          email_attachment_id?: string | null
           id?: string
           is_client_visible?: boolean
+          origin_sender_email?: string | null
           project_id: string
           rendered_url?: string | null
           site_visit_id?: string | null
@@ -16575,8 +18041,10 @@ export type Database = {
           company_id?: string
           created_at?: string | null
           deleted_at?: string | null
+          email_attachment_id?: string | null
           id?: string
           is_client_visible?: boolean
+          origin_sender_email?: string | null
           project_id?: string
           rendered_url?: string | null
           site_visit_id?: string | null
@@ -16588,6 +18056,13 @@ export type Database = {
           url?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "project_photos_email_attachment_id_fkey"
+            columns: ["email_attachment_id"]
+            isOneToOne: false
+            referencedRelation: "email_attachments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_photos_site_visit_id_fkey"
             columns: ["site_visit_id"]
@@ -16671,6 +18146,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "project_status_lifecycle_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "project_status_lifecycle_outbox_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -16691,6 +18173,7 @@ export type Database = {
           all_day: boolean
           bubble_id: string | null
           company_id: string
+          confirmed_schedule_version: number | null
           created_at: string | null
           custom_title: string | null
           deleted_at: string | null
@@ -16706,7 +18189,6 @@ export type Database = {
           project_id: string
           recurrence_id: string | null
           recurrence_origin_date: string | null
-          confirmed_schedule_version: number | null
           schedule_confirmed_at: string | null
           schedule_confirmed_by: string | null
           schedule_locked: boolean
@@ -16726,6 +18208,7 @@ export type Database = {
           all_day?: boolean
           bubble_id?: string | null
           company_id: string
+          confirmed_schedule_version?: number | null
           created_at?: string | null
           custom_title?: string | null
           deleted_at?: string | null
@@ -16741,7 +18224,6 @@ export type Database = {
           project_id: string
           recurrence_id?: string | null
           recurrence_origin_date?: string | null
-          confirmed_schedule_version?: number | null
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
           schedule_locked?: boolean
@@ -16761,6 +18243,7 @@ export type Database = {
           all_day?: boolean
           bubble_id?: string | null
           company_id?: string
+          confirmed_schedule_version?: number | null
           created_at?: string | null
           custom_title?: string | null
           deleted_at?: string | null
@@ -16776,7 +18259,6 @@ export type Database = {
           project_id?: string
           recurrence_id?: string | null
           recurrence_origin_date?: string | null
-          confirmed_schedule_version?: number | null
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
           schedule_locked?: boolean
@@ -16799,6 +18281,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "project_tasks_paired_from_task_id_fkey"
@@ -16925,6 +18414,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "project_views_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "project_views_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -16955,6 +18451,7 @@ export type Database = {
           opportunity_id: string | null
           opportunity_ref: string | null
           platform_metadata: Json | null
+          primary_sub_client_id: string | null
           priority_rank: number | null
           project_images: string[] | null
           source: string | null
@@ -16971,6 +18468,7 @@ export type Database = {
           vinyl_ordered_at: string | null
           vinyl_ordered_by: string | null
           vinyl_po: string | null
+          vinyl_source: string | null
           visibility: string | null
         }
         Insert: {
@@ -16994,6 +18492,7 @@ export type Database = {
           opportunity_id?: string | null
           opportunity_ref?: string | null
           platform_metadata?: Json | null
+          primary_sub_client_id?: string | null
           priority_rank?: number | null
           project_images?: string[] | null
           source?: string | null
@@ -17010,6 +18509,7 @@ export type Database = {
           vinyl_ordered_at?: string | null
           vinyl_ordered_by?: string | null
           vinyl_po?: string | null
+          vinyl_source?: string | null
           visibility?: string | null
         }
         Update: {
@@ -17033,6 +18533,7 @@ export type Database = {
           opportunity_id?: string | null
           opportunity_ref?: string | null
           platform_metadata?: Json | null
+          primary_sub_client_id?: string | null
           priority_rank?: number | null
           project_images?: string[] | null
           source?: string | null
@@ -17049,6 +18550,7 @@ export type Database = {
           vinyl_ordered_at?: string | null
           vinyl_ordered_by?: string | null
           vinyl_po?: string | null
+          vinyl_source?: string | null
           visibility?: string | null
         }
         Relationships: [
@@ -17067,10 +18569,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "projects_opportunity_ref_fkey"
             columns: ["opportunity_ref"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_primary_sub_client_id_fkey"
+            columns: ["primary_sub_client_id"]
+            isOneToOne: false
+            referencedRelation: "sub_clients"
             referencedColumns: ["id"]
           },
           {
@@ -17358,6 +18874,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "qbo_estimate_opportunity_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "qbo_estimate_opportunity_links_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -17486,6 +19009,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qbo_item_product_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "qbo_item_product_mappings_connection_id_fkey"
@@ -17926,6 +19456,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "recurring_expenses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "recurring_expenses_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -18005,6 +19542,231 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      sage_business_selection_sessions: {
+        Row: {
+          access_token: string
+          actor_user_id: string
+          company_id: string
+          connection_id: string
+          consumed_at: string | null
+          created_at: string
+          eligible_businesses: Json
+          expires_at: string
+          id: string
+          provider_environment: string
+          refresh_token: string
+          token_expires_at: string
+        }
+        Insert: {
+          access_token: string
+          actor_user_id: string
+          company_id: string
+          connection_id: string
+          consumed_at?: string | null
+          created_at?: string
+          eligible_businesses: Json
+          expires_at: string
+          id?: string
+          provider_environment: string
+          refresh_token: string
+          token_expires_at: string
+        }
+        Update: {
+          access_token?: string
+          actor_user_id?: string
+          company_id?: string
+          connection_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          eligible_businesses?: Json
+          expires_at?: string
+          id?: string
+          provider_environment?: string
+          refresh_token?: string
+          token_expires_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_business_selection_sessions_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_payment_method_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          payment_method: string
+          sage_bank_account_id: string
+          sage_payment_method_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          payment_method: string
+          sage_bank_account_id: string
+          sage_payment_method_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          payment_method?: string
+          sage_bank_account_id?: string
+          sage_payment_method_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_payment_method_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_purchase_account_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          expense_category_id: string
+          id: string
+          sage_ledger_account_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          expense_category_id: string
+          id?: string
+          sage_ledger_account_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          expense_category_id?: string
+          id?: string
+          sage_ledger_account_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_purchase_account_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sage_purchase_account_mappings_expense_category_id_fkey"
+            columns: ["expense_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_sales_account_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          sage_ledger_account_id: string
+          source_key: string
+          source_kind: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          sage_ledger_account_id: string
+          source_key: string
+          source_kind: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          sage_ledger_account_id?: string
+          source_key?: string
+          source_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_sales_account_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sage_tax_rate_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          id: string
+          sage_tax_rate_id: string
+          source_tax_key: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          sage_tax_rate_id: string
+          source_tax_key: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          sage_tax_rate_id?: string
+          source_tax_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_tax_rate_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
         ]
       }
       score_norms: {
@@ -18031,6 +19793,57 @@ export type Database = {
           percentile_map?: Json
           sample_size?: number
           segment?: string
+        }
+        Relationships: []
+      }
+      search_console_daily: {
+        Row: {
+          clicks: number
+          country: string
+          created_at: string
+          ctr: number
+          device: string
+          id: string
+          impressions: number
+          page: string
+          position: number
+          query: string
+          reporting_date: string
+          site_url: string
+          source_updated_at: string
+          updated_at: string
+        }
+        Insert: {
+          clicks?: number
+          country?: string
+          created_at?: string
+          ctr?: number
+          device?: string
+          id?: string
+          impressions?: number
+          page: string
+          position?: number
+          query?: string
+          reporting_date: string
+          site_url: string
+          source_updated_at?: string
+          updated_at?: string
+        }
+        Update: {
+          clicks?: number
+          country?: string
+          created_at?: string
+          ctr?: number
+          device?: string
+          id?: string
+          impressions?: number
+          page?: string
+          position?: number
+          query?: string
+          reporting_date?: string
+          site_url?: string
+          source_updated_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -18555,6 +20368,73 @@ export type Database = {
           },
         ]
       }
+      site_visit_booking_policies: {
+        Row: {
+          company_id: string
+          created_at: string
+          default_owner_id: string | null
+          horizon_days: number
+          max_bookings_per_day: number | null
+          min_notice_hours: number
+          mode: string
+          slot_granularity_minutes: number
+          timezone: string
+          updated_at: string
+          visit_duration_minutes: number
+          windows: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          default_owner_id?: string | null
+          horizon_days?: number
+          max_bookings_per_day?: number | null
+          min_notice_hours?: number
+          mode?: string
+          slot_granularity_minutes?: number
+          timezone: string
+          updated_at?: string
+          visit_duration_minutes?: number
+          windows?: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          default_owner_id?: string | null
+          horizon_days?: number
+          max_bookings_per_day?: number | null
+          min_notice_hours?: number
+          mode?: string
+          slot_granularity_minutes?: number
+          timezone?: string
+          updated_at?: string
+          visit_duration_minutes?: number
+          windows?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_visit_booking_policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visit_booking_policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "site_visit_booking_policies_default_owner_id_fkey"
+            columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_visit_checklist_answers: {
         Row: {
           answer_value: Json
@@ -18869,17 +20749,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "site_visits_appointment_handoff_id_fkey"
-            columns: ["appointment_handoff_id"]
-            isOneToOne: true
-            referencedRelation: "phase_c_bilateral_event_handoffs"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "site_visits_activity_id_fkey"
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visits_appointment_handoff_id_fkey"
+            columns: ["appointment_handoff_id"]
+            isOneToOne: false
+            referencedRelation: "phase_c_bilateral_event_handoffs"
             referencedColumns: ["id"]
           },
           {
@@ -18911,6 +20791,234 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      social_instagram_connections: {
+        Row: {
+          access_token_ciphertext: string
+          account_type: string | null
+          connected_at: string
+          connected_by_email: string
+          id: number
+          instagram_user_id: string
+          last_refresh_error_at: string | null
+          last_refresh_error_code: string | null
+          last_refresh_error_message: string | null
+          last_refreshed_at: string | null
+          refresh_claim_expires_at: string | null
+          refresh_claim_token: string | null
+          required_scopes: string[]
+          token_expires_at: string
+          token_issued_at: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          access_token_ciphertext: string
+          account_type?: string | null
+          connected_at?: string
+          connected_by_email: string
+          id?: number
+          instagram_user_id: string
+          last_refresh_error_at?: string | null
+          last_refresh_error_code?: string | null
+          last_refresh_error_message?: string | null
+          last_refreshed_at?: string | null
+          refresh_claim_expires_at?: string | null
+          refresh_claim_token?: string | null
+          required_scopes: string[]
+          token_expires_at: string
+          token_issued_at: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          access_token_ciphertext?: string
+          account_type?: string | null
+          connected_at?: string
+          connected_by_email?: string
+          id?: number
+          instagram_user_id?: string
+          last_refresh_error_at?: string | null
+          last_refresh_error_code?: string | null
+          last_refresh_error_message?: string | null
+          last_refreshed_at?: string | null
+          refresh_claim_expires_at?: string | null
+          refresh_claim_token?: string | null
+          required_scopes?: string[]
+          token_expires_at?: string
+          token_issued_at?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      social_instagram_oauth_states: {
+        Row: {
+          admin_email: string
+          created_at: string
+          expires_at: string
+          nonce_hash: string
+        }
+        Insert: {
+          admin_email: string
+          created_at?: string
+          expires_at: string
+          nonce_hash: string
+        }
+        Update: {
+          admin_email?: string
+          created_at?: string
+          expires_at?: string
+          nonce_hash?: string
+        }
+        Relationships: []
+      }
+      social_posts: {
+        Row: {
+          agent_preferences: Json
+          alt_text: string
+          attempt_count: number
+          audit_log: Json
+          cancelled_at: string | null
+          caption: string
+          claim_expires_at: string | null
+          claim_token: string | null
+          content: Json
+          contract_version: string
+          created_at: string
+          created_by: string
+          id: string
+          idempotency_key: string
+          instagram_media_id: string | null
+          instagram_permalink: string | null
+          last_attempt_at: string | null
+          last_error_code: string | null
+          last_error_message: string | null
+          last_error_retryable: boolean | null
+          max_attempts: number
+          next_attempt_at: string | null
+          post_format: string
+          publish_after: string
+          publish_attempts: Json
+          publish_stage: string
+          published_at: string | null
+          recovery_notification_claim_expires_at: string | null
+          recovery_notification_claim_token: string | null
+          recovery_notification_pending: boolean
+          recovery_notified_at: string | null
+          render_version: string
+          rendered_assets: Json
+          rendered_at: string | null
+          requested_publish_at: string | null
+          selection_metadata: Json
+          selector_version: string
+          source_id: string | null
+          source_type: string
+          source_url: string | null
+          status: string
+          story_type: string
+          updated_at: string
+          updated_by: string
+          visual_treatment: string
+          voice_reference_version: string
+        }
+        Insert: {
+          agent_preferences?: Json
+          alt_text: string
+          attempt_count?: number
+          audit_log?: Json
+          cancelled_at?: string | null
+          caption: string
+          claim_expires_at?: string | null
+          claim_token?: string | null
+          content: Json
+          contract_version: string
+          created_at?: string
+          created_by: string
+          id?: string
+          idempotency_key: string
+          instagram_media_id?: string | null
+          instagram_permalink?: string | null
+          last_attempt_at?: string | null
+          last_error_code?: string | null
+          last_error_message?: string | null
+          last_error_retryable?: boolean | null
+          max_attempts?: number
+          next_attempt_at?: string | null
+          post_format: string
+          publish_after?: string
+          publish_attempts?: Json
+          publish_stage?: string
+          published_at?: string | null
+          recovery_notification_claim_expires_at?: string | null
+          recovery_notification_claim_token?: string | null
+          recovery_notification_pending?: boolean
+          recovery_notified_at?: string | null
+          render_version: string
+          rendered_assets?: Json
+          rendered_at?: string | null
+          requested_publish_at?: string | null
+          selection_metadata?: Json
+          selector_version: string
+          source_id?: string | null
+          source_type: string
+          source_url?: string | null
+          status?: string
+          story_type: string
+          updated_at?: string
+          updated_by: string
+          visual_treatment: string
+          voice_reference_version: string
+        }
+        Update: {
+          agent_preferences?: Json
+          alt_text?: string
+          attempt_count?: number
+          audit_log?: Json
+          cancelled_at?: string | null
+          caption?: string
+          claim_expires_at?: string | null
+          claim_token?: string | null
+          content?: Json
+          contract_version?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          idempotency_key?: string
+          instagram_media_id?: string | null
+          instagram_permalink?: string | null
+          last_attempt_at?: string | null
+          last_error_code?: string | null
+          last_error_message?: string | null
+          last_error_retryable?: boolean | null
+          max_attempts?: number
+          next_attempt_at?: string | null
+          post_format?: string
+          publish_after?: string
+          publish_attempts?: Json
+          publish_stage?: string
+          published_at?: string | null
+          recovery_notification_claim_expires_at?: string | null
+          recovery_notification_claim_token?: string | null
+          recovery_notification_pending?: boolean
+          recovery_notified_at?: string | null
+          render_version?: string
+          rendered_assets?: Json
+          rendered_at?: string | null
+          requested_publish_at?: string | null
+          selection_metadata?: Json
+          selector_version?: string
+          source_id?: string | null
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          story_type?: string
+          updated_at?: string
+          updated_by?: string
+          visual_treatment?: string
+          voice_reference_version?: string
+        }
+        Relationships: []
       }
       spec_acceptance_events: {
         Row: {
@@ -19433,6 +21541,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "spec_module_entitlements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "spec_module_entitlements_spec_project_id_fkey"
             columns: ["spec_project_id"]
             isOneToOne: false
@@ -19526,6 +21641,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_owner_approval_requests_linked_company_id_fkey"
+            columns: ["linked_company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "spec_owner_approval_requests_spec_project_id_fkey"
@@ -19923,6 +22045,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_projects_linked_company_id_fkey"
+            columns: ["linked_company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -20454,6 +22583,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sub_clients_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       supplier_bill_documents: {
@@ -20601,6 +22737,613 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "growth_company_milestones"
             referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      supplier_bill_intake_allocations: {
+        Row: {
+          allocation_basis: string
+          amount: number
+          company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          intake_id: string
+          line_item_id: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          allocation_basis: string
+          amount: number
+          company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          intake_id: string
+          line_item_id: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          allocation_basis?: string
+          amount?: number
+          company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          intake_id?: string
+          line_item_id?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_intake_allocati_line_item_id_intake_id_compa_fkey"
+            columns: ["line_item_id", "intake_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bill_intake_line_items"
+            referencedColumns: ["id", "intake_id", "company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_allocations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_allocations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_allocations_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_allocations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_allocations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bill_intake_checks: {
+        Row: {
+          check_key: string
+          company_id: string
+          created_at: string
+          disposition: string
+          dispositioned_at: string | null
+          dispositioned_by: string | null
+          evidence: Json
+          id: string
+          intake_id: string
+          note: string | null
+          observed_value: string | null
+          outcome: string
+          policy_limit: string | null
+          updated_at: string
+        }
+        Insert: {
+          check_key: string
+          company_id: string
+          created_at?: string
+          disposition?: string
+          dispositioned_at?: string | null
+          dispositioned_by?: string | null
+          evidence?: Json
+          id?: string
+          intake_id: string
+          note?: string | null
+          observed_value?: string | null
+          outcome?: string
+          policy_limit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          check_key?: string
+          company_id?: string
+          created_at?: string
+          disposition?: string
+          dispositioned_at?: string | null
+          dispositioned_by?: string | null
+          evidence?: Json
+          id?: string
+          intake_id?: string
+          note?: string | null
+          observed_value?: string | null
+          outcome?: string
+          policy_limit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_intake_checks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_checks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_checks_dispositioned_by_fkey"
+            columns: ["dispositioned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_checks_intake_id_company_id_fkey"
+            columns: ["intake_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bill_intakes"
+            referencedColumns: ["id", "company_id"]
+          },
+        ]
+      }
+      supplier_bill_intake_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          extraction: Json
+          id: string
+          intake_id: string
+          mime_type: string
+          original_filename: string
+          public_url: string
+          sha256: string
+          size_bytes: number
+          storage_bucket: string
+          storage_key: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          extraction?: Json
+          id?: string
+          intake_id: string
+          mime_type: string
+          original_filename: string
+          public_url: string
+          sha256: string
+          size_bytes: number
+          storage_bucket: string
+          storage_key: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          extraction?: Json
+          id?: string
+          intake_id?: string
+          mime_type?: string
+          original_filename?: string
+          public_url?: string
+          sha256?: string
+          size_bytes?: number
+          storage_bucket?: string
+          storage_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_intake_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_documents_intake_id_company_id_fkey"
+            columns: ["intake_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bill_intakes"
+            referencedColumns: ["id", "company_id"]
+          },
+        ]
+      }
+      supplier_bill_intake_events: {
+        Row: {
+          action: string
+          actor_user_id: string
+          after_snapshot: Json
+          before_snapshot: Json
+          command_hash: string
+          company_id: string
+          created_at: string
+          id: string
+          intake_id: string
+          intent_id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          after_snapshot: Json
+          before_snapshot?: Json
+          command_hash: string
+          company_id: string
+          created_at?: string
+          id?: string
+          intake_id: string
+          intent_id: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          after_snapshot?: Json
+          before_snapshot?: Json
+          command_hash?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          intake_id?: string
+          intent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_intake_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_events_intake_id_company_id_fkey"
+            columns: ["intake_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bill_intakes"
+            referencedColumns: ["id", "company_id"]
+          },
+        ]
+      }
+      supplier_bill_intake_line_items: {
+        Row: {
+          category_id: string | null
+          company_id: string
+          created_at: string
+          description: string
+          id: string
+          intake_id: string
+          invoiced_quantity: number
+          job_hint: string | null
+          match_basis: string | null
+          match_confirmed_at: string | null
+          match_confirmed_by: string | null
+          match_status: string
+          matched_project_id: string | null
+          ordered_quantity: number | null
+          position: number
+          sku: string | null
+          subtotal: number
+          tax_amount: number
+          total: number
+          unit_of_measure: string | null
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          company_id: string
+          created_at?: string
+          description: string
+          id?: string
+          intake_id: string
+          invoiced_quantity: number
+          job_hint?: string | null
+          match_basis?: string | null
+          match_confirmed_at?: string | null
+          match_confirmed_by?: string | null
+          match_status?: string
+          matched_project_id?: string | null
+          ordered_quantity?: number | null
+          position: number
+          sku?: string | null
+          subtotal: number
+          tax_amount: number
+          total: number
+          unit_of_measure?: string | null
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          intake_id?: string
+          invoiced_quantity?: number
+          job_hint?: string | null
+          match_basis?: string | null
+          match_confirmed_at?: string | null
+          match_confirmed_by?: string | null
+          match_status?: string
+          matched_project_id?: string | null
+          ordered_quantity?: number | null
+          position?: number
+          sku?: string | null
+          subtotal?: number
+          tax_amount?: number
+          total?: number
+          unit_of_measure?: string | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_intake_line_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_line_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_line_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_line_items_intake_id_company_id_fkey"
+            columns: ["intake_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bill_intakes"
+            referencedColumns: ["id", "company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_line_items_match_confirmed_by_fkey"
+            columns: ["match_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_line_items_matched_project_id_fkey"
+            columns: ["matched_project_id"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intake_line_items_matched_project_id_fkey"
+            columns: ["matched_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bill_intakes: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          captured_by: string
+          category_id: string | null
+          company_id: string
+          created_at: string
+          currency: string
+          deleted_at: string | null
+          document_kind: string
+          due_date: string | null
+          hold_reason: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          next_action: string | null
+          normalized_invoice_number: string
+          normalized_supplier_name: string
+          paid_at: string | null
+          payment_owner_id: string | null
+          planned_payment_date: string | null
+          promoted_bill_id: string | null
+          promoted_expense_id: string | null
+          purchase_order: string | null
+          review_stage: string
+          revision: number
+          routed_to_payroll_at: string | null
+          routed_to_payroll_by: string | null
+          shipping_reference: string | null
+          subtotal: number
+          supplier_name: string
+          tax_total: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          captured_by: string
+          category_id?: string | null
+          company_id: string
+          created_at?: string
+          currency: string
+          deleted_at?: string | null
+          document_kind: string
+          due_date?: string | null
+          hold_reason?: string | null
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          next_action?: string | null
+          normalized_invoice_number: string
+          normalized_supplier_name: string
+          paid_at?: string | null
+          payment_owner_id?: string | null
+          planned_payment_date?: string | null
+          promoted_bill_id?: string | null
+          promoted_expense_id?: string | null
+          purchase_order?: string | null
+          review_stage?: string
+          revision?: number
+          routed_to_payroll_at?: string | null
+          routed_to_payroll_by?: string | null
+          shipping_reference?: string | null
+          subtotal: number
+          supplier_name: string
+          tax_total: number
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          captured_by?: string
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          currency?: string
+          deleted_at?: string | null
+          document_kind?: string
+          due_date?: string | null
+          hold_reason?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          next_action?: string | null
+          normalized_invoice_number?: string
+          normalized_supplier_name?: string
+          paid_at?: string | null
+          payment_owner_id?: string | null
+          planned_payment_date?: string | null
+          promoted_bill_id?: string | null
+          promoted_expense_id?: string | null
+          purchase_order?: string | null
+          review_stage?: string
+          revision?: number
+          routed_to_payroll_at?: string | null
+          routed_to_payroll_by?: string | null
+          shipping_reference?: string | null
+          subtotal?: number
+          supplier_name?: string
+          tax_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_intakes_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intakes_captured_by_fkey"
+            columns: ["captured_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intakes_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intakes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intakes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intakes_payment_owner_id_fkey"
+            columns: ["payment_owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intakes_promoted_bill_id_fkey"
+            columns: ["promoted_bill_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intakes_promoted_expense_id_fkey"
+            columns: ["promoted_expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_intakes_routed_to_payroll_by_fkey"
+            columns: ["routed_to_payroll_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -21373,6 +24116,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "task_material_allocations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "task_material_allocations_demand_id_fkey"
             columns: ["demand_id"]
             isOneToOne: false
@@ -21439,6 +24189,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_consumption_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "task_material_consumption_requests_created_by_fkey"
@@ -21569,6 +24326,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_mutation_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "task_mutation_events_project_id_fkey"
@@ -21721,6 +24485,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_recurrences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "task_recurrences_created_by_fkey"
@@ -21916,6 +24687,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "task_schedule_automation_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "task_schedule_automation_outbox_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
@@ -21927,6 +24705,76 @@ export type Database = {
             columns: ["task_mutation_event_id"]
             isOneToOne: true
             referencedRelation: "task_mutation_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_scopes: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          deleted_at: string | null
+          display_order: number
+          id: string
+          note: string | null
+          source_line_item_id: string | null
+          split_to_task_id: string | null
+          task_id: string
+          task_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          id: string
+          note?: string | null
+          source_line_item_id?: string | null
+          split_to_task_id?: string | null
+          task_id: string
+          task_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          id?: string
+          note?: string | null
+          source_line_item_id?: string | null
+          split_to_task_id?: string | null
+          task_id?: string
+          task_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_scopes_split_to_task_id_fkey"
+            columns: ["split_to_task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_scopes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_scopes_task_type_id_fkey"
+            columns: ["task_type_id"]
+            isOneToOne: false
+            referencedRelation: "task_types"
             referencedColumns: ["id"]
           },
         ]
@@ -22112,6 +24960,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "task_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       tax_rates: {
@@ -22193,6 +25048,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "team_invitations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "team_invitations_invited_by_fkey"
             columns: ["invited_by"]
             isOneToOne: false
@@ -22208,11 +25070,86 @@ export type Database = {
           },
         ]
       }
+      touchpoints: {
+        Row: {
+          anonymous_id: string | null
+          attribution_basis: string
+          attribution_confidence: number
+          campaign: string | null
+          canonical_channel: string
+          capture_version: number
+          click_ids: Json
+          company_id: string | null
+          created_at: string
+          dedupe_key: string
+          expires_at: string | null
+          id: string
+          landing_path: string | null
+          occurred_at: string
+          raw_source: Json
+          referrer_domain: string | null
+          sub_channel: string | null
+        }
+        Insert: {
+          anonymous_id?: string | null
+          attribution_basis: string
+          attribution_confidence: number
+          campaign?: string | null
+          canonical_channel: string
+          capture_version: number
+          click_ids?: Json
+          company_id?: string | null
+          created_at?: string
+          dedupe_key: string
+          expires_at?: string | null
+          id?: string
+          landing_path?: string | null
+          occurred_at: string
+          raw_source?: Json
+          referrer_domain?: string | null
+          sub_channel?: string | null
+        }
+        Update: {
+          anonymous_id?: string | null
+          attribution_basis?: string
+          attribution_confidence?: number
+          campaign?: string | null
+          canonical_channel?: string
+          capture_version?: number
+          click_ids?: Json
+          company_id?: string | null
+          created_at?: string
+          dedupe_key?: string
+          expires_at?: string | null
+          id?: string
+          landing_path?: string | null
+          occurred_at?: string
+          raw_source?: Json
+          referrer_domain?: string | null
+          sub_channel?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "touchpoints_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "touchpoints_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       trial_attributions: {
         Row: {
+          attributed_channel: string
           attribution_basis: string
           attribution_confidence: number | null
-          attributed_channel: string
           capture_version: number
           classification_reason: string | null
           company_id: string
@@ -22234,9 +25171,9 @@ export type Database = {
           utm_term: string | null
         }
         Insert: {
+          attributed_channel?: string
           attribution_basis?: string
           attribution_confidence?: number | null
-          attributed_channel?: string
           capture_version?: number
           classification_reason?: string | null
           company_id: string
@@ -22258,9 +25195,9 @@ export type Database = {
           utm_term?: string | null
         }
         Update: {
+          attributed_channel?: string
           attribution_basis?: string
           attribution_confidence?: number | null
-          attributed_channel?: string
           capture_version?: number
           classification_reason?: string | null
           company_id?: string
@@ -22289,6 +25226,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "trial_attributions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       trial_expiry_notifications: {
@@ -22299,6 +25243,10 @@ export type Database = {
           notification_type: string
           promo_code_30: string | null
           promo_code_50: string | null
+          push_attempts: number
+          push_last_attempt_at: string | null
+          push_last_error: string | null
+          push_status: string
           sent_at: string
         }
         Insert: {
@@ -22308,6 +25256,10 @@ export type Database = {
           notification_type: string
           promo_code_30?: string | null
           promo_code_50?: string | null
+          push_attempts?: number
+          push_last_attempt_at?: string | null
+          push_last_error?: string | null
+          push_status?: string
           sent_at?: string
         }
         Update: {
@@ -22317,6 +25269,10 @@ export type Database = {
           notification_type?: string
           promo_code_30?: string | null
           promo_code_50?: string | null
+          push_attempts?: number
+          push_last_attempt_at?: string | null
+          push_last_error?: string | null
+          push_status?: string
           sent_at?: string
         }
         Relationships: [
@@ -22326,6 +25282,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trial_expiry_notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -22588,6 +25551,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "unassigned_lead_assignment_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "unassigned_lead_assignment_deliveries_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -22731,6 +25701,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_email_aliases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "user_email_aliases_reviewer_company_fkey"
             columns: ["company_id", "reviewed_by"]
             isOneToOne: false
@@ -22785,6 +25762,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permission_change_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "user_permission_change_deliveries_recipient_user_id_fkey"
@@ -22989,6 +25973,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "users_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       valid_status_transitions: {
@@ -23062,6 +26053,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "weather_forecasts_project_id_fkey"
@@ -23222,6 +26220,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "wizard_analytics_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       wizard_states: {
@@ -23303,27 +26308,13 @@ export type Database = {
           activated_companies: number | null
           attribution_basis: string | null
           canonical_channel: string | null
-          first_value_companies: number | null
           first_project_companies: number | null
+          first_value_companies: number | null
           grain: string | null
           paid_companies: number | null
           reporting_date: string | null
           revenue_cents: number | null
           trials_started: number | null
-        }
-        Relationships: []
-      }
-      growth_data_health: {
-        Row: {
-          error_code: string | null
-          error_message: string | null
-          finished_at: string | null
-          metadata: Json | null
-          row_count: number | null
-          source: string | null
-          source_max_date: string | null
-          started_at: string | null
-          status: string | null
         }
         Relationships: []
       }
@@ -23344,12 +26335,26 @@ export type Database = {
         }
         Relationships: []
       }
+      growth_data_health: {
+        Row: {
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          metadata: Json | null
+          row_count: number | null
+          source: string | null
+          source_max_date: string | null
+          started_at: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       growth_funnel_daily: {
         Row: {
           activated_companies: number | null
           classified_trials: number | null
-          first_value_companies: number | null
           first_project_companies: number | null
+          first_value_companies: number | null
           grain: string | null
           paid_companies: number | null
           reporting_date: string | null
@@ -23405,6 +26410,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_variants_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "catalog_variants_unit_id_fkey"
@@ -23531,6 +26543,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalog_snapshots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "catalog_snapshots_created_by_id_fkey"
             columns: ["created_by_id"]
             isOneToOne: false
@@ -23578,6 +26597,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "catalog_tags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       inventory_units: {
@@ -23624,6 +26650,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
           },
         ]
       }
@@ -23675,77 +26708,17 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
     }
     Functions: {
-      commit_supplier_bill_write: {
-        Args: {
-          p_actor_user_id: string
-          p_confirmation_text: string
-          p_intent_id: string
-        }
-        Returns: Json
-      }
-      consume_accounting_oauth_attempt: {
-        Args: { p_state_digest: string }
-        Returns: {
-          actor_user_id: string
-          company_id: string
-          consumed_at: string | null
-          created_at: string
-          expires_at: string
-          id: string
-          pkce_verifier: string
-          provider: string
-          provider_environment: string
-          return_surface: string
-          state_digest: string
-        }[]
-      }
-      consume_sage_business_selection_session: {
-        Args: {
-          p_actor_user_id: string
-          p_company_id: string
-          p_session_id: string
-        }
-        Returns: {
-          access_token: string
-          actor_user_id: string
-          company_id: string
-          connection_id: string
-          consumed_at: string | null
-          created_at: string
-          eligible_businesses: Json
-          expires_at: string
-          id: string
-          provider_environment: string
-          refresh_token: string
-          token_expires_at: string
-        }[]
-      }
-      finalize_paid_supplier_purchase: {
-        Args: {
-          p_actor_user_id: string
-          p_expense_receipt: Json
-          p_intent_id: string
-        }
-        Returns: Json
-      }
-      finalize_supplier_bill_provider_sync: {
-        Args: {
-          p_external_id: string
-          p_provider_updated_at: string
-          p_queue_id: string
-          p_sync_token: string
-          p_worker_id: string
-        }
-        Returns: Json
-      }
-      prepare_supplier_bill_write: {
-        Args: { p_actor_user_id: string; p_command: Json }
-        Returns: Json
-      }
       _record_client_merge_skip: {
         Args: {
           p_company_id: string
@@ -23810,6 +26783,22 @@ export type Database = {
         }
         Returns: Json
       }
+      acknowledge_opportunity_phase_c_component: {
+        Args: {
+          p_company_id: string
+          p_component: string
+          p_detail?: Json
+          p_expected_required_event_id: string
+          p_opportunity_id: string
+          p_outcome: string
+          p_worker_id: string
+        }
+        Returns: string
+      }
+      acknowledge_phase_c_bilateral_event_handoff: {
+        Args: { p_handoff_id: string; p_worker_id: string }
+        Returns: string
+      }
       acquire_cron_workload_lease_as_system: {
         Args: {
           p_lease_seconds: number
@@ -23825,24 +26814,6 @@ export type Database = {
       acquire_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
-      }
-      append_analytics_events: {
-        Args: { p_events: Json; p_expected_subject: string }
-        Returns: Json
-      }
-      analytics_properties_are_safe: {
-        Args: { p_properties: Json }
-        Returns: boolean
-      }
-      apply_analytics_health_source: {
-        Args: {
-          p_company_id: string
-          p_details: Json
-          p_source: string
-          p_state: string
-          p_user_id: string
-        }
-        Returns: Json
       }
       adopt_orphan_email_activity_as_system: {
         Args: {
@@ -23930,12 +26901,68 @@ export type Database = {
         }
         Returns: boolean
       }
+      analytics_properties_are_safe: {
+        Args: { p_properties: Json }
+        Returns: boolean
+      }
       answer_email_agent_question_as_system: {
         Args: {
           p_actor_user_id: string
           p_answer: string
           p_option_id: string
           p_thread_id: string
+        }
+        Returns: Json
+      }
+      append_analytics_events:
+        | {
+            Args: { p_events: Json; p_expected_subject: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_environment: string
+              p_events: Json
+              p_expected_subject: string
+              p_schema_version: number
+            }
+            Returns: Json
+          }
+      append_customer_identity_event_as_system: {
+        Args: {
+          p_company_id: string
+          p_event_type: string
+          p_identity_id: string
+          p_metadata: Json
+          p_network_fingerprint: string
+          p_session_id: string
+        }
+        Returns: undefined
+      }
+      append_mcp_request_audit_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_client_id: string
+          p_company_id: string
+          p_error_code: string
+          p_grant_id: string
+          p_input_sha256: string
+          p_latency_ms: number
+          p_outcome: string
+          p_protocol_era: string
+          p_request_id: string
+          p_result_bytes: number
+          p_tool: string
+        }
+        Returns: undefined
+      }
+      apply_analytics_health_source: {
+        Args: {
+          p_company_id: string
+          p_details: Json
+          p_source: string
+          p_state: string
+          p_user_id: string
         }
         Returns: Json
       }
@@ -24036,6 +27063,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -24096,6 +27124,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -24156,6 +27185,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -24226,6 +27256,37 @@ export type Database = {
           outbound_count: number
           stage: string
           stage_manually_set: boolean
+        }[]
+      }
+      apply_phase_c_opportunity_stage_decision: {
+        Args: {
+          p_company_id: string
+          p_decision_id: string
+          p_expected_assignment_version: number
+          p_expected_stage: string
+          p_opportunity_id: string
+        }
+        Returns: {
+          changed: boolean
+          guard_reason: string
+          stage: string
+          stage_manually_set: boolean
+        }[]
+      }
+      apply_sage_reconcile_entity: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_deleted_at: string
+          p_entity_id: string
+          p_entity_type: string
+          p_expected_ops_updated_at: string
+          p_external_id: string
+          p_payload: Json
+          p_provider_updated_at: string
+        }
+        Returns: {
+          ops_updated_at: string
         }[]
       }
       apply_staff_authored_false_lead_correction_guarded: {
@@ -24315,6 +27376,96 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assert_agent_crew_callout_recovery_authority_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_candidate_limit: number
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_crew_member_name: string
+          p_expected_source_revision: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_schedule_source_limit: number
+          p_target_date: string
+        }
+        Returns: Json
+      }
+      assert_agent_day_closeout_routine_claim_as_system: {
+        Args: {
+          p_claim_token: string
+          p_routine_id: string
+          p_scheduled_for: string
+        }
+        Returns: Json
+      }
+      assert_agent_estimate_draft_authority_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_expected_source_revision: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_source_estimate_id: string
+          p_target_opportunity_id: string
+        }
+        Returns: Json
+      }
+      assert_agent_recurring_service_price_change_authority_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+        }
+        Returns: string
+      }
+      assert_agent_weather_reschedule_authority_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_conflict_limit: number
+          p_expected_source_revision: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_permission_snapshot_revision: string
+          p_project_limit: number
+          p_registered_permission_keys: string[]
+          p_target_date: string
+          p_task_limit: number
+        }
+        Returns: Json
+      }
       assign_project_team_member: {
         Args: {
           p_expected_updated_at: string
@@ -24362,6 +27513,16 @@ export type Database = {
           principal_id: string
           scopes: string[]
         }[]
+      }
+      authorize_agent_entity_as_system: {
+        Args: {
+          p_action: string
+          p_actor_user_id: string
+          p_company_id: string
+          p_entity_id: string
+          p_entity_kind: string
+        }
+        Returns: boolean
       }
       authorize_email_exact_message_ingest_as_system: {
         Args: {
@@ -24443,6 +27604,10 @@ export type Database = {
         }
         Returns: Json
       }
+      authorize_lead_summary_refresh: {
+        Args: { p_opportunity_id: string }
+        Returns: string
+      }
       authorize_opportunity_action_as_system: {
         Args: {
           p_action: string
@@ -24466,6 +27631,14 @@ export type Database = {
       begin_assignment_contact_draft_provider_create_as_system: {
         Args: { p_holder: string; p_queue_id: string }
         Returns: Json
+      }
+      begin_customer_otp_challenge_as_system: {
+        Args: { p_email_digest: string; p_network_fingerprint: string }
+        Returns: {
+          allowed: boolean
+          challenge_id: string
+          retry_after_seconds: number
+        }[]
       }
       begin_email_assignment_contact_form_draft_provider_create_as_sy: {
         Args: { p_holder: string; p_queue_id: string }
@@ -24493,6 +27666,18 @@ export type Database = {
         }
         Returns: string
       }
+      book_site_visit_as_system: {
+        Args: {
+          p_actor_user_id?: string
+          p_assignee_ids?: string[]
+          p_duration_minutes?: number
+          p_opportunity_id: string
+          p_reminder_lead_minutes?: number
+          p_scheduled_at: string
+          p_source?: string
+        }
+        Returns: string
+      }
       bulk_update_project_table: { Args: { p_operations: Json }; Returns: Json }
       campaign_engagement_stats: {
         Args: { p_campaign_id: string }
@@ -24503,6 +27688,13 @@ export type Database = {
         Returns: {
           stage: string
           value: number
+        }[]
+      }
+      cancel_guest_booking_as_system: {
+        Args: { p_intent_id: string; p_reason?: string }
+        Returns: {
+          intent_id: string
+          site_visit_id: string
         }[]
       }
       cancel_phase_c_auto_send: {
@@ -24566,6 +27758,49 @@ export type Database = {
       cancel_site_visit_booking: {
         Args: { p_site_visit_id: string }
         Returns: string
+      }
+      capture_agent_provider_delivery_source_as_system: {
+        Args: {
+          p_attachment_descriptors: Json
+          p_attachment_enumeration_complete: boolean
+          p_cc_recipient_identities: string[]
+          p_company_id: string
+          p_connection_id: string
+          p_content_charset: string
+          p_content_media_type: string
+          p_content_selection_revision: string
+          p_content_source_kind: string
+          p_content_value: string
+          p_delivered_at: string
+          p_direction: string
+          p_normalization_revision: string
+          p_normalization_status: string
+          p_normalized_plain_text: string
+          p_normalized_subject: string
+          p_outbound_intent_id: string
+          p_outbound_intent_kind: string
+          p_provider: string
+          p_provider_body_attachment_id: string
+          p_provider_message_id: string
+          p_provider_part_id: string
+          p_provider_thread_id: string
+          p_recipient_identities: string[]
+          p_sender_identity: string
+          p_subject: string
+        }
+        Returns: {
+          inserted: boolean
+          source_id: string
+          source_sha256: string
+        }[]
+      }
+      catalog_bulk_expand_variants: {
+        Args: {
+          p_company_id: string
+          p_idempotency_key: string
+          p_payload: Json
+        }
+        Returns: Json
       }
       catalog_guided_setup_archive_variant: {
         Args: { p_action_key: string; p_session_id: string }
@@ -24701,9 +27936,9 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider: string
           provider_accepted_at: string | null
           provider_request_id: string | null
-          provider: string
           run_after: string
           source_action: string
           source_table: string
@@ -24717,6 +27952,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      claim_agent_day_closeout_routines_as_system: {
+        Args: { p_lease_seconds: number; p_limit: number }
+        Returns: Json
       }
       claim_approved_action_email_delivery: {
         Args: { p_intent_id: string }
@@ -24746,6 +27985,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -24754,6 +27994,67 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
+          reconciliation_lease_expires_at: string | null
+          reconciliation_lease_token: string | null
+          rendered_body: string | null
+          rendered_body_hash: string | null
+          reply_provider_thread_id: string | null
+          signature_content_hash: string | null
+          signature_id: string | null
+          source_activity_id: string | null
+          source_draft_history_id: string | null
+          source_email_thread_id: string | null
+          status: string
+          subject: string
+          to_emails: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "approved_action_email_intents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      claim_approved_action_email_delivery_pre_schedule_guard: {
+        Args: { p_intent_id: string }
+        Returns: {
+          accepted_provider_thread_id: string | null
+          action_data_snapshot: Json
+          action_id: string
+          action_type: string
+          actor_email_snapshot: string
+          actor_name_snapshot: string
+          actor_user_id: string
+          assignment_event_id: string | null
+          assignment_version: number | null
+          authored_body: string
+          cc_emails: string[]
+          client_from_address_snapshot: string
+          client_id: string | null
+          company_id: string
+          connection_id: string
+          content_type: string
+          created_at: string
+          draft_history_id: string | null
+          execution_mode: string
+          id: string
+          idempotency_key: string
+          in_reply_to: string | null
+          invoice_id: string | null
+          last_error: string | null
+          learning_authority: string
+          max_reconciliation_attempts: number
+          opportunity_id: string | null
+          profile_type_snapshot: string
+          project_id: string | null
+          provider_accepted_at: string | null
+          provider_message_id: string | null
+          reconciled_activity_id: string | null
+          reconciled_at: string | null
+          reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -24804,6 +28105,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -24812,6 +28114,7 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -24832,6 +28135,67 @@ export type Database = {
           to: "approved_action_email_intents"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      claim_due_social_posts: {
+        Args: {
+          p_claim_token: string
+          p_claim_ttl_seconds?: number
+          p_limit?: number
+        }
+        Returns: {
+          agent_preferences: Json
+          alt_text: string
+          attempt_count: number
+          audit_log: Json
+          cancelled_at: string | null
+          caption: string
+          claim_expires_at: string | null
+          claim_token: string | null
+          content: Json
+          contract_version: string
+          created_at: string
+          created_by: string
+          id: string
+          idempotency_key: string
+          instagram_media_id: string | null
+          instagram_permalink: string | null
+          last_attempt_at: string | null
+          last_error_code: string | null
+          last_error_message: string | null
+          last_error_retryable: boolean | null
+          max_attempts: number
+          next_attempt_at: string | null
+          post_format: string
+          publish_after: string
+          publish_attempts: Json
+          publish_stage: string
+          published_at: string | null
+          recovery_notification_claim_expires_at: string | null
+          recovery_notification_claim_token: string | null
+          recovery_notification_pending: boolean
+          recovery_notified_at: string | null
+          render_version: string
+          rendered_assets: Json
+          rendered_at: string | null
+          requested_publish_at: string | null
+          selection_metadata: Json
+          selector_version: string
+          source_id: string | null
+          source_type: string
+          source_url: string | null
+          status: string
+          story_type: string
+          updated_at: string
+          updated_by: string
+          visual_treatment: string
+          voice_reference_version: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "social_posts"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       claim_email_assignment_contact_form_drafts: {
@@ -25215,6 +28579,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -25275,6 +28640,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -25670,6 +29036,19 @@ export type Database = {
         Args: { p_lease_seconds?: number; p_run_id: string }
         Returns: Json
       }
+      claim_guest_booking_as_system: {
+        Args: {
+          p_contact_email_digest: string
+          p_identity_id: string
+          p_intent_id: string
+        }
+        Returns: {
+          claim_id: string
+          client_id: string
+          created: boolean
+          membership_id: string
+        }[]
+      }
       claim_legacy_email_activity_connection_as_system: {
         Args: {
           p_activity_id: string
@@ -25679,6 +29058,66 @@ export type Database = {
           p_provider_thread_id: string
         }
         Returns: boolean
+      }
+      claim_next_approved_action_email_reconciliation: {
+        Args: { p_failed_before: string; p_lease_seconds: number }
+        Returns: {
+          accepted_provider_thread_id: string | null
+          action_data_snapshot: Json
+          action_id: string
+          action_type: string
+          actor_email_snapshot: string
+          actor_name_snapshot: string
+          actor_user_id: string
+          assignment_event_id: string | null
+          assignment_version: number | null
+          authored_body: string
+          cc_emails: string[]
+          client_from_address_snapshot: string
+          client_id: string | null
+          company_id: string
+          connection_id: string
+          content_type: string
+          created_at: string
+          draft_history_id: string | null
+          execution_mode: string
+          id: string
+          idempotency_key: string
+          in_reply_to: string | null
+          invoice_id: string | null
+          last_error: string | null
+          learning_authority: string
+          max_reconciliation_attempts: number
+          opportunity_id: string | null
+          profile_type_snapshot: string
+          project_id: string | null
+          provider_accepted_at: string | null
+          provider_message_id: string | null
+          reconciled_activity_id: string | null
+          reconciled_at: string | null
+          reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
+          reconciliation_lease_expires_at: string | null
+          reconciliation_lease_token: string | null
+          rendered_body: string | null
+          rendered_body_hash: string | null
+          reply_provider_thread_id: string | null
+          signature_content_hash: string | null
+          signature_id: string | null
+          source_activity_id: string | null
+          source_draft_history_id: string | null
+          source_email_thread_id: string | null
+          status: string
+          subject: string
+          to_emails: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "approved_action_email_intents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       claim_next_email_send_reconciliation: {
         Args: { p_failed_before: string; p_lease_seconds: number }
@@ -25778,6 +29217,25 @@ export type Database = {
           recipient_user_id: string
           requires_notification: boolean
           should_push: boolean
+        }[]
+      }
+      claim_opportunity_phase_c_work: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          company_id: string
+          component_errors: Json
+          component_outcomes: Json
+          opportunity_id: string
+          required_activity_id: string
+          required_connection_id: string
+          required_event_at: string
+          required_event_id: string
+          required_provider_thread_id: string
         }[]
       }
       claim_payment_reminder_generation: {
@@ -25888,6 +29346,23 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_phase_c_bilateral_event_handoffs: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          canonical_event_id: string
+          canonical_event_kind: string
+          company_id: string
+          id: string
+          opportunity_id: string
+          requested_owner_user_id: string
+          status: string
+        }[]
+      }
       claim_phase_c_graduation_actor_scopes_as_system: {
         Args: { p_lease_seconds?: number; p_limit?: number }
         Returns: {
@@ -25916,6 +29391,138 @@ export type Database = {
           project_updated_at: string
           requested_at: string
         }[]
+      }
+      claim_social_instagram_refresh: {
+        Args: { p_claim_token: string; p_claim_ttl_seconds?: number }
+        Returns: {
+          access_token_ciphertext: string
+          instagram_user_id: string
+          token_expires_at: string
+          token_issued_at: string
+          username: string
+        }[]
+      }
+      claim_social_post_by_id: {
+        Args: {
+          p_claim_token: string
+          p_claim_ttl_seconds?: number
+          p_post_id: string
+        }
+        Returns: {
+          agent_preferences: Json
+          alt_text: string
+          attempt_count: number
+          audit_log: Json
+          cancelled_at: string | null
+          caption: string
+          claim_expires_at: string | null
+          claim_token: string | null
+          content: Json
+          contract_version: string
+          created_at: string
+          created_by: string
+          id: string
+          idempotency_key: string
+          instagram_media_id: string | null
+          instagram_permalink: string | null
+          last_attempt_at: string | null
+          last_error_code: string | null
+          last_error_message: string | null
+          last_error_retryable: boolean | null
+          max_attempts: number
+          next_attempt_at: string | null
+          post_format: string
+          publish_after: string
+          publish_attempts: Json
+          publish_stage: string
+          published_at: string | null
+          recovery_notification_claim_expires_at: string | null
+          recovery_notification_claim_token: string | null
+          recovery_notification_pending: boolean
+          recovery_notified_at: string | null
+          render_version: string
+          rendered_assets: Json
+          rendered_at: string | null
+          requested_publish_at: string | null
+          selection_metadata: Json
+          selector_version: string
+          source_id: string | null
+          source_type: string
+          source_url: string | null
+          status: string
+          story_type: string
+          updated_at: string
+          updated_by: string
+          visual_treatment: string
+          voice_reference_version: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "social_posts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_social_recovery_notifications: {
+        Args: {
+          p_claim_token: string
+          p_claim_ttl_seconds?: number
+          p_limit?: number
+        }
+        Returns: {
+          agent_preferences: Json
+          alt_text: string
+          attempt_count: number
+          audit_log: Json
+          cancelled_at: string | null
+          caption: string
+          claim_expires_at: string | null
+          claim_token: string | null
+          content: Json
+          contract_version: string
+          created_at: string
+          created_by: string
+          id: string
+          idempotency_key: string
+          instagram_media_id: string | null
+          instagram_permalink: string | null
+          last_attempt_at: string | null
+          last_error_code: string | null
+          last_error_message: string | null
+          last_error_retryable: boolean | null
+          max_attempts: number
+          next_attempt_at: string | null
+          post_format: string
+          publish_after: string
+          publish_attempts: Json
+          publish_stage: string
+          published_at: string | null
+          recovery_notification_claim_expires_at: string | null
+          recovery_notification_claim_token: string | null
+          recovery_notification_pending: boolean
+          recovery_notified_at: string | null
+          render_version: string
+          rendered_assets: Json
+          rendered_at: string | null
+          requested_publish_at: string | null
+          selection_metadata: Json
+          selector_version: string
+          source_id: string | null
+          source_type: string
+          source_url: string | null
+          status: string
+          story_type: string
+          updated_at: string
+          updated_by: string
+          visual_treatment: string
+          voice_reference_version: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "social_posts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       claim_task_schedule_automation_events: {
         Args: {
@@ -25979,6 +29586,46 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: Json
       }
+      commit_agent_collections_draft_as_actor: {
+        Args: {
+          p_action_id: string
+          p_actor_user_id: string
+          p_change_set_id: string
+          p_company_id: string
+          p_idempotency_key: string
+          p_preview_sha256: string
+        }
+        Returns: Json
+      }
+      commit_agent_day_closeout_as_actor: {
+        Args: {
+          p_action_id: string
+          p_actor_user_id: string
+          p_change_set_id: string
+          p_company_id: string
+          p_idempotency_key: string
+          p_preview_sha256: string
+        }
+        Returns: Json
+      }
+      commit_job_memory_version_as_system: {
+        Args: {
+          p_company_id: string
+          p_conversation_id: string
+          p_expected_current_memory_version_id: string
+          p_expected_source_state_revision: number
+          p_generation_input_hash: string
+          p_generator_revision: string
+          p_memory_document: Json
+          p_processed_turn_ids: string[]
+          p_turn_high_watermark_id: string
+          p_turn_high_watermark_sequence: number
+        }
+        Returns: {
+          current_version: Json
+          result_kind: string
+        }[]
+      }
       commit_lead_summary_snapshot: {
         Args: {
           p_company_id: string
@@ -25998,6 +29645,22 @@ export type Database = {
           guard_reason: string
           summary_updated_at: string
         }[]
+      }
+      commit_supplier_bill_intake_write: {
+        Args: {
+          p_actor_user_id: string
+          p_confirmation_text: string
+          p_intent_id: string
+        }
+        Returns: Json
+      }
+      commit_supplier_bill_write: {
+        Args: {
+          p_actor_user_id: string
+          p_confirmation_text: string
+          p_intent_id: string
+        }
+        Returns: Json
       }
       complete_approved_action_email_reconciliation: {
         Args: {
@@ -26031,6 +29694,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -26039,6 +29703,7 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -26359,6 +30024,15 @@ export type Database = {
         Args: { p_completion?: Json; p_site_visit_id: string }
         Returns: Json
       }
+      complete_social_instagram_refresh: {
+        Args: {
+          p_access_token_ciphertext: string
+          p_claim_token: string
+          p_token_expires_at: string
+          p_token_issued_at: string
+        }
+        Returns: boolean
+      }
       complete_task_schedule_automation_event: {
         Args: {
           p_disposition?: string
@@ -26374,6 +30048,10 @@ export type Database = {
           p_lease_token: string
           p_push_state: string
         }
+        Returns: Json
+      }
+      compose_task_scopes: {
+        Args: { p_candidates: Json; p_company_id: string }
         Returns: Json
       }
       compute_reminder_fires_at: {
@@ -26394,6 +30072,138 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_automatic_project_task_schedule_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_expected_schedule_version: number
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      confirm_booking_request_as_system: {
+        Args: {
+          p_intent_id: string
+          p_scheduled_at?: string
+          p_staff_user_id: string
+        }
+        Returns: {
+          intent_id: string
+          scheduled_at: string
+          site_visit_id: string
+        }[]
+      }
+      confirm_customer_membership_as_system: {
+        Args: { p_membership_id: string; p_staff_user_id: string }
+        Returns: string
+      }
+      confirm_full_auto_project_task_schedule_as_system: {
+        Args: {
+          p_event_id: string
+          p_expected_schedule_version: number
+          p_lease_token: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      confirm_guest_booking_as_system: {
+        Args: {
+          p_contact_email: string
+          p_contact_email_digest: string
+          p_intent_id: string
+          p_verified_channel?: string
+        }
+        Returns: {
+          client_id: string
+          intent_id: string
+          opportunity_id: string
+          outcome: string
+          scheduled_at: string
+          site_visit_id: string
+        }[]
+      }
+      confirm_project_task_schedule_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_expected_schedule_version: number
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      consume_accounting_oauth_attempt: {
+        Args: { p_state_digest: string }
+        Returns: {
+          actor_user_id: string
+          company_id: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          pkce_verifier: string
+          provider: string
+          provider_environment: string
+          return_surface: string
+          state_digest: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "accounting_oauth_attempts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      consume_agent_collections_prepare_rate_limit_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_company_id: string
+          p_grant_id: string
+          p_policy_id: string
+          p_protocol_era: string
+          p_request_id: string
+          p_requested_units: number
+        }
+        Returns: {
+          allowed: boolean
+          remaining_units: number
+          reset_at: string
+        }[]
+      }
+      consume_agent_day_closeout_prepare_rate_limit_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_company_id: string
+          p_grant_id: string
+          p_policy_id: string
+          p_protocol_era: string
+          p_request_id: string
+          p_requested_units: number
+        }
+        Returns: {
+          allowed: boolean
+          remaining_units: number
+          reset_at: string
+        }[]
+      }
+      consume_agent_mcp_rate_limit_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_company_id: string
+          p_grant_id: string
+          p_policy_id: string
+          p_protocol_era: string
+          p_request_id: string
+          p_requested_units: number
+        }
+        Returns: {
+          allowed: boolean
+          remaining_units: number
+          reset_at: string
+        }[]
+      }
       consume_email_oauth_state: {
         Args: { p_nonce_hash: string; p_provider: string }
         Returns: {
@@ -26409,6 +30219,85 @@ export type Database = {
       consume_external_api_rate_limits_as_system: {
         Args: { p_checks: Json }
         Returns: Json
+      }
+      consume_mcp_oauth_authorization_code_as_system: {
+        Args: {
+          p_client_id: string
+          p_code_hash: string
+          p_redirect_uri: string
+        }
+        Returns: {
+          accepted_labels: string[]
+          code_challenge: string
+          company_id: string
+          consent_catalog_revision: string
+          exposure_revision: string
+          resource: string
+          scopes: string[]
+          user_id: string
+        }[]
+      }
+      consume_mcp_oauth_consent_preview_as_system: {
+        Args: {
+          p_company_id: string
+          p_preview_hash: string
+          p_user_id: string
+        }
+        Returns: {
+          accepted_labels: string[]
+          client_id: string
+          client_name: string
+          code_challenge: string
+          code_challenge_method: string
+          company_id: string
+          company_name: string
+          consent_catalog_revision: string
+          expires_at: string
+          exposure_revision: string
+          redirect_uri: string
+          resource: string
+          response_type: string
+          scopes: string[]
+          state: string
+          user_id: string
+        }[]
+      }
+      consume_phase_c_bilateral_event_handoff: {
+        Args: { p_handoff_id: string; p_worker_id: string }
+        Returns: Json
+      }
+      consume_sage_business_selection_session: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_session_id: string
+        }
+        Returns: {
+          access_token: string
+          actor_user_id: string
+          company_id: string
+          connection_id: string
+          consumed_at: string | null
+          created_at: string
+          eligible_businesses: Json
+          expires_at: string
+          id: string
+          provider_environment: string
+          refresh_token: string
+          token_expires_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "sage_business_selection_sessions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      consume_social_instagram_oauth_state: {
+        Args: { p_nonce_hash: string }
+        Returns: {
+          admin_email: string
+        }[]
       }
       convert_estimate_to_invoice: {
         Args: { p_due_date?: string; p_estimate_id: string }
@@ -26456,6 +30345,18 @@ export type Database = {
         }
         Returns: Json
       }
+      create_company_for_owner_by_id: {
+        Args: {
+          p_company_age?: string
+          p_company_size?: string
+          p_industries?: string[]
+          p_name: string
+          p_referral_method?: string
+          p_user_id: string
+          p_weather_dependent?: boolean
+        }
+        Returns: Json
+      }
       create_company_mailbox_email_opportunity_as_system: {
         Args: {
           p_connection_id: string
@@ -26465,6 +30366,22 @@ export type Database = {
           p_provider_thread_id: string
         }
         Returns: Json
+      }
+      create_email_anomaly_notification_if_new: {
+        Args: {
+          p_action_label?: string
+          p_action_url?: string
+          p_anomaly_id: string
+          p_body: string
+          p_company_id: string
+          p_persistent?: boolean
+          p_title: string
+          p_user_id: string
+        }
+        Returns: {
+          created: boolean
+          notification_id: string
+        }[]
       }
       create_email_import_job_as_system: {
         Args: {
@@ -26555,6 +30472,23 @@ export type Database = {
         }
         Returns: Json
       }
+      create_mcp_oauth_authorization_code_as_system: {
+        Args: {
+          p_accepted_labels: string[]
+          p_client_id: string
+          p_code_challenge: string
+          p_code_hash: string
+          p_company_id: string
+          p_consent_catalog_revision: string
+          p_expires_at: string
+          p_exposure_revision: string
+          p_redirect_uri: string
+          p_resource: string
+          p_scopes: string[]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       create_notification_if_new: {
         Args: {
           p_action_label?: string
@@ -26590,30 +30524,6 @@ export type Database = {
           incident_version: number
           notification_id: string
         }[]
-      }
-      create_email_anomaly_notification_if_new: {
-        Args: {
-          p_action_label?: string
-          p_action_url?: string
-          p_anomaly_id: string
-          p_body: string
-          p_company_id: string
-          p_persistent?: boolean
-          p_title: string
-          p_user_id: string
-        }
-        Returns: {
-          created: boolean
-          notification_id: string
-        }[]
-      }
-      reconcile_email_pause_notification_fanout: {
-        Args: { p_anomaly_id: string; p_pause_audit_id: string }
-        Returns: number
-      }
-      replace_financial_analysis_memories: {
-        Args: { p_company_id: string; p_memories: Json }
-        Returns: number
       }
       create_notification_if_new_with_status: {
         Args: {
@@ -26753,6 +30663,7 @@ export type Database = {
           p_duration?: number
           p_end_date?: string
           p_project_id: string
+          p_scopes?: Json
           p_start_date?: string
           p_task_color?: string
           p_task_id: string
@@ -26770,6 +30681,17 @@ export type Database = {
           p_source?: string
         }
         Returns: number
+      }
+      decline_booking_request_as_system: {
+        Args: {
+          p_intent_id: string
+          p_reason?: string
+          p_staff_user_id: string
+        }
+        Returns: {
+          intent_id: string
+          opportunity_id: string
+        }[]
       }
       defer_email_outbound_learning: {
         Args: {
@@ -26821,6 +30743,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -26835,6 +30758,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      deliver_social_recovery_notification: {
+        Args: {
+          p_claim_token: string
+          p_company_id: string
+          p_post_id: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       diagnose_email_outbound_learning: {
         Args: {
@@ -26874,6 +30806,14 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      disable_mcp_oauth_canary_as_system: {
+        Args: {
+          p_company_id: string
+          p_oauth_client_id: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       early_clear_expense_line: {
         Args: { p_expense_id: string }
@@ -26917,6 +30857,7 @@ export type Database = {
           domain: string
         }[]
       }
+      enforce_analytics_retention: { Args: { p_now?: string }; Returns: Json }
       enqueue_email_import_provider_operation_as_system: {
         Args: { p_job_id: string; p_provider_thread_id: string }
         Returns: boolean
@@ -26976,6 +30917,7 @@ export type Database = {
           p_profile_type?: string
           p_provider_message_id: string
           p_provider_thread_id?: string
+          p_replaced_draft_history_id?: string
           p_subject?: string
           p_to_emails?: string[]
           p_user_id?: string
@@ -27023,6 +30965,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -27099,6 +31042,86 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
+          requeue_count: number
+          status: string
+          subject: string
+          to_emails: string[]
+          updated_at: string
+          user_id: string
+          writing_sample: Json | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      enqueue_email_outbound_learning_pre_replacement_internal: {
+        Args: {
+          p_authored_body?: string
+          p_clean_body?: string
+          p_company_id: string
+          p_connection_id: string
+          p_draft_delivery_channel?: string
+          p_draft_history_id?: string
+          p_follow_up_draft_id?: string
+          p_from_email?: string
+          p_learning_authority?: string
+          p_occurred_at?: string
+          p_opportunity_id?: string
+          p_profile_type?: string
+          p_provider_message_id: string
+          p_provider_thread_id?: string
+          p_subject?: string
+          p_to_emails?: string[]
+          p_user_id?: string
+        }
+        Returns: {
+          actor_proof_type: string | null
+          applied_at: string | null
+          apply_full_body_learning: boolean | null
+          apply_learning: boolean | null
+          approved_action_email_intent_id: string | null
+          assignment_event_id_snapshot: string | null
+          assignment_version_snapshot: number | null
+          attempts: number
+          authored_body: string
+          category_snapshot: string | null
+          clean_body: string
+          company_id: string
+          completed_at: string | null
+          completed_lease_token: string | null
+          connection_id: string
+          created_at: string
+          draft_correction_facts: Json | null
+          draft_delivery_channel: string | null
+          draft_history_id: string | null
+          draft_outcome: Json | null
+          email_send_intent_id: string | null
+          follow_up_draft_id: string | null
+          from_email: string | null
+          id: string
+          last_error: string | null
+          last_failed_at: string | null
+          last_requeue_reason: string | null
+          last_requeued_at: string | null
+          last_terminal_error: string | null
+          learning_authority: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          max_attempts: number
+          memory_extraction: Json | null
+          next_attempt_at: string
+          occurred_at: string | null
+          opportunity_id: string | null
+          preparation_version: string | null
+          prepared_at: string | null
+          profile_type: string
+          provider_message_id: string
+          provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -27134,6 +31157,14 @@ export type Database = {
       enqueue_personal_mailbox_lifecycle_event: {
         Args: { p_connection_id: string; p_reason: string }
         Returns: undefined
+      }
+      ensure_customer_hosted_integration_as_system: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
+      ensure_customer_pairwise_ref_as_system: {
+        Args: { p_identity_id: string; p_integration_id: string }
+        Returns: string
       }
       ensure_qbo_estimate_opportunity: {
         Args: {
@@ -27278,18 +31309,11 @@ export type Database = {
         }[]
       }
       expense_envelope_sweep: { Args: never; Returns: number }
-      enforce_analytics_retention: {
-        Args: { p_now?: string }
-        Returns: Json
-      }
-      expire_attribution_click_ids: {
-        Args: { p_now?: string }
-        Returns: Json
-      }
       expire_agent_actions_batch_as_system: {
         Args: { p_batch_size?: number; p_now?: string }
         Returns: number
       }
+      expire_attribution_click_ids: { Args: { p_now?: string }; Returns: Json }
       expire_grace_period_companies_batch_as_system: {
         Args: { p_batch_size?: number; p_cutoff: string }
         Returns: number
@@ -27322,6 +31346,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -27330,6 +31355,7 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -27453,6 +31479,28 @@ export type Database = {
         }
         Returns: Json
       }
+      fail_opportunity_phase_c_work: {
+        Args: {
+          p_company_id: string
+          p_component_errors?: Json
+          p_error_code: string
+          p_error_message: string
+          p_expected_required_event_id: string
+          p_opportunity_id: string
+          p_retry_seconds?: number
+          p_worker_id: string
+        }
+        Returns: string
+      }
+      fail_phase_c_bilateral_event_handoff: {
+        Args: {
+          p_error_code: string
+          p_error_message: string
+          p_handoff_id: string
+          p_worker_id: string
+        }
+        Returns: string
+      }
       fail_project_status_lifecycle_event: {
         Args: {
           p_error: string
@@ -27495,9 +31543,109 @@ export type Database = {
           photo_id: string
         }[]
       }
+      finalize_agent_day_closeout_routine_as_system: {
+        Args: {
+          p_claim_token: string
+          p_failure_code: string
+          p_idempotency_key: string
+          p_outcome: string
+          p_routine_id: string
+          p_run_id: string
+          p_scheduled_for: string
+        }
+        Returns: Json
+      }
       finalize_exhausted_task_schedule_automation_events: {
         Args: never
         Returns: number
+      }
+      finalize_expired_approved_action_email_reconciliations: {
+        Args: { p_limit?: number }
+        Returns: number
+      }
+      finalize_paid_supplier_purchase: {
+        Args: {
+          p_actor_user_id: string
+          p_expense_receipt: Json
+          p_intent_id: string
+        }
+        Returns: Json
+      }
+      finalize_supplier_bill_provider_sync: {
+        Args: {
+          p_external_id: string
+          p_provider_updated_at: string
+          p_queue_id: string
+          p_sync_token: string
+          p_worker_id: string
+        }
+        Returns: Json
+      }
+      find_phase_c_auto_send_by_identity_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_assignment_event_id: string
+          p_assignment_version: number
+          p_company_id: string
+          p_connection_id: string
+          p_follow_up_sequence: number
+          p_generation_kind: string
+          p_idempotency_key: string
+          p_opportunity_id: string
+          p_reply_provider_thread_id: string
+          p_source_activity_id: string
+          p_source_email_thread_id: string
+          p_source_message_id: string
+        }
+        Returns: {
+          actor_email_snapshot: string | null
+          actor_name_snapshot: string | null
+          actor_user_id: string | null
+          assignment_event_id: string | null
+          assignment_version: number | null
+          authored_body: string | null
+          autonomy_level_snapshot: string | null
+          cancelled_at: string | null
+          category_snapshot: string | null
+          cc_emails: string[] | null
+          claimed_at: string | null
+          client_from_address_snapshot: string | null
+          company_id: string
+          connection_id: string
+          content_type: string | null
+          created_at: string
+          draft_history_id: string | null
+          draft_text: string
+          error: string | null
+          id: string
+          idempotency_key: string | null
+          in_reply_to: string | null
+          learning_authority: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          opportunity_id: string | null
+          profile_type_snapshot: string | null
+          rendered_body: string | null
+          rendered_body_hash: string | null
+          retry_count: number
+          scheduled_send_at: string
+          send_intent_id: string | null
+          sent_at: string | null
+          signature_content_hash: string | null
+          signature_id: string | null
+          source_email_thread_id: string | null
+          status: string
+          subject: string
+          thread_id: string
+          to_emails: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pending_auto_sends"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       finish_email_conversion_photo_job: {
         Args: {
@@ -27597,7 +31745,6 @@ export type Database = {
       }
       generate_text_id: { Args: never; Returns: string }
       get_company_join_details: { Args: { p_code: string }; Returns: Json }
-      get_growth_analytics_health_snapshot: { Args: never; Returns: Json }
       get_conversion_preflight: {
         Args: {
           p_actor_user_id?: string
@@ -27651,6 +31798,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_growth_analytics_health_snapshot: { Args: never; Returns: Json }
       get_human_draft_accuracy_as_system:
         | {
             Args: {
@@ -27705,6 +31853,31 @@ export type Database = {
           policy_version: string
         }[]
       }
+      get_manual_project_link_candidates: {
+        Args: { p_opportunity_id: string }
+        Returns: {
+          address: string
+          project_id: string
+          same_address: boolean
+          same_client: boolean
+          status: string
+          title: string
+        }[]
+      }
+      get_mcp_oauth_client_as_system: {
+        Args: { p_client_id: string }
+        Returns: {
+          client_id: string
+          client_name: string
+          consent_catalog_revision: string
+          disabled: boolean
+          exposure_revision: string
+          redirect_uris: string[]
+          scope: string
+          scope_ceiling: string[]
+          token_endpoint_auth_method: string
+        }[]
+      }
       get_next_document_number: {
         Args: { p_company_id: string; p_type: string }
         Returns: string
@@ -27716,6 +31889,19 @@ export type Database = {
       get_opportunity_assigned_context: {
         Args: { p_opportunity_id: string }
         Returns: Json
+      }
+      get_opportunity_conversion_photo_candidates: {
+        Args: { p_opportunity_id: string }
+        Returns: {
+          created_at: string
+          filename: string
+          ingest_status: string
+          mime_type: string
+          occurred_at: string
+          selection_key: string
+          source_kind: string
+          source_url: string
+        }[]
       }
       get_opportunity_lead_files: {
         Args: { p_opportunity_id: string }
@@ -27821,6 +32007,20 @@ export type Database = {
         Returns: boolean
       }
       heal_user_identity: { Args: never; Returns: string }
+      hold_booking_slot_as_system: {
+        Args: {
+          p_company_id: string
+          p_integration_id: string
+          p_network_fingerprint: string
+          p_slot_start_at: string
+        }
+        Returns: {
+          allowed: boolean
+          hold_expires_at: string
+          intent_id: string
+          retry_after_seconds: number
+        }[]
+      }
       increment_access_count: {
         Args: { memory_ids: string[] }
         Returns: undefined
@@ -27857,9 +32057,57 @@ export type Database = {
         Args: { variant_id: string }
         Returns: undefined
       }
+      ingest_job_conversation_turn_as_system: {
+        Args: {
+          p_company_id: string
+          p_job_id: string
+          p_job_kind: string
+          p_provider_delivery_source_id: string
+          p_provider_delivery_source_sha256: string
+          p_provider_message_id: string
+          p_source_activity_id: string
+          p_source_connection_id: string
+        }
+        Returns: {
+          conversation_id: string
+          inserted: boolean
+          turn_id: string
+        }[]
+      }
       initialize_company_defaults: {
         Args: { p_company_id: string }
         Returns: undefined
+      }
+      inspect_agent_collections_correspondence_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_manifest_revision: string
+          p_company_id: string
+          p_end_at: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_recipients: Json
+        }
+        Returns: Json
+      }
+      inspect_agent_day_closeout_correspondence_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_end_at: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_start_at: string
+        }
+        Returns: Json
       }
       inspect_exact_message_recovery_application_as_system: {
         Args: {
@@ -27887,7 +32135,49 @@ export type Database = {
         Args: { p_company_id?: string }
         Returns: Json
       }
+      inspect_mcp_oauth_canary_acceptance_as_system: {
+        Args: {
+          p_action_id: string
+          p_change_set_id: string
+          p_company_id: string
+          p_not_before: string
+          p_oauth_client_id: string
+          p_preview_sha256: string
+          p_run_id: string
+          p_user_id: string
+        }
+        Returns: {
+          prepared_with_approval: boolean
+          receipt_verified: boolean
+          routine_enabled: boolean
+        }[]
+      }
       is_company_admin: { Args: never; Returns: boolean }
+      issue_mcp_oauth_consent_preview_as_system: {
+        Args: {
+          p_accepted_labels: string[]
+          p_client_id: string
+          p_code_challenge: string
+          p_code_challenge_method: string
+          p_company_id: string
+          p_consent_catalog_revision: string
+          p_expires_at: string
+          p_exposure_revision: string
+          p_preview_hash: string
+          p_redirect_uri: string
+          p_resource: string
+          p_response_type: string
+          p_scopes: string[]
+          p_state: string
+          p_user_id: string
+        }
+        Returns: {
+          client_name: string
+          company_name: string
+          expires_at: string
+          rate_limited: boolean
+        }[]
+      }
       join_user_to_company: {
         Args: {
           p_company_code?: string
@@ -27896,9 +32186,89 @@ export type Database = {
         }
         Returns: Json
       }
+      link_customer_membership_as_system: {
+        Args: { p_company_id: string; p_identity_id: string }
+        Returns: {
+          client_id: string
+          membership_id: string
+          outcome: string
+          state: string
+          sub_client_id: string
+        }[]
+      }
       link_deck_design_to_opportunity_guarded: {
         Args: { p_design_id: string; p_target_opportunity_id: string }
         Returns: Json
+      }
+      list_agent_day_closeout_routine_configs_as_system: {
+        Args: { p_actor_user_id: string; p_company_id: string }
+        Returns: {
+          client_id: string
+          client_name: string
+          enabled: boolean
+          grant_id: string
+          last_failure_code: string
+          last_run_at: string
+          last_success_at: string
+          local_time: string
+          next_run_at: string
+          schedule_revision: number
+          timezone: string
+        }[]
+      }
+      list_agent_day_closeout_routine_configs_without_v3_canary: {
+        Args: { p_actor_user_id: string; p_company_id: string }
+        Returns: {
+          client_id: string
+          client_name: string
+          enabled: boolean
+          grant_id: string
+          last_failure_code: string
+          last_run_at: string
+          last_success_at: string
+          local_time: string
+          next_run_at: string
+          schedule_revision: number
+          timezone: string
+        }[]
+      }
+      list_customer_memberships_for_client_as_system: {
+        Args: { p_client_id: string; p_company_id: string }
+        Returns: {
+          contact_email_masked: string
+          evidence_kind: string
+          last_seen_at: string
+          membership_id: string
+          state: string
+        }[]
+      }
+      list_delivery_sources_for_renormalization_as_system: {
+        Args: {
+          p_before_delivered_at: string
+          p_before_id: string
+          p_limit: number
+        }
+        Returns: {
+          company_id: string
+          connection_id: string
+          content_media_type: string
+          content_value: string
+          delivered_at: string
+          normalization_revision: string
+          normalization_status: string
+          normalized_plain_text: string
+          normalized_subject: string
+          provider: string
+          provider_message_id: string
+          source_id: string
+          subject: string
+        }[]
+      }
+      list_due_purpose_schedule_email_action_retries_as_system: {
+        Args: never
+        Returns: {
+          action_id: string
+        }[]
       }
       list_email_provider_mutation_reconciliation_candidates: {
         Args: {
@@ -27948,29 +32318,19 @@ export type Database = {
         Args: { p_company_id: string; p_mailbox_id: string }
         Returns: string[]
       }
+      list_mcp_oauth_grants_for_user_as_system: {
+        Args: { p_company_id: string; p_user_id: string }
+        Returns: {
+          client_name: string
+          created_at: string
+          grant_id: string
+          last_used_at: string
+          scopes: string[]
+        }[]
+      }
       list_opportunity_assignment_candidates: {
         Args: { p_opportunity_id: string }
         Returns: Json
-      }
-      list_quickbooks_reconcile_candidates: {
-        Args: {
-          p_limit?: number
-          p_provider_environment: string
-        }
-        Returns: {
-          company_id: string
-          connection_id: string
-          entity_id: string
-          entity_type: string
-          external_id: string
-          last_audit_ops_updated_at: string | null
-          last_audit_qb_updated_at: string | null
-          last_reconciled_at: string | null
-          last_sync_at: string | null
-          money_touched: boolean
-          ops_updated_at: string | null
-          source_table: string
-        }[]
       }
       list_phase_c_graduation_actor_scopes_as_system: {
         Args: { p_limit?: number }
@@ -27983,6 +32343,42 @@ export type Database = {
       list_project_intake_files: {
         Args: { p_project_id: string }
         Returns: Json
+      }
+      list_quickbooks_reconcile_candidates: {
+        Args: { p_limit?: number; p_provider_environment: string }
+        Returns: {
+          company_id: string
+          connection_id: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          last_audit_ops_updated_at: string
+          last_audit_qb_updated_at: string
+          last_reconciled_at: string
+          last_sync_at: string
+          money_touched: boolean
+          ops_updated_at: string
+          source_table: string
+        }[]
+      }
+      list_sage_reconcile_candidates: {
+        Args: { p_limit?: number; p_provider_environment: string }
+        Returns: {
+          company_id: string
+          connection_id: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          last_audit_ops_updated_at: string
+          last_audit_sage_updated_at: string
+          last_reconciled_at: string
+          money_touched: boolean
+          ops_updated_at: string
+          propagate_deletes: boolean
+          resource: string
+          source_table: string
+          sync_direction: string
+        }[]
       }
       log_opportunity_quick_touch: {
         Args: {
@@ -28050,6 +32446,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -28058,6 +32455,7 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -28113,6 +32511,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -28121,6 +32520,7 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -28171,6 +32571,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -28179,6 +32580,7 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -28586,6 +32988,18 @@ export type Database = {
           source: string
         }[]
       }
+      merge_agent_writing_profile_subject_preferences: {
+        Args: {
+          p_company_id: string
+          p_context?: Json
+          p_dry_run?: boolean
+          p_is_thread_opening?: boolean
+          p_profile_type: string
+          p_subject: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       merge_company_invoice_settings: {
         Args: { p_company_id: string; p_patch: Json }
         Returns: Json
@@ -28598,12 +33012,41 @@ export type Database = {
         }
         Returns: Json
       }
+      mint_customer_session_as_system: {
+        Args: {
+          p_identity_id: string
+          p_network_fingerprint: string
+          p_session_hash: string
+        }
+        Returns: string
+      }
+      mint_mcp_oauth_grant_as_system: {
+        Args: {
+          p_access_expires_at: string
+          p_access_hash: string
+          p_active_exposure_revision: string
+          p_active_grantable_scopes: string[]
+          p_audience: string
+          p_client_id: string
+          p_code_hash: string
+          p_company_id: string
+          p_issuer: string
+          p_refresh_expires_at: string
+          p_refresh_hash: string
+          p_user_id: string
+        }
+        Returns: {
+          grant_id: string
+          revision: string
+        }[]
+      }
       mirror_deck_subscription: { Args: { p_row: Json }; Returns: boolean }
       move_opportunity_stage: {
         Args: {
           p_opportunity_id: string
           p_to_stage: string
           p_user_id: string
+          p_win_probability?: number
         }
         Returns: {
           actual_close_date: string | null
@@ -28656,11 +33099,16 @@ export type Database = {
           source_thread_key: string | null
           stage: string
           stage_entered_at: string
+          stage_manual_boundary_at: string | null
+          stage_manual_boundary_event_id: string | null
+          stage_manual_corrected_at: string | null
           stage_manually_set: boolean
           tags: string[] | null
           title: string
           updated_at: string
           win_probability: number | null
+          won_prompt_declined_at: string | null
+          won_prompt_declined_by: string | null
         }
         SetofOptions: {
           from: "*"
@@ -28727,11 +33175,16 @@ export type Database = {
           source_thread_key: string | null
           stage: string
           stage_entered_at: string
+          stage_manual_boundary_at: string | null
+          stage_manual_boundary_event_id: string | null
+          stage_manual_corrected_at: string | null
           stage_manually_set: boolean
           tags: string[] | null
           title: string
           updated_at: string
           win_probability: number | null
+          won_prompt_declined_at: string | null
+          won_prompt_declined_by: string | null
         }
         SetofOptions: {
           from: "*"
@@ -28751,6 +33204,10 @@ export type Database = {
         }
         Returns: Json
       }
+      notify_dependency_ready: {
+        Args: { p_completed_task_id: string }
+        Returns: Json
+      }
       notify_email_attachment_scan_exception: {
         Args: {
           p_action_label: string
@@ -28766,6 +33223,170 @@ export type Database = {
       notify_email_attachment_scan_exception_as_system: {
         Args: { p_scan_id: string }
         Returns: boolean
+      }
+      notify_expense_batch_decision: {
+        Args: { p_batch_id: string; p_count?: number; p_decision: string }
+        Returns: string
+      }
+      notify_guided_setup_completed: {
+        Args: {
+          p_assembly_count?: number
+          p_bundle_count?: number
+          p_family_count?: number
+          p_good_count?: number
+          p_kind: string
+          p_offcut_count?: number
+          p_product_count?: number
+          p_recipe_count?: number
+          p_roll_count?: number
+          p_service_count?: number
+          p_variant_count?: number
+        }
+        Returns: string
+      }
+      notify_inventory_threshold_crossed: {
+        Args: { p_item_id: string }
+        Returns: string[]
+      }
+      notify_measurement_captured: {
+        Args: {
+          p_height_inches?: number
+          p_kind: string
+          p_opening_type?: string
+          p_project_id: string
+          p_sill_inches?: number
+          p_wall_height_feet?: number
+          p_wall_width_feet?: number
+          p_wall_width_inches?: number
+          p_width_inches?: number
+        }
+        Returns: string
+      }
+      notify_measurement_sync_failed: {
+        Args: { p_project_id: string }
+        Returns: string
+      }
+      notify_note_created: { Args: { p_note_id: string }; Returns: Json }
+      notify_project_assigned: {
+        Args: { p_project_id: string; p_user_ids: string[] }
+        Returns: string[]
+      }
+      notify_project_completed: {
+        Args: { p_project_id: string }
+        Returns: string[]
+      }
+      notify_project_photos_added: {
+        Args: { p_photo_count: number; p_project_id: string }
+        Returns: string[]
+      }
+      notify_role_assigned: { Args: { p_member_id: string }; Returns: string }
+      notify_schedule_run_summary: {
+        Args: { p_task_ids: string[] }
+        Returns: Json
+      }
+      notify_share_photos_finalized: {
+        Args: { p_photo_count: number; p_project_id: string }
+        Returns: string
+      }
+      notify_task_assigned: {
+        Args: { p_task_id: string; p_user_ids?: string[] }
+        Returns: string[]
+      }
+      notify_task_completed: { Args: { p_task_id: string }; Returns: string[] }
+      notify_task_pair_spawned: {
+        Args: { p_task_id: string }
+        Returns: string[]
+      }
+      notify_task_rescheduled: {
+        Args: { p_task_id: string }
+        Returns: string[]
+      }
+      notify_team_invites_sent: {
+        Args: { p_emails?: string[]; p_phones?: string[] }
+        Returns: string
+      }
+      notify_time_off_booked: { Args: { p_event_id: string }; Returns: string }
+      notify_time_off_decision: {
+        Args: { p_event_id: string }
+        Returns: string
+      }
+      notify_time_off_requested: { Args: { p_event_id: string }; Returns: Json }
+      notify_vinyl_bulk_ordered: {
+        Args: { p_marked_count: number }
+        Returns: string
+      }
+      notify_vinyl_offcut_banked: {
+        Args: { p_project_id?: string; p_stock_unit_id: string }
+        Returns: string
+      }
+      notify_vinyl_order_drafted: {
+        Args: {
+          p_note_id: string
+          p_ordered_sq_ft: number
+          p_project_id: string
+        }
+        Returns: string
+      }
+      persist_agent_collections_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_as_of_date: string
+          p_capability_manifest_revision: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_idempotency_key: string
+          p_input_hash: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_result_base: Json
+          p_timezone: string
+        }
+        Returns: Json
+      }
+      persist_agent_day_closeout_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_business_date: string
+          p_capability_manifest_revision: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_idempotency_key: string
+          p_input_hash: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_result_base: Json
+          p_timezone: string
+        }
+        Returns: Json
+      }
+      persist_agent_day_closeout_routine_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_business_date: string
+          p_capability_manifest_revision: string
+          p_claim_token: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_idempotency_key: string
+          p_input_hash: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_result_base: Json
+          p_routine_id: string
+          p_schedule_revision: number
+          p_scheduled_for: string
+          p_timezone: string
+        }
+        Returns: Json
       }
       persist_email_connection_recovery_checkpoint_as_system: {
         Args: {
@@ -28797,6 +33418,55 @@ export type Database = {
         }
         Returns: boolean
       }
+      persist_schedule_confirmation_action_as_system: {
+        Args: {
+          p_action_data: Json
+          p_actor_user_id: string
+          p_company_id: string
+          p_confidence: number
+          p_context_summary: string
+          p_event_id: string
+          p_expected_confirmed_at: string
+          p_expected_confirmed_by: string
+          p_expected_schedule_version: number
+          p_expires_at: string
+          p_lease_token: string
+          p_priority: string
+          p_source_id: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      persist_schedule_unconfirmation_action_as_system: {
+        Args: {
+          p_action_data: Json
+          p_actor_user_id: string
+          p_company_id: string
+          p_confidence: number
+          p_context_summary: string
+          p_event_id: string
+          p_expected_schedule_version: number
+          p_expires_at: string
+          p_lease_token: string
+          p_previous_confirmed_at: string
+          p_priority: string
+          p_source_id: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      persist_schedule_unconfirmation_notification_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_event_id: string
+          p_expected_schedule_version: number
+          p_lease_token: string
+          p_previous_confirmed_at: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
       persist_task_automation_agent_action: {
         Args: {
           p_action_data: Json
@@ -28815,7 +33485,38 @@ export type Database = {
         }
         Returns: Json
       }
+      persist_task_automation_agent_action_unversioned_impl: {
+        Args: {
+          p_action_data: Json
+          p_action_type: string
+          p_auto_execute_at?: string
+          p_confidence?: number
+          p_context_source: string
+          p_context_summary: string
+          p_event_id: string
+          p_expires_at?: string
+          p_lease_token: string
+          p_priority?: string
+          p_source_id: string
+          p_task_id: string
+          p_task_schedule_version: number
+        }
+        Returns: Json
+      }
       persist_task_automation_notification: {
+        Args: {
+          p_action_label?: string
+          p_action_url?: string
+          p_body: string
+          p_event_id: string
+          p_lease_token: string
+          p_task_id: string
+          p_task_schedule_version: number
+          p_title: string
+        }
+        Returns: Json
+      }
+      persist_task_automation_notification_unversioned_impl: {
         Args: {
           p_action_label?: string
           p_action_url?: string
@@ -28882,6 +33583,27 @@ export type Database = {
         }[]
       }
       pmf_sparkline: { Args: { kind: string }; Returns: number[] }
+      preflight_agent_provider_delivery_source_as_system: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_direction: string
+          p_provider: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+        }
+        Returns: {
+          company_id: string
+          connection_id: string
+          direction: string
+          inserted: boolean
+          provider: string
+          provider_message_id: string
+          provider_thread_id: string
+          source_id: string
+          source_sha256: string
+        }[]
+      }
       prepare_approved_action_email_intent: {
         Args: {
           p_action_id: string
@@ -28918,6 +33640,7 @@ export type Database = {
           invoice_id: string | null
           last_error: string | null
           learning_authority: string
+          max_reconciliation_attempts: number
           opportunity_id: string | null
           profile_type_snapshot: string
           project_id: string | null
@@ -28926,6 +33649,75 @@ export type Database = {
           reconciled_activity_id: string | null
           reconciled_at: string | null
           reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
+          reconciliation_lease_expires_at: string | null
+          reconciliation_lease_token: string | null
+          rendered_body: string | null
+          rendered_body_hash: string | null
+          reply_provider_thread_id: string | null
+          signature_content_hash: string | null
+          signature_id: string | null
+          source_activity_id: string | null
+          source_draft_history_id: string | null
+          source_email_thread_id: string | null
+          status: string
+          subject: string
+          to_emails: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "approved_action_email_intents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      prepare_approved_action_email_intent_pre_schedule_guard: {
+        Args: {
+          p_action_id: string
+          p_execution_mode: string
+          p_expected_authored_body_hash?: string
+          p_rendered_body?: string
+          p_rendered_body_hash?: string
+          p_signature_content_hash?: string
+          p_signature_id?: string
+        }
+        Returns: {
+          accepted_provider_thread_id: string | null
+          action_data_snapshot: Json
+          action_id: string
+          action_type: string
+          actor_email_snapshot: string
+          actor_name_snapshot: string
+          actor_user_id: string
+          assignment_event_id: string | null
+          assignment_version: number | null
+          authored_body: string
+          cc_emails: string[]
+          client_from_address_snapshot: string
+          client_id: string | null
+          company_id: string
+          connection_id: string
+          content_type: string
+          created_at: string
+          draft_history_id: string | null
+          execution_mode: string
+          id: string
+          idempotency_key: string
+          in_reply_to: string | null
+          invoice_id: string | null
+          last_error: string | null
+          learning_authority: string
+          max_reconciliation_attempts: number
+          opportunity_id: string | null
+          profile_type_snapshot: string
+          project_id: string | null
+          provider_accepted_at: string | null
+          provider_message_id: string | null
+          reconciled_activity_id: string | null
+          reconciled_at: string | null
+          reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
           reconciliation_lease_expires_at: string | null
           reconciliation_lease_token: string | null
           rendered_body: string | null
@@ -29011,6 +33803,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -29081,6 +33874,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -29311,6 +34105,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      prepare_schedule_dispatch_as_system: {
+        Args: { p_event_id: string; p_lease_token: string }
+        Returns: Json
+      }
+      prepare_supplier_bill_intake_write: {
+        Args: { p_actor_user_id: string; p_command: Json }
+        Returns: Json
+      }
+      prepare_supplier_bill_write: {
+        Args: { p_actor_user_id: string; p_command: Json }
+        Returns: Json
+      }
       process_email_signature_notification_lifecycle:
         | {
             Args: { p_actor_user_id: string; p_connection_id: string }
@@ -29349,6 +34155,10 @@ export type Database = {
         Args: { p_company_id: string; p_payload: Json }
         Returns: Json
       }
+      project_next_approved_action_email_reconciliation_alert: {
+        Args: never
+        Returns: Json
+      }
       project_pipeline_summary: {
         Args: { p_project_id: string }
         Returns: {
@@ -29365,6 +34175,7 @@ export type Database = {
           received_total: number
         }[]
       }
+      project_server_state: { Args: { p_project_id: string }; Returns: string }
       project_unanswered_lead_recovery_message: {
         Args: {
           p_actor_user_id: string
@@ -29398,6 +34209,22 @@ export type Database = {
           p_firebase_uid: string
         }
         Returns: Json
+      }
+      provision_mcp_oauth_canary_as_system: {
+        Args: {
+          p_company_id: string
+          p_consent_catalog_revision: string
+          p_expires_at: string
+          p_exposure_revision: string
+          p_oauth_client_id: string
+          p_user_id: string
+        }
+        Returns: {
+          consent_catalog_revision: string
+          enabled: boolean
+          expires_at: string
+          exposure_revision: string
+        }[]
       }
       prune_external_lead_projection_versions_as_system: {
         Args: { p_now?: string }
@@ -29451,6 +34278,1244 @@ export type Database = {
         Args: { p_connection_id: string; p_reason: string }
         Returns: undefined
       }
+      read_agent_catalog_item_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_authorization_candidates: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_include_supplier_costs: boolean
+          p_item_id: string
+          p_item_kind: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_option_fetch_limit: number
+          p_option_limit: number
+          p_option_value_fetch_limit: number
+          p_option_value_limit: number
+          p_permission_snapshot_revision: string
+          p_recipe_fetch_limit: number
+          p_recipe_limit: number
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_source_limit: number
+          p_stock_group_fetch_limit: number
+          p_stock_group_limit: number
+          p_supplier_cost_fetch_limit: number
+          p_supplier_cost_limit: number
+          p_variant_fetch_limit: number
+          p_variant_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_catalog_items_as_system: {
+        Args: {
+          p_active_state: string
+          p_actor_user_id: string
+          p_after_updated_at: string
+          p_after_variant_id: string
+          p_authorization_candidates: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_category_id: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_low_stock_only: boolean
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_query_kind: string
+          p_query_value: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_source_limit: number
+          p_stock_states: string[]
+        }
+        Returns: Json
+      }
+      read_agent_company_context_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_settings_company_scope: string
+        }
+        Returns: Json
+      }
+      read_agent_correspondence_evidence_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_evidence_ids: string[]
+          p_inbox_scope: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scope: string
+        }
+        Returns: {
+          attachments: Json
+          cc_recipient_identities: string[]
+          company_id: string
+          direction: string
+          evidence_id: string
+          normalized_plain_text: string
+          occurred_at: string
+          original_content_hash: string
+          participant_id: string
+          participant_resolution_status: string
+          recipient_identities: string[]
+          redaction_kinds: string[]
+          side: string
+          source_activity_id: string
+          source_correspondence_event_id: string
+          source_id: string
+          subject: string
+        }[]
+      }
+      read_agent_correspondence_evidence_page_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_evidence_ids: string[]
+          p_inbox_scope: string
+          p_job_id: string
+          p_job_kind: string
+          p_mode: string
+          p_permission_snapshot_revision: string
+          p_pipeline_scope: string
+          p_projects_scope: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+        }
+        Returns: Json
+      }
+      read_agent_crew_callout_recovery_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_candidate_limit: number
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_crew_member_name: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_schedule_source_limit: number
+          p_target_date: string
+        }
+        Returns: Json
+      }
+      read_agent_customer_context_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_contact_purpose: string
+          p_customer_id: string
+          p_customer_kind: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_job_kinds: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_pipeline_scope: string
+          p_projects_scope: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_sections: string[]
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_customer_discovery_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_capability_schema_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_cursor_customer_id: string
+          p_cursor_customer_kind: string
+          p_cursor_rank_ordinal: number
+          p_cursor_source_revision: number
+          p_customer_kinds: string[]
+          p_limit: number
+          p_lookup: string
+          p_permission_snapshot_revision: string
+          p_query: string
+          p_ranking_revision: string
+          p_read_as_of: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+        }
+        Returns: Json
+      }
+      read_agent_customer_jobs_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_cursor_job_id: string
+          p_cursor_job_kind: string
+          p_cursor_sort_at: string
+          p_cursor_source_revision: number
+          p_customer_id: string
+          p_customer_kind: string
+          p_date_field: string
+          p_date_from: string
+          p_date_to_exclusive: string
+          p_job_kinds: string[]
+          p_lifecycle_states: string[]
+          p_limit: number
+          p_opportunity_stages: string[]
+          p_permission_snapshot_revision: string
+          p_pipeline_scope: string
+          p_project_statuses: string[]
+          p_projects_scope: string
+          p_read_as_of: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+        }
+        Returns: Json
+      }
+      read_agent_deck_design_geometry_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_authorization_candidates: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_deck_design_ref: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_job_id: string
+          p_job_kind: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_site_visit_id: string
+          p_source: string
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_estimate_draft_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_line_item_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_permission_snapshot_revision: string
+          p_source_estimate_id: string
+          p_target_opportunity_id: string
+        }
+        Returns: Json
+      }
+      read_agent_expense_context_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_allocation_fetch_limit: number
+          p_allocation_limit: number
+          p_authorization_candidate: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_expense_id: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_review_reason_character_limit: number
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_expenses_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_id: string
+          p_after_order_date: string
+          p_authorization_candidate: Json
+          p_batch_disposition: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_project_id: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_source_limit: number
+          p_view_kind: string
+        }
+        Returns: Json
+      }
+      read_agent_hiring_what_if_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_manifest_revision: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_financial_source_limit: number
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_member_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_permission_snapshot_revision: string
+          p_project_limit: number
+          p_role: string
+          p_schedule_source_limit: number
+          p_supporting_record_limit: number
+          p_window_weeks: number
+        }
+        Returns: Json
+      }
+      read_agent_integration_health_as_system: {
+        Args: {
+          p_accounting_scope: string
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_email_scope: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_selections: Json
+          p_settings_integrations_scope: string
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_job_artifact_evidence_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_evidence_ref: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_job_id: string
+          p_job_kind: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_resolved_permission_scopes: Json
+          p_source_kind: string
+          p_source_kinds: string[]
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_job_artifacts_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_evidence_ref: string
+          p_after_occurred_at: string
+          p_after_source_kind: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_job_id: string
+          p_job_kind: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_resolved_permission_scopes: Json
+          p_source_kinds: string[]
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_job_communication_context_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_calendar_scope: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_inbox_scope: string
+          p_job_id: string
+          p_job_kind: string
+          p_job_permission: string
+          p_job_scope: string
+          p_permission_snapshot_revision: string
+          p_photos_scope: string
+          p_projects_scope: string
+          p_purpose: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_tasks_scope: string
+        }
+        Returns: Json
+      }
+      read_agent_job_conversation_context_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_exact_turn_limit?: number
+          p_inbox_scope: string
+          p_job_id: string
+          p_job_kind: string
+          p_job_permission: string
+          p_job_scope: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_required_through_turn_id?: string
+          p_sections?: string[]
+        }
+        Returns: Json
+      }
+      read_agent_job_discovery_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_capability_schema_revision: string
+          p_company_id: string
+          p_cursor_job_id: string
+          p_cursor_job_kind: string
+          p_cursor_rank_ordinal: number
+          p_cursor_source_revision: number
+          p_date_field: string
+          p_date_from: string
+          p_date_to_exclusive: string
+          p_job_kinds: string[]
+          p_lifecycle_states: string[]
+          p_limit: number
+          p_opportunity_stages: string[]
+          p_permission_snapshot_revision: string
+          p_pipeline_scope: string
+          p_project_statuses: string[]
+          p_projects_scope: string
+          p_query: string
+          p_query_fields: string[]
+          p_ranking_revision: string
+          p_read_as_of: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+        }
+        Returns: Json
+      }
+      read_agent_job_history_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_calendar_scope: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_cursor_history_revision: number
+          p_cursor_occurred_at: string
+          p_cursor_rank_micros: number
+          p_cursor_source_id: string
+          p_cursor_source_revision: number
+          p_cursor_source_type: string
+          p_customer_id: string
+          p_customer_kind: string
+          p_estimates_scope: string
+          p_from: string
+          p_inbox_scope: string
+          p_job_refs: Json
+          p_limit: number
+          p_permission_snapshot_revision: string
+          p_pipeline_scope: string
+          p_projects_financials_scope: string
+          p_projects_scope: string
+          p_query: string
+          p_read_as_of: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_scope_job_kinds: string[]
+          p_scope_kind: string
+          p_source_types: string[]
+          p_tasks_scope: string
+          p_to_exclusive: string
+        }
+        Returns: Json
+      }
+      read_agent_job_participants_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_inbox_scope: string
+          p_job_id: string
+          p_job_kind: string
+          p_job_permission: string
+          p_job_scope: string
+          p_permission_snapshot_revision: string
+          p_projects_scope: string
+          p_purpose: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_tasks_scope: string
+        }
+        Returns: Json
+      }
+      read_agent_job_readiness_issues_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_calendar_scope: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_cursor_first_scheduled_start_utc?: string
+          p_cursor_project_id?: string
+          p_cursor_source_revision?: number
+          p_from: string
+          p_permission_snapshot_revision: string
+          p_photos_scope: string
+          p_projects_scope: string
+          p_read_as_of?: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_rule_codes: string[]
+          p_scan_limit?: number
+          p_tasks_scope: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      read_agent_job_summary_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_calendar_scope: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_estimates_scope: string
+          p_financial_components: string[]
+          p_inbox_scope: string
+          p_invoices_scope: string
+          p_job_id: string
+          p_job_kind: string
+          p_permission_snapshot_revision: string
+          p_photos_scope: string
+          p_pipeline_scope: string
+          p_projects_financials_scope: string
+          p_projects_scope: string
+          p_readiness_rule_codes: string[]
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_sections: string[]
+          p_tasks_scope: string
+        }
+        Returns: Json
+      }
+      read_agent_operational_overview_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_authorized_components: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_selections: Json
+          p_source_limit: number
+          p_warnings: Json
+        }
+        Returns: Json
+      }
+      read_agent_payments_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_id: string
+          p_after_payment_date: string
+          p_authorization_candidate: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_client_id: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_end_date: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_invoice_id: string
+          p_item_limit: number
+          p_job_id: string
+          p_job_kind: string
+          p_method_categories: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_reconciliation_states: string[]
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_source_limit: number
+          p_start_date: string
+        }
+        Returns: Json
+      }
+      read_agent_payroll_readiness_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_payer_history_limit: number
+          p_permission_snapshot_revision: string
+          p_receivable_limit: number
+          p_recurring_obligation_limit: number
+          p_reimbursement_batch_limit: number
+          p_target_date: string
+        }
+        Returns: Json
+      }
+      read_agent_phase_c_job_conversation_context_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_clients_scope: string
+          p_company_id: string
+          p_exact_turn_limit: number
+          p_inbox_scope: string
+          p_job_id: string
+          p_job_kind: string
+          p_job_permission: string
+          p_job_scope: string
+          p_permission_snapshot_revision: string
+          p_phase_c_assignment_version: number
+          p_phase_c_connection_id: string
+          p_phase_c_internal_thread_id: string
+          p_phase_c_provider_thread_id: string
+          p_phase_c_source_activity_id: string
+          p_phase_c_source_conversation_id: string
+          p_phase_c_source_turn_id: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_required_through_turn_id: string
+          p_sections: string[]
+        }
+        Returns: Json
+      }
+      read_agent_promise_recovery_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_as_of: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_customer_query: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+        }
+        Returns: Json
+      }
+      read_agent_provider_delivery_source_as_system: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_provider_message_id: string
+          p_source_activity_id: string
+        }
+        Returns: {
+          activity_opportunity_id: string
+          activity_project_id: string
+          actor_user_id: string
+          attachment_enumeration_complete: boolean
+          attachment_evidence_ids: string[]
+          captured_at: string
+          cc_recipient_identities: string[]
+          company_id: string
+          confirmed_customer_participants: Json
+          connection_id: string
+          content_charset: string
+          content_media_type: string
+          content_selection_revision: string
+          content_source_kind: string
+          content_value: string
+          delivered_at: string
+          direction: string
+          normalization_revision: string
+          normalization_status: string
+          normalized_plain_text: string
+          normalized_subject: string
+          provider: string
+          provider_body_attachment_id: string
+          provider_message_id: string
+          provider_part_id: string
+          provider_thread_id: string
+          recipient_identities: string[]
+          sender_identity: string
+          source_activity_id: string
+          source_correspondence_event: Json
+          source_id: string
+          source_sha256: string
+          subject: string
+        }[]
+      }
+      read_agent_purchase_order_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_authorization_candidates: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_include_costs: boolean
+          p_line_fetch_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_purchase_order_id: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_purchase_orders_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_delivery_sort_date: string
+          p_after_order_id: string
+          p_after_updated_at: string
+          p_authorization_candidates: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_delivery_ends_on: string
+          p_delivery_starts_on: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_include_costs: boolean
+          p_item_limit: number
+          p_line_fetch_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_source_limit: number
+          p_statuses: string[]
+          p_supplier_label: string
+        }
+        Returns: Json
+      }
+      read_agent_recurring_service_price_change_as_system: {
+        Args: {
+          p_account_limit: number
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_effective_month: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_increase_percent: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_permission_snapshot_revision: string
+          p_read_phase: string
+          p_selected_recurrence_ids: string[]
+          p_service_selector: string
+        }
+        Returns: Json
+      }
+      read_agent_sales_document_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_authorization_candidates: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_document_id: string
+          p_document_kind: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_line_fetch_limit: number
+          p_line_limit: number
+          p_milestone_fetch_limit: number
+          p_milestone_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_sales_documents_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_document_id: string
+          p_after_document_kind: string
+          p_after_updated_at: string
+          p_authorization_candidates: Json
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_customer_id: string
+          p_document_kinds: string[]
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_job_id: string
+          p_job_kind: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_source_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_sales_truth_as_system: {
+        Args: {
+          p_activity_limit: number
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_disposition_limit: number
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_opportunity_limit: number
+          p_permission_snapshot_revision: string
+          p_transition_limit: number
+          p_window_days: number
+        }
+        Returns: Json
+      }
+      read_agent_scheduled_jobs_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_calendar_scope: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_confirmation_states?: string[]
+          p_cursor_source_revision?: number
+          p_cursor_start_utc?: string
+          p_cursor_task_id?: string
+          p_display_timezone?: string
+          p_from: string
+          p_limit?: number
+          p_permission_snapshot_revision: string
+          p_projects_scope: string
+          p_read_as_of?: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_task_statuses: string[]
+          p_tasks_scope: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      read_agent_site_visit_context_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_artifact_source_limit: number
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_checklist_answer_fetch_limit: number
+          p_checklist_answer_limit: number
+          p_company_id: string
+          p_expected_anchor: string
+          p_expected_opportunity_id: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_resolved_permission_scopes: Json
+          p_sections: string[]
+          p_site_visit_id: string
+          p_source_limit: number
+          p_timeline_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_site_visits_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_order_at: string
+          p_after_site_visit_id: string
+          p_assignee_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_include_unlinked: boolean
+          p_item_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_opportunity_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_resolved_permission_scopes: Json
+          p_source_limit: number
+          p_statuses: string[]
+          p_view_kind: string
+          p_window_from: string
+          p_window_to: string
+        }
+        Returns: Json
+      }
+      read_agent_task_context_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_assignee_limit: number
+          p_calendar_scope: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_dependency_limit: number
+          p_estimates_scope: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+          p_project_financials_scope: string
+          p_projects_scope: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_sections: string[]
+          p_source_limit: number
+          p_task_id: string
+          p_tasks_scope: string
+        }
+        Returns: Json
+      }
+      read_agent_tasks_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_order_date: string
+          p_after_task_id: string
+          p_assignee_user_id: string
+          p_calendar_scope: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_estimates_scope: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_job_id: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_overdue_as_of: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_project_financials_scope: string
+          p_projects_scope: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_source_limit: number
+          p_task_states: string[]
+          p_tasks_scope: string
+          p_view_kind: string
+          p_window_ends_before: string
+          p_window_starts_at: string
+        }
+        Returns: Json
+      }
+      read_agent_team_availability_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_display_name: string
+          p_after_member_id: string
+          p_calendar_scope: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_ends_on: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_member_source_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_schedule_source_limit: number
+          p_starts_on: string
+          p_team_scope: string
+          p_view: string
+        }
+        Returns: Json
+      }
+      read_agent_team_members_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_display_name: string
+          p_after_member_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_source_limit: number
+          p_team_scope: string
+        }
+        Returns: Json
+      }
+      read_agent_weather_reschedule_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_id: string
+          p_capability_manifest_revision: string
+          p_capability_revision: string
+          p_company_id: string
+          p_conflict_limit: number
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_observed_at: string
+          p_permission_snapshot_revision: string
+          p_project_limit: number
+          p_registered_permission_keys: string[]
+          p_target_date: string
+          p_task_limit: number
+        }
+        Returns: Json
+      }
+      read_agent_work_queue_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_after_attention_at: string
+          p_after_id: string
+          p_after_priority: number
+          p_after_source: string
+          p_authorized_sources: Json
+          p_capability_manifest_revision: string
+          p_company_id: string
+          p_cursor_read_at: string
+          p_cursor_source_revisions: Json
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_item_limit: number
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_page_fetch_limit: number
+          p_permission_snapshot_revision: string
+          p_registered_permission_keys: string[]
+          p_selections: Json
+          p_source_limit: number
+          p_warnings: Json
+        }
+        Returns: Json
+      }
+      read_booking_request_for_opportunity_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_opportunity_id: string
+        }
+        Returns: {
+          answers: Json
+          contact_name: string
+          duration_minutes: number
+          request_id: string
+          requested_at: string
+          slot_start_at: string
+        }[]
+      }
       read_cron_workload_cursor_as_system: {
         Args: {
           p_fence_token: number
@@ -29459,6 +35524,24 @@ export type Database = {
           p_workload_key: string
         }
         Returns: string
+      }
+      read_customer_membership_as_system: {
+        Args: { p_company_id: string; p_identity_id: string }
+        Returns: {
+          client_id: string
+          membership_id: string
+          outcome: string
+          state: string
+          sub_client_id: string
+        }[]
+      }
+      read_customer_profile_as_system: {
+        Args: { p_company_id: string; p_identity_id: string }
+        Returns: {
+          contact_email_masked: string
+          display_name: string
+          membership_state: string
+        }[]
       }
       read_external_lead_feed_page_as_system: {
         Args: {
@@ -29505,6 +35588,75 @@ export type Database = {
           p_visible_prefix: string
         }
         Returns: Json
+      }
+      read_job_memory_generation_snapshot_as_system: {
+        Args: {
+          p_company_id: string
+          p_conversation_id: string
+          p_max_turns?: number
+          p_required_through_turn_id: string
+        }
+        Returns: Json
+      }
+      read_phase_c_bilateral_event_handoff: {
+        Args: { p_canonical_event_id?: string; p_handoff_id: string }
+        Returns: Json
+      }
+      read_phase_c_routed_actor_fence_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_assignment_version: number
+          p_company_id: string
+          p_connection_id: string
+          p_connection_provider: string
+          p_internal_thread_id: string
+          p_opportunity_id: string
+          p_provider_thread_id: string
+        }
+        Returns: {
+          actor_user_id: string
+          assignment_version: number
+          company_id: string
+          connection_email: string
+          connection_id: string
+          connection_provider: string
+          connection_type: string
+          internal_thread_id: string
+          opportunity_id: string
+          provider_thread_id: string
+        }[]
+      }
+      read_phase_c_source_turn_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_assignment_version: number
+          p_company_id: string
+          p_connection_id: string
+          p_internal_thread_id: string
+          p_opportunity_id: string
+          p_provider_thread_id: string
+          p_source_activity_id: string
+        }
+        Returns: {
+          conversation_id: string
+          turn_id: string
+        }[]
+      }
+      read_public_availability_as_system: {
+        Args: { p_company_id: string; p_from: string; p_to: string }
+        Returns: {
+          slot_start_at: string
+        }[]
+      }
+      read_public_booking_policy_as_system: {
+        Args: { p_company_id: string }
+        Returns: {
+          horizon_days: number
+          min_notice_hours: number
+          mode: string
+          timezone: string
+          visit_duration_minutes: number
+        }[]
       }
       reassign_opportunity_email_thread_guarded:
         | {
@@ -29569,6 +35721,10 @@ export type Database = {
       }
       recalculate_expense_batch_total: {
         Args: { p_batch_id: string }
+        Returns: number
+      }
+      reconcile_email_pause_notification_fanout: {
+        Args: { p_anomaly_id: string; p_pause_audit_id: string }
         Returns: number
       }
       reconcile_manual_outbound_follow_up_cycle_as_system: {
@@ -29675,6 +35831,13 @@ export type Database = {
             }
             Returns: Json
           }
+      record_customer_otp_attempt_as_system: {
+        Args: { p_challenge_id: string; p_success: boolean }
+        Returns: {
+          attempts: number
+          exhausted: boolean
+        }[]
+      }
       record_email_autonomy_milestone: {
         Args: {
           p_action_label?: string
@@ -29688,9 +35851,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      record_first_touch_attribution: {
-        Args: { p_company_id: string; p_touch: Json }
-        Returns: Json
+      record_email_webhook_high_water: {
+        Args: { p_connection_id: string; p_history_id: string }
+        Returns: undefined
       }
       record_external_api_authorization_denial_as_system: {
         Args: {
@@ -29771,6 +35934,25 @@ export type Database = {
         }
         Returns: Json
       }
+      record_first_touch_attribution: {
+        Args: { p_company_id: string; p_touch: Json }
+        Returns: Json
+      }
+      record_guest_booking_contact_as_system: {
+        Args: {
+          p_answers?: Json
+          p_contact_email_digest: string
+          p_contact_email_encrypted: string
+          p_contact_name: string
+          p_contact_phone: string
+          p_intent_id: string
+        }
+        Returns: {
+          accepted: boolean
+          hold_expires_at: string
+          intent_id: string
+        }[]
+      }
       record_opportunity_correspondence_event:
         | {
             Args: {
@@ -29847,6 +36029,116 @@ export type Database = {
               stage_manually_set: boolean
             }[]
           }
+      record_opportunity_lifecycle_decision: {
+        Args: {
+          p_company_id: string
+          p_confidence: number
+          p_decision_key: string
+          p_decision_kind: string
+          p_evidence_event_ids: string[]
+          p_evidence_message_ids: string[]
+          p_opportunity_id: string
+          p_proposed_outcome: string
+          p_proposed_stage: string
+          p_reason: string
+          p_review_reason?: string
+          p_source_event_id: string
+          p_status?: string
+        }
+        Returns: {
+          applied_at: string | null
+          company_id: string
+          confidence: number
+          created_at: string
+          decision_key: string
+          decision_kind: string
+          evidence_event_ids: string[]
+          evidence_event_ids_high_water: string[]
+          evidence_high_water_at: string | null
+          evidence_message_ids: string[]
+          evidence_message_ids_high_water: string[]
+          guard_reason: string | null
+          id: string
+          initial_review_reason: string | null
+          initial_status: string
+          opportunity_id: string
+          proposed_outcome: string | null
+          proposed_stage: string | null
+          reason: string
+          review_reason: string | null
+          review_required_at: string | null
+          source_event_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunity_lifecycle_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      record_phase_c_bilateral_event_handoff: {
+        Args: {
+          p_acceptance_event_id: string
+          p_attendees: Json
+          p_company_id: string
+          p_decision_id: string
+          p_ends_at: string
+          p_event_kind: string
+          p_event_timezone: string
+          p_event_title: string
+          p_idempotency_key: string
+          p_location: string
+          p_opportunity_id: string
+          p_proposal_event_id: string
+          p_requested_owner_user_id: string
+          p_review_reason: string
+          p_starts_at: string
+          p_status: string
+        }
+        Returns: {
+          acceptance_event_id: string | null
+          attempt_count: number
+          attendees: Json
+          cancelled_at: string | null
+          canonical_event_id: string | null
+          canonical_event_kind: string | null
+          company_id: string
+          consumed_at: string | null
+          created_at: string
+          decision_id: string | null
+          ends_at: string | null
+          event_kind: string
+          event_timezone: string | null
+          event_title: string | null
+          id: string
+          idempotency_key: string
+          initial_review_reason: string | null
+          initial_status: string
+          last_error_code: string | null
+          last_error_message: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          location: string | null
+          next_attempt_at: string
+          notification_sent_at: string | null
+          opportunity_id: string
+          processing_failed_at: string | null
+          proposal_event_id: string
+          requested_owner_user_id: string | null
+          review_reason: string | null
+          starts_at: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "phase_c_bilateral_event_handoffs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_phase_c_graduation_prompt_as_system: {
         Args: {
           p_action_label: string
@@ -29857,6 +36149,16 @@ export type Database = {
           p_company_id: string
           p_connection_id: string
           p_title: string
+        }
+        Returns: boolean
+      }
+      record_social_publish_stage: {
+        Args: {
+          p_claim_token: string
+          p_container_id: string
+          p_media_id?: string
+          p_post_id: string
+          p_stage: string
         }
         Returns: boolean
       }
@@ -29871,6 +36173,43 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      redeem_agent_mcp_evidence_as_system: {
+        Args: {
+          p_access_token_hash: string
+          p_actor_user_id: string
+          p_artifact_source_revision: number
+          p_audience: string
+          p_binding_digest: string
+          p_company_id: string
+          p_evidence_ref: string
+          p_expires_at: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_issued_at: string
+          p_issuer: string
+          p_job_id: string
+          p_job_kind: string
+          p_nonce_digest: string
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_operational_source_revision: number
+          p_permission_snapshot_revision: string
+          p_protocol_era: string
+          p_registered_permission_keys: string[]
+          p_request_id: string
+          p_required_oauth_scopes: string[]
+          p_resolved_permission_scopes: Json
+          p_source_kind: string
+          p_source_revision_digest: string
+        }
+        Returns: {
+          byte_size: number
+          locator: string
+          locator_kind: string
+          mime_type: string
+          outcome: string
+        }[]
       }
       refresh_email_activity_attachments: {
         Args: { p_activity_id: string }
@@ -29913,6 +36252,100 @@ export type Database = {
         }
         Returns: Json
       }
+      register_mcp_oauth_client_as_system: {
+        Args: {
+          p_client_name: string
+          p_consent_catalog_revision: string
+          p_exposure_revision: string
+          p_redirect_uris: string[]
+          p_scope: string
+          p_scope_ceiling: string[]
+          p_software_id: string
+          p_software_version: string
+        }
+        Returns: {
+          client_id: string
+          client_name: string
+          consent_catalog_revision: string
+          created_at: string
+          exposure_revision: string
+          grant_types: string[]
+          redirect_uris: string[]
+          response_types: string[]
+          scope: string
+          scope_ceiling: string[]
+          token_endpoint_auth_method: string
+        }[]
+      }
+      reject_agent_collections_draft_as_actor: {
+        Args: {
+          p_action_id: string
+          p_actor_user_id: string
+          p_company_id: string
+          p_review_notes?: string
+        }
+        Returns: Json
+      }
+      release_approved_action_email_reconciliation: {
+        Args: { p_error: string; p_intent_id: string; p_lease_token: string }
+        Returns: {
+          accepted_provider_thread_id: string | null
+          action_data_snapshot: Json
+          action_id: string
+          action_type: string
+          actor_email_snapshot: string
+          actor_name_snapshot: string
+          actor_user_id: string
+          assignment_event_id: string | null
+          assignment_version: number | null
+          authored_body: string
+          cc_emails: string[]
+          client_from_address_snapshot: string
+          client_id: string | null
+          company_id: string
+          connection_id: string
+          content_type: string
+          created_at: string
+          draft_history_id: string | null
+          execution_mode: string
+          id: string
+          idempotency_key: string
+          in_reply_to: string | null
+          invoice_id: string | null
+          last_error: string | null
+          learning_authority: string
+          max_reconciliation_attempts: number
+          opportunity_id: string | null
+          profile_type_snapshot: string
+          project_id: string | null
+          provider_accepted_at: string | null
+          provider_message_id: string | null
+          reconciled_activity_id: string | null
+          reconciled_at: string | null
+          reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
+          reconciliation_lease_expires_at: string | null
+          reconciliation_lease_token: string | null
+          rendered_body: string | null
+          rendered_body_hash: string | null
+          reply_provider_thread_id: string | null
+          signature_content_hash: string | null
+          signature_id: string | null
+          source_activity_id: string | null
+          source_draft_history_id: string | null
+          source_email_thread_id: string | null
+          status: string
+          subject: string
+          to_emails: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "approved_action_email_intents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       release_email_connection_sync_lock_as_system: {
         Args: { p_connection_id: string; p_owner_id: string }
         Returns: boolean
@@ -29930,6 +36363,10 @@ export type Database = {
         }
         Returns: Json
       }
+      release_lead_summary_refresh_quarantine: {
+        Args: { p_opportunity_id: string }
+        Returns: boolean
+      }
       release_payment_reminder_generation: {
         Args: {
           p_claim_token: string
@@ -29941,6 +36378,14 @@ export type Database = {
       release_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string }
         Returns: undefined
+      }
+      release_social_instagram_refresh: {
+        Args: {
+          p_claim_token: string
+          p_error_code: string
+          p_error_message: string
+        }
+        Returns: boolean
       }
       release_unanswered_lead_local_draft_generation: {
         Args: {
@@ -30020,6 +36465,70 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "project_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      renew_approved_action_email_reconciliation: {
+        Args: {
+          p_intent_id: string
+          p_lease_seconds?: number
+          p_lease_token: string
+        }
+        Returns: {
+          accepted_provider_thread_id: string | null
+          action_data_snapshot: Json
+          action_id: string
+          action_type: string
+          actor_email_snapshot: string
+          actor_name_snapshot: string
+          actor_user_id: string
+          assignment_event_id: string | null
+          assignment_version: number | null
+          authored_body: string
+          cc_emails: string[]
+          client_from_address_snapshot: string
+          client_id: string | null
+          company_id: string
+          connection_id: string
+          content_type: string
+          created_at: string
+          draft_history_id: string | null
+          execution_mode: string
+          id: string
+          idempotency_key: string
+          in_reply_to: string | null
+          invoice_id: string | null
+          last_error: string | null
+          learning_authority: string
+          max_reconciliation_attempts: number
+          opportunity_id: string | null
+          profile_type_snapshot: string
+          project_id: string | null
+          provider_accepted_at: string | null
+          provider_message_id: string | null
+          reconciled_activity_id: string | null
+          reconciled_at: string | null
+          reconciliation_attempts: number
+          reconciliation_exhausted_at: string | null
+          reconciliation_lease_expires_at: string | null
+          reconciliation_lease_token: string | null
+          rendered_body: string | null
+          rendered_body_hash: string | null
+          reply_provider_thread_id: string | null
+          signature_content_hash: string | null
+          signature_id: string | null
+          source_activity_id: string | null
+          source_draft_history_id: string | null
+          source_email_thread_id: string | null
+          status: string
+          subject: string
+          to_emails: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "approved_action_email_intents"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -30147,6 +36656,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      replace_financial_analysis_memories: {
+        Args: { p_company_id: string; p_memories: Json }
+        Returns: number
+      }
+      replace_ga4_daily_acquisition: {
+        Args: {
+          p_metrics: Json
+          p_property_id: string
+          p_property_key: string
+          p_reporting_date: string
+          p_rows: Json
+        }
+        Returns: Json
+      }
       replace_qbo_line_items_locked: {
         Args: {
           p_company_id: string
@@ -30166,6 +36689,15 @@ export type Database = {
         }
         Returns: Json
       }
+      replace_search_console_daily: {
+        Args: {
+          p_metrics: Json
+          p_reporting_date: string
+          p_rows: Json
+          p_site_url: string
+        }
+        Returns: Json
+      }
       replace_user_role_as_system: {
         Args: {
           p_actor_user_id: string
@@ -30175,6 +36707,17 @@ export type Database = {
           p_target_user_id: string
         }
         Returns: Json
+      }
+      reproject_agent_provider_delivery_source_as_system: {
+        Args: {
+          p_company_id: string
+          p_normalization_revision: string
+          p_normalization_status: string
+          p_normalized_plain_text: string
+          p_normalized_subject: string
+          p_source_id: string
+        }
+        Returns: boolean
       }
       request_external_intake_erasure_as_system: {
         Args: {
@@ -30231,6 +36774,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -30245,6 +36789,24 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      reschedule_guest_booking_as_system: {
+        Args: { p_intent_id: string; p_scheduled_at: string }
+        Returns: {
+          intent_id: string
+          scheduled_at: string
+          site_visit_id: string
+        }[]
+      }
+      reschedule_site_visit: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_duration_minutes?: number
+          p_reminder_lead_minutes?: number
+          p_scheduled_at?: string
+          p_site_visit_id: string
+        }
+        Returns: string
       }
       reserve_external_intake_upload_batch_as_system: {
         Args: {
@@ -30301,15 +36863,24 @@ export type Database = {
         }
         Returns: Json
       }
-      reschedule_site_visit: {
+      reserve_phase_c_auto_send_generation_as_system: {
         Args: {
-          p_assignee_ids?: string[]
-          p_duration_minutes?: number
-          p_reminder_lead_minutes?: number
-          p_scheduled_at: string
-          p_site_visit_id: string
+          p_actor_user_id: string
+          p_arguments_hash: string
+          p_assignment_event_id: string
+          p_assignment_version: number
+          p_company_id: string
+          p_connection_id: string
+          p_follow_up_sequence: number
+          p_generation_kind: string
+          p_idempotency_key: string
+          p_opportunity_id: string
+          p_reply_provider_thread_id: string
+          p_source_activity_id: string
+          p_source_email_thread_id: string
+          p_source_message_id: string
         }
-        Returns: string
+        Returns: Json
       }
       reset_opportunity_table_view: {
         Args: { p_view_id: string }
@@ -30370,6 +36941,78 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      reset_purpose_schedule_email_action_for_retry_as_system: {
+        Args: { p_action_id: string; p_error?: string }
+        Returns: Json
+      }
+      resolve_agent_actor_authority_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_registered_permission_keys: string[]
+        }
+        Returns: {
+          actor_user_id: string
+          company_id: string
+          configured_permissions: string[]
+          effective_permissions: Json
+          is_active: boolean
+          is_admin: boolean
+          permission_snapshot_revision: string
+          role_ids: string[]
+        }[]
+      }
+      resolve_agent_actor_authority_for_subject_as_system: {
+        Args: {
+          p_firebase_subject: string
+          p_registered_permission_keys: string[]
+        }
+        Returns: {
+          actor_user_id: string
+          company_id: string
+          configured_permissions: string[]
+          effective_permissions: Json
+          is_active: boolean
+          is_admin: boolean
+          permission_snapshot_revision: string
+          role_ids: string[]
+        }[]
+      }
+      resolve_agent_collections_timezone_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_capability_manifest_revision: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+        }
+        Returns: string
+      }
+      resolve_agent_day_closeout_timezone_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_exposure_revision: string
+          p_grant_revision: string
+          p_granted_scope_ceiling: string[]
+          p_oauth_client_id: string
+          p_oauth_grant_id: string
+          p_permission_snapshot_revision: string
+        }
+        Returns: string
+      }
+      resolve_customer_session_as_system: {
+        Args: { p_session_hash: string }
+        Returns: {
+          identity_id: string
+          session_id: string
+          status: string
+        }[]
       }
       resolve_email_commitment_as_system: {
         Args: {
@@ -30467,6 +37110,63 @@ export type Database = {
         }
         Returns: Json
       }
+      resolve_mcp_oauth_access_token_as_system:
+        | {
+            Args: { p_token_hash: string }
+            Returns: {
+              accepted_labels: string[]
+              audience: string
+              client_disabled: boolean
+              client_id: string
+              client_name: string
+              company_id: string
+              consent_catalog_revision: string
+              expires_at: string
+              exposure_revision: string
+              grant_id: string
+              grant_revoked: boolean
+              issuer: string
+              revision: string
+              scopes: string[]
+              token_revoked: boolean
+              user_id: string
+            }[]
+          }
+        | {
+            Args: { p_active_exposure_revision: string; p_token_hash: string }
+            Returns: {
+              accepted_labels: string[]
+              audience: string
+              client_disabled: boolean
+              client_id: string
+              client_name: string
+              company_id: string
+              consent_catalog_revision: string
+              expires_at: string
+              exposure_revision: string
+              grant_id: string
+              grant_revoked: boolean
+              issuer: string
+              revision: string
+              scopes: string[]
+              token_revoked: boolean
+              user_id: string
+            }[]
+          }
+      resolve_mcp_oauth_canary_as_system: {
+        Args: {
+          p_company_id: string
+          p_consent_catalog_revision: string
+          p_exposure_revision: string
+          p_oauth_client_id: string
+          p_user_id: string
+        }
+        Returns: {
+          consent_catalog_revision: string
+          expires_at: string
+          exposure_revision: string
+        }[]
+      }
       resolve_openai_quota_notification_as_system: {
         Args: {
           p_company_id: string
@@ -30474,6 +37174,26 @@ export type Database = {
           p_expected_incident_version: number
           p_notification_id: string
           p_user_id: string
+        }
+        Returns: boolean
+      }
+      resolve_or_create_customer_membership_as_system: {
+        Args: { p_company_id: string; p_identity_id: string }
+        Returns: {
+          client_id: string
+          membership_id: string
+          outcome: string
+          state: string
+          sub_client_id: string
+        }[]
+      }
+      resolve_phase_c_auto_send_generation_as_system: {
+        Args: {
+          p_arguments_hash: string
+          p_disposition: string
+          p_generation_token: string
+          p_idempotency_key: string
+          p_reason: string
         }
         Returns: boolean
       }
@@ -30526,9 +37246,9 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider: string
           provider_accepted_at: string | null
           provider_request_id: string | null
-          provider: string
           run_after: string
           source_action: string
           source_table: string
@@ -30588,6 +37308,7 @@ export type Database = {
           profile_type: string
           provider_message_id: string
           provider_thread_id: string | null
+          replaced_draft_history_id: string | null
           requeue_count: number
           status: string
           subject: string
@@ -30695,6 +37416,22 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      revoke_all_customer_sessions_as_system: {
+        Args: { p_identity_id: string; p_reason: string }
+        Returns: number
+      }
+      revoke_customer_membership_as_system: {
+        Args: {
+          p_membership_id: string
+          p_reason: string
+          p_staff_user_id: string
+        }
+        Returns: boolean
+      }
+      revoke_customer_session_as_system: {
+        Args: { p_reason: string; p_session_hash: string }
+        Returns: boolean
+      }
       revoke_external_api_credential_as_system: {
         Args: {
           p_actor_user_id: string
@@ -30702,6 +37439,14 @@ export type Database = {
           p_reason_code: string
         }
         Returns: Json
+      }
+      revoke_mcp_oauth_grant_as_system: {
+        Args: { p_grant_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      revoke_mcp_oauth_token_as_system: {
+        Args: { p_token_hash: string }
+        Returns: boolean
       }
       rotate_external_api_credential_as_system: {
         Args: {
@@ -30715,6 +37460,56 @@ export type Database = {
           p_visible_prefix: string
         }
         Returns: Json
+      }
+      rotate_mcp_oauth_refresh_token_as_system: {
+        Args: {
+          p_access_expires_at: string
+          p_active_grantable_scopes: string[]
+          p_client_id: string
+          p_new_access_hash: string
+          p_new_refresh_hash: string
+          p_presented_hash: string
+          p_refresh_expires_at: string
+        }
+        Returns: {
+          accepted_labels: string[]
+          audience: string
+          client_id: string
+          company_id: string
+          consent_catalog_revision: string
+          exposure_revision: string
+          grant_id: string
+          issuer: string
+          reuse_detected: boolean
+          revision: string
+          scopes: string[]
+          user_id: string
+        }[]
+      }
+      rotate_mcp_oauth_refresh_token_without_v3_canary: {
+        Args: {
+          p_access_expires_at: string
+          p_active_grantable_scopes: string[]
+          p_client_id: string
+          p_new_access_hash: string
+          p_new_refresh_hash: string
+          p_presented_hash: string
+          p_refresh_expires_at: string
+        }
+        Returns: {
+          accepted_labels: string[]
+          audience: string
+          client_id: string
+          company_id: string
+          consent_catalog_revision: string
+          exposure_revision: string
+          grant_id: string
+          issuer: string
+          reuse_detected: boolean
+          revision: string
+          scopes: string[]
+          user_id: string
+        }[]
       }
       save_expense_atomic: { Args: { p_command: Json }; Returns: Json }
       schedule_phase_c_auto_send: {
@@ -30741,6 +37536,89 @@ export type Database = {
           p_signature_content_hash: string
           p_signature_id: string
           p_source_email_thread_id: string
+          p_subject: string
+          p_to_emails: string[]
+        }
+        Returns: {
+          actor_email_snapshot: string | null
+          actor_name_snapshot: string | null
+          actor_user_id: string | null
+          assignment_event_id: string | null
+          assignment_version: number | null
+          authored_body: string | null
+          autonomy_level_snapshot: string | null
+          cancelled_at: string | null
+          category_snapshot: string | null
+          cc_emails: string[] | null
+          claimed_at: string | null
+          client_from_address_snapshot: string | null
+          company_id: string
+          connection_id: string
+          content_type: string | null
+          created_at: string
+          draft_history_id: string | null
+          draft_text: string
+          error: string | null
+          id: string
+          idempotency_key: string | null
+          in_reply_to: string | null
+          learning_authority: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          opportunity_id: string | null
+          profile_type_snapshot: string | null
+          rendered_body: string | null
+          rendered_body_hash: string | null
+          retry_count: number
+          scheduled_send_at: string
+          send_intent_id: string | null
+          sent_at: string | null
+          signature_content_hash: string | null
+          signature_id: string | null
+          source_email_thread_id: string | null
+          status: string
+          subject: string
+          thread_id: string
+          to_emails: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pending_auto_sends"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      schedule_phase_c_auto_send_fenced: {
+        Args: {
+          p_actor_user_id: string
+          p_arguments_hash: string
+          p_assignment_event_id: string
+          p_assignment_version: number
+          p_authored_body: string
+          p_cc_emails: string[]
+          p_company_id: string
+          p_connection_id: string
+          p_content_type: string
+          p_draft_history_id: string
+          p_draft_text: string
+          p_follow_up_sequence: number
+          p_generation_kind: string
+          p_generation_token: string
+          p_idempotency_key: string
+          p_in_reply_to: string
+          p_learning_authority: string
+          p_opportunity_id: string
+          p_profile_type_snapshot: string
+          p_rendered_body: string
+          p_rendered_body_hash: string
+          p_reply_provider_thread_id: string
+          p_scheduled_send_at: string
+          p_signature_content_hash: string
+          p_signature_id: string
+          p_source_activity_id: string
+          p_source_email_thread_id: string
+          p_source_message_id: string
           p_subject: string
           p_to_emails: string[]
         }
@@ -30876,6 +37754,56 @@ export type Database = {
         Returns: Json
       }
       set_ops_sync_source: { Args: { p_source: string }; Returns: undefined }
+      set_task_scope_completion: {
+        Args: {
+          p_completed: boolean
+          p_expected_updated_at?: string
+          p_idempotency_key?: string
+          p_scope_id: string
+        }
+        Returns: Json
+      }
+      settle_opportunity_lifecycle_decision: {
+        Args: {
+          p_company_id: string
+          p_decision_id: string
+          p_guard_reason?: string
+          p_opportunity_id: string
+          p_status: string
+        }
+        Returns: {
+          applied_at: string | null
+          company_id: string
+          confidence: number
+          created_at: string
+          decision_key: string
+          decision_kind: string
+          evidence_event_ids: string[]
+          evidence_event_ids_high_water: string[]
+          evidence_high_water_at: string | null
+          evidence_message_ids: string[]
+          evidence_message_ids_high_water: string[]
+          guard_reason: string | null
+          id: string
+          initial_review_reason: string | null
+          initial_status: string
+          opportunity_id: string
+          proposed_outcome: string | null
+          proposed_stage: string | null
+          reason: string
+          review_reason: string | null
+          review_required_at: string | null
+          source_event_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunity_lifecycle_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       share_opportunity_table_view: {
         Args: { p_view_id: string }
         Returns: {
@@ -30942,6 +37870,11 @@ export type Database = {
         Args: { p_annotation_id: string }
         Returns: string
       }
+      soft_delete_project_task: { Args: { p_task_id: string }; Returns: Json }
+      soft_delete_task_recurrence: {
+        Args: { p_recurrence_id: string }
+        Returns: Json
+      }
       stage_email_conversion_photo_object: {
         Args: {
           p_generation: number
@@ -30980,6 +37913,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      submit_public_mcp_tool_request_as_system: {
+        Args: {
+          p_active_exposure_revision: string
+          p_details: string
+          p_email_identity: string
+          p_network_identity: string
+          p_requester_email: string
+          p_submission_id: string
+        }
+        Returns: {
+          feature_request_id: string
+          outcome: string
+          retry_after_seconds: number
+          submission_id: string
+        }[]
+      }
       suppress_accounting_sync: {
         Args: {
           p_company_id: string
@@ -30990,6 +37939,14 @@ export type Database = {
           p_ttl_seconds?: number
         }
         Returns: undefined
+      }
+      sync_billable_week_notification: {
+        Args: {
+          p_amount: number
+          p_project_count: number
+          p_week_start: string
+        }
+        Returns: string
       }
       sync_email_signature_notification: {
         Args: {
@@ -31059,6 +38016,32 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      sync_forecast_cleared_notification: { Args: never; Returns: string[] }
+      sync_forecast_dip_notification: {
+        Args: { p_lowest_balance: number; p_week_start: string }
+        Returns: string[]
+      }
+      sync_measurement_pending_notification: {
+        Args: { p_queue_depth: number }
+        Returns: string
+      }
+      sync_overdue_invoice_notifications: { Args: never; Returns: string[] }
+      sync_photo_storage_limit_notification: {
+        Args: { p_device_name: string; p_photos_remaining: number }
+        Returns: string
+      }
+      sync_review_reminder_notification: {
+        Args: { p_count: number; p_kind: string; p_threshold_days?: number }
+        Returns: string
+      }
+      sync_review_stack_notification: {
+        Args: { p_count: number; p_stack: string }
+        Returns: string
+      }
+      sync_threshold_alert_notification: {
+        Args: { p_count: number }
+        Returns: string
+      }
       template_version_compare: {
         Args: {
           p_email_type: string
@@ -31082,6 +38065,15 @@ export type Database = {
       touch_calendar_feed_token: {
         Args: { p_token_id: string }
         Returns: undefined
+      }
+      unconfirm_project_task_schedule_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_expected_schedule_version: number
+          p_task_id: string
+        }
+        Returns: Json
       }
       undo_lead_archive_feedback: {
         Args: { p_feedback_id: string; p_idempotency_key: string }
@@ -31164,11 +38156,16 @@ export type Database = {
           source_thread_key: string | null
           stage: string
           stage_entered_at: string
+          stage_manual_boundary_at: string | null
+          stage_manual_boundary_event_id: string | null
+          stage_manual_corrected_at: string | null
           stage_manually_set: boolean
           tags: string[] | null
           title: string
           updated_at: string
           win_probability: number | null
+          won_prompt_declined_at: string | null
+          won_prompt_declined_by: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -31312,6 +38309,67 @@ export type Database = {
         }
         Returns: Json
       }
+      upsert_agent_day_closeout_routine_config_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_enabled: boolean
+          p_local_time: string
+          p_oauth_grant_id: string
+        }
+        Returns: {
+          client_id: string
+          client_name: string
+          enabled: boolean
+          grant_id: string
+          last_failure_code: string
+          last_run_at: string
+          last_success_at: string
+          local_time: string
+          next_run_at: string
+          schedule_revision: number
+          timezone: string
+        }[]
+      }
+      upsert_agent_day_closeout_routine_config_without_v3_canary: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_enabled: boolean
+          p_local_time: string
+          p_oauth_grant_id: string
+        }
+        Returns: {
+          client_id: string
+          client_name: string
+          enabled: boolean
+          grant_id: string
+          last_failure_code: string
+          last_run_at: string
+          last_success_at: string
+          local_time: string
+          next_run_at: string
+          schedule_revision: number
+          timezone: string
+        }[]
+      }
+      upsert_customer_identity_as_system: {
+        Args: { p_auth_subject: string; p_email: string }
+        Returns: {
+          created: boolean
+          identity_id: string
+        }[]
+      }
+      upsert_lead_summary_refresh_quarantine: {
+        Args: {
+          p_company_id: string
+          p_deferral_count: number
+          p_last_error: string
+          p_opportunity_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
       upsert_markup_layer: {
         Args: {
           p_after_url?: string
@@ -31353,9 +38411,102 @@ export type Database = {
         }
         Returns: string[]
       }
+      validate_phase_c_auto_send_source_for_delivery: {
+        Args: { p_company_id: string; p_id: string; p_lease_token: string }
+        Returns: Json
+      }
       verify_external_lead_projection_backfill_as_system: {
         Args: { p_run_id: string }
         Returns: Json
+      }
+      verify_mcp_oauth_canary_cleanup_as_system: {
+        Args: {
+          p_company_id: string
+          p_oauth_client_id: string
+          p_user_id: string
+        }
+        Returns: {
+          binding_inactive: boolean
+          client_disabled: boolean
+          grants_inactive: boolean
+          routines_safe: boolean
+          tokens_inactive: boolean
+        }[]
+      }
+      win_linked_opportunity: {
+        Args: {
+          p_opportunity_id: string
+          p_project_id: string
+          p_user_id: string
+        }
+        Returns: {
+          actual_close_date: string | null
+          actual_value: number | null
+          address: string | null
+          ai_stage_confidence: number | null
+          ai_stage_signals: string[] | null
+          ai_summary: string | null
+          ai_summary_updated_at: string | null
+          archived_at: string | null
+          assigned_to: string | null
+          assignment_version: number
+          client_id: string | null
+          client_ref: string | null
+          company_id: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          correspondence_count: number
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          detected_value: number | null
+          estimated_value: number | null
+          expected_close_date: string | null
+          handled_at: string | null
+          id: string
+          images: string[] | null
+          inbound_count: number
+          last_activity_at: string | null
+          last_inbound_at: string | null
+          last_message_direction: string | null
+          last_outbound_at: string | null
+          latitude: number | null
+          longitude: number | null
+          lost_notes: string | null
+          lost_reason: string | null
+          merged_into_opportunity_id: string | null
+          next_follow_up_at: string | null
+          operator_action_required_at: string | null
+          outbound_count: number
+          priority: string | null
+          project_id: string | null
+          project_ref: string | null
+          quote_delivery_method: string | null
+          source: string | null
+          source_email_id: string | null
+          source_message_id: string | null
+          source_metadata: Json | null
+          source_thread_key: string | null
+          stage: string
+          stage_entered_at: string
+          stage_manual_boundary_at: string | null
+          stage_manual_boundary_event_id: string | null
+          stage_manual_corrected_at: string | null
+          stage_manually_set: boolean
+          tags: string[] | null
+          title: string
+          updated_at: string
+          win_probability: number | null
+          won_prompt_declined_at: string | null
+          won_prompt_declined_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunities"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       write_off_project_from_payment_review: {
         Args: { p_idempotency_key: string; p_project_id: string }
@@ -31409,6 +38560,7 @@ export type Database = {
         | "other"
         | "measurement"
         | "deck_design"
+        | "email"
       quiz_question_type: "multiple_choice" | "scenario" | "true_false"
       site_visit_status: "scheduled" | "in_progress" | "completed" | "cancelled"
       spec_change_order_status:
@@ -31498,12 +38650,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -31527,11 +38679,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -31552,11 +38704,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -31577,11 +38729,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -31594,11 +38746,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -31660,6 +38812,7 @@ export const Constants = {
         "other",
         "measurement",
         "deck_design",
+        "email",
       ],
       quiz_question_type: ["multiple_choice", "scenario", "true_false"],
       site_visit_status: ["scheduled", "in_progress", "completed", "cancelled"],
