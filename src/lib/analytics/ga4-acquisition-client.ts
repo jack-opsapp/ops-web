@@ -4,6 +4,7 @@ import {
   getGA4PropertyId,
   type GA4PropertyKey,
 } from "./ga4-properties";
+import { composeGA4ProductionHostnameFilter } from "./ga4-report-filter";
 
 type ReportRequest = protos.google.analytics.data.v1beta.IRunReportRequest;
 type ReportRow = protos.google.analytics.data.v1beta.IRow;
@@ -46,6 +47,7 @@ export function buildGA4AcquisitionRequest(
     dateRanges: [{ startDate: reportingDate, endDate: reportingDate }],
     dimensions: GA4_ACQUISITION_DIMENSIONS.map((name) => ({ name })),
     metrics: GA4_ACQUISITION_METRICS.map((name) => ({ name })),
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey),
     orderBys: GA4_ACQUISITION_DIMENSIONS.map((name) => ({
       dimension: { dimensionName: name },
       desc: false,

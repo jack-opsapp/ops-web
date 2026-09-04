@@ -11,6 +11,7 @@ import {
   getGA4PropertyId,
   type GA4PropertyKey,
 } from "@/lib/analytics/ga4-properties";
+import { composeGA4ProductionHostnameFilter } from "@/lib/analytics/ga4-report-filter";
 
 type Row = protos.google.analytics.data.v1beta.IRow;
 
@@ -107,12 +108,12 @@ export async function getEventByPlatform(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "platform" }],
     metrics: [{ name: "eventCount" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "eventName",
         stringFilter: { matchType: "EXACT", value: eventName },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
   });
   return processEventCountRows(response.rows ?? []);
@@ -131,12 +132,12 @@ export async function getEventByDate(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "date" }],
     metrics: [{ name: "eventCount" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "eventName",
         stringFilter: { matchType: "EXACT", value: eventName },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
   });
@@ -182,7 +183,12 @@ export async function getOnboardingFunnel(
       const [response] = await client.runReport({
         property: getPropertyId(propertyKey),
         metrics: [{ name: "eventCount" }],
-        dimensionFilter: filters.length > 1 ? { andGroup: { expressions: filters } } : dimensionFilter,
+        dimensionFilter: composeGA4ProductionHostnameFilter(
+          propertyKey,
+          filters.length > 1
+            ? { andGroup: { expressions: filters } }
+            : dimensionFilter
+        ),
         dateRanges: [buildDateRange(days)],
       });
 
@@ -207,12 +213,12 @@ export async function getTopScreens(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "customEvent:screen_name" }],
     metrics: [{ name: "eventCount" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "eventName",
         stringFilter: { matchType: "EXACT", value: "screen_view" },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
     limit,
@@ -232,12 +238,12 @@ export async function getSignupsByWeek(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "yearWeek" }, { name: "platform" }],
     metrics: [{ name: "eventCount" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "eventName",
         stringFilter: { matchType: "EXACT", value: "sign_up" },
       },
-    },
+    }),
     dateRanges: [buildDateRange(weeks * 7)],
     orderBys: [{ dimension: { dimensionName: "yearWeek" }, desc: false }],
   });
@@ -256,12 +262,12 @@ export async function getEventCountTotal(
   const [response] = await client.runReport({
     property: getPropertyId(propertyKey),
     metrics: [{ name: "eventCount" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "eventName",
         stringFilter: { matchType: "EXACT", value: eventName },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
   });
   return parseInt(response.rows?.[0]?.metricValues?.[0]?.value ?? "0", 10);
@@ -281,12 +287,12 @@ export async function getEventByDimension(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: dimensionName }],
     metrics: [{ name: "eventCount" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "eventName",
         stringFilter: { matchType: "EXACT", value: eventName },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
   });
@@ -305,12 +311,12 @@ export async function getFormAbandonment(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "customEvent:form_type" }],
     metrics: [{ name: "eventCount" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "eventName",
         stringFilter: { matchType: "EXACT", value: "form_abandoned" },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
   });
@@ -330,12 +336,12 @@ export async function getBlogPageViews(
   const [response] = await client.runReport({
     property: getPropertyId(propertyKey),
     metrics: [{ name: "screenPageViews" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "pagePath",
         stringFilter: { matchType: "BEGINS_WITH", value: "/blog/" },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
   });
   return parseInt(response.rows?.[0]?.metricValues?.[0]?.value ?? "0", 10);
@@ -355,12 +361,12 @@ export async function getBlogViewsByPost(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "pagePath" }],
     metrics: [{ name: "screenPageViews" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "pagePath",
         stringFilter: { matchType: "BEGINS_WITH", value: "/blog/" },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
     limit,
@@ -381,12 +387,12 @@ export async function getBlogViewsTimeline(
     property: getPropertyId(propertyKey),
     dimensions: [{ name: "date" }],
     metrics: [{ name: "screenPageViews" }],
-    dimensionFilter: {
+    dimensionFilter: composeGA4ProductionHostnameFilter(propertyKey, {
       filter: {
         fieldName: "pagePath",
         stringFilter: { matchType: "BEGINS_WITH", value: "/blog/" },
       },
-    },
+    }),
     dateRanges: [buildDateRange(days)],
     orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
   });

@@ -43,6 +43,13 @@ const baseNextConfig: NextConfig = {
       },
     ],
   },
+  // Pin the Turbopack root to the checkout being served. Without this, a
+  // nested worktree (ops-web/.worktrees/<name>) makes Next infer the PRIMARY
+  // checkout's lockfile as the workspace root, so Turbopack watches and
+  // compiles every sibling worktree — minutes-long compiles and tokio panics.
+  turbopack: {
+    root: process.cwd(),
+  },
   experimental: {
     optimizePackageImports: [
       "lucide-react",

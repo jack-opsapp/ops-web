@@ -39,6 +39,7 @@ import { CHECK_PAYROLL_READINESS_CAPABILITY_DEFINITION } from "./payroll-readine
 import { PREPARE_RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_DEFINITION } from "./recurring-service-price-change-capability";
 import { PREPARE_ESTIMATE_FROM_PAST_JOB_CAPABILITY_DEFINITION } from "./estimate-draft-capability";
 import { PREPARE_WEATHER_RESCHEDULE_CAPABILITY_DEFINITION } from "./weather-reschedule-capability";
+import { PREPARE_CREW_CALLOUT_RECOVERY_CAPABILITY_DEFINITION } from "./crew-callout-recovery-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
@@ -61,6 +62,8 @@ export const ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION =
   "2026-09-02.capability-manifest.v16" as const;
 export const WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION =
   "2026-09-03.capability-manifest.v17" as const;
+export const CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-03.capability-manifest.v18" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -475,6 +478,30 @@ const WEATHER_RESCHEDULE_CAPABILITY_BY_NAME = new Map(
   )
 );
 
+const crewCalloutRecoveryManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...WEATHER_RESCHEDULE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_CREW_CALLOUT_RECOVERY_CAPABILITY_DEFINITION,
+    CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  crewCalloutRecoveryManifestEntries,
+  CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(crewCalloutRecoveryManifestEntries);
+
+export const CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(crewCalloutRecoveryManifestEntries);
+
+const CREW_CALLOUT_RECOVERY_CAPABILITY_BY_NAME = new Map(
+  CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -551,6 +578,14 @@ export function getWeatherRescheduleCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = WEATHER_RESCHEDULE_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getCrewCalloutRecoveryCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = CREW_CALLOUT_RECOVERY_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -911,6 +946,16 @@ export function resolveWeatherRescheduleCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getWeatherRescheduleCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveCrewCalloutRecoveryCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getCrewCalloutRecoveryCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

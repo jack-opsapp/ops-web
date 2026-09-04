@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { safeRedirectPath } from "@/lib/auth/safe-redirect";
+import {
+  ADMIN_RETURN_TO_HEADER,
+  getFirebaseIdTokenCookieMaxAge,
+  LEGACY_SESSION_COOKIE_NAME,
+  OPS_AUTH_COOKIE_NAME,
+  selectFirebaseIdTokenCookie,
+} from "@/lib/auth/firebase-id-token-cookie";
 
 // Routes that authenticated users should be redirected away from
 const authRoutes = ["/login", "/register"];
@@ -42,6 +48,40 @@ const portalProtectedPrefixes = [
 
 // Portal routes that are publicly accessible (no session needed)
 const portalPublicPrefixes = ["/portal/verify", "/portal/auth"];
+
+function clearAuthCookies(response: NextResponse, secure: boolean) {
+  for (const name of [OPS_AUTH_COOKIE_NAME, LEGACY_SESSION_COOKIE_NAME]) {
+    response.cookies.set({
+      name,
+      value: "",
+      path: "/",
+      maxAge: 0,
+      sameSite: "lax",
+      secure,
+    });
+  }
+  return response;
+}
+
+/**
+ * Hosted customer surface (design D3, I3, I9): `/c/<handle>/…` pages and the
+ * `/api/customer/…` broker. Public at the middleware layer — no staff cookie
+ * is required and none is read. Authority is resolved per request by the
+ * route itself (session row + membership state), never here. The customer
+ * session cookie (`ops-customer-session`) is never consulted by this
+ * middleware on any path: a customer credential must never read as a staff
+ * login, and a staff login must never read as a customer.
+ *
+ * Matching is exact-segment (`/c` or `/c/…`) so `/clients`, `/catalog` and
+ * `/calibration` stay staff-protected.
+ */
+export const CUSTOMER_PUBLIC_PREFIXES = ["/c", "/api/customer"] as const;
+
+function isCustomerPublicPath(pathname: string): boolean {
+  return CUSTOMER_PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
 
 /**
  * CALIBRATION 308 redirects from retired AI surfaces. Exact-match only —
@@ -187,6 +227,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
+  // ─── Hosted customer surface ─────────────────────────────────────────────
+  // Before any cookie is read: these paths carry no staff identity and the
+  // customer credential is the route's business, not the middleware's.
+  if (isCustomerPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
   // ─── Portal Routes ───────────────────────────────────────────────────────
   if (pathname.startsWith("/portal")) {
     // Public portal pages (verification flow)
@@ -213,27 +260,23 @@ export function middleware(request: NextRequest) {
 
   // ─── Dashboard Routes ────────────────────────────────────────────────────
 
-  // Check for auth token in cookies
-  // Firebase sets a session cookie; we also check for a custom token cookie
-  // that can be set client-side after Firebase auth
-  const authToken =
-    request.cookies.get("__session")?.value ||
-    request.cookies.get("ops-auth-token")?.value;
+  // Token decoding here is only a routing hint. Actual authorization remains
+  // the responsibility of server routes/layouts that cryptographically verify
+  // the Firebase token and any required role or allowlist.
+  const canonicalToken = request.cookies.get(OPS_AUTH_COOKIE_NAME)?.value;
+  const legacyToken = request.cookies.get(LEGACY_SESSION_COOKIE_NAME)?.value;
+  const authToken = selectFirebaseIdTokenCookie(canonicalToken, legacyToken);
+  const isAuthenticated =
+    authToken !== null && getFirebaseIdTokenCookieMaxAge(authToken) !== null;
+  const secure = request.nextUrl.protocol === "https:";
 
-  const isAuthenticated = !!authToken;
-
-  // If user is on an auth route and is authenticated, redirect to destination
+  // Auth pages own the verified client-side redirect. Middleware must not send
+  // someone away from login based solely on an unverified cookie.
   if (authRoutes.some((route) => pathname === route)) {
-    if (isAuthenticated) {
-      // The `redirect` param is attacker-controllable — sanitize to a
-      // same-origin path so `/login?redirect=https://evil.com` can't bounce a
-      // freshly-authenticated user off-site.
-      const redirect = safeRedirectPath(
-        request.nextUrl.searchParams.get("redirect")
-      );
-      return NextResponse.redirect(new URL(redirect, request.url));
-    }
-    return NextResponse.next();
+    const response = NextResponse.next();
+    return authToken && !isAuthenticated
+      ? clearAuthCookies(response, secure)
+      : response;
   }
 
   // If user is on a protected route and NOT authenticated, redirect to login
@@ -247,7 +290,17 @@ export function middleware(request: NextRequest) {
     // client-seeded deep link (e.g. /projects/new?clientId=…) survives the
     // login bounce. `search` includes the leading "?" (or is "" when absent).
     loginUrl.searchParams.set("redirect", pathname + request.nextUrl.search);
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    return authToken ? clearAuthCookies(response, secure) : response;
+  }
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(
+      ADMIN_RETURN_TO_HEADER,
+      pathname + request.nextUrl.search
+    );
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // Public routes and onboarding - allow through

@@ -1,0 +1,114 @@
+=== 1. ledger row is byte-exact against the repo file ===
+    version     |           name            | statement_count |            ledger_md5            
+----------------+---------------------------+-----------------+----------------------------------
+ 20260902190000 | public_booking_foundation |               1 | 7a960e2c6ef97934dcb1f207b3ad716e
+(1 row)
+
+=== 2. zero non-owner grants on the new private tables ===
+ grantee | privs 
+---------+-------
+(0 rows)
+
+ non_owner_grants_expect_zero 
+------------------------------
+                            0
+(1 row)
+
+=== 3. RLS on, no policies, on the two private tables ===
+         relname         | rls_enabled | policies 
+-------------------------+-------------+----------
+ customer_booking_claims | t           |        0
+ guest_booking_intents   | t           |        0
+(2 rows)
+
+=== 4. policy table grants + RLS ===
+    grantee    |                          privs                          
+---------------+---------------------------------------------------------
+ anon          | INSERT,SELECT,UPDATE
+ authenticated | INSERT,SELECT,UPDATE
+ postgres      | DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+ service_role  | DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+(4 rows)
+
+    policyname     | permissive  |  roles   |  cmd   
+-------------------+-------------+----------+--------
+ role_scope_insert | RESTRICTIVE | {public} | INSERT
+ role_scope_update | RESTRICTIVE | {public} | UPDATE
+ company_isolation | PERMISSIVE  | {public} | ALL
+(3 rows)
+
+=== 5. non-service gate live-fired as the real anon role ===
+psql:verify_live.sql:63: NOTICE:  LIVE GATE OK: 11 of 11 RPCs refused anon with 42501
+DO
+RESET
+=== 6. anon cannot read or write the policy table ===
+psql:verify_live.sql:83: NOTICE:  LIVE RLS OK: anon reads 0 rows, write refused (42501)
+DO
+RESET
+=== 7. object inventory ===
+           kind            | value 
+---------------------------+-------
+ private tables            | 2
+ public policy table       | 1
+ booking *_as_system rpcs  | 11
+ private helpers           | 10
+ policy rows (expect 0)    | 0
+ guest intents (expect 0)  | 0
+ booking claims (expect 0) | 0
+(7 rows)
+
+=== 8. the staff-actor book_site_visit is untouched ===
+                                     sig                                     | still_gated | still_actor_bound 
+-----------------------------------------------------------------------------+-------------+-------------------
+ book_site_visit(uuid,timestamp with time zone,integer,text[],integer)       | t           | t
+ cancel_site_visit_booking(uuid)                                             | t           | t
+ reschedule_site_visit(uuid,timestamp with time zone,integer,text[],integer) | t           | t
+(3 rows)
+
+=== 9. cron + assignment allowlist ===
+            jobname            |  schedule   |                          command                          | active 
+-------------------------------+-------------+-----------------------------------------------------------+--------
+ guest_booking_hold_sweep_5min | */5 * * * * | select private.run_guest_booking_hold_sweep_controlled(); | t
+(1 row)
+
+                   conname                    | has_new_source 
+----------------------------------------------+----------------
+ opportunity_assignment_events_actor_required | t
+ opportunity_assignment_events_source_check   | t
+(2 rows)
+
+                       proname                        | has_new_source 
+------------------------------------------------------+----------------
+ change_assignment_system_company_serialized_internal | t
+ change_opportunity_assignment_core                   | t
+(2 rows)
+
+                proname                 | sweep_allowlisted 
+----------------------------------------+-------------------
+ run_scheduled_cron_workload_controlled | t
+(1 row)
+
+=== 10. every new function has a pinned search_path ===
+                proname                 |                      proconfig                       
+----------------------------------------+------------------------------------------------------
+ book_site_visit_as_system              | {"search_path=pg_catalog, public, private, pg_temp"}
+ booking_answers_valid                  | {"search_path=pg_catalog, pg_temp"}
+ booking_expire_stale_holds             | {"search_path=pg_catalog, public, private, pg_temp"}
+ booking_notify_staff                   | {"search_path=pg_catalog, public, private, pg_temp"}
+ booking_policy_slot_starts             | {"search_path=pg_catalog, public, private, pg_temp"}
+ booking_policy_validate                | {"search_path=pg_catalog, public, private, pg_temp"}
+ booking_resolve_guest_client           | {"search_path=pg_catalog, public, private, pg_temp"}
+ booking_slot_is_open                   | {"search_path=pg_catalog, public, private, pg_temp"}
+ booking_windows_valid                  | {"search_path=pg_catalog, pg_temp"}
+ cancel_guest_booking_as_system         | {"search_path=pg_catalog, public, private, pg_temp"}
+ claim_guest_booking_as_system          | {"search_path=pg_catalog, public, private, pg_temp"}
+ confirm_booking_request_as_system      | {"search_path=pg_catalog, public, private, pg_temp"}
+ confirm_guest_booking_as_system        | {"search_path=pg_catalog, public, private, pg_temp"}
+ decline_booking_request_as_system      | {"search_path=pg_catalog, public, private, pg_temp"}
+ guest_booking_hold_sweep               | {"search_path=pg_catalog, public, private, pg_temp"}
+ hold_booking_slot_as_system            | {"search_path=pg_catalog, public, private, pg_temp"}
+ read_public_booking_policy_as_system   | {"search_path=pg_catalog, public, private, pg_temp"}
+ record_guest_booking_contact_as_system | {"search_path=pg_catalog, public, private, pg_temp"}
+ reschedule_guest_booking_as_system     | {"search_path=pg_catalog, public, private, pg_temp"}
+(19 rows)
+

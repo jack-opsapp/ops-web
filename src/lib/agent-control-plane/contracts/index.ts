@@ -1,5 +1,6 @@
 export * from "./common";
 export * from "./communication";
+export * from "./crew-callout-recovery";
 export * from "./conversation";
 export * from "./discovery";
 export * from "./errors";

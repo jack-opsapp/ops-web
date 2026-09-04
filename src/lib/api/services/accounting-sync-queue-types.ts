@@ -6,9 +6,16 @@ export const ACCOUNTING_SYNC_TERMINAL_STATUSES = [
   "cancelled",
 ] as const;
 
-export type AccountingSyncProvider = "quickbooks";
+export type AccountingSyncProvider = "quickbooks" | "sage";
 
-export type AccountingSyncEntityType = "customer" | "invoice" | "estimate" | "payment";
+export type AccountingSyncEntityType =
+  "customer" | "invoice" | "estimate" | "payment";
+
+export type SupplierBillSyncEntityType =
+  "supplier" | "supplier_bill" | "supplier_bill_payment";
+
+export type AccountingSyncQueueEntityType =
+  AccountingSyncEntityType | SupplierBillSyncEntityType;
 
 export type AccountingSyncOperation =
   | "create"
@@ -29,28 +36,33 @@ export type AccountingSyncQueueStatus =
   | "needs_review"
   | "cancelled";
 
-export type AccountingSyncDirection = "ops_to_qb" | "qb_to_ops" | "reconcile" | "system";
+export type AccountingSyncDirection =
+  | "ops_to_qb"
+  | "qb_to_ops"
+  | "ops_to_sage"
+  | "sage_to_ops"
+  | "reconcile"
+  | "system";
 
 export type AccountingSyncDecision =
-  | "ops_won"
-  | "qb_won"
-  | "skipped"
-  | "needs_review"
-  | "retry"
-  | "blocked";
+  "ops_won" | "qb_won" | "skipped" | "needs_review" | "retry" | "blocked";
 
-export type AccountingSyncAuditStatus = "succeeded" | "failed" | "blocked" | "needs_review" | "skipped";
+export type AccountingSyncAuditStatus =
+  "succeeded" | "failed" | "blocked" | "needs_review" | "skipped";
 
-export type AccountingSyncAuditSource = "trigger" | "worker" | "webhook" | "reconcile" | "operator" | "system";
+export type AccountingSyncAuditSource =
+  "trigger" | "worker" | "webhook" | "reconcile" | "operator" | "system";
 
 export type AccountingSyncSnapshot = Record<string, unknown>;
 
-export interface AccountingSyncQueueRow {
+export interface AccountingSyncQueueRow<
+  TEntity extends AccountingSyncQueueEntityType = AccountingSyncEntityType,
+> {
   id: string;
   companyId: string;
   connectionId: string;
   provider: AccountingSyncProvider;
-  entityType: AccountingSyncEntityType;
+  entityType: TEntity;
   entityId: string;
   externalId: string | null;
   operation: AccountingSyncOperation;
@@ -76,7 +88,7 @@ export interface AccountingSyncAuditInput {
   connectionId?: string | null;
   provider: AccountingSyncProvider;
   direction: AccountingSyncDirection;
-  entityType: AccountingSyncEntityType;
+  entityType: AccountingSyncQueueEntityType;
   entityId?: string | null;
   externalId?: string | null;
   operation: AccountingSyncOperation;

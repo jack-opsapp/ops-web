@@ -20171,6 +20171,828 @@ export type Database = {
           },
         ]
       }
+      supplier_bill_documents: {
+        Row: {
+          bill_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string
+          expense_id: string | null
+          id: string
+          mime_type: string
+          original_filename: string
+          public_url: string
+          sha256: string
+          size_bytes: number
+          storage_bucket: string
+          storage_key: string
+        }
+        Insert: {
+          bill_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by: string
+          expense_id?: string | null
+          id?: string
+          mime_type: string
+          original_filename: string
+          public_url: string
+          sha256: string
+          size_bytes: number
+          storage_bucket: string
+          storage_key: string
+        }
+        Update: {
+          bill_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          expense_id?: string | null
+          id?: string
+          mime_type?: string
+          original_filename?: string
+          public_url?: string
+          sha256?: string
+          size_bytes?: number
+          storage_bucket?: string
+          storage_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_documents_bill_id_company_id_fkey"
+            columns: ["bill_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bills"
+            referencedColumns: ["id", "company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_documents_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: true
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bill_events: {
+        Row: {
+          action: string
+          actor_user_id: string
+          after_snapshot: Json
+          before_snapshot: Json
+          command_hash: string
+          company_id: string
+          created_at: string
+          id: string
+          intent_id: string
+          subject_id: string
+          subject_type: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          after_snapshot: Json
+          before_snapshot?: Json
+          command_hash: string
+          company_id: string
+          created_at?: string
+          id?: string
+          intent_id: string
+          subject_id: string
+          subject_type: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          after_snapshot?: Json
+          before_snapshot?: Json
+          command_hash?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          intent_id?: string
+          subject_id?: string
+          subject_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      supplier_bill_line_items: {
+        Row: {
+          bill_id: string
+          category_id: string
+          company_id: string
+          created_at: string
+          description: string
+          id: string
+          position: number
+          quantity: number
+          sku: string | null
+          subtotal: number
+          tax_amount: number
+          tax_rate: number | null
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          bill_id: string
+          category_id: string
+          company_id: string
+          created_at?: string
+          description: string
+          id?: string
+          position: number
+          quantity: number
+          sku?: string | null
+          subtotal: number
+          tax_amount: number
+          tax_rate?: number | null
+          total: number
+          unit_price: number
+        }
+        Update: {
+          bill_id?: string
+          category_id?: string
+          company_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          position?: number
+          quantity?: number
+          sku?: string | null
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number | null
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_line_items_bill_id_company_id_fkey"
+            columns: ["bill_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bills"
+            referencedColumns: ["id", "company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_line_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_line_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_line_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      supplier_bill_payment_account_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          external_account_id: string
+          external_payment_method_id: string | null
+          id: string
+          payment_method: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          external_account_id: string
+          external_payment_method_id?: string | null
+          id?: string
+          payment_method: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          external_account_id?: string
+          external_payment_method_id?: string | null
+          id?: string
+          payment_method?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_payment_account_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_payment_account_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_payment_account_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bill_payments: {
+        Row: {
+          amount: number
+          bill_id: string
+          company_id: string
+          confirmed_at: string
+          created_at: string
+          id: string
+          payment_date: string
+          payment_method: string
+          recorded_by: string
+          reference: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount: number
+          bill_id: string
+          company_id: string
+          confirmed_at: string
+          created_at?: string
+          id?: string
+          payment_date: string
+          payment_method: string
+          recorded_by: string
+          reference?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount?: number
+          bill_id?: string
+          company_id?: string
+          confirmed_at?: string
+          created_at?: string
+          id?: string
+          payment_date?: string
+          payment_method?: string
+          recorded_by?: string
+          reference?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_payments_bill_id_company_id_fkey"
+            columns: ["bill_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bills"
+            referencedColumns: ["id", "company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_payments_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_payments_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bill_project_allocations: {
+        Row: {
+          amount: number
+          bill_id: string
+          company_id: string
+          created_at: string
+          id: string
+          line_item_id: string
+          project_id: string
+        }
+        Insert: {
+          amount: number
+          bill_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          line_item_id: string
+          project_id: string
+        }
+        Update: {
+          amount?: number
+          bill_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          line_item_id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_project_allocat_line_item_id_bill_id_company_fkey"
+            columns: ["line_item_id", "bill_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bill_line_items"
+            referencedColumns: ["id", "bill_id", "company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_project_allocations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_project_allocations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_project_allocations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_project_allocations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bill_project_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          external_project_id: string
+          external_project_name: string | null
+          id: string
+          project_id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          external_project_id: string
+          external_project_name?: string | null
+          id?: string
+          project_id: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          external_project_id?: string
+          external_project_name?: string | null
+          id?: string
+          project_id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_project_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_project_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_project_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_project_mappings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_project_mappings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bill_provider_links: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          id: string
+          provider: string
+          provider_updated_at: string | null
+          sync_token: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          id?: string
+          provider: string
+          provider_updated_at?: string | null
+          sync_token?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          external_id?: string
+          id?: string
+          provider?: string
+          provider_updated_at?: string | null
+          sync_token?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_provider_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_provider_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_provider_links_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bill_tax_mappings: {
+        Row: {
+          company_id: string
+          connection_id: string
+          created_at: string
+          external_tax_code_id: string
+          external_tax_code_name: string | null
+          id: string
+          provider: string
+          tax_rate: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          connection_id: string
+          created_at?: string
+          external_tax_code_id: string
+          external_tax_code_name?: string | null
+          id?: string
+          provider: string
+          tax_rate: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          external_tax_code_id?: string
+          external_tax_code_name?: string | null
+          id?: string
+          provider?: string
+          tax_rate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bill_tax_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_tax_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bill_tax_mappings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_bills: {
+        Row: {
+          balance: number
+          category_id: string
+          company_id: string
+          confirmed_at: string
+          confirmed_by: string
+          created_at: string
+          created_by: string
+          currency: string
+          deleted_at: string | null
+          due_date: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          normalized_invoice_number: string
+          notes: string | null
+          status: string
+          subtotal: number
+          supplier_id: string
+          tax_total: number
+          total: number
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          balance: number
+          category_id: string
+          company_id: string
+          confirmed_at: string
+          confirmed_by: string
+          created_at?: string
+          created_by: string
+          currency: string
+          deleted_at?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          normalized_invoice_number: string
+          notes?: string | null
+          status: string
+          subtotal: number
+          supplier_id: string
+          tax_total: number
+          total: number
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          balance?: number
+          category_id?: string
+          company_id?: string
+          confirmed_at?: string
+          confirmed_by?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          deleted_at?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          normalized_invoice_number?: string
+          notes?: string | null
+          status?: string
+          subtotal?: number
+          supplier_id?: string
+          tax_total?: number
+          total?: number
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bills_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bills_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bills_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bills_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_bills_supplier_id_company_id_fkey"
+            columns: ["supplier_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id", "company_id"]
+          },
+          {
+            foreignKeyName: "supplier_bills_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          display_name: string
+          email: string | null
+          id: string
+          normalized_name: string
+          phone: string | null
+          tax_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          display_name: string
+          email?: string | null
+          id?: string
+          normalized_name: string
+          phone?: string | null
+          tax_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          display_name?: string
+          email?: string | null
+          id?: string
+          normalized_name?: string
+          phone?: string | null
+          tax_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "growth_company_milestones"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "suppliers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_material_allocations: {
         Row: {
           allocated_quantity: number
@@ -22569,6 +23391,36 @@ export type Database = {
       }
     }
     Functions: {
+      commit_supplier_bill_write: {
+        Args: {
+          p_actor_user_id: string
+          p_confirmation_text: string
+          p_intent_id: string
+        }
+        Returns: Json
+      }
+      finalize_paid_supplier_purchase: {
+        Args: {
+          p_actor_user_id: string
+          p_expense_receipt: Json
+          p_intent_id: string
+        }
+        Returns: Json
+      }
+      finalize_supplier_bill_provider_sync: {
+        Args: {
+          p_external_id: string
+          p_provider_updated_at: string
+          p_queue_id: string
+          p_sync_token: string
+          p_worker_id: string
+        }
+        Returns: Json
+      }
+      prepare_supplier_bill_write: {
+        Args: { p_actor_user_id: string; p_command: Json }
+        Returns: Json
+      }
       _record_client_merge_skip: {
         Args: {
           p_company_id: string

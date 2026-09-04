@@ -136,8 +136,16 @@ export const WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
     "Prepare exact weather reschedule proposals for approval",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
+export const CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
+  "ops.communications.prepare":
+    "Prepare exact client schedule-update and crew recovery messages for approval",
+  "ops.schedule.prepare":
+    "Prepare exact weather and crew recovery schedule proposals for approval",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
 export type LabelledMcpScope =
-  keyof typeof WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS;
+  keyof typeof CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,

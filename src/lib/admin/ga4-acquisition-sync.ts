@@ -19,6 +19,7 @@ import {
 
 const BACKFILL_DAYS_PER_RUN = 14;
 const PROPERTY_KEYS = ["marketing", "web_app"] as const;
+export const GA4_HOSTNAME_FILTER_VERSION = 1;
 
 export type ChannelMapRule = StoredChannelMapRule;
 export type GA4AcquisitionPropertyKey = (typeof PROPERTY_KEYS)[number];
@@ -101,9 +102,14 @@ export function planGA4Sync(input: {
   const trailing = Array.from({ length: 7 }, (_, index) =>
     addDays(input.today, -8 + index)
   );
-  const alreadyComplete = input.latestState?.metadata.backfill_complete === true;
+  const currentState =
+    input.latestState?.metadata.hostname_filter_version ===
+    GA4_HOSTNAME_FILTER_VERSION
+      ? input.latestState
+      : null;
+  const alreadyComplete = currentState?.metadata.backfill_complete === true;
   const start =
-    input.latestState?.cursor ??
+    currentState?.cursor ??
     input.backfillStartDate ??
     subtractMonths(latestFinalizedDate, 14);
   const backfill: string[] = [];
@@ -292,6 +298,7 @@ async function syncProperty(input: {
     await input.store.annotate(runId, {
       property_key: input.propertyKey,
       property_id: input.propertyId,
+      hostname_filter_version: GA4_HOSTNAME_FILTER_VERSION,
       requested_dates: plan.dates,
     });
     for (const reportingDate of plan.dates) {
@@ -323,6 +330,7 @@ async function syncProperty(input: {
       metadata: {
         property_key: input.propertyKey,
         property_id: input.propertyId,
+        hostname_filter_version: GA4_HOSTNAME_FILTER_VERSION,
         dates: plan.dates,
         backfill_complete: plan.backfillComplete,
       },

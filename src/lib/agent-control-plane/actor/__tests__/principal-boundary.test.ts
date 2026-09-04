@@ -182,6 +182,7 @@ describe("verified principal source boundary", () => {
     const approvedConsumers = new Set([
       "src/app/api/cron/day-closeout-routines/route.ts",
       "src/lib/agent-control-plane/services/collections/collections-service.ts",
+      "src/lib/agent-control-plane/services/crew-callout-recovery/crew-callout-recovery-service.ts",
       "src/lib/agent-control-plane/services/day-closeout/day-closeout-routine-service.ts",
       "src/lib/agent-control-plane/services/day-closeout/day-closeout-service.ts",
       "src/lib/agent-control-plane/services/estimate-draft/estimate-draft-service.ts",

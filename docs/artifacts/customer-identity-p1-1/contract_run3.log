@@ -1,0 +1,161 @@
+ set_config 
+------------
+ 2min
+(1 row)
+
+=== applying migration inside transaction ===
+=== migration applied (uncommitted) ===
+       set_config        
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+--- T1 zero table grants on new private tables
+ table_name | grants 
+------------+--------
+(0 rows)
+
+ non_owner_grants_expect_zero 
+------------------------------
+                            0
+(1 row)
+
+--- T1 gate: anon caller -> 42501
+psql:contract_tests.sql:53: NOTICE:  T1 gate ok: sqlstate=42501 message=access_denied
+psql:contract_tests.sql:53: NOTICE:  T1 gate ok without jwt: sqlstate=42501
+--- T1 gate as real anon role (set role anon)
+   set_config    
+-----------------
+ {"role":"anon"}
+(1 row)
+
+psql:contract_tests.sql:69: NOTICE:  T1 anon role: sqlstate=42501 message=permission denied for function resolve_customer_session_as_system
+       set_config        
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+--- T2 public_handle backfill
+ companies | with_handle | distinct_handles | all_shape_ok 
+-----------+-------------+------------------+--------------
+        64 |          64 |               64 | t
+(1 row)
+
+                      name                      |                public_handle                 
+------------------------------------------------+----------------------------------------------
+ Faber's Appliance Repair & Dryer Vent Cleaning | faber-s-appliance-repair-dryer-vent-cleaning
+ Hydrowodkan sp. z o.o.                         | hydrowodkan-sp-z-o-o
+ Jorge’s Pool Plastering                        | jorge-s-pool-plastering
+ Light My Career                                | light-my-career
+ Light My Career                                | light-my-career-10
+ Light My Career                                | light-my-career-11
+ Light My Career                                | light-my-career-12
+ Light My Career                                | light-my-career-2
+ Light My Career                                | light-my-career-3
+ Light My Career                                | light-my-career-4
+ Light My Career                                | light-my-career-5
+ Light My Career                                | light-my-career-6
+ Light My Career                                | light-my-career-7
+ Light My Career                                | light-my-career-8
+ Light My Career                                | light-my-career-9
+ MAVERICK PROJECTS LTD                          | maverick-projects-ltd
+(16 rows)
+
+--- T2 new company gets a handle from the trigger (rolled back)
+psql:contract_tests.sql:88: NOTICE:  T2 trigger handle for duplicate name: maverick-projects-ltd-2
+--- T3 trigger-fire privilege probe
+ id | trigger_ran_as_anon 
+----+---------------------
+  1 | t
+(1 row)
+
+--- T4 OTP send limits + attempts
+psql:contract_tests.sql:168: NOTICE:  T4 first send: allowed=t retry=60 id_present=t
+psql:contract_tests.sql:168: NOTICE:  T4 immediate resend: allowed=f retry=60 id=<NULL>
+psql:contract_tests.sql:168: NOTICE:  T4 attempt 1: attempts=1 exhausted=f
+psql:contract_tests.sql:168: NOTICE:  T4 attempt 2: attempts=2 exhausted=f
+psql:contract_tests.sql:168: NOTICE:  T4 attempt 3: attempts=3 exhausted=f
+psql:contract_tests.sql:168: NOTICE:  T4 attempt 4: attempts=4 exhausted=f
+psql:contract_tests.sql:168: NOTICE:  T4 attempt 5: attempts=5 exhausted=f
+psql:contract_tests.sql:168: NOTICE:  T4 attempt 6: attempts=6 exhausted=t
+psql:contract_tests.sql:168: NOTICE:  T4 attempt 7: attempts=7 exhausted=t
+psql:contract_tests.sql:168: NOTICE:  T4 success after exhaustion: exhausted=t
+psql:contract_tests.sql:168: NOTICE:  T4 sixth send in hour: allowed=f retry=600
+psql:contract_tests.sql:168: NOTICE:  T4 superseded challenges: 4
+psql:contract_tests.sql:168: NOTICE:  T4 success consumes: attempts=1 exhausted=f
+psql:contract_tests.sql:168: NOTICE:  T4 consumed challenge rows returned: 0 (expect 0)
+psql:contract_tests.sql:168: NOTICE:  T4 bad digest: 22023 customer_otp_digest_invalid
+--- T5 identity upsert, contact conflict, sessions
+psql:contract_tests.sql:248: NOTICE:  T5 upsert #1 created=t
+psql:contract_tests.sql:248: NOTICE:  T5 upsert #2 created=f same_id=t
+psql:contract_tests.sql:248: NOTICE:  T5 stored contact normalized: p1.test+110e9b18@example.invalid
+psql:contract_tests.sql:248: NOTICE:  T5 contact conflict: 23505 customer_contact_conflict
+psql:contract_tests.sql:248: NOTICE:  T5 invalid email: 22023 customer_email_invalid
+psql:contract_tests.sql:248: NOTICE:  T5 resolve: status=ok identity_match=t session_match=t
+psql:contract_tests.sql:248: NOTICE:  T5 unknown: status=unknown ids null=t
+psql:contract_tests.sql:248: NOTICE:  T5 idle expired: status=expired
+psql:contract_tests.sql:248: NOTICE:  T5 idle slid forward: (t)
+psql:contract_tests.sql:248: NOTICE:  T5 after revoke: status=revoked
+psql:contract_tests.sql:248: NOTICE:  T5 revoke all count=2 (expect 2)
+psql:contract_tests.sql:248: NOTICE:  T5 duplicate session hash rejected: duplicate key value violates unique constraint "customer_sessions_hash_key"
+psql:contract_tests.sql:266: NOTICE:  T5 suspended identity resolve: status=revoked
+psql:contract_tests.sql:266: NOTICE:  T5 mint for suspended: 42501 customer_identity_unavailable
+--- T6 membership matrix
+psql:contract_tests.sql:381: NOTICE:  T6 zero: outcome=created state=active_full sub=<NULL>
+psql:contract_tests.sql:381: NOTICE:  T6 zero created client: zero-a1401db3@example.invalid / zero-a1401db3@example.invalid
+psql:contract_tests.sql:381: NOTICE:  T6 zero again: outcome=existing
+psql:contract_tests.sql:381: NOTICE:  T6 one: outcome=matched_forward_only state=active_forward_only client_match=t sub=<NULL>
+psql:contract_tests.sql:381: NOTICE:  T6 one after sent invoice: outcome=existing state=active_full
+psql:contract_tests.sql:381: NOTICE:  T6 one evidence now: on_file_transacted
+psql:contract_tests.sql:381: NOTICE:  T6 sub: outcome=matched_forward_only state=active_forward_only parent_match=t sub_match=t
+psql:contract_tests.sql:381: NOTICE:  T6 confirm -> active_full
+psql:contract_tests.sql:381: NOTICE:  T6 confirmed evidence: staff_confirmed/8e811f98-9f2b-4f64-b409-ed56074b7dc8
+psql:contract_tests.sql:381: NOTICE:  T6 after revoke: outcome=existing state=revoked
+psql:contract_tests.sql:381: NOTICE:  T6 confirm revoked: 22023 customer_membership_revoked
+psql:contract_tests.sql:381: NOTICE:  T6 foreign staff: 42501 access_denied
+psql:contract_tests.sql:381: NOTICE:  T6 many: outcome=created_possible_duplicate state=active_full fresh_client=t
+psql:contract_tests.sql:381: NOTICE:  T6 many duplicate_reviews opened: 2 (expect 2)
+psql:contract_tests.sql:381: NOTICE:  T6 many notifications: count=2 title=Potential duplicates found
+psql:contract_tests.sql:381: NOTICE:  T6 no-email identity rows: 0 (expect 0)
+psql:contract_tests.sql:381: NOTICE:  T6 list: state=active_full evidence=on_file_transacted masked=o***@example.invalid last_seen_null=f
+psql:contract_tests.sql:381: NOTICE:  T6 other company: outcome=created (expect created)
+--- T7 merge trigger
+psql:contract_tests.sql:426: NOTICE:  T7 A memberships after merge: 9615d6b9-a64b-4f56-a126-a6573234c11c:merged:none:70c5b2f9-0c7a-4b4c-ad34-5e3950ed2599 | a9c1d02b-4e08-421a-8962-2c3a5659bd9b:active_forward_only:none:-
+psql:contract_tests.sql:426: NOTICE:  T7 A resolve after merge: outcome=existing winner=t
+psql:contract_tests.sql:426: NOTICE:  T7 B memberships after merge: 4ea2a776-71a7-428e-9236-800e53a29187:active_full:created_by_identity | 06e75823-08bd-4c1b-b384-89e40a985db2:merged:created_by_identity
+psql:contract_tests.sql:426: NOTICE:  T7 merge events: 2 (expect 2)
+--- T8 integrations + pairwise refs + audit
+ hosted_integrations | live_companies 
+---------------------+----------------
+                  55 |             56
+(1 row)
+
+psql:contract_tests.sql:473: NOTICE:  T8 hosted integration stable: t
+psql:contract_tests.sql:473: NOTICE:  T8 pairwise ref: cr_af6aee4feebb418ea4fe15396e98e642 stable=t
+psql:contract_tests.sql:473: NOTICE:  T8 unknown integration: 22023 customer_integration_unavailable
+psql:contract_tests.sql:473: NOTICE:  T8 secret key refused: 22023 customer_identity_event_invalid
+psql:contract_tests.sql:473: NOTICE:  T8 address refused: 22023
+psql:contract_tests.sql:473: NOTICE:  T8 bad type refused: 22023
+psql:contract_tests.sql:473: NOTICE:  T8 events so far: 12
+--- T9 dormancy sweep
+psql:contract_tests.sql:512: NOTICE:  T9 before dormancy: active_full:staff_confirmed | active_full:staff_confirmed
+psql:contract_tests.sql:512: NOTICE:  T9 controlled run: {"acquired": true, "completed": true, "workload_key": "db-customer-identity-dormancy"}
+psql:contract_tests.sql:512: NOTICE:  T9 evidence-backed membership after sweep: active_full:on_file_transacted (expect active_full:on_file_transacted)
+psql:contract_tests.sql:512: NOTICE:  T9 no-evidence membership after sweep: active_forward_only:none:- (expect active_forward_only:none:-)
+psql:contract_tests.sql:512: NOTICE:  T9 events: membership_demoted_dormant,membership_dormancy_reevaluated
+             jobname              |  schedule  |                              command                              | active 
+----------------------------------+------------+-------------------------------------------------------------------+--------
+ customer_identity_dormancy_daily | 34 6 * * * | select private.run_customer_identity_dormancy_sweep_controlled(); | t
+(1 row)
+
+--- T10 object inventory
+           kind            | count 
+---------------------------+-------
+ tables                    |     8
+ as_system rpcs            |    17
+ clients merge trigger     |     1
+ companies handle trigger  |     1
+ clients_id_company_id_key |     1
+(5 rows)
+
+=== ALL CONTRACT TESTS PASSED (rolling back) ===
