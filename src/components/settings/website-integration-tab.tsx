@@ -391,6 +391,48 @@ export function WebsiteIntegrationTab() {
                 )}
               </p>
             </div>
+            <ol
+              aria-label={t("website.empty.stepsLabel", "SETUP STEPS")}
+              className="border-l border-line"
+            >
+              {[
+                {
+                  title: t(
+                    "website.empty.stepRegisterTitle",
+                    "REGISTER YOUR WEBSITE"
+                  ),
+                  detail: t(
+                    "website.empty.stepRegisterDetail",
+                    "Enter the site address. OPS lists it as a source."
+                  ),
+                },
+                {
+                  title: t(
+                    "website.empty.stepKeyTitle",
+                    "CREATE AN INTAKE KEY"
+                  ),
+                  detail: t(
+                    "website.empty.stepKeyDetail",
+                    "Issue a key for that source and hand it to whoever runs your website. It shows once."
+                  ),
+                },
+              ].map((step, index) => (
+                <li key={step.title} className="relative pb-2 pl-3 last:pb-0">
+                  <span
+                    aria-hidden
+                    className="absolute -left-1.5 top-0 flex h-3 w-3 items-center justify-center rounded-chip border border-line bg-background font-mono text-micro text-text-2"
+                  >
+                    {index + 1}
+                  </span>
+                  <h3 className="font-cakemono text-cake-button uppercase text-text">
+                    {step.title}
+                  </h3>
+                  <p className="mt-0.5 max-w-prose font-mohave text-body-sm text-text-2">
+                    {step.detail}
+                  </p>
+                </li>
+              ))}
+            </ol>
             <Button
               variant="primary"
               onClick={(event) => {

@@ -1,0 +1,145 @@
+=== PUBLIC API P1-6 — live credential-issuing proof ===
+host: http://localhost:3478 (worktree preview, bound to PRODUCTION Supabase)
+date: 2026-09-02T19:23:13.742Z
+
+STEP 0  POST /api/dev/bypass-token (dev sign-in as pete — Maverick admin) -> HTTP 200  (1.2s)
+STEP 0  POST identitytoolkit signInWithCustomToken -> HTTP 200  (0.3s)
+         signed in as undefined — id token eyJhbGciOiJSUz…[redacted, 1193 chars]
+
+STEP 1  GET /api/settings/external-api   (Settings -> Comms -> Website) -> HTTP 200  (2.0s)
+         featureEnabled=true  sources=1  credentials=1
+
+STEP 2  POST /api/settings/external-api/sources -> reusing the source created earlier in this run-series
+STEP 2b PATCH sources/{id} active=true (re-activating the reused test source) -> HTTP 200  (3.1s)
+         sourceId=19e0decd-298a-46c5-8592-b7420af73fec
+         host=p1-6-verification.example.com  status=active  forms=1
+
+STEP 3  POST /api/settings/external-api/credentials   (CREATE INTAKE KEY) -> HTTP 201  (3.4s)
+         credentialId=46a1f9b5-2ea1-4a53-ab47-f382ef5c5c18  class=intake
+         scopes=["intake.write"]  prefix=opsx_1_9Hh65Xg5hYYJ
+         secret shown once = opsx_1_9Hh65Xg…[redacted, 63 chars]
+
+STEP 4  curl GET /v1/intake/config with the issued credential
+         $ curl -i -H 'Authorization: Bearer $OPS_API_TOKEN' http://localhost:3478/v1/intake/config
+         < HTTP/1.1 200 OK
+         < vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+         < cache-control: no-store
+         < content-type: application/json; charset=utf-8
+         < x-content-type-options: nosniff
+         < x-request-id: req_85f31000-5df8-4bab-a457-ee7d5a5e1db5
+         < Date: Wed, 02 Sep 2026 19:23:26 GMT
+         < Connection: keep-alive
+         < Keep-Alive: timeout=5
+         < Transfer-Encoding: chunked
+         body:
+         {
+           "requestId": "req_85f31000-5df8-4bab-a457-ee7d5a5e1db5",
+           "apiVersion": "v1",
+           "serverTimestamp": "2026-09-02T19:23:26.498Z",
+           "result": {
+             "contractVersion": "v1",
+             "sources": [
+               {
+                 "sourceId": "src_GeDezSmKRsWFkrdCCvc_7A",
+                 "label": "P1-6 verification site",
+                 "canonicalSiteHost": "p1-6-verification.example.com",
+                 "defaultPhoneRegion": "CA",
+                 "defaultOwnerConfigured": false,
+                 "forms": [
+                   {
+                     "formId": "frm_ac124YbjQ7yG363YXvva5w",
+                     "label": "Default",
+                     "isDefault": true
+                   }
+                 ]
+               }
+             ],
+             "acceptedFilePolicy": {
+               "contentTypes": [
+                 "image/jpeg",
+                 "image/png",
+                 "image/webp",
+                 "image/heic",
+                 "image/heif",
+                 "application/pdf",
+                 "text/plain",
+                 "text/csv",
+                 "application/msword",
+                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                 "application/vnd.ms-excel",
+                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 "image/vnd.dwg",
+                 "image/vnd.dxf",
+                 "application/acad",
+                 "application/dxf"
+               ],
+               "maxFiles": 10,
+               "maxFileBytes": 26214400,
+               "maxBatchBytes": 52428800
+             },
+             "requestLimits": {
+               "maxJsonBodyBytes": 262144,
+               "maxAnswers": 100
+             }
+           }
+         }
+
+STEP 5  POST /api/settings/external-api/credentials/{id}/revoke -> HTTP 200  (4.3s)
+
+STEP 6  same curl after revoke -> HTTP 401  (expected 401)
+
+STEP 7  GET /api/settings/external-api (re-read for current updatedAt) -> HTTP 200  (2.4s)
+STEP 8  PATCH /api/settings/external-api/sources/{id}  active=false -> HTTP 200  (2.4s)
+         status now: revoked
+
+RESULT: config-with-credential 200 OK; revoke HTTP 200; post-revoke 401
+
+=== CLEANUP / RESIDUE DISPOSITION (2026-09-02) ===
+
+Requested: revoke the credential and delete the test source so zero residue remains.
+Achieved:  everything is REVOKED and inert. Full row deletion is impossible by design.
+
+Two database guarantees block deletion, and both are correct behaviour:
+
+  1. private.external_api_security_events is APPEND-ONLY. Deleting the two
+     credential_created / credential_revoked rows raises
+     42501 external_api_security_events_append_only
+     (trigger reject_external_api_audit_mutation). Those rows carry an FK to
+     external_api_credentials, so the credential row cannot be deleted either.
+  2. An intake principal must retain at least one source grant. Deleting the
+     external_api_principal_sources row raises
+     23514 external_api_principal_source_policy_invalid
+     (trigger assert_external_api_principal_source_policy), so the source row
+     cannot be detached and deleted.
+
+Final verified state of every external-API table for MAVERICK PROJECTS LTD:
+
+  lead_intake_sources        1 row  — status=revoked, host=p1-6-verification.example.com
+  external_api_credentials   2 rows — both status=revoked ("P1-6 verification intake")
+  external_api_principals    2 rows — both status=revoked, class=intake
+  active credentials         0
+  active sources             0
+  external_intake_submissions 0     — no lead, customer or submission data was created
+
+Nothing is reachable: an inactive source accepts no submissions and a revoked
+credential returns 401 (proved in STEP 6 above). The two credential rows exist
+because the first run pre-dated the local key-ring fix described below.
+
+=== LOCAL ENVIRONMENT NOTE (not a product defect) ===
+
+Production is correctly configured: https://app.opsapp.co/v1/intake/config
+returns 401 invalid_credentials for an unauthenticated and for a bogus bearer
+request, i.e. the request is admitted by the limiter and rejected by auth.
+
+A local preview needs the external-API secret family, none of which are in the
+shared .env.local. Without them the flow fails in two places:
+
+  EXTERNAL_API_CREDENTIAL_HMAC_KEYS  missing -> POST /credentials returns
+                                     500 "Settings unavailable"
+  EXTERNAL_API_NETWORK_HMAC_KEYS     missing -> GET /v1/intake/* returns
+                                     503 rate_limit_unavailable
+
+Both were set to locally generated throwaway key rings for this verification
+(local file only, never committed). Also required: clear the Turbopack dev cache
+(rm -rf .next-dev) — a stale manifest 404s every route deeper than two segments,
+including /api/settings/external-api/sources.
