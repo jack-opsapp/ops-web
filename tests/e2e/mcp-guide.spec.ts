@@ -126,6 +126,43 @@ test.describe("public MCP developer guide", () => {
     ).toBeVisible();
   });
 
+  test("stacks the tool-request form beneath its introduction at every supported width", async ({
+    page,
+  }) => {
+    for (const viewport of VIEWPORTS) {
+      await openGuide(page, viewport);
+
+      const section = page.locator("#request-tool");
+      const layout = section.locator(":scope > div");
+      const introduction = section
+        .getByRole("heading", { name: "Request a tool" })
+        .locator("..");
+      const formSurface = section
+        .getByRole("form", { name: "Request a tool" })
+        .locator("..");
+      const [layoutBox, introductionBox, formBox] = await Promise.all([
+        layout.boundingBox(),
+        introduction.boundingBox(),
+        formSurface.boundingBox(),
+      ]);
+
+      expect(layoutBox, `${viewport.label}: layout box`).not.toBeNull();
+      expect(
+        introductionBox,
+        `${viewport.label}: introduction box`
+      ).not.toBeNull();
+      expect(formBox, `${viewport.label}: form box`).not.toBeNull();
+
+      expect(formBox!.y).toBeGreaterThanOrEqual(
+        introductionBox!.y + introductionBox!.height
+      );
+      expect(Math.abs(formBox!.x - layoutBox!.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(formBox!.width - layoutBox!.width)).toBeLessThanOrEqual(
+        1
+      );
+    }
+  });
+
   test("copies the endpoint and confirms the clipboard write", async ({
     page,
   }) => {
