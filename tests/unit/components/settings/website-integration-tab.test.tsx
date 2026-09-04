@@ -153,6 +153,31 @@ describe("WebsiteIntegrationTab", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("explains the two setup steps before the first action", async () => {
+    authedFetchMock.mockReturnValue(response(settings()));
+
+    render(<WebsiteIntegrationTab />);
+
+    const steps = await screen.findByRole("list", { name: "SETUP STEPS" });
+    const titles = within(steps)
+      .getAllByRole("listitem")
+      .map((item) => within(item).getByRole("heading", { level: 3 }).textContent);
+    expect(titles).toEqual(["REGISTER YOUR WEBSITE", "CREATE AN INTAKE KEY"]);
+    expect(
+      within(steps).getByText(
+        "Issue a key for that source and hand it to whoever runs your website. It shows once."
+      )
+    ).toBeInTheDocument();
+
+    const connect = screen.getByRole("button", { name: "CONNECT WEBSITE" });
+    expect(
+      steps.compareDocumentPosition(connect) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    for (const heading of within(steps).getAllByRole("heading", { level: 3 })) {
+      expect(heading).toHaveClass("font-cakemono", "uppercase");
+    }
+  });
+
   it("shows configured source health before credentials", async () => {
     authedFetchMock.mockReturnValue(
       response(settings({ sources: [source], credentials: [intakeCredential] }))

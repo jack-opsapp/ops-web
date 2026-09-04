@@ -42,7 +42,8 @@ export type Namespace =
   | 'admin-social'
   | 'picker'
   | 'estimate-calculator'
-  | 'admin-growth';
+  | 'admin-growth'
+  | 'customer';
 
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

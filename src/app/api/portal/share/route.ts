@@ -1,78 +1,24 @@
 /**
- * POST /api/portal/share
+ * POST /api/portal/share — retired.
  *
- * Admin route that creates a portal token and sends the magic link email.
- * Authenticated via Firebase auth (admin users, not portal session).
- *
- * Body: { companyId, clientId, email, companyName, context? }
+ * The legacy magic-link portal auth is retired, not migrated (design D7,
+ * specs/2026-09-01-public-api-customer-identity-design.md). This route once
+ * minted seven-day multi-use portal links and emailed them; it now answers
+ * 410 for every caller without verifying a token, reading a body, or
+ * touching the database. The customer identity broker under /api/customer
+ * replaces it; the portal tables are dropped in P3.
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { PortalAuthService } from "@/lib/api/services/portal-auth-service";
-import { PortalBrandingService } from "@/lib/api/services/portal-branding-service";
-import { sendMagicLink } from "@/lib/email/sendgrid";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function POST(req: NextRequest) {
-  try {
-    // Verify the request has a valid Firebase auth token (admin user)
-    const admin = await verifyAdminAuth(req);
+const PORTAL_SHARE_RETIRED = Object.freeze({
+  error: "portal_link_sharing_retired",
+});
 
-    if (!admin) {
-      return NextResponse.json(
-        { error: "Unauthorized - valid admin authentication required" },
-        { status: 401 }
-      );
-    }
-
-    const body = await req.json();
-    const { companyId, clientId, email, companyName } = body as {
-      companyId?: string;
-      clientId?: string;
-      email?: string;
-      companyName?: string;
-    };
-
-    if (!companyId || !clientId || !email) {
-      return NextResponse.json(
-        { error: "Missing required fields: companyId, clientId, email" },
-        { status: 400 }
-      );
-    }
-
-    // Create the portal token
-    const token = await PortalAuthService.createPortalToken(
-      companyId,
-      clientId,
-      email
-    );
-
-    // Get branding for email styling
-    const branding = await PortalBrandingService.getBranding(companyId);
-
-    // Use provided company name or fallback
-    const name = companyName || "Your Company";
-
-    // Send the magic link email
-    await sendMagicLink({
-      email,
-      token: token.token,
-      companyName: name,
-      accentColor: branding.accentColor,
-      logoUrl: branding.logoUrl,
-    });
-
-    return NextResponse.json({ success: true, tokenId: token.id });
-  } catch (error) {
-    console.error("[portal/share] Error:", error);
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to send portal link",
-      },
-      { status: 500 }
-    );
-  }
+// The request is deliberately never read: no token, no body, no branding.
+export async function POST(_request: NextRequest): Promise<NextResponse> {
+  return NextResponse.json(PORTAL_SHARE_RETIRED, {
+    status: 410,
+    headers: { "Cache-Control": "no-store" },
+  });
 }

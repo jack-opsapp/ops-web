@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
@@ -74,6 +74,99 @@ describe("external API network fingerprints", () => {
     expect(previous.version).toBe(3);
     expect(current.version).toBe(4);
     expect(previous.digest.equals(current.digest)).toBe(false);
+  });
+
+  it("leaves IPv4 fingerprints byte-for-byte unchanged in IPv6 /64 mode", () => {
+    const address = "203.0.113.8";
+    const existing = createExternalApiNetworkFingerprint({
+      request: request(address),
+      keyRing: ring,
+      presentedPrefix: "missing",
+    });
+    const scoped = createExternalApiNetworkFingerprint({
+      request: request(address),
+      keyRing: ring,
+      presentedPrefix: "missing",
+      ipv6PrefixLength: 64,
+    });
+    const expected = createHmac("sha256", Buffer.alloc(32, 4))
+      .update(`network\0${address}`, "utf8")
+      .digest();
+
+    expect(existing.digest.equals(expected)).toBe(true);
+    expect(scoped.digest.equals(expected)).toBe(true);
+  });
+
+  it("groups compressed and expanded IPv6 hosts within one /64", () => {
+    const compressed = createExternalApiNetworkFingerprint({
+      request: request("2001:db8:abcd:12::1"),
+      keyRing: ring,
+      presentedPrefix: "missing",
+      ipv6PrefixLength: 64,
+    });
+    const expanded = createExternalApiNetworkFingerprint({
+      request: request("2001:0db8:abcd:0012:ffff:eeee:dddd:cccc"),
+      keyRing: ring,
+      presentedPrefix: "missing",
+      ipv6PrefixLength: 64,
+    });
+
+    expect(compressed.digest.equals(expanded.digest)).toBe(true);
+  });
+
+  it("keeps separate IPv6 /64s distinct while default callers remain host-specific", () => {
+    const firstAddress = "2001:db8:abcd:12::1";
+    const secondHost = "2001:db8:abcd:12::2";
+    const secondNetwork = "2001:db8:abcd:13::1";
+    const scopedFirst = createExternalApiNetworkFingerprint({
+      request: request(firstAddress),
+      keyRing: ring,
+      presentedPrefix: "missing",
+      ipv6PrefixLength: 64,
+    });
+    const scopedSecondNetwork = createExternalApiNetworkFingerprint({
+      request: request(secondNetwork),
+      keyRing: ring,
+      presentedPrefix: "missing",
+      ipv6PrefixLength: 64,
+    });
+    const existingFirst = createExternalApiNetworkFingerprint({
+      request: request(firstAddress),
+      keyRing: ring,
+      presentedPrefix: "missing",
+    });
+    const existingSecondHost = createExternalApiNetworkFingerprint({
+      request: request(secondHost),
+      keyRing: ring,
+      presentedPrefix: "missing",
+    });
+
+    expect(scopedFirst.digest.equals(scopedSecondNetwork.digest)).toBe(false);
+    expect(existingFirst.digest.equals(existingSecondHost.digest)).toBe(false);
+  });
+
+  it("treats compressed and expanded IPv4-mapped IPv6 as the underlying IPv4 address", () => {
+    const ipv4 = createExternalApiNetworkFingerprint({
+      request: request("192.0.2.128"),
+      keyRing: ring,
+      presentedPrefix: "missing",
+      ipv6PrefixLength: 64,
+    });
+    const dottedMapped = createExternalApiNetworkFingerprint({
+      request: request("::ffff:192.0.2.128"),
+      keyRing: ring,
+      presentedPrefix: "missing",
+      ipv6PrefixLength: 64,
+    });
+    const expandedMapped = createExternalApiNetworkFingerprint({
+      request: request("0:0:0:0:0:ffff:c000:0280"),
+      keyRing: ring,
+      presentedPrefix: "missing",
+      ipv6PrefixLength: 64,
+    });
+
+    expect(dottedMapped.digest.equals(ipv4.digest)).toBe(true);
+    expect(expandedMapped.digest.equals(ipv4.digest)).toBe(true);
   });
 
   it("fails closed when a trusted network address is absent or malformed", () => {

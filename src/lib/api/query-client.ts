@@ -257,6 +257,8 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.clients.details(), id] as const,
     subClients: (clientId: string) =>
       [...queryKeys.clients.all, "subClients", clientId] as const,
+    portalAccess: (clientId: string) =>
+      [...queryKeys.clients.all, "portalAccess", clientId] as const,
   },
 
   // Users
@@ -459,6 +461,16 @@ export const queryKeys = {
         startIso,
         endIso,
       ] as const,
+  },
+
+  // Public booking (PUBLIC API P2)
+  booking: {
+    all: ["booking"] as const,
+    // Company-wide configuration — one cached answer for the settings shell's
+    // section gate and the section body alike.
+    settings: () => [...queryKeys.booking.all, "settings"] as const,
+    request: (opportunityId: string) =>
+      [...queryKeys.booking.all, "request", opportunityId] as const,
   },
 
   // Project Photos

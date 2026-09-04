@@ -2,6 +2,7 @@ import type { ExternalApiCodeExamples } from "@/lib/external-api/docs/code-examp
 import type { ExternalApiDocsCopy } from "@/lib/external-api/docs/copy";
 import type { ExternalApiReference } from "@/lib/external-api/docs/reference";
 
+import { CredentialIssuing } from "./credential-issuing";
 import { OperationReference } from "./operation-reference";
 import { QuickStartSequence } from "./quick-start-sequence";
 import { ReferenceHeader } from "./reference-header";
@@ -95,6 +96,13 @@ export function ApiReferencePage({
             </section>
 
             <section
+              id="get-a-credential"
+              className="scroll-mt-8 border-b border-line py-6"
+            >
+              <CredentialIssuing copy={copy} />
+            </section>
+
+            <section
               id="authentication"
               className="scroll-mt-8 border-b border-line py-6"
             >
@@ -132,6 +140,14 @@ export function ApiReferencePage({
                       </dt>
                       <dd className="mt-0.5 font-mohave text-body-sm text-text-2">
                         {copy.authenticationAnalyticsScope}
+                      </dd>
+                    </div>
+                    <div className="py-2">
+                      <dt className="font-mono text-data-sm text-text">
+                        analytics.financial.read
+                      </dt>
+                      <dd className="mt-0.5 font-mohave text-body-sm text-text-2">
+                        {copy.authenticationFinancialScope}
                       </dd>
                     </div>
                   </dl>

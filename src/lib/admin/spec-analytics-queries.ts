@@ -1,6 +1,8 @@
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import type { protos } from "@google-analytics/data";
 import { getGA4Client, getPropertyId } from "@/lib/analytics/ga4-client";
 import { isGA4PropertyConfigured } from "@/lib/analytics/ga4-properties";
+import { composeGA4ProductionHostnameFilter } from "@/lib/analytics/ga4-report-filter";
 import type {
   SpecAdCampaignRow,
   SpecAnalyticsPayload,
@@ -35,6 +37,8 @@ const FUNNEL_LABELS: Record<(typeof FUNNEL_EVENTS)[number], string> = {
   intake_submitted: "INTAKE SUBMITTED",
   discovery_booked: "DISCOVERY BOOKED",
 };
+
+type ReportRequest = protos.google.analytics.data.v1beta.IRunReportRequest;
 
 interface ConversionEventRow {
   id: string;
@@ -114,6 +118,60 @@ function increment(map: Map<string, number>, key: string, amount = 1) {
   map.set(key, (map.get(key) ?? 0) + amount);
 }
 
+export function buildGA4SpecRequests(
+  from: string,
+  to: string
+): readonly [ReportRequest, ReportRequest] {
+  const pageFilter = {
+    filter: {
+      fieldName: "pagePath",
+      stringFilter: { matchType: "BEGINS_WITH" as const, value: "/spec" },
+    },
+  };
+  const eventFilter = {
+    andGroup: {
+      expressions: [
+        pageFilter,
+        {
+          filter: {
+            fieldName: "eventName",
+            inListFilter: {
+              values: [...FUNNEL_EVENTS, "spec_default_ops_signup_completed"],
+            },
+          },
+        },
+      ],
+    },
+  };
+  const dateRanges = [{ startDate: from, endDate: to }];
+
+  return [
+    {
+      property: getPropertyId("marketing"),
+      metrics: [
+        { name: "activeUsers" },
+        { name: "sessions" },
+        { name: "screenPageViews" },
+      ],
+      dimensionFilter: composeGA4ProductionHostnameFilter(
+        "marketing",
+        pageFilter
+      ),
+      dateRanges,
+    },
+    {
+      property: getPropertyId("marketing"),
+      dimensions: [{ name: "eventName" }],
+      metrics: [{ name: "eventCount" }],
+      dimensionFilter: composeGA4ProductionHostnameFilter(
+        "marketing",
+        eventFilter
+      ),
+      dateRanges,
+    },
+  ];
+}
+
 async function loadConversionRows(from: string, to: string): Promise<ConversionEventRow[]> {
   const { data, error } = await db()
     .from("conversion_event_outbox")
@@ -166,43 +224,11 @@ async function loadGa4SpecMetrics(
 
   try {
     const client = getGA4Client();
-    const pageFilter = {
-      filter: {
-        fieldName: "pagePath",
-        stringFilter: { matchType: "BEGINS_WITH" as const, value: "/spec" },
-      },
-    };
+    const [webRequest, eventRequest] = buildGA4SpecRequests(from, to);
 
     const [[webResponse], [eventsResponse]] = await Promise.all([
-      client.runReport({
-        property: getPropertyId("marketing"),
-        metrics: [
-          { name: "activeUsers" },
-          { name: "sessions" },
-          { name: "screenPageViews" },
-        ],
-        dimensionFilter: pageFilter,
-        dateRanges: [{ startDate: from, endDate: to }],
-      }),
-      client.runReport({
-        property: getPropertyId("marketing"),
-        dimensions: [{ name: "eventName" }],
-        metrics: [{ name: "eventCount" }],
-        dimensionFilter: {
-          andGroup: {
-            expressions: [
-              pageFilter,
-              {
-                filter: {
-                  fieldName: "eventName",
-                  inListFilter: { values: [...FUNNEL_EVENTS, "spec_default_ops_signup_completed"] },
-                },
-              },
-            ],
-          },
-        },
-        dateRanges: [{ startDate: from, endDate: to }],
-      }),
+      client.runReport(webRequest),
+      client.runReport(eventRequest),
     ]);
 
     const metrics = webResponse.rows?.[0]?.metricValues ?? [];

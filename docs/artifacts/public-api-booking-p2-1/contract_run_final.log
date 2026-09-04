@@ -1,0 +1,141 @@
+ set_config 
+------------
+ 5min
+(1 row)
+
+=== applying migration inside transaction ===
+=== migration applied (uncommitted) ===
+       set_config        
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+  scope  |     key     |                value                 
+---------+-------------+--------------------------------------
+ fixture | company     | ddee107c-33cd-483e-8278-0f8d8a180181
+ fixture | connection  | 043de8bf-d4d4-4a29-9a00-b53ecafb6d67
+ fixture | integration | a77fb3a1-1de8-4fbf-af5c-6fc9f620881c
+ fixture | owner       | 36209115-8879-495b-b537-577f63ff9374
+(4 rows)
+
+--- T1 zero non-owner grants on the new private tables
+ non_owner_grants_expect_zero 
+------------------------------
+                            0
+(1 row)
+
+--- T1 grants on the policy table mirror site_visit_types exactly
+    grantee    |                          privs                          
+---------------+---------------------------------------------------------
+ anon          | INSERT,SELECT,UPDATE
+ authenticated | INSERT,SELECT,UPDATE
+ postgres      | DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+ service_role  | DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+(4 rows)
+
+psql:contract_tests.sql:132: NOTICE:  T1 app-role grants match site_visit_types: anon=INSERT,SELECT,UPDATE | authenticated=INSERT,SELECT,UPDATE
+--- T1 gate fires for every new *_as_system RPC, as the real anon role
+psql:contract_tests.sql:170: NOTICE:  T1 gate ok: 11 RPCs all refused anon with 42501
+       set_config        
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+--- T2 window validator
+ empty_ok | one_ok | touching_ok | overlap_rejected | inverted_rejected | weekday_out_of_range_rejected | bad_format_rejected | non_array_rejected | fifteen_entries_rejected 
+----------+--------+-------------+------------------+-------------------+-------------------------------+---------------------+--------------------+--------------------------
+ t        | t      | t           | f                | f                 | f                             | f                   | f                  | f
+(1 row)
+
+psql:contract_tests.sql:211: NOTICE:  T2 validators ok
+--- T2 policy write rejects a bogus timezone and a cross-tenant owner
+psql:contract_tests.sql:244: NOTICE:  T2b policy write validation ok
+--- T3 spring-forward gap: the missing local hour is dropped, not shifted
+psql:contract_tests.sql:307: NOTICE:  T3 spring-forward local starts: 00:00,01:00,03:00,04:00,05:00 (count=5, distinct=5)
+psql:contract_tests.sql:307: NOTICE:  T3 fall-back local starts: 00:00,01:00,02:00,03:00,04:00,05:00 (count=6, distinct=6)
+psql:contract_tests.sql:307: NOTICE:  T3 DST ok
+--- T4 availability
+psql:contract_tests.sql:401: NOTICE:  T4 mode=off: 0 slots, 0 policy rows
+psql:contract_tests.sql:401: NOTICE:  T4 instant: 152 slots, first 2026-09-05 15:00:00+00
+psql:contract_tests.sql:401: NOTICE:  T4 notice + horizon ok (first slot 2026-09-05 15:00:00+00, horizon 2026-09-23)
+psql:contract_tests.sql:401: NOTICE:  T4 booked-visit collision ok (slot 2026-09-05 15:00:00+00 withdrawn)
+--- T4b per-day cap
+psql:contract_tests.sql:449: NOTICE:  T4b cap=1 on 2026-09-05 : 7 slots before, 0 after (bookings that day: 1)
+psql:contract_tests.sql:449: NOTICE:  T4b per-day cap ok: the day holding one booking offers nothing under cap=1
+--- T5 holds
+psql:contract_tests.sql:595: NOTICE:  T5 hold ok: intent 5739a166-b9ae-424c-adde-0d31ca61716d, expires 2026-09-02 22:49:12.813786+00 (5 min)
+psql:contract_tests.sql:595: NOTICE:  T5 fingerprint cap ok: 4th hold from one fingerprint refused, retry_after=300s
+psql:contract_tests.sql:595: NOTICE:  T5 company cap ok: 10 live holds across 4 fingerprints, next refused, retry_after=300s
+psql:contract_tests.sql:595: NOTICE:  T5 staff booking landed on the held slot
+psql:contract_tests.sql:595: NOTICE:  T5 expired holds no longer block
+psql:contract_tests.sql:595: NOTICE:  T5 sweeper ok: 10 intents expired
+--- T5b the held slot the staff took is refused at confirm (I12 + I13)
+psql:contract_tests.sql:625: NOTICE:  T5b ok: confirm refused the overtaken slot (booking_slot_unavailable)
+--- T6 instant confirm
+psql:contract_tests.sql:737: NOTICE:  T6 lead: source=website stage=qualifying assigned_to=36209115-8879-495b-b537-577f63ff9374 version=1 thread_key=public_booking:8c0123d0-cc8c-467d-bd66-e3d1720feeea
+psql:contract_tests.sql:737: NOTICE:  T6 visit: scheduled=2026-09-05 17:00:00+00 duration=60 status=scheduled booked_at=t assignees={36209115-8879-495b-b537-577f63ff9374} created_by=36209115-8879-495b-b537-577f63ff9374
+psql:contract_tests.sql:737: NOTICE:  T6 ok: 1 calendar queue row, 1 activity, 1 notification(s), 1 assignment event
+--- T6b I12 replay: the same descriptor cannot book twice
+psql:contract_tests.sql:757: NOTICE:  T6b ok: replayed descriptor refused (allowed=f, intent=<NULL>)
+--- T6c a policy change under a live hold is refused at confirm (I12)
+psql:contract_tests.sql:800: NOTICE:  T6c ok: policy change refused the stale slot (booking_slot_unavailable)
+--- T7 request mode
+psql:contract_tests.sql:912: NOTICE:  T7 outcome=submitted visit=<NULL> lead=7a88cdad-e19c-4d5a-b978-0bc96e5d239d
+psql:contract_tests.sql:912: NOTICE:  T7 I14 ok: 0 site_visits rows, 0 new calendar-queue rows, lead + client created
+psql:contract_tests.sql:912: NOTICE:  T7 notification: type=schedule_change persistent=t action_url=/pipeline?opportunityId=7a88cdad-e19c-4d5a-b978-0bc96e5d239d label=Open lead
+psql:contract_tests.sql:912: NOTICE:  T7 acceptance ok: visit af7af710-929c-4887-86df-e66089d590e9 at 2026-09-05 20:00:00+00 (moved), 1 calendar row, request notification resolved
+--- T7b decline closes the request and keeps the lead
+psql:contract_tests.sql:964: NOTICE:  T7b ok: intent cancelled, lead 87ed7845-a246-4926-b31f-65e1257a8f38 kept, notification resolved
+--- T8 reschedule + cancel
+psql:contract_tests.sql:1038: NOTICE:  T8 reschedule ok: visit moved to 2026-09-23 22:00:00+00, 1 calendar update row
+psql:contract_tests.sql:1038: NOTICE:  T8 ok: reschedule refused an unoffered time (booking_slot_unavailable)
+psql:contract_tests.sql:1038: NOTICE:  T8 cancel ok: visit cancelled, 0 pending create/update rows, 1 delete row
+psql:contract_tests.sql:1038: NOTICE:  T8 cancelled slot 2026-09-23 22:00:00+00 is offered again
+--- T9 claim
+psql:contract_tests.sql:1107: NOTICE:  T9 ok: foreign digest refused (booking_claim_channel_unproven)
+psql:contract_tests.sql:1107: NOTICE:  T9 claim ok: claim=4cef6443-44d1-47a2-bbce-653c7fb4375c membership=d2ca499f-14eb-4583-8c4e-f6cfe427670d state=active_full client=df783a73-0276-4256-812d-98642c3f1a23
+psql:contract_tests.sql:1107: NOTICE:  T9 exactly-once ok: second claim returned the first (created=f)
+psql:contract_tests.sql:1107: NOTICE:  T9 claim attached to the booking's own client, created none
+--- T10 policy RLS
+ schemaname |          tablename          |    policyname     | permissive  |  roles   |  cmd   |                                                        qual                                                         |                                                     with_check                                                      
+------------+-----------------------------+-------------------+-------------+----------+--------+---------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------
+ public     | site_visit_booking_policies | role_scope_insert | RESTRICTIVE | {public} | INSERT | -                                                                                                                   | ( SELECT private.current_user_has_permission('settings.company'::text, 'own'::text) AS current_user_has_permission)
+ public     | site_visit_booking_policies | role_scope_update | RESTRICTIVE | {public} | UPDATE | ( SELECT private.current_user_has_permission('settings.company'::text, 'own'::text) AS current_user_has_permission) | ( SELECT private.current_user_has_permission('settings.company'::text, 'own'::text) AS current_user_has_permission)
+ public     | site_visit_booking_policies | company_isolation | PERMISSIVE  | {public} | ALL    | (company_id = ( SELECT private.get_user_company_id() AS get_user_company_id))                                       | (company_id = ( SELECT private.get_user_company_id() AS get_user_company_id))
+(3 rows)
+
+ rls_enabled | rls_forced 
+-------------+------------
+ t           | f
+(1 row)
+
+--- T10 anon with no company identity reads nothing
+psql:contract_tests.sql:1146: NOTICE:  T10 ok: anon write refused (42501)
+       set_config        
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+--- T11 inventory
+              kind               | value 
+---------------------------------+-------
+ private tables                  | 2
+ public policy table             | 1
+ booking *_as_system rpcs        | 11
+ private helpers                 | 10
+ staff book_site_visit untouched | 1
+(5 rows)
+
+            jobname            |  schedule   |                          command                          | active 
+-------------------------------+-------------+-----------------------------------------------------------+--------
+ guest_booking_hold_sweep_5min | */5 * * * * | select private.run_guest_booking_hold_sweep_controlled(); | t
+(1 row)
+
+--- T11 the assignment source allowlist grew by exactly one value
+                   conname                    | has_new_source 
+----------------------------------------------+----------------
+ opportunity_assignment_events_actor_required | t
+ opportunity_assignment_events_source_check   | t
+(2 rows)
+
+=== ALL CONTRACT TESTS PASSED (rolling back) ===

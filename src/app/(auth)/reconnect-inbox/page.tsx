@@ -1,5 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import {
+  LEGACY_SESSION_COOKIE_NAME,
+  OPS_AUTH_COOKIE_NAME,
+  selectFirebaseIdTokenCookie,
+} from "@/lib/auth/firebase-id-token-cookie";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
@@ -49,9 +54,10 @@ export default async function ReconnectInboxPage({ searchParams }: PageProps) {
   const loginPath = `/login?redirect=${encodeURIComponent(reconnectPath)}`;
 
   const cookieStore = await cookies();
-  const token =
-    cookieStore.get("__session")?.value ??
-    cookieStore.get("ops-auth-token")?.value;
+  const token = selectFirebaseIdTokenCookie(
+    cookieStore.get(OPS_AUTH_COOKIE_NAME)?.value,
+    cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value
+  );
   if (!token) redirect(loginPath);
 
   let authUser;

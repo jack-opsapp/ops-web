@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { McpGuidePage } from "@/app/developers/mcp/_components/mcp-guide-page";
-import { OPS_SUPPORT_EMAIL } from "@/lib/email/constants";
 import { getMcpDocsCopy } from "@/lib/agent-control-plane/mcp/docs/copy";
 import { resolvePublicMcpReference } from "@/lib/agent-control-plane/mcp/docs/reference";
 
@@ -51,6 +50,14 @@ describe("public MCP developer guide", () => {
     );
     expect(document.body).not.toHaveTextContent("Access: read");
     expect(document.body).toHaveTextContent("Acceso: Solo lectura");
+    expect(
+      screen.getByRole("textbox", { name: "Correo de trabajo" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", {
+        name: "¿Qué debería hacer la herramienta?",
+      })
+    ).toBeInTheDocument();
   });
 
   it("renders the active source-derived counts and field-grounded examples", () => {
@@ -122,23 +129,30 @@ describe("public MCP developer guide", () => {
     expect(security).toHaveTextContent(/revoke access/i);
   });
 
-  it("routes tool requests to support without soliciting secrets or records", () => {
+  it("embeds a semantic two-field request form without soliciting secrets or records", () => {
     renderGuide();
 
+    const heading = screen.getByRole("heading", { name: /request a tool/i });
+    const section = heading.closest("section");
+    expect(section).not.toBeNull();
+    const form = within(section as HTMLElement).getByRole("form", {
+      name: "Request a tool",
+    });
+
     expect(
-      screen.getByRole("heading", { name: /request a tool/i })
+      within(form).getByRole("textbox", { name: "Work email" })
+    ).toBeRequired();
+    expect(
+      within(form).getByRole("textbox", {
+        name: "What should the tool do?",
+      })
+    ).toBeRequired();
+    expect(within(form).getAllByRole("textbox")).toHaveLength(2);
+    expect(
+      within(form).getByRole("button", { name: "Send request" })
     ).toBeInTheDocument();
-
-    const supportAddress = screen.getByText(OPS_SUPPORT_EMAIL, { exact: true });
-    const supportLink = supportAddress.closest("a");
-    expect(supportLink).not.toBeNull();
-
-    const href = supportLink?.getAttribute("href") ?? "";
-    expect(href).toMatch(
-      new RegExp(`^mailto:${OPS_SUPPORT_EMAIL.replace(".", "\\.")}\\?`)
-    );
-    expect(href).toContain("subject=OPS%20MCP%20tool%20request");
-    expect(document.body.textContent).toMatch(
+    expect(section?.querySelector('a[href^="mailto:"]')).toBeNull();
+    expect(section).toHaveTextContent(
       /do not (?:send|include) passwords, (?:access )?tokens, or customer records/i
     );
   });

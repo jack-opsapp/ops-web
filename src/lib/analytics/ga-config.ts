@@ -14,10 +14,40 @@ export function getConfiguredMeasurementId(
   return measurementId;
 }
 
-export function buildGoogleAnalyticsConfigScript(measurementId: string): string {
+function normalizeAllowedHostnames(hostnames: readonly string[]): string[] {
+  const normalized = [...new Set(
+    hostnames.map((hostname) => hostname.trim().toLowerCase().replace(/\.$/, ""))
+  )].filter(Boolean);
+
+  if (
+    normalized.length === 0 ||
+    normalized.some(
+      (hostname) =>
+        !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(
+          hostname
+        )
+    )
+  ) {
+    throw new Error("Invalid Google Analytics production hostname allowlist");
+  }
+
+  return normalized;
+}
+
+export function buildGoogleAnalyticsConfigScript(
+  measurementId: string,
+  allowedHostnames: readonly string[]
+): string {
+  const productionHostnames = normalizeAllowedHostnames(allowedHostnames);
   return `
+          (() => {
+          const allowedHostnames = ${JSON.stringify(productionHostnames)};
+          const analyticsHostname = window.location.hostname
+            .toLowerCase()
+            .replace(/\\.$/, '');
+          if (!allowedHostnames.includes(analyticsHostname)) return;
           window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
+          function gtag(){window.dataLayer.push(arguments);}
           gtag('js', new Date());
           gtag('consent', 'default', {
             'ad_storage': 'denied',
@@ -33,5 +63,6 @@ export function buildGoogleAnalyticsConfigScript(measurementId: string): string 
             page_location: window.location.origin + analyticsPath,
             page_path: analyticsPath
           });
+          })();
         `;
 }

@@ -35,8 +35,8 @@ interface DbState {
 
 /**
  * In-memory `users` double covering the sync-user existing-row path:
- *   lookups  `.select().eq().is().maybeSingle()`  (auth_id → firebase_uid → email)
- *   updates  `.update().eq("id", …)`              (awaited directly)
+ *   lookups  `.select().eq().is().maybeSingle()`      (auth_id → firebase_uid → email)
+ *   updates  `.update().eq("id", …).select().single()` (returns the STORED row)
  *   inserts  `.insert().select().single()`
  * `.is("deleted_at", null)` is modelled as `deleted_at == null`. Every lookup
  * matches against ALL provided filters, exactly like PostgREST — so an email
@@ -48,6 +48,7 @@ function makeDb(state: DbState) {
     private op: "select" | "update" | "insert" = "select";
     private payload: Row | null = null;
     private filters: Record<string, unknown> = {};
+    private applied = false;
     constructor(private readonly table: string) {}
 
     select() {
@@ -82,26 +83,40 @@ function makeDb(state: DbState) {
       );
     }
 
+    /** Applies the pending update exactly once and returns the STORED row. */
+    private applyUpdate(): { data: Row | null; error: { code: string; message: string } | null } {
+      if (this.applied || this.op !== "update" || !this.payload) {
+        return { data: null, error: null };
+      }
+      this.applied = true;
+      const target = state.rows.find((r) => r.id === this.filters.id);
+      state.updates.push({ id: this.filters.id, payload: this.payload });
+      if (!target) {
+        return { data: null, error: { code: "PGRST116", message: "no rows returned" } };
+      }
+      Object.assign(target, this.payload);
+      // PostgREST returns the row as it now stands in the database — the route
+      // reads it back with `.select().single()` so it can never echo a value the
+      // database rejected (Cluster M, 2026-09-03).
+      return { data: { ...target }, error: null };
+    }
+
     maybeSingle() {
       return { data: this.match()[0] ?? null, error: null };
     }
 
     single() {
+      if (this.op === "update") return this.applyUpdate();
       if (this.op === "insert" && this.payload) {
         return { data: { id: "user-new", ...this.payload }, error: null };
       }
       return { data: null, error: null };
     }
 
-    // The update chain terminates on `.eq("id", …)` and is awaited directly,
-    // so Query is a thenable: awaiting it applies the update to the matched row.
-    then(resolve: (x: { error: null }) => unknown) {
-      if (this.op === "update" && this.payload) {
-        const target = state.rows.find((r) => r.id === this.filters.id);
-        state.updates.push({ id: this.filters.id, payload: this.payload });
-        if (target) Object.assign(target, this.payload);
-      }
-      return Promise.resolve({ error: null }).then(resolve);
+    // A PostgrestFilterBuilder is itself thenable, so an update awaited without
+    // a trailing `.select()` still executes. Kept faithful to the real client.
+    then(resolve: (x: { data: Row | null; error: { code: string; message: string } | null }) => unknown) {
+      return Promise.resolve(this.applyUpdate()).then(resolve);
     }
   }
   return { from: (table: string) => new Query(table) };
