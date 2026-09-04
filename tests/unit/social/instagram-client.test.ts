@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   InstagramGraphClient,
   createInstagramClientFromCredentials,
@@ -36,7 +37,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function fetchSequence(...responses: Response[]) {
   const queue = [...responses];
-  return vi.fn(async () => {
+  return vi.fn<typeof fetch>(async () => {
     const response = queue.shift();
     if (!response) throw new Error("Unexpected fetch");
     return response;
@@ -452,7 +453,7 @@ describe("Instagram Graph publishing client", () => {
   });
 
   it("bounds every Graph request with a timeout signal", async () => {
-    const fetcher = vi.fn(async (_url: URL, init?: RequestInit) => {
+    const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
       expect(init?.signal).toBeInstanceOf(AbortSignal);
       return quota();
     });

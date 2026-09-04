@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 
+import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import {
   createInstagramCallbackHandler,

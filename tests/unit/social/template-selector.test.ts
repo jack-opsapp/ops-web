@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import type { SocialSubmission } from "@/lib/social/contract";
 import {
   SOCIAL_SELECTOR_VERSION,

@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import {
   PublicMediaError,
@@ -66,7 +67,10 @@ describe("public social media guard", () => {
     const fetcher: PublicMediaDependencies["fetcher"] = vi.fn(
       async (_url, _init, pinnedAddress) => {
         expect(pinnedAddress).toEqual({ address: "93.184.216.34", family: 4 });
-        return new Response(png, { status: 200, headers: { "content-type": "image/png" } });
+        return new Response(Uint8Array.from(png), {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        });
       }
     );
 
@@ -133,7 +137,10 @@ describe("public social media guard", () => {
   it("normalizes supported images to metadata-free JPEG", async () => {
     const png = await pngFixture();
     const fetcher = vi.fn().mockResolvedValue(
-      new Response(png, { status: 200, headers: { "content-type": "image/png" } })
+      new Response(Uint8Array.from(png), {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      })
     );
 
     const result = await downloadPublicImage("https://images.example.com/job.png", {

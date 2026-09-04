@@ -130,7 +130,7 @@ describe("middleware — public developer reference", () => {
   });
 
   it("does not change the MCP guide response when dashboard cookies exist", () => {
-    const res = middleware(req("/developers/mcp", { authed: true }));
+    const res = middleware(req("/developers/mcp", { token: freshToken() }));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();

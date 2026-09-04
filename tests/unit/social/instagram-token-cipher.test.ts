@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 const TEST_KEY = Buffer.alloc(32, 11).toString("base64");
 
 describe("Instagram token cipher", () => {

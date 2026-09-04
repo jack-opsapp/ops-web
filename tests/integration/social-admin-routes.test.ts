@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 import type { SocialContent } from "@/lib/social/contract";
 import {

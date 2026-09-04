@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { SocialSubmission } from "@/lib/social/contract";

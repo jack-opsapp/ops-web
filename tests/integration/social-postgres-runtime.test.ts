@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { dirname, isAbsolute, join, resolve } from "node:path";
