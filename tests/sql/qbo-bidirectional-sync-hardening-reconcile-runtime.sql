@@ -46,6 +46,24 @@ values
   ('64000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '4001:2001', 25, null),
   ('64000000-0000-4000-8000-999999999999', '10000000-0000-4000-8000-000000000001', '4999:2001', 25, now());
 
+create temp table maximum_candidates as
+select * from public.list_quickbooks_reconcile_candidates('sandbox', 1000);
+
+create temp table minimum_candidates as
+select * from public.list_quickbooks_reconcile_candidates('sandbox', 0);
+
+do $$
+begin
+  if (select count(*) from maximum_candidates) <> 33 then
+    raise exception 'candidate limit did not clamp to the full 33-record eligible set';
+  end if;
+
+  if (select count(*) from minimum_candidates) <> 1 then
+    raise exception 'candidate limit did not clamp zero to one';
+  end if;
+end;
+$$;
+
 create temp table first_candidates as
 select * from public.list_quickbooks_reconcile_candidates('sandbox', 25);
 
@@ -121,6 +139,17 @@ begin
     )
   ) < 8 then
     raise exception 'unseen linked records did not advance ahead of recently reconciled records';
+  end if;
+
+  if (
+    select count(*)
+    from (
+      select connection_id, entity_type, entity_id from first_candidates
+      union
+      select connection_id, entity_type, entity_id from second_candidates
+    ) distinct_candidates
+  ) <> 33 then
+    raise exception 'two fair batches did not rotate through every eligible record';
   end if;
 end;
 $$;

@@ -424,4 +424,20 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
       p_limit: 25,
     });
   });
+
+  it("fails closed when the selector returns a source-table contract mismatch", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    state.reconcile_candidates[0] = {
+      ...state.reconcile_candidates[0],
+      source_table: "payments",
+    };
+
+    const POST = await loadPost();
+
+    await expect(POST(request())).rejects.toThrow(
+      "QuickBooks reconcile source table mismatch for invoice",
+    );
+    expect(fetchEntityById).not.toHaveBeenCalled();
+    expect(state.accounting_sync_queue).toEqual([]);
+  });
 });
