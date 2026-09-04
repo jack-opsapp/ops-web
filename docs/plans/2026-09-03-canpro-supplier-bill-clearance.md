@@ -4,7 +4,7 @@
 
 **Goal:** Turn the existing supplier-bill accounting foundation into a complete Canpro-ready intake, reconciliation, approval, payment, and audit workflow across OPS Web and OPS iOS.
 
-**Architecture:** A durable `supplier_bill_intake` layer owns captured documents before they become accounting liabilities. Capture persists the immutable source PDF and extracted facts immediately; review records the required checks and human dispositions; approval atomically promotes an eligible intake into the existing canonical AP tables and only then creates provider-sync work. Held and payroll-routed documents remain outside AP. Web is the dense reconciliation surface; iOS is optimized for field capture and quick clearance. Every mutating path stays behind authenticated server routes and service-role-only prepare/commit RPCs with exact confirmation and fresh readback.
+**Architecture:** A durable `supplier_bill_intake` layer owns captured documents before they become accounting liabilities. Capture persists the immutable source PDF and extracted facts immediately; review records the required checks and human dispositions; approval atomically promotes an eligible intake into the existing canonical AP tables and only then creates provider-sync work. Held and payroll-routed documents remain outside AP. Web is the dense reconciliation, approval, and payment surface; iOS is optimized for field capture and quick read-only review. Every mutating path stays behind authenticated server routes and service-role-only prepare/commit RPCs with exact confirmation and fresh readback.
 
 **Tech stack:** Next.js 15, TypeScript, React Query, Supabase/PostgreSQL, AWS S3, `pdfjs-dist`, Vitest, SwiftUI, PDFKit, Vision/VisionKit, XCTest.
 
@@ -75,7 +75,7 @@ Detail push:
 │ DUPLICATE        CLEAR       │
 │ QTY / SCOPE      REVIEW      │
 │ [lines + allocation]         │
-│ [HOLD]  [APPROVE TO PAY]     │
+│ APPROVAL + PAYMENT IN OPS WEB│
 └──────────────────────────────┘
 ```
 
@@ -244,35 +244,34 @@ Detail push:
 8. Run focused unit tests, the new browser flow, type-check, and lint.
 9. Commit: `feat(books): add supplier bill clearance console`.
 
-## Task 6: Build iOS capture, cache, and quick clearance
+## Task 6: Build iOS capture, cache, and quick review
 
 **Files:**
 
-- Create: `OPS/Models/SupplierBillIntake.swift`
-- Create: `OPS/Services/SupplierBillAPIService.swift`
-- Create: `OPS/Services/SupplierBillCache.swift`
-- Create: `OPS/ViewModels/SupplierBillsViewModel.swift`
-- Create: `OPS/Views/Books/Bills/SupplierBillsLedger.swift`
-- Create: `OPS/Views/Books/Bills/SupplierBillRow.swift`
-- Create: `OPS/Views/Books/Bills/SupplierBillDetailView.swift`
-- Create: `OPS/Views/Books/Bills/SupplierBillClearanceRail.swift`
-- Create: `OPS/Views/Books/Bills/SupplierBillCaptureFlow.swift`
-- Create: `OPSTests/Books/SupplierBillIntakeTests.swift`
+- Create: `OPS/DataModels/SupplierBillIntake.swift`
+- Create: `OPS/Services/SupplierBills/SupplierBillCaptureQueue.swift`
+- Create: `OPS/Services/SupplierBills/SupplierBillIntakeService.swift`
+- Create: `OPS/Services/SupplierBills/SupplierBillCache.swift`
+- Create: `OPS/ViewModels/SupplierBillIntakeViewModel.swift`
+- Create: `OPS/Views/Books/Bills/SupplierBillsView.swift`
+- Create: `OPSTests/Books/SupplierBillCaptureQueueTests.swift`
+- Create: `OPSTests/Books/SupplierBillIntakeModelTests.swift`
 - Create: `OPSTests/Services/SupplierBillCacheTests.swift`
-- Create: `OPSTests/ViewModels/SupplierBillsViewModelTests.swift`
+- Create: `OPSTests/Services/SupplierBillIntakeServiceTests.swift`
+- Create: `OPSTests/ViewModels/SupplierBillIntakeViewModelTests.swift`
 - Modify: `OPS/Views/Books/BooksSection.swift`
 - Modify: `OPS/Views/Books/BooksTabView.swift`
 - Modify: `OPS/Views/Books/Ledger/BooksLedger.swift`
-- Modify: `OPS/Views/Components/FloatingActionMenu.swift`
+- Modify: `OPS/Views/MainTabView.swift`
 
 ### Steps
 
-1. Write failing XCTest coverage for decoding, lifecycle filters, authority gates, offline cache survival, stale revision handling, and clearance eligibility.
-2. Add the Bills section gated by `accounting.view`, with capture/approve/pay actions gated independently.
+1. Write failing XCTest coverage for decoding, lifecycle filters, company isolation, durable offline capture, offline cache survival, exact capture identity, and retry-versus-rejection behavior.
+2. Add the Bills section gated by `accounting.view`, with capture independently gated by `accounting.bills.capture`.
 3. Implement the authenticated API service using `AppConfiguration.apiBaseURL` and Firebase ID tokens.
-4. Implement Application Support JSON cache for last-known summaries/details and incomplete capture metadata. Cache reads remain available offline; final accounting mutations are disabled offline.
-5. Implement PDF import plus VisionKit document scan. Use PDFKit text first and Vision OCR only as the local fallback; server results remain authoritative after upload.
-6. Add the four lifecycle filters, flat bill rows, review push, clearance rail, job allocations, dispositions, hold, approval, and payment actions.
+4. Implement protected Application Support storage for last-known summaries/details and an immutable PDF capture queue. Both remain company-isolated and survive relaunch; queued PDFs are removed only after the server confirms the exact stable capture identity.
+5. Implement PDF import plus VisionKit document scan. Paper scans are converted to protected PDFs locally; extraction remains server-authoritative so offline capture never presents provisional facts as final.
+6. Add the five lifecycle filters, flat bill rows, cached detail review, Canpro checks, line/job status, and source-document access. Keep approval, hold disposition, payroll handoff, and payment in the web console where the complete evidence and authority controls are visible.
 7. Respect 44 pt targets, Dynamic Type, VoiceOver labels, outdoor contrast, safe-area clearance above the custom tab bar, and reduced motion.
 8. Run focused tests, then the narrow iOS test plan and compile in an isolated DerivedData path.
 9. Commit: `feat(books): add supplier bill capture and clearance`.
