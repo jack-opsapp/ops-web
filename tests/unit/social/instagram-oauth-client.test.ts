@@ -142,6 +142,54 @@ describe("Instagram OAuth client", () => {
     );
   });
 
+  it("retains safe parameter hints for a rejected renewable-token request", async () => {
+    const fetcher = fetchSequence(
+      response({
+        access_token: SHORT_TOKEN,
+        permissions:
+          "instagram_business_basic,instagram_business_content_publish",
+      }),
+      response(
+        {
+          error: {
+            code: 100,
+            message: `Invalid client secret: ${APP_SECRET}. ${SHORT_TOKEN}. user@example.test`,
+          },
+        },
+        400
+      )
+    );
+    const client = new InstagramOAuthClient(config, { fetcher });
+
+    await expect(
+      client.exchangeAuthorizationCode("single-use-code")
+    ).rejects.toMatchObject({
+      code: "INSTAGRAM_OAUTH_REJECTED",
+      httpStatus: 400,
+      retryable: false,
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(console.error).toHaveBeenCalledWith(
+      "[admin-social-instagram] OAuth exchange failed",
+      {
+        stage: "token_upgrade",
+        code: "INSTAGRAM_OAUTH_REJECTED",
+        httpStatus: 400,
+        providerCode: 100,
+        providerHints: ["client_secret", "invalid"],
+      }
+    );
+    const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+    for (const secret of [
+      APP_SECRET,
+      SHORT_TOKEN,
+      "single-use-code",
+      "user@example.test",
+    ]) {
+      expect(logged).not.toContain(secret);
+    }
+  });
+
   it("builds the official Instagram Login authorization URL", () => {
     const client = new InstagramOAuthClient(config);
     const url = client.authorizationUrl("opaque-state");

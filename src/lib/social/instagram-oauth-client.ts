@@ -227,7 +227,7 @@ export class InstagramOAuthClient {
   private async requestJson(
     url: URL,
     init: RequestInit,
-    _secrets: string[]
+    secrets: string[]
   ): Promise<unknown> {
     let response: Response;
     try {
@@ -263,7 +263,11 @@ export class InstagramOAuthClient {
         `Meta rejected the Instagram connection request (HTTP ${response.status})`,
         response.status === 429 || response.status >= 500,
         response.status,
-        instagramProviderFailureDetails(payload)
+        instagramProviderFailureDetails(payload, [
+          this.config.appSecret,
+          this.config.appId,
+          ...secrets,
+        ])
       );
     }
     return payload;
