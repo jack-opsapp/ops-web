@@ -415,25 +415,8 @@ describe("company data manifest — PRIVILEGE guard: what service_role may actua
     ).toEqual([...definerPurged].sort());
   });
 
-  it("tracks staged privilege revocations until the live snapshot is regenerated", () => {
-    const migrationSql = readdirSync(path.join(ROOT, "supabase/migrations"))
-      .filter((entry) => entry.endsWith(".sql"))
-      .sort()
-      .map((entry) =>
-        readFileSync(path.join(ROOT, "supabase/migrations", entry), "utf8")
-      )
-      .join("\n")
-      .toLowerCase();
-
-    expect(STAGED_SERVICE_ROLE_BLOCKED_TABLES).toEqual([
-      "agent_control_plane_tenant_roots",
-    ]);
-    expect(DEFINER_PURGED_TABLES.map((entry) => entry.table)).toContain(
-      "agent_control_plane_tenant_roots"
-    );
-    expect(migrationSql.replace(/\s+/g, " ")).toContain(
-      "revoke all on table public.agent_control_plane_tenant_roots from public, anon, authenticated, service_role"
-    );
+  it("has no staged privilege exceptions after the live snapshot refresh", () => {
+    expect(STAGED_SERVICE_ROLE_BLOCKED_TABLES).toEqual([]);
   });
 
   it("keeps the privilege snapshot itself plausible", () => {
@@ -493,6 +476,15 @@ describe("company data purge — immutable event ledger exception", () => {
     );
     expect(sql).toContain(
       "raise exception 'conversion notification deliveries are immutable'"
+    );
+  });
+
+  it("purges private supplier bill intents with their public event ledgers", () => {
+    const sql = readFinalMigrationFunction("public.purge_company_rows").toLowerCase();
+
+    expect(sql).toContain("delete from private.supplier_bill_write_intents");
+    expect(sql).toContain(
+      "delete from private.supplier_bill_intake_write_intents"
     );
   });
 });
@@ -734,6 +726,76 @@ describe("company data manifest — coverage of the tables the old cascade misse
         parentIndex
       );
     }
+  });
+});
+
+describe("company data manifest — supplier bill account lifecycle", () => {
+  const byTable = manifestByTable();
+
+  it("exports every supplier bill record the customer owns", () => {
+    for (const table of [
+      "suppliers",
+      "supplier_bills",
+      "supplier_bill_line_items",
+      "supplier_bill_project_allocations",
+      "supplier_bill_payments",
+      "supplier_bill_documents",
+      "supplier_bill_intakes",
+      "supplier_bill_intake_line_items",
+      "supplier_bill_intake_allocations",
+      "supplier_bill_intake_checks",
+      "supplier_bill_intake_documents",
+    ]) {
+      expect(byTable.get(table), `${table} must be classified`).toMatchObject({
+        scope: "company",
+        companyColumn: "company_id",
+        companyColumnType: "uuid",
+        export: true,
+      });
+    }
+  });
+
+  it("purges provider and event machinery without exporting it", () => {
+    for (const table of [
+      "supplier_bill_events",
+      "supplier_bill_intake_events",
+      "supplier_bill_provider_links",
+      "supplier_bill_tax_mappings",
+      "supplier_bill_payment_account_mappings",
+      "supplier_bill_project_mappings",
+    ]) {
+      expect(byTable.get(table), `${table} must be classified`).toMatchObject({
+        scope: "company",
+        companyColumn: "company_id",
+        companyColumnType: "uuid",
+        softDeletable: false,
+        deleteStrategy: "hard",
+        export: false,
+      });
+    }
+  });
+
+  it("purges supplier bill children before their parents", () => {
+    const order = new Map(
+      COMPANY_SCOPED_DATA.map((entry, index) => [entry.table, index])
+    );
+    const before = (child: string, parent: string) => {
+      expect(order.get(child), `${child} must be classified`).toBeLessThan(
+        order.get(parent)!
+      );
+    };
+
+    before("supplier_bill_intake_allocations", "supplier_bill_intake_line_items");
+    before("supplier_bill_intake_line_items", "supplier_bill_intakes");
+    before("supplier_bill_intake_checks", "supplier_bill_intakes");
+    before("supplier_bill_intake_documents", "supplier_bill_intakes");
+    before("supplier_bill_intake_events", "supplier_bill_intakes");
+    before("supplier_bill_project_allocations", "supplier_bill_line_items");
+    before("supplier_bill_line_items", "supplier_bills");
+    before("supplier_bill_documents", "supplier_bills");
+    before("supplier_bill_payments", "supplier_bills");
+    before("supplier_bill_intakes", "supplier_bills");
+    before("supplier_bills", "suppliers");
   });
 });
 
