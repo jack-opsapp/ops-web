@@ -507,7 +507,7 @@ describe("schedule-confirmation approved-email delivery guard", () => {
       "old.status = 'approved' and new.status = 'pending'"
     );
     expect(ACTION_IMMUTABILITY_GUARD).toContain(
-      "new.auto_execute_at is distinct from case when old.reviewed_by is not null then null else old.auto_execute_at end"
+      "new.auto_execute_at is distinct from (case when old.reviewed_by is not null then null else old.auto_execute_at end)"
     );
     expect(ACTION_IMMUTABILITY_GUARD).toContain(
       "from public.approved_action_email_intents intent where intent.action_id = old.id"

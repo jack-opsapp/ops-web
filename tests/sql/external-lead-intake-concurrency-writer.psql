@@ -1,0 +1,493 @@
+\set ON_ERROR_STOP on
+
+-- Session A owns setup and two explicit barriers. Session B crosses each
+-- barrier only after A has completed the command but before A commits, forcing
+-- it to wait on the command's transaction-scoped replay/identity locks.
+select pg_advisory_lock(2026072611);
+select pg_advisory_lock(2026072612);
+select pg_advisory_lock(2026072613);
+
+begin;
+
+drop table if exists private.external_lead_intake_concurrency_results;
+drop table if exists private.external_lead_intake_concurrency_fixture;
+drop function if exists private.external_lead_intake_concurrency_submit(
+  text,
+  uuid,
+  bytea,
+  bytea,
+  text,
+  text
+);
+
+create table private.external_lead_intake_concurrency_fixture (
+  company_id uuid primary key,
+  owner_user_id uuid not null,
+  principal_id uuid not null,
+  credential_id uuid not null,
+  credential_secret_digest bytea not null,
+  source_internal_id uuid not null,
+  source_public_id uuid not null,
+  form_internal_id uuid not null,
+  form_public_id uuid not null,
+  visible_prefix text not null,
+  authorization_epoch bigint not null
+);
+
+create table private.external_lead_intake_concurrency_results (
+  phase text not null,
+  session_name text not null,
+  result jsonb not null,
+  primary key (phase, session_name)
+);
+
+do $fixture$
+declare
+  v_company_id uuid := gen_random_uuid();
+  v_owner_user_id uuid := gen_random_uuid();
+  v_feature_id uuid := gen_random_uuid();
+  v_source_internal_id uuid := gen_random_uuid();
+  v_source_public_id uuid := gen_random_uuid();
+  v_form_internal_id uuid := gen_random_uuid();
+  v_form_public_id uuid := gen_random_uuid();
+  v_principal_id uuid := gen_random_uuid();
+  v_credential_family_id uuid := gen_random_uuid();
+  v_credential_id uuid := gen_random_uuid();
+  v_credential_secret_digest bytea := extensions.gen_random_bytes(32);
+  v_visible_prefix text :=
+    'opsx' || encode(extensions.gen_random_bytes(6), 'hex');
+begin
+  insert into public.companies (
+    id,
+    bubble_id,
+    name,
+    subscription_status,
+    subscription_plan
+  ) values (
+    v_company_id,
+    'external-lead-concurrency-' || v_company_id::text,
+    'External lead concurrency',
+    'trial',
+    'trial'
+  );
+
+  insert into public.users (
+    id,
+    bubble_id,
+    company_id,
+    first_name,
+    last_name,
+    email,
+    role,
+    is_company_admin,
+    is_active,
+    deleted_at
+  ) values (
+    v_owner_user_id,
+    'external-lead-owner-' || v_owner_user_id::text,
+    v_company_id,
+    'External',
+    'Concurrency Owner',
+    'external-lead-owner-' || v_owner_user_id::text || '@example.invalid',
+    'owner',
+    true,
+    true,
+    null
+  );
+
+  insert into public.admin_feature_overrides (
+    id,
+    company_id,
+    feature_key,
+    enabled,
+    enabled_by,
+    enabled_at,
+    metadata
+  ) values (
+    v_feature_id,
+    v_company_id,
+    'external_api',
+    true,
+    v_owner_user_id,
+    clock_timestamp(),
+    '{"contract_fixture":true}'::jsonb
+  );
+
+  insert into private.lead_intake_sources (
+    id,
+    company_id,
+    public_source_id,
+    site_label,
+    canonical_host,
+    default_phone_region,
+    allowed_browser_origins,
+    default_coarse_source,
+    created_by_user_id
+  ) values (
+    v_source_internal_id,
+    v_company_id,
+    v_source_public_id,
+    'Concurrency website',
+    'lead-concurrency.example.invalid',
+    'CA',
+    array['https://lead-concurrency.example.invalid']::text[],
+    'referral',
+    v_owner_user_id
+  );
+
+  insert into private.lead_intake_forms (
+    id,
+    company_id,
+    source_id,
+    public_form_id,
+    form_key,
+    label,
+    is_default,
+    is_active
+  ) values (
+    v_form_internal_id,
+    v_company_id,
+    v_source_internal_id,
+    v_form_public_id,
+    'default',
+    'Default',
+    true,
+    true
+  );
+
+  insert into private.external_api_principals (
+    id,
+    company_id,
+    credential_family_id,
+    principal_type,
+    credential_class,
+    scopes,
+    status,
+    authorization_epoch,
+    granted_by_user_id
+  ) values (
+    v_principal_id,
+    v_company_id,
+    v_credential_family_id,
+    'server_key',
+    'intake',
+    array['intake.write']::text[],
+    'active',
+    1,
+    v_owner_user_id
+  );
+
+  insert into private.external_api_principal_sources (
+    principal_id,
+    company_id,
+    source_id
+  ) values (
+    v_principal_id,
+    v_company_id,
+    v_source_internal_id
+  );
+
+  insert into private.external_api_credentials (
+    id,
+    company_id,
+    principal_id,
+    name,
+    digest_version,
+    secret_digest,
+    visible_prefix,
+    issued_authorization_epoch,
+    status,
+    expires_at,
+    created_by_user_id
+  ) values (
+    v_credential_id,
+    v_company_id,
+    v_principal_id,
+    'Concurrency credential',
+    1,
+    v_credential_secret_digest,
+    v_visible_prefix,
+    1,
+    'active',
+    clock_timestamp() + interval '1 day',
+    v_owner_user_id
+  );
+
+  insert into private.external_lead_intake_concurrency_fixture
+  values (
+    v_company_id,
+    v_owner_user_id,
+    v_principal_id,
+    v_credential_id,
+    v_credential_secret_digest,
+    v_source_internal_id,
+    v_source_public_id,
+    v_form_internal_id,
+    v_form_public_id,
+    v_visible_prefix,
+    1
+  );
+end;
+$fixture$;
+
+create function private.external_lead_intake_concurrency_submit(
+  p_phase text,
+  p_request_id uuid,
+  p_idempotency_digest bytea,
+  p_canonical_hash bytea,
+  p_email text,
+  p_work text
+) returns jsonb
+language plpgsql
+security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+declare
+  v_fixture private.external_lead_intake_concurrency_fixture%rowtype;
+  v_original jsonb;
+  v_canonical jsonb;
+begin
+  select *
+  into strict v_fixture
+  from private.external_lead_intake_concurrency_fixture;
+
+  v_original := jsonb_build_object(
+    'sourceId', v_fixture.source_public_id::text,
+    'formId', v_fixture.form_public_id::text,
+    'contact', jsonb_build_object(
+      'name', 'Concurrency Contact',
+      'email', p_email
+    ),
+    'workSummary', p_work,
+    'answers', '[]'::jsonb,
+    'uploadIds', '[]'::jsonb
+  );
+  v_canonical := jsonb_build_object(
+    'version', 1,
+    'sourceId', v_fixture.source_public_id::text,
+    'formId', v_fixture.form_public_id::text,
+    'contact', jsonb_build_object(
+      'name', 'Concurrency Contact',
+      'email', p_email
+    ),
+    'serviceAddress', null,
+    'workSummary', p_work,
+    'preferredTiming', null,
+    'answers', '[]'::jsonb,
+    'attribution', null,
+    'uploadIds', '[]'::jsonb,
+    'externalSubmissionId', null
+  );
+
+  return public.create_external_intake_submission_as_system(
+    p_request_id,
+    v_fixture.principal_id,
+    v_fixture.credential_id,
+    v_fixture.company_id,
+    1::smallint,
+    v_fixture.credential_secret_digest,
+    v_fixture.visible_prefix,
+    v_fixture.authorization_epoch,
+    v_fixture.source_public_id,
+    v_fixture.form_public_id,
+    'https://lead-concurrency.example.invalid',
+    1::smallint,
+    p_idempotency_digest,
+    jsonb_build_array(jsonb_build_object(
+      'kid', 1,
+      'digest', E'\\x' || encode(p_idempotency_digest, 'hex')
+    )),
+    null,
+    null,
+    '[]'::jsonb,
+    1::smallint,
+    p_canonical_hash,
+    1::smallint,
+    v_original,
+    v_canonical,
+    jsonb_build_object(
+      'name', 'Concurrency Contact',
+      'email', p_email
+    ),
+    '{}'::uuid[],
+    '[]'::jsonb,
+    '/v1/intake/submissions',
+    'POST',
+    clock_timestamp()
+  );
+end;
+$function$;
+
+commit;
+
+select pg_advisory_unlock(2026072611);
+
+-- Phase one: two real inquiries, distinct transport keys, one new identity.
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+insert into private.external_lead_intake_concurrency_results (
+  phase,
+  session_name,
+  result
+) values (
+  'same_identity',
+  'writer',
+  private.external_lead_intake_concurrency_submit(
+    'same_identity',
+    gen_random_uuid(),
+    decode(repeat('81', 32), 'hex'),
+    decode(repeat('91', 32), 'hex'),
+    'identity-race@example.invalid',
+    'First overlapping inquiry'
+  )
+);
+
+select pg_advisory_unlock(2026072612);
+select pg_sleep(2);
+commit;
+
+do $wait_for_identity_contender$
+declare
+  v_deadline timestamptz := clock_timestamp() + interval '30 seconds';
+begin
+  loop
+    exit when exists (
+      select 1
+      from private.external_lead_intake_concurrency_results
+      where phase = 'same_identity'
+        and session_name = 'contender'
+    );
+    if clock_timestamp() >= v_deadline then
+      raise exception 'external_lead_intake_identity_contender_timeout';
+    end if;
+    perform pg_sleep(0.05);
+  end loop;
+end;
+$wait_for_identity_contender$;
+
+-- Phase two: two overlapping requests with the same replay identity.
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+insert into private.external_lead_intake_concurrency_results (
+  phase,
+  session_name,
+  result
+) values (
+  'same_key',
+  'writer',
+  private.external_lead_intake_concurrency_submit(
+    'same_key',
+    gen_random_uuid(),
+    decode(repeat('83', 32), 'hex'),
+    decode(repeat('93', 32), 'hex'),
+    'same-key-race@example.invalid',
+    'Exact overlapping retry'
+  )
+);
+
+select pg_advisory_unlock(2026072613);
+select pg_sleep(2);
+commit;
+
+do $wait_for_replay_contender$
+declare
+  v_deadline timestamptz := clock_timestamp() + interval '30 seconds';
+begin
+  loop
+    exit when exists (
+      select 1
+      from private.external_lead_intake_concurrency_results
+      where phase = 'same_key'
+        and session_name = 'contender'
+    );
+    if clock_timestamp() >= v_deadline then
+      raise exception 'external_lead_intake_replay_contender_timeout';
+    end if;
+    perform pg_sleep(0.05);
+  end loop;
+end;
+$wait_for_replay_contender$;
+
+do $verify$
+declare
+  v_fixture private.external_lead_intake_concurrency_fixture%rowtype;
+  v_same_key_public_submissions bigint;
+  v_same_key_public_leads bigint;
+begin
+  select *
+  into strict v_fixture
+  from private.external_lead_intake_concurrency_fixture;
+
+  if (
+    select count(*)
+    from private.external_lead_intake_concurrency_results
+    where phase = 'same_identity'
+      and result ->> 'status' = 'created'
+  ) <> 2
+    or (
+      select count(*)
+      from public.clients client
+      where client.company_id = v_fixture.company_id
+        and client.email = 'identity-race@example.invalid'
+    ) <> 1
+    or (
+      select count(*)
+      from public.opportunities opportunity
+      where opportunity.company_id = v_fixture.company_id
+        and opportunity.contact_email = 'identity-race@example.invalid'
+    ) <> 2
+  then
+    raise exception 'external_lead_intake_same_identity_concurrency_failed';
+  end if;
+
+  select
+    count(distinct result ->> 'public_submission_id'),
+    count(distinct result ->> 'public_lead_id')
+  into
+    v_same_key_public_submissions,
+    v_same_key_public_leads
+  from private.external_lead_intake_concurrency_results
+  where phase = 'same_key';
+
+  if (
+    select count(*)
+    from private.external_lead_intake_concurrency_results
+    where phase = 'same_key'
+      and result ->> 'status' = 'created'
+  ) <> 1
+    or (
+      select count(*)
+      from private.external_lead_intake_concurrency_results
+      where phase = 'same_key'
+        and result ->> 'status' = 'replayed'
+    ) <> 1
+    or v_same_key_public_submissions <> 1
+    or v_same_key_public_leads <> 1
+    or (
+      select count(*)
+      from public.opportunities opportunity
+      where opportunity.company_id = v_fixture.company_id
+        and opportunity.contact_email = 'same-key-race@example.invalid'
+    ) <> 1
+  then
+    raise exception 'external_lead_intake_same_key_concurrency_failed';
+  end if;
+end;
+$verify$;
+
+drop function private.external_lead_intake_concurrency_submit(
+  text,
+  uuid,
+  bytea,
+  bytea,
+  text,
+  text
+);
+drop table private.external_lead_intake_concurrency_results;
+drop table private.external_lead_intake_concurrency_fixture;

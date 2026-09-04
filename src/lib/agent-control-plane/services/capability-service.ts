@@ -9,6 +9,38 @@ import {
   type CollectionsService,
 } from "./collections/collections-service";
 import {
+  isTrustedHiringWhatIfService,
+  type HiringWhatIfService,
+} from "./hiring-what-if/hiring-what-if-service";
+import {
+  isTrustedPromiseRecoveryService,
+  type PromiseRecoveryService,
+} from "./promise-recovery/promise-recovery-service";
+import {
+  isTrustedSalesTruthService,
+  type SalesTruthService,
+} from "./sales-truth/sales-truth-service";
+import {
+  isTrustedPayrollReadinessService,
+  type PayrollReadinessService,
+} from "./payroll-readiness/payroll-readiness-service";
+import {
+  isTrustedRecurringServicePriceChangeService,
+  type RecurringServicePriceChangeService,
+} from "./recurring-service-price-change/recurring-service-price-change-service";
+import {
+  isTrustedEstimateDraftService,
+  type EstimateDraftService,
+} from "./estimate-draft/estimate-draft-service";
+import {
+  isTrustedWeatherRescheduleService,
+  type WeatherRescheduleService,
+} from "./weather-reschedule/weather-reschedule-service";
+import {
+  isTrustedCrewCalloutRecoveryService,
+  type CrewCalloutRecoveryService,
+} from "./crew-callout-recovery/crew-callout-recovery-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -17,12 +49,28 @@ const TRUSTED_CAPABILITY_SERVICES = new WeakSet<object>();
 
 export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   DayCloseoutService &
-  CollectionsService;
+  CollectionsService &
+  HiringWhatIfService &
+  PromiseRecoveryService &
+  SalesTruthService &
+  PayrollReadinessService &
+  RecurringServicePriceChangeService &
+  EstimateDraftService &
+  WeatherRescheduleService &
+  CrewCalloutRecoveryService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
   readonly dayCloseout: DayCloseoutService;
   readonly collections: CollectionsService;
+  readonly hiringWhatIf: HiringWhatIfService;
+  readonly promiseRecovery: PromiseRecoveryService;
+  readonly salesTruth: SalesTruthService;
+  readonly payrollReadiness: PayrollReadinessService;
+  readonly recurringServicePriceChange: RecurringServicePriceChangeService;
+  readonly estimateDraft: EstimateDraftService;
+  readonly weatherReschedule: WeatherRescheduleService;
+  readonly crewCalloutRecovery: CrewCalloutRecoveryService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -33,10 +81,48 @@ export function createOpsAgentCapabilityService(input: {
   if (!isTrustedCollectionsService(input.collections)) {
     throw new TypeError("A trusted collections service is required");
   }
+  if (!isTrustedHiringWhatIfService(input.hiringWhatIf)) {
+    throw new TypeError("A trusted hiring analysis service is required");
+  }
+  if (!isTrustedPromiseRecoveryService(input.promiseRecovery)) {
+    throw new TypeError("A trusted promise-recovery service is required");
+  }
+  if (!isTrustedSalesTruthService(input.salesTruth)) {
+    throw new TypeError("A trusted sales-truth service is required");
+  }
+  if (!isTrustedPayrollReadinessService(input.payrollReadiness)) {
+    throw new TypeError("A trusted payroll readiness service is required");
+  }
+  if (
+    !isTrustedRecurringServicePriceChangeService(
+      input.recurringServicePriceChange
+    )
+  ) {
+    throw new TypeError(
+      "A trusted recurring-service price-change service is required"
+    );
+  }
+  if (!isTrustedEstimateDraftService(input.estimateDraft)) {
+    throw new TypeError("A trusted estimate draft service is required");
+  }
+  if (!isTrustedWeatherRescheduleService(input.weatherReschedule)) {
+    throw new TypeError("A trusted weather reschedule service is required");
+  }
+  if (!isTrustedCrewCalloutRecoveryService(input.crewCalloutRecovery)) {
+    throw new TypeError("A trusted crew call-out recovery service is required");
+  }
   const service = Object.freeze({
     ...input.reads,
     ...input.dayCloseout,
     ...input.collections,
+    ...input.hiringWhatIf,
+    ...input.promiseRecovery,
+    ...input.salesTruth,
+    ...input.payrollReadiness,
+    ...input.recurringServicePriceChange,
+    ...input.estimateDraft,
+    ...input.weatherReschedule,
+    ...input.crewCalloutRecovery,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;

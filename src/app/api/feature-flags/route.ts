@@ -34,7 +34,11 @@ export async function GET(req: NextRequest) {
 
   if (requestedUserId) {
     // Validate that the requested userId belongs to this auth user
-    const supabaseUser = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+    const supabaseUser = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id"
+    );
     if (supabaseUser && (supabaseUser.id as string) === requestedUserId) {
       resolvedUserId = requestedUserId;
       resolvedCompanyId = (supabaseUser.company_id as string) ?? null;
@@ -43,9 +47,15 @@ export async function GET(req: NextRequest) {
     }
   } else {
     // No userId param — resolve from JWT
-    const supabaseUser = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+    const supabaseUser = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id"
+    );
     resolvedUserId = supabaseUser ? (supabaseUser.id as string) : null;
-    resolvedCompanyId = supabaseUser ? ((supabaseUser.company_id as string) ?? null) : null;
+    resolvedCompanyId = supabaseUser
+      ? ((supabaseUser.company_id as string) ?? null)
+      : null;
   }
 
   if (!resolvedUserId) {
@@ -61,7 +71,10 @@ export async function GET(req: NextRequest) {
 
   if (flagsError) {
     console.error("[feature-flags] Failed to fetch flags:", flagsError);
-    return NextResponse.json({ error: "Failed to fetch flags" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch flags" },
+      { status: 500 }
+    );
   }
 
   // Fetch overrides for this user
@@ -72,7 +85,10 @@ export async function GET(req: NextRequest) {
 
   if (overridesError) {
     console.error("[feature-flags] Failed to fetch overrides:", overridesError);
-    return NextResponse.json({ error: "Failed to fetch overrides" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch overrides" },
+      { status: 500 }
+    );
   }
 
   const overrideSet = new Set((overrides ?? []).map((o) => o.flag_slug));
@@ -102,10 +118,14 @@ export async function GET(req: NextRequest) {
   //              dim state keeps deriving from the existing ai_email_* flag
   //              rows + per-user overrides, untouched.
   //
-  // Fail-closed: if company_id is unknown or the DB call throws, both
+  //   external_api — Website API pilot. Carries no routes so it can gate the
+  //                  Website section without hiding all of /settings.
+  //
+  // Fail-closed: if company_id is unknown or the DB call throws, all
   // synthetic flags default to disabled.
   let inboxUiEnabled = false;
   let phaseCEnabled = false;
+  let externalApiEnabled = false;
   if (resolvedCompanyId) {
     try {
       const companyOverrides =
@@ -116,11 +136,11 @@ export async function GET(req: NextRequest) {
       phaseCEnabled = companyOverrides.some(
         (o) => o.featureKey === "phase_c" && o.enabled
       );
-    } catch (err) {
-      console.error(
-        "[feature-flags] Failed to check company overrides:",
-        err
+      externalApiEnabled = companyOverrides.some(
+        (o) => o.featureKey === "external_api" && o.enabled
       );
+    } catch (err) {
+      console.error("[feature-flags] Failed to check company overrides:", err);
     }
   }
 
@@ -137,6 +157,13 @@ export async function GET(req: NextRequest) {
       enabled: phaseCEnabled,
       hasOverride: false,
       routes: ["/calibration", "/agent"],
+      permissions: [],
+    },
+    {
+      slug: "external_api",
+      enabled: externalApiEnabled,
+      hasOverride: false,
+      routes: [],
       permissions: [],
     }
   );

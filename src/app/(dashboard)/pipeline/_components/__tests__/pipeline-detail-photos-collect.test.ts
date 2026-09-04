@@ -13,6 +13,7 @@ vi.mock("@/lib/api/services/lead-photo-upload", () => ({
 
 import { collectPhotos } from "../pipeline-detail-photos-tab";
 import { ActivityType, type Activity } from "@/lib/types/pipeline";
+import type { OpportunityAssignedContextIntakeAttachment } from "@/lib/api/services/opportunity-assigned-context-service";
 
 /**
  * Bug 288f2607. The lead photo grid merged EVERY email activity's attachments
@@ -50,8 +51,20 @@ function emailActivity(overrides: Partial<Activity> = {}): Activity {
   } as Activity;
 }
 
-function collect(activities: Activity[], leadImages: string[] = []) {
-  return collectPhotos(leadImages, activities, [], "en", t, LEAD_CONTACT);
+function collect(
+  activities: Activity[],
+  leadImages: string[] = [],
+  intakeAttachments: OpportunityAssignedContextIntakeAttachment[] = []
+) {
+  return collectPhotos(
+    leadImages,
+    activities,
+    [],
+    "en",
+    t,
+    LEAD_CONTACT,
+    intakeAttachments
+  );
 }
 
 describe("collectPhotos — outbound company images", () => {
@@ -110,9 +123,10 @@ describe("collectPhotos — sender attribution", () => {
 
 describe("collectPhotos — ordering and non-email sources", () => {
   it("puts lead photos first and keeps them removable", () => {
-    const photos = collect([emailActivity()], [
-      "https://cdn.example.com/lead.jpg",
-    ]);
+    const photos = collect(
+      [emailActivity()],
+      ["https://cdn.example.com/lead.jpg"]
+    );
 
     expect(photos[0]).toMatchObject({
       url: "https://cdn.example.com/lead.jpg",
@@ -139,6 +153,29 @@ describe("collectPhotos — ordering and non-email sources", () => {
     expect(photos.map((photo) => photo.url)).toEqual([
       "https://cdn.example.com/newer.jpg",
       "https://cdn.example.com/older.jpg",
+    ]);
+  });
+
+  it("includes accepted website intake images without disturbing current-main callers", () => {
+    const attachment: OpportunityAssignedContextIntakeAttachment = {
+      id: "11111111-1111-4111-8111-111111111111",
+      filename: "roof.jpg",
+      kind: "image",
+      mimeType: "image/jpeg",
+      sizeBytes: 1024,
+      occurredAt: new Date("2026-09-04T12:00:00.000Z"),
+      previewUrl: "/api/opportunities/opp-1/intake-files/upl-1/preview",
+      downloadUrl: "/api/opportunities/opp-1/intake-files/upl-1/download",
+    };
+
+    const photos = collect([], [], [attachment]);
+
+    expect(photos).toEqual([
+      expect.objectContaining({
+        url: attachment.previewUrl,
+        source: "Website — Sep 4",
+        removable: false,
+      }),
     ]);
   });
 

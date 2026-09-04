@@ -82,6 +82,7 @@ export async function GET(
     features: {
       phase_c: overrideMap.phase_c || { enabled: false, enabledBy: null, enabledAt: null },
       inbox_ui: overrideMap.inbox_ui || { enabled: false, enabledBy: null, enabledAt: null },
+      external_api: overrideMap.external_api || { enabled: false, enabledBy: null, enabledAt: null },
     },
     memory: {
       facts: stats.factsCount,
@@ -104,25 +105,47 @@ export async function PATCH(
   }
 
   const { companyId } = await params;
-  const body = await req.json();
+  const parsedBody = await req.json().catch(() => null);
+  if (
+    typeof parsedBody !== "object" ||
+    parsedBody === null ||
+    Array.isArray(parsedBody)
+  ) {
+    return NextResponse.json(
+      { error: "Request body must be an object" },
+      { status: 400 }
+    );
+  }
+  const body = parsedBody as Record<string, unknown>;
 
   // Features that route through setOverride (has phase_c wizard side-effects)
   const setOverrideFeatures: Array<"phase_c"> = ["phase_c"];
   // Features that route through the generic setFeatureOverride (no side-effects)
-  const genericFeatures: Array<"inbox_ui"> = ["inbox_ui"];
+  const genericFeatures: Array<"inbox_ui" | "external_api"> = ["inbox_ui", "external_api"];
 
   type SetOverrideUpdate = { feature: "phase_c"; enabled: boolean; kind: "setOverride" };
-  type GenericUpdate = { feature: "inbox_ui"; enabled: boolean; kind: "generic" };
+  type GenericUpdate = { feature: "inbox_ui" | "external_api"; enabled: boolean; kind: "generic" };
   const updates: Array<SetOverrideUpdate | GenericUpdate> = [];
 
+  for (const feature of [...setOverrideFeatures, ...genericFeatures]) {
+    if (feature in body && typeof body[feature] !== "boolean") {
+      return NextResponse.json(
+        { error: "Feature values must be boolean" },
+        { status: 400 }
+      );
+    }
+  }
+
   for (const feature of setOverrideFeatures) {
-    if (feature in body) {
-      updates.push({ feature, enabled: !!body[feature], kind: "setOverride" });
+    const enabled = body[feature];
+    if (typeof enabled === "boolean") {
+      updates.push({ feature, enabled, kind: "setOverride" });
     }
   }
   for (const feature of genericFeatures) {
-    if (feature in body) {
-      updates.push({ feature, enabled: !!body[feature], kind: "generic" });
+    const enabled = body[feature];
+    if (typeof enabled === "boolean") {
+      updates.push({ feature, enabled, kind: "generic" });
     }
   }
 

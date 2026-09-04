@@ -171,14 +171,16 @@ export function Workbar({
 
 /**
  * WorkbarButton — the ONE compact primary CTA for a TableWorkbar (NEW CLIENT /
- * ADD / NEW LEAD …). A dense 28px filled-accent chip that sits flush with the
+ * ADD / NEW LEAD …). A dense 28px accent-outlined chip that sits flush with the
  * other toolbar controls (search, filters, density) across every surface.
  *
  * Deliberately NOT the heavy `<Button>` primitive: this project's spacing scale
  * makes its size classes render ~2x tall (`h-8` = 64px), which dwarfs the dense
- * toolbar. Filled steel-blue at rest → brightens on hover; accent focus ring with
- * a black offset so it stays visible against the accent fill. The single primary
- * CTA per surface — the one place the steel-blue accent appears in the workbar.
+ * toolbar. It does follow the primary-button rule (DESIGN.md §9 — the compact
+ * tier compresses only the height ladder; fills and colours are unchanged):
+ * outlined steel-blue at rest → fills solid accent with black text on hover.
+ * Accent focus ring with a black offset. The single primary CTA per surface —
+ * the one place the steel-blue accent appears in the workbar.
  */
 export function WorkbarButton({
   children,
@@ -190,7 +192,7 @@ export function WorkbarButton({
     <button
       type={type}
       className={cn(
-        "flex h-[28px] shrink-0 items-center gap-[5px] rounded-chip border border-ops-accent bg-ops-accent px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-black transition-colors hover:border-ops-accent-hover hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40",
+        "flex h-[28px] shrink-0 items-center gap-[5px] rounded-chip border border-ops-accent bg-transparent px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40",
         className,
       )}
       {...props}

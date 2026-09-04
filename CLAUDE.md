@@ -186,6 +186,7 @@ When spawning a follow-up chat, fresh worktree, or background task (e.g. via `mc
 - **Text ladder:** `#EDEDED` / `#B5B5B5` / `#8A8A8A` / `#6A6A6A` (text-mute decorative only — `//` slashes, separators)
 - **Earth tones (semantic):** `olive #9DB582` / `tan #C4A868` / `rose #B58289` / `brick #93321A` (border-only)
 - **Border radius:** `panel: 10` / `modal: 12` / `btn: 5` / `chip: 4` / `bar: 2` / `sidebar: 6`. No 999px pills except avatars.
+- **Slash-opacity is banned on string color tokens.** Tailwind's `/NN` modifier REPLACES the alpha of any token defined as an rgba string (`bg-fill-neutral-dim/60` compiles to 60% white, not 60% of 6%) and silently DROPS the declaration for `var()` tokens (`bg-rose-soft/30` emits no CSS at all). Only tokens declared with `<alpha-value>` (e.g. `ops-accent`) scale correctly. Pick the token whose designed value matches the intent instead — `surface-hover-subtle` 3%, `surface-input` 4%, `border-border-subtle` 5%, `fill-neutral-dim` 6%. `scripts/check-slash-opacity.mjs` (first step of `prebuild`) fails the build on violations.
 - **Depth:** borders-only, zero box-shadows on dark backgrounds
 - **Primary button:** outlined at rest with `text-ops-accent border-ops-accent` → fills to `bg-ops-accent text-black` on hover
 - **Text alignment:** left only, never center
@@ -295,6 +296,7 @@ Full reference: `ops-software-bible/05_DESIGN_SYSTEM.md` § 15. Use this scale f
 | **window** | 2000+ | Floating windows (dynamic, auto-increments) |
 | **modal** | 3000 | Portaled dialogs/sheets (Radix) |
 | **map-controls** | 5000 | Full-screen map page only |
+| **picker** | 8000 | Bug-report element picker overlay |
 | **emergency** | 9000–9999 | Sign-out, lockout overlays |
 
 **Rules:** Decorative overlays must never exceed 10. Gaps between layers are intentional — use them for future additions. Existing components use the old tight scale (sidebar=45, FAB=95, etc.) — migrate to the new scale as you touch them.

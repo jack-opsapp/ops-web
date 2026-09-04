@@ -37,6 +37,15 @@ function runtime(
     domainService: {} as McpServerRuntime["domainService"],
     dayCloseout: {} as McpServerRuntime["dayCloseout"],
     collections: {} as McpServerRuntime["collections"],
+    hiringWhatIf: {} as McpServerRuntime["hiringWhatIf"],
+    promiseRecovery: {} as McpServerRuntime["promiseRecovery"],
+    salesTruth: {} as McpServerRuntime["salesTruth"],
+    payrollReadiness: {} as McpServerRuntime["payrollReadiness"],
+    recurringServicePriceChange:
+      {} as McpServerRuntime["recurringServicePriceChange"],
+    estimateDraft: {} as McpServerRuntime["estimateDraft"],
+    weatherReschedule: {} as McpServerRuntime["weatherReschedule"],
+    crewCalloutRecovery: {} as McpServerRuntime["crewCalloutRecovery"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {

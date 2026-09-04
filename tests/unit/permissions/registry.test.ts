@@ -106,7 +106,7 @@ describe("permission registry", () => {
     );
   });
 
-  it("uses action-level editing only for Pipeline and Inbox", () => {
+  it("uses action-level editing only for Agent, Pipeline and Inbox", () => {
     const actionLevelModules = PERMISSION_CATEGORIES.flatMap(
       (category) => category.modules
     )
@@ -114,6 +114,6 @@ describe("permission registry", () => {
       .map((module) => module.id)
       .sort();
 
-    expect(actionLevelModules).toEqual(["inbox", "pipeline"]);
+    expect(actionLevelModules).toEqual(["agent", "inbox", "pipeline"]);
   });
 });

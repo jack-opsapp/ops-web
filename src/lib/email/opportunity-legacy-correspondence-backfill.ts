@@ -796,6 +796,9 @@ function plannedEventForThreadEvidence(input: {
       isMeaningful: true,
       noiseReason: null,
       customerEmail: parsedSubmissionEmail ?? externalParticipant,
+      responseDefinitionVersion: 1,
+      responseKind: "not_applicable",
+      countsAsFirstResponse: false,
     };
   }
 

@@ -204,7 +204,7 @@ export function EstimateFormModal({
             {[48, 48, 48, 120, 80, 80].map((h, i) => (
               <div
                 key={i}
-                className="w-full rounded bg-fill-neutral-dim/40 animate-pulse motion-reduce:animate-none"
+                className="w-full rounded bg-fill-neutral-dim animate-pulse motion-reduce:animate-none"
                 style={{ height: h }}
               />
             ))}

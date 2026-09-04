@@ -28,6 +28,8 @@ export {
   MCP_CONSENT_CATALOG,
   MCP_CONSENT_CATALOG_V1,
   MCP_CONSENT_CATALOG_V2,
+  MCP_CONSENT_CATALOG_V3,
+  MCP_CONSENT_CATALOG_V4,
   consentLabelsForScopes,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,

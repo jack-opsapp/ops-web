@@ -59,6 +59,7 @@ import { LifecycleSettingsTab } from "./lifecycle-settings-tab";
 import { PortalBrandingTab } from "./portal-branding-tab";
 import { BookingSettingsTab } from "./booking-settings-tab";
 import { ClientCommsSettingsTab } from "./client-comms-settings-tab";
+import { WebsiteIntegrationTab } from "./website-integration-tab";
 import { MapPreferencesTab } from "./map-preferences-tab";
 import { DataPrivacyTab } from "./data-privacy-tab";
 import { DeveloperTab } from "./developer-tab";
@@ -96,8 +97,8 @@ export interface SettingsSection {
   labelKey: string;
   /** Granular RBAC permission required (feature-flag-unlocked AND granted). */
   permission?: string;
-  /** Company feature flag required (canAccessFeature). Only `phase_c` today. */
-  flag?: "phase_c";
+  /** Company feature flag required (canAccessFeature). */
+  flag?: "phase_c" | "external_api";
   /**
    * A fact about the company that must hold for the section to exist at all —
    * not a feature flag and not a permission. `public_integration`: the company's
@@ -118,6 +119,41 @@ export interface SettingsDomain {
   labelKey: string;
   icon: LucideIcon;
   sections: SettingsSection[];
+}
+
+export interface SettingsSectionVisibility {
+  devPermission: boolean;
+  permissionsReady: boolean;
+  flagsReady: boolean;
+  can: (permission: string) => boolean;
+  isPermissionUnlocked: (permission: string) => boolean;
+  canAccessFeature: (flag: NonNullable<SettingsSection["flag"]>) => boolean;
+  /**
+   * Whether the company's website is connected to OPS. A company fact, not a
+   * flag and not a permission — resolved once by the shell and, like the flags,
+   * failing CLOSED until it is known to hold.
+   */
+  hasPublicIntegration: boolean;
+}
+
+export function isSettingsSectionVisible(
+  section: SettingsSection,
+  visibility: SettingsSectionVisibility
+): boolean {
+  if (section.devOnly) return visibility.devPermission;
+  if (section.flag) {
+    if (!visibility.flagsReady) return false;
+    if (!visibility.canAccessFeature(section.flag)) return false;
+  }
+  if (section.permission) {
+    if (!visibility.permissionsReady) return false;
+    if (!visibility.isPermissionUnlocked(section.permission)) return false;
+    if (!visibility.can(section.permission)) return false;
+  }
+  if (section.requires === "public_integration" && !visibility.hasPublicIntegration) {
+    return false;
+  }
+  return true;
 }
 
 // ── Registry ─────────────────────────────────────────────────────────────────
@@ -178,6 +214,14 @@ export const SETTINGS_DOMAINS: SettingsDomain[] = [
       { id: "templates", labelKey: "sections.emailTemplates", permission: "settings.integrations", component: EmailTemplatesTab, legacyTabIds: ["email-templates"] },
       { id: "lifecycle", labelKey: "sections.lifecycle", permission: "settings.company", component: LifecycleSettingsTab, legacyTabIds: ["lifecycle", "ai"] },
       { id: "portal", labelKey: "sections.portal", permission: "portal.manage_branding", component: PortalBrandingTab, legacyTabIds: ["portal"] },
+      {
+        id: "website",
+        labelKey: "sections.website",
+        permission: "settings.integrations",
+        flag: "external_api",
+        component: WebsiteIntegrationTab,
+        legacyTabIds: ["website", "external-api"],
+      },
       // Public booking: whether the company's own website may put a visit on
       // the calendar, and how firmly (D9). Absent entirely for a company whose
       // website is not connected to OPS — nothing to configure, nothing shown.

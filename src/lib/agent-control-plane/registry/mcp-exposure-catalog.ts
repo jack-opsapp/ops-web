@@ -6,7 +6,12 @@ import {
 } from "@/lib/agent-control-plane/mcp/domain-dispatch";
 import {
   MCP_SCOPE_CONSENT_LABELS,
+  COLLECTIONS_MCP_SCOPE_CONSENT_LABELS,
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
+  PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
+  ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
+  WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
+  CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
@@ -16,8 +21,24 @@ import {
   CAPABILITY_MANIFEST_REVISION,
   COLLECTIONS_CAPABILITY_MANIFEST,
   COLLECTIONS_CAPABILITY_MANIFEST_REVISION,
+  HIRING_WHAT_IF_CAPABILITY_MANIFEST,
+  HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION,
   INVISIBLE_OFFICE_CAPABILITY_MANIFEST,
   INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION,
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST,
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION,
+  SALES_TRUTH_CAPABILITY_MANIFEST,
+  SALES_TRUTH_CAPABILITY_MANIFEST_REVISION,
+  PAYROLL_READINESS_CAPABILITY_MANIFEST,
+  PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST,
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION,
+  WEATHER_RESCHEDULE_CAPABILITY_MANIFEST,
+  WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION,
+  CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST,
+  CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 
 export interface McpExposure {
@@ -151,6 +172,173 @@ export const MCP_EXPOSURE_V4 = Object.freeze({
   ] as const),
 } as const satisfies McpExposure);
 
+export const MCP_EXPOSURE_V5 = Object.freeze({
+  revision: "2026-08-31.mcp-exposure.v5",
+  toolIds: Object.freeze(["analyze_hiring_break_even"] as const),
+  grantableScopes: Object.freeze([
+    "ops.company.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ] as const),
+} as const satisfies McpExposure);
+
+export const MCP_EXPOSURE_V6 = Object.freeze({
+  revision: "2026-09-01.mcp-exposure.v6",
+  toolIds: Object.freeze([
+    "analyze_hiring_break_even",
+    "check_customer_reply",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze([
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ] as const),
+} as const satisfies McpExposure);
+
+export const MCP_EXPOSURE_V7 = Object.freeze({
+  revision: "2026-09-01.mcp-exposure.v7",
+  toolIds: Object.freeze([
+    "analyze_hiring_break_even",
+    "check_customer_reply",
+    "analyze_sales_truth",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze([
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.operations.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ] as const),
+} as const satisfies McpExposure);
+
+export const MCP_EXPOSURE_V8 = Object.freeze({
+  revision: "2026-09-01.mcp-exposure.v8",
+  toolIds: Object.freeze([
+    "analyze_hiring_break_even",
+    "check_customer_reply",
+    "analyze_sales_truth",
+    "check_payroll_readiness",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: MCP_EXPOSURE_V7.grantableScopes,
+} as const satisfies McpExposure);
+
+export const MCP_EXPOSURE_V9 = Object.freeze({
+  revision: "2026-09-01.mcp-exposure.v9",
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V8.toolIds,
+    "prepare_recurring_service_price_change",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze([
+    "ops.catalog.read",
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.operations.prepare",
+    "ops.operations.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ] as const),
+} as const satisfies McpExposure);
+
+export const MCP_EXPOSURE_V10 = Object.freeze({
+  revision: "2026-09-02.mcp-exposure.v10",
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V9.toolIds,
+    "prepare_estimate_from_past_job",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze([
+    "ops.catalog.read",
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.prepare",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.operations.prepare",
+    "ops.operations.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ] as const),
+} as const satisfies McpExposure);
+
+export const MCP_EXPOSURE_V11 = Object.freeze({
+  revision: "2026-09-03.mcp-exposure.v11",
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V10.toolIds,
+    "prepare_weather_reschedule",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze([
+    "ops.catalog.read",
+    "ops.communications.prepare",
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.prepare",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.operations.prepare",
+    "ops.operations.read",
+    "ops.payments.read",
+    "ops.schedule.prepare",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ] as const),
+} as const satisfies McpExposure);
+
+export const MCP_EXPOSURE_V12 = Object.freeze({
+  revision: "2026-09-03.mcp-exposure.v12",
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V11.toolIds,
+    "prepare_crew_callout_recovery",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: MCP_EXPOSURE_V11.grantableScopes,
+} as const satisfies McpExposure);
+
 export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V2.revision;
 
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
@@ -159,6 +347,14 @@ export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
     [MCP_EXPOSURE_V2.revision]: MCP_EXPOSURE_V2,
     [MCP_EXPOSURE_V3.revision]: MCP_EXPOSURE_V3,
     [MCP_EXPOSURE_V4.revision]: MCP_EXPOSURE_V4,
+    [MCP_EXPOSURE_V5.revision]: MCP_EXPOSURE_V5,
+    [MCP_EXPOSURE_V6.revision]: MCP_EXPOSURE_V6,
+    [MCP_EXPOSURE_V7.revision]: MCP_EXPOSURE_V7,
+    [MCP_EXPOSURE_V8.revision]: MCP_EXPOSURE_V8,
+    [MCP_EXPOSURE_V9.revision]: MCP_EXPOSURE_V9,
+    [MCP_EXPOSURE_V10.revision]: MCP_EXPOSURE_V10,
+    [MCP_EXPOSURE_V11.revision]: MCP_EXPOSURE_V11,
+    [MCP_EXPOSURE_V12.revision]: MCP_EXPOSURE_V12,
   });
 
 function requiredNonBlank(value: unknown, field: string): string {
@@ -284,22 +480,51 @@ function validateExposure(exposure: McpExposure): void {
   assertMcpExposureInvariants({
     exposure,
     manifestEntries:
-      exposure.revision === MCP_EXPOSURE_V4.revision
-        ? COLLECTIONS_CAPABILITY_MANIFEST
-        : exposure.revision === MCP_EXPOSURE_V3.revision
-          ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
-          : CAPABILITY_MANIFEST,
+      exposure.revision === MCP_EXPOSURE_V12.revision
+        ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST
+        : exposure.revision === MCP_EXPOSURE_V11.revision
+          ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST
+          : exposure.revision === MCP_EXPOSURE_V10.revision
+            ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST
+            : exposure.revision === MCP_EXPOSURE_V9.revision
+              ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST
+              : exposure.revision === MCP_EXPOSURE_V8.revision
+                ? PAYROLL_READINESS_CAPABILITY_MANIFEST
+                : exposure.revision === MCP_EXPOSURE_V7.revision
+                  ? SALES_TRUTH_CAPABILITY_MANIFEST
+                  : exposure.revision === MCP_EXPOSURE_V6.revision
+                    ? PROMISE_RECOVERY_CAPABILITY_MANIFEST
+                    : exposure.revision === MCP_EXPOSURE_V5.revision
+                      ? HIRING_WHAT_IF_CAPABILITY_MANIFEST
+                      : exposure.revision === MCP_EXPOSURE_V4.revision
+                        ? COLLECTIONS_CAPABILITY_MANIFEST
+                        : exposure.revision === MCP_EXPOSURE_V3.revision
+                          ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
+                          : CAPABILITY_MANIFEST,
     domainMethods: DOMAIN_METHOD_BY_CAPABILITY,
     registeredScopes: REGISTERED_MCP_SCOPES,
     scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
     consentLabels:
-      exposure.revision === MCP_EXPOSURE_V3.revision ||
-      exposure.revision === MCP_EXPOSURE_V4.revision
-        ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
-        : MCP_SCOPE_CONSENT_LABELS,
+      exposure.revision === MCP_EXPOSURE_V12.revision
+        ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
+        : exposure.revision === MCP_EXPOSURE_V11.revision
+          ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
+          : exposure.revision === MCP_EXPOSURE_V10.revision
+            ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
+            : exposure.revision === MCP_EXPOSURE_V9.revision
+              ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
+              : exposure.revision === MCP_EXPOSURE_V4.revision
+                ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
+                : exposure.revision === MCP_EXPOSURE_V3.revision
+                  ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
+                  : MCP_SCOPE_CONSENT_LABELS,
     allowedOperations:
       exposure.revision === MCP_EXPOSURE_V3.revision ||
-      exposure.revision === MCP_EXPOSURE_V4.revision
+      exposure.revision === MCP_EXPOSURE_V4.revision ||
+      exposure.revision === MCP_EXPOSURE_V9.revision ||
+      exposure.revision === MCP_EXPOSURE_V10.revision ||
+      exposure.revision === MCP_EXPOSURE_V11.revision ||
+      exposure.revision === MCP_EXPOSURE_V12.revision
         ? ["read", "prepare"]
         : ["read"],
   });
@@ -309,15 +534,39 @@ validateExposure(MCP_EXPOSURE_V1);
 validateExposure(MCP_EXPOSURE_V2);
 validateExposure(MCP_EXPOSURE_V3);
 validateExposure(MCP_EXPOSURE_V4);
+validateExposure(MCP_EXPOSURE_V5);
+validateExposure(MCP_EXPOSURE_V6);
+validateExposure(MCP_EXPOSURE_V7);
+validateExposure(MCP_EXPOSURE_V8);
+validateExposure(MCP_EXPOSURE_V9);
+validateExposure(MCP_EXPOSURE_V10);
+validateExposure(MCP_EXPOSURE_V11);
+validateExposure(MCP_EXPOSURE_V12);
 
 export function capabilityManifestRevisionForExposure(
   exposureRevision: string
 ): string {
-  return exposureRevision === MCP_EXPOSURE_V4.revision
-    ? COLLECTIONS_CAPABILITY_MANIFEST_REVISION
-    : exposureRevision === MCP_EXPOSURE_V3.revision
-      ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
-      : CAPABILITY_MANIFEST_REVISION;
+  return exposureRevision === MCP_EXPOSURE_V12.revision
+    ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
+    : exposureRevision === MCP_EXPOSURE_V11.revision
+      ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+      : exposureRevision === MCP_EXPOSURE_V10.revision
+        ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+        : exposureRevision === MCP_EXPOSURE_V9.revision
+          ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+          : exposureRevision === MCP_EXPOSURE_V7.revision
+            ? SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+            : exposureRevision === MCP_EXPOSURE_V8.revision
+              ? PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
+              : exposureRevision === MCP_EXPOSURE_V6.revision
+                ? PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+                : exposureRevision === MCP_EXPOSURE_V5.revision
+                  ? HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+                  : exposureRevision === MCP_EXPOSURE_V4.revision
+                    ? COLLECTIONS_CAPABILITY_MANIFEST_REVISION
+                    : exposureRevision === MCP_EXPOSURE_V3.revision
+                      ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+                      : CAPABILITY_MANIFEST_REVISION;
 }
 
 /** Pure exact-revision seam for catalogue invariants and adversarial tests. */

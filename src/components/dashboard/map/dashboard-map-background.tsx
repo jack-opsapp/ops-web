@@ -37,6 +37,7 @@ import {
   crewPopupHtml,
   POPUP_OPTIONS,
 } from "./pin-popups";
+import { createDashboardMapTileLayerConfig } from "./dashboard-map-tiles";
 
 // Fix Leaflet default marker icon path issue
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)
@@ -127,11 +128,15 @@ export function DashboardMapBackground() {
   useEffect(() => {
     if (!isDashboard || !containerRef.current || mapRef.current) return;
 
+    const tileLayerConfig = createDashboardMapTileLayerConfig(
+      process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+    );
+
     const map = L.map(containerRef.current, {
       center: DEFAULT_CENTER,
       zoom: 11,
       zoomControl: false,
-      attributionControl: false,
+      attributionControl: tileLayerConfig !== null,
       dragging: false,
       touchZoom: false,
       doubleClickZoom: false,
@@ -140,10 +145,9 @@ export function DashboardMapBackground() {
       keyboard: false,
     });
 
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      { maxZoom: 19, subdomains: "abcd" }
-    ).addTo(map);
+    if (tileLayerConfig) {
+      L.tileLayer(tileLayerConfig.url, tileLayerConfig.options).addTo(map);
+    }
 
     mapRef.current = map;
     setMapInstance(map);
@@ -381,7 +385,10 @@ export function DashboardMapBackground() {
           "left-[72px]"
         )}
       >
-        <div ref={containerRef} className="w-full h-full pointer-events-none" />
+        <div
+          ref={containerRef}
+          className="ops-dashboard-map w-full h-full pointer-events-none"
+        />
 
         {/* Vertical fade — map visible in middle ~50%, fades to black at top 25% and bottom 25% */}
         <div

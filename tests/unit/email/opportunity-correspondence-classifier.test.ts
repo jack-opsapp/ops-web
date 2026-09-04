@@ -25,22 +25,70 @@ describe("opportunity correspondence classifier", () => {
       partyRole: "customer",
       isMeaningful: true,
       noiseReason: null,
+      responseDefinitionVersion: 1,
+      responseKind: "not_applicable",
+      countsAsFirstResponse: false,
     });
   });
 
-  it("classifies OPS outbound to a customer as meaningful correspondence", () => {
+  it("counts an explicitly human OPS outbound as a first-response candidate", () => {
     expect(
       classifyOpportunityCorrespondence({
         ...baseInput,
         direction: "outbound",
         fromEmail: "jackson@canprodeckandrail.com",
         toEmails: ["Kara Beach <kara.beach@example.com>"],
+        responseKindHint: "human",
       })
     ).toMatchObject({
       direction: "outbound",
       partyRole: "ops",
       isMeaningful: true,
       noiseReason: null,
+      responseDefinitionVersion: 1,
+      responseKind: "human",
+      countsAsFirstResponse: true,
+    });
+  });
+
+  it("counts configured automation but never automated acknowledgements", () => {
+    const configuredAutomation = classifyOpportunityCorrespondence({
+      ...baseInput,
+      direction: "outbound",
+      fromEmail: "jackson@canprodeckandrail.com",
+      toEmails: ["kara.beach@example.com"],
+      responseKindHint: "configured_automation",
+    });
+    expect(configuredAutomation).toMatchObject({
+      responseKind: "configured_automation",
+      countsAsFirstResponse: true,
+    });
+
+    const acknowledgement = classifyOpportunityCorrespondence({
+      ...baseInput,
+      direction: "outbound",
+      fromEmail: "jackson@canprodeckandrail.com",
+      toEmails: ["kara.beach@example.com"],
+      responseKindHint: "automated_acknowledgement",
+    });
+    expect(acknowledgement).toMatchObject({
+      isMeaningful: true,
+      responseKind: "automated_acknowledgement",
+      countsAsFirstResponse: false,
+    });
+  });
+
+  it("leaves historical outbound response coverage unknown", () => {
+    expect(
+      classifyOpportunityCorrespondence({
+        ...baseInput,
+        direction: "outbound",
+        fromEmail: "jackson@canprodeckandrail.com",
+        toEmails: ["kara.beach@example.com"],
+      })
+    ).toMatchObject({
+      responseKind: "unknown",
+      countsAsFirstResponse: false,
     });
   });
 
@@ -181,6 +229,8 @@ describe("opportunity correspondence classifier", () => {
       partyRole: "system",
       isMeaningful: false,
       noiseReason: "bounce",
+      responseKind: "delivery_receipt",
+      countsAsFirstResponse: false,
     });
   });
 
@@ -195,6 +245,8 @@ describe("opportunity correspondence classifier", () => {
       partyRole: "internal",
       isMeaningful: false,
       noiseReason: "internal_system",
+      responseKind: "internal_note",
+      countsAsFirstResponse: false,
     });
   });
 

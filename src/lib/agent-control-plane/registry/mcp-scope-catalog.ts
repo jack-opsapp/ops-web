@@ -110,8 +110,42 @@ export const INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
     "Prepare end-of-day closeouts and exact OPS filing previews",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
+export const COLLECTIONS_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...MCP_SCOPE_CONSENT_LABELS,
+  "ops.operations.prepare":
+    "Prepare collections aging and customer drafts for approval",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
+export const PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...MCP_SCOPE_CONSENT_LABELS,
+  "ops.operations.prepare":
+    "Prepare recurring-service price-change previews and customer notice drafts",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
+export const ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
+  "ops.financials.prepare":
+    "Prepare exact draft estimates from authorized past jobs",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
+export const WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
+  "ops.communications.prepare":
+    "Prepare exact client schedule-update drafts for approval",
+  "ops.schedule.prepare":
+    "Prepare exact weather reschedule proposals for approval",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
+export const CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
+  "ops.communications.prepare":
+    "Prepare exact client schedule-update and crew recovery messages for approval",
+  "ops.schedule.prepare":
+    "Prepare exact weather and crew recovery schedule proposals for approval",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
 export type LabelledMcpScope =
-  keyof typeof INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS;
+  keyof typeof CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,

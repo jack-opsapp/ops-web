@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest, isErrorResponse, requireAdminOrOwner } from "../../_lib/auth";
+import { authenticateRequest, isErrorResponse, requirePermission } from "../../_lib/auth";
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
 
-    // Bulk operations require admin/owner role
-    const roleErr = requireAdminOrOwner(auth);
-    if (roleErr) return roleErr;
+    // Bulk operations require the granular `agent.review` grant.
+    const gate = await requirePermission(auth, "agent.review");
+    if (gate) return gate;
 
     const body = await request.json();
     const { actionIds, action, notes } = body as {

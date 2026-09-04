@@ -252,9 +252,10 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     labelKey: "nav.agentQueue",
     paletteKeywords: ["approvals", "ai", "queue"],
     nav: { order: 21, group: "ops" },
-    permission: "pipeline.view",
+    permission: "agent.review",
     phaseCOnly: true,
     badge: "agentQueuePending",
+    fullHeight: "bleed",
   },
   {
     key: "settings",
@@ -308,12 +309,14 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
   {
     // Title + permission umbrella for every /agent/* sub-route; the
     // /agent/queue nav entry above wins prefix-matching for the queue.
+    // Gated by `agent.review` — the granular permission to review the
+    // agent's proposals — not by pipeline access.
     key: "agent",
     href: "/agent",
     icon: BrainCircuit,
     labelKey: "nav.agentQueue",
     nav: false,
-    permission: "pipeline.view",
+    permission: "agent.review",
   },
 ] as const;
 

@@ -7,6 +7,7 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { getCompanyManagerUserIds } from "@/lib/api/services/company-managers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 
 export interface AuthenticatedUser {
   id: string;
@@ -53,6 +54,23 @@ export function isErrorResponse(
   result: AuthenticatedUser | NextResponse
 ): result is NextResponse {
   return result instanceof NextResponse;
+}
+
+/**
+ * Granular RBAC gate for agent routes. Resolves through public.has_permission
+ * (account holders / admin_ids bypass inside the RPC; everyone else needs a
+ * role or override that grants the key). Fail-closed.
+ */
+export async function requirePermission(
+  auth: AuthenticatedUser,
+  permission: string
+): Promise<NextResponse | null> {
+  const allowed = await checkPermissionById(auth.id, permission);
+  if (allowed) return null;
+  return NextResponse.json(
+    { error: `Permission required: ${permission}` },
+    { status: 403 }
+  );
 }
 
 /** Guard for financial actions — only admin/owner can approve invoices */

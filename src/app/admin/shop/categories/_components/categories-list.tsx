@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { ShopCategory } from "@/lib/admin/shop-types";
+import { Button } from "@/components/ui/button";
 
 interface CategoriesListProps {
   categories: ShopCategory[];
@@ -213,13 +214,15 @@ export function CategoriesList({ categories: initialCategories }: CategoriesList
             autoFocus
             className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
           />
-          <button
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
             onClick={handleAdd}
             disabled={!newName.trim()}
-            className="px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
           >
             Add
-          </button>
+          </Button>
           <button
             onClick={() => { setAdding(false); setNewName(""); }}
             className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"

@@ -22,10 +22,10 @@ import {
   Container,
   Head,
   Html,
-  Preview,
   Section,
   Text,
 } from "@react-email/components";
+import { Preview } from "@/lib/email/react/primitives";
 import type { PmfState } from "@/lib/pmf/types";
 import {
   ACCENT,

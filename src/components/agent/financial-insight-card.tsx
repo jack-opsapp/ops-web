@@ -2,7 +2,7 @@
 
 /**
  * Financial Insight Card — Inline dashboard for the weekly financial digest.
- * Rendered inside the ActionCard's expanded section when actionType === "financial_insight".
+ * Rendered inside ActionDetail when actionType === "financial_insight".
  *
  * Four sections:
  * 1. Revenue (always visible) — bar chart + forecast

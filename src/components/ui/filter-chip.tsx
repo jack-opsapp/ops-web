@@ -41,7 +41,7 @@ export function FilterChips<T extends string = string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "inline-flex h-3 items-center rounded-chip border px-1",
+              "inline-flex h-3 items-center whitespace-nowrap rounded-chip border px-1",
               "font-mono text-micro font-medium uppercase tracking-[0.12em]",
               "transition-colors duration-150 ease-smooth",
               active

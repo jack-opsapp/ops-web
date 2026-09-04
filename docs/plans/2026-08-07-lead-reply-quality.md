@@ -68,4 +68,3 @@ Write failing tests for Jobber transactional senders and for legacy default foll
 - Modify the relevant sections of `ops-software-bible/04_API_AND_INTEGRATION.md` and/or `ops-software-bible/07_SPECIALIZED_FEATURES.md`
 
 Run every new test red before implementation and green after. Then run the complete focused drafting/follow-up suite, TypeScript type-check, and the broad unit test suite. Review the final diff for unrelated changes, commit atomically, and report that nothing is pushed or deployed.
-

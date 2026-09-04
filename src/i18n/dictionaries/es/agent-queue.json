@@ -1,13 +1,19 @@
 {
   "title": "Cola del agente",
-  "subtitle": "Revisar y gestionar acciones propuestas por la IA",
-
-  "stats.pending": "Pendientes",
-  "stats.approvedToday": "Aprobadas hoy",
-  "stats.rejectedToday": "Rechazadas hoy",
-  "stats.avgResponse": "Tiempo promedio",
-
+  "segment.needsYou": "Pendientes de ti",
+  "segment.history": "Historial",
   "filter.all": "Todas",
+  "filter.allTypes": "Todos los tipos",
+  "column.type": "Tipo",
+  "column.proposal": "Propuesta",
+  "column.priority": "Prioridad",
+  "column.confidence": "Conf.",
+  "column.age": "Edad",
+  "column.status": "Estado",
+  "search.placeholder": "Buscar propuestas",
+  "filter.allPriorities": "Todas las prioridades",
+  "count.rows": "{{count}} filas",
+  "count.rowsOne": "1 fila",
   "filter.status": "Estado",
   "filter.actionType": "Tipo de acción",
   "filter.priority": "Prioridad",
@@ -18,7 +24,6 @@
   "filter.expired": "Expirada",
   "filter.failed": "Fallida",
   "filter.cancelled": "Cancelada",
-
   "type.create_project": "Proyecto",
   "type.create_task": "Tarea",
   "type.create_invoice": "Factura",
@@ -30,12 +35,10 @@
   "type.close_project": "Cerrar proyecto",
   "type.file_day_closeout": "Cierre del día",
   "type.approve_collections_draft": "Borrador de cobro",
-
   "priority.low": "Baja",
   "priority.normal": "Normal",
   "priority.high": "Alta",
   "priority.urgent": "Urgente",
-
   "action.approve": "Aprobar",
   "action.reject": "Rechazar",
   "action.cancel": "Cancelar",
@@ -45,7 +48,6 @@
   "action.collapse": "Ocultar detalles",
   "action.selectAll": "Seleccionar todas",
   "action.deselectAll": "Deseleccionar todas",
-
   "card.confidence": "Confianza",
   "card.source": "Fuente",
   "card.suggested": "Sugerida",
@@ -53,7 +55,6 @@
   "card.reviewNotes": "Notas de revisión",
   "card.viewSource": "Ver fuente",
   "card.error": "Error",
-
   "source.email_thread": "Hilo de correo",
   "source.schedule_gap": "Hueco en agenda",
   "source.overdue_task": "Tarea vencida",
@@ -70,7 +71,6 @@
   "source.invoice_created": "Factura creada",
   "source.day_closeout": "Cierre del día",
   "source.collections": "Cobros",
-
   "dayCloseout.action.file": "Archivar cierre",
   "dayCloseout.action.leaveOpen": "Dejar abierto",
   "dayCloseout.businessDate": "Fecha de trabajo",
@@ -81,7 +81,6 @@
   "dayCloseout.outstanding": "pendiente",
   "dayCloseout.correspondenceChecked": "Correspondencia revisada · {{count}} borradores preparados",
   "dayCloseout.correspondenceNotEvaluated": "Correspondencia no evaluada · hallazgos y borradores dependientes omitidos",
-
   "collections.action.approve": "Aprobar borrador",
   "collections.action.leaveOpen": "Dejar abierto",
   "collections.reviewHeading": "Borrador de cobro",
@@ -99,23 +98,24 @@
   "collections.subject": "Asunto",
   "collections.body": "Mensaje",
   "collections.approvalSeal": "Sello de aprobación inmutable",
-
   "time.justNow": "ahora",
   "time.minutes": "{{count}}m",
   "time.hours": "{{count}}h",
   "time.days": "{{count}}d",
-
-  "batch.selected": "seleccionadas",
-
-  "empty.title": "Sin sugerencias pendientes",
-  "empty.description": "El agente propondrá acciones a medida que procese correos y aprenda sobre tu negocio.",
-
+  "batch.selectedCount": "{{count}} seleccionados",
+  "batch.approveCount": "Aprobar {{count}}",
+  "batch.rejectCount": "Rechazar {{count}}",
+  "batch.clear": "Quitar",
+  "empty.pendingNoun": "Pendiente de revisión",
+  "empty.pendingHint": "[todo en orden]",
+  "empty.historyNoun": "Revisados",
+  "error.title": "Cola no disponible",
+  "error.retry": "Reintentar",
   "reject.title": "Rechazar acción",
   "reject.description": "Proporciona comentarios opcionales sobre por qué se rechazó.",
   "reject.placeholder": "Notas opcionales sobre por qué se rechazó...",
   "reject.confirm": "Rechazar",
   "reject.cancel": "Cancelar",
-
   "task.project": "Proyecto",
   "task.assignedTo": "Asignado a",
   "task.schedule": "Fechas",
@@ -134,14 +134,12 @@
   "task.projects": "proyectos",
   "task.available": "Disponible",
   "task.busy": "Ocupado",
-
   "toast.approved": "Acción aprobada y ejecutada",
   "toast.rejected": "Acción rechazada",
   "toast.cancelled": "Acción cancelada",
   "toast.bulkApproved": "acciones aprobadas",
   "toast.bulkRejected": "acciones rechazadas",
-  "toast.error": "Algo salió mal",
-
+  "toast.error": "La acción falló. Inténtalo de nuevo.",
   "lifecycle.overdue": "vencida",
   "lifecycle.sinceCompletion": "desde finalización",
   "lifecycle.recipient": "Destinatario",
@@ -155,7 +153,6 @@
   "lifecycle.taskSummary": "Tareas",
   "lifecycle.tasksComplete": "completadas",
   "lifecycle.invoiced": "Facturado",
-
   "invoice.lineItems": "Líneas de factura",
   "invoice.item": "Artículo",
   "invoice.qty": "Cant",
@@ -178,7 +175,6 @@
   "invoice.noEmail": "Sin correo — el cliente no tiene correo configurado",
   "invoice.editLineItems": "Editar",
   "invoice.editTerms": "Editar",
-
   "invoice.warning.highValue": "ALTO VALOR — Revise las líneas cuidadosamente",
   "invoice.warning.duplicateExact": "Duplicado — ya existe una factura de este presupuesto",
   "invoice.warning.duplicateSimilar": "Factura similar encontrada para el mismo cliente y proyecto",
@@ -187,7 +183,6 @@
   "invoice.warning.noPaymentTerms": "Sin términos de pago — confirme antes de aprobar",
   "invoice.warning.zeroTax": "Tasa de impuesto 0% — confirme si es intencional",
   "invoice.warning.missingData": "Datos faltantes",
-
   "invoiceEmail.recipient": "Destinatario",
   "invoiceEmail.subject": "Asunto",
   "invoiceEmail.preview": "Vista previa del correo",
@@ -196,7 +191,6 @@
   "invoiceEmail.invoice": "Factura",
   "invoiceEmail.attachment": "PDF de factura adjunto",
   "invoiceEmail.noAttachment": "Correo de texto — generación de PDF no disponible",
-
   "type.send_payment_reminder": "Recordatorio de pago",
   "type.client_health_alert": "Alerta de salud del cliente",
   "type.send_appointment_confirmation": "Confirmación de cita",
@@ -205,7 +199,6 @@
   "type.send_schedule_changed": "Aviso de cambio de horario",
   "type.send_subcontractor_coordination": "Coordinación de subcontratista",
   "type.process_reschedule_request": "Solicitud de reprogramación",
-
   "source.overdue_invoice": "Factura vencida",
   "source.payment_analysis": "Análisis de pagos",
   "source.task_scheduled": "Tarea programada",
@@ -213,7 +206,6 @@
   "source.day_before_reminder_cron": "Cron de recordatorio de visita",
   "source.inbound_email": "Correo entrante",
   "source.subcontractor_coordination": "Coordinación de subcontratista",
-
   "reminder.level": "Nivel de recordatorio",
   "reminder.level1": "Recordatorio amistoso",
   "reminder.level2": "Aviso firme",
@@ -235,7 +227,6 @@
   "reminder.onTimeRate": "Tasa de puntualidad",
   "reminder.avgDays": "Días promedio para pagar",
   "reminder.noConnection": "Sin conexión de correo — configure antes de aprobar",
-
   "health.clientName": "Cliente",
   "health.lateRate": "Tasa de pago tardío",
   "health.overdueCount": "Actualmente vencidas",
@@ -245,7 +236,6 @@
   "health.paidLate": "Pagada tarde",
   "health.overdue": "Vencida",
   "health.open": "Abierta",
-
   "settings.reminders": "Recordatorios de pago",
   "settings.remindersDesc": "Seguimientos automáticos para facturas vencidas",
   "settings.enableReminders": "Habilitar recordatorios de pago",
@@ -260,19 +250,16 @@
   "settings.excludeClientsPlaceholder": "Seleccionar clientes a excluir...",
   "settings.lateThreshold": "Umbral de alerta de pago tardío",
   "settings.lateThresholdSuffix": "% de facturas pagadas tarde",
-
   "type.financial_insight": "Resumen financiero",
   "type.optimize_schedule": "Optimización de ruta",
   "type.reschedule_tasks": "Cambio de horario",
   "source.financial_analysis": "Análisis financiero",
   "source.schedule_optimization": "Optimización de horario",
-
   "financial.title": "RESUMEN FINANCIERO SEMANAL",
   "financial.revenue": "INGRESOS",
   "financial.cashflow": "FLUJO DE CAJA",
   "financial.pricing": "OPTIMIZACIÓN DE PRECIOS",
   "financial.seasonal": "PATRONES ESTACIONALES",
-
   "financial.revenue.monthlyTrend": "Ingresos mensuales",
   "financial.revenue.avgMonthly": "Promedio mensual",
   "financial.revenue.pipelineValue": "Valor del pipeline",
@@ -284,7 +271,6 @@
   "financial.revenue.up": "Subió",
   "financial.revenue.down": "Bajó",
   "financial.revenue.noChange": "Sin cambio",
-
   "financial.cashflow.outstanding": "Pendiente",
   "financial.cashflow.overdue": "Vencido",
   "financial.cashflow.receivedThisMonth": "Recibido este mes",
@@ -293,7 +279,6 @@
   "financial.cashflow.projection90": "90 días",
   "financial.cashflow.expected": "Esperado",
   "financial.cashflow.pipeline": "Pipeline",
-
   "financial.pricing.service": "Servicio",
   "financial.pricing.winRate": "Tasa de éxito",
   "financial.pricing.avgPrice": "Precio promedio",
@@ -302,18 +287,15 @@
   "financial.pricing.decrease": "Revise los precios",
   "financial.pricing.neutral": "Precios alineados",
   "financial.pricing.minEstimates": "Se necesitan mínimo {{count}} cotizaciones",
-
   "financial.seasonal.peak": "Alto",
   "financial.seasonal.slow": "Bajo",
   "financial.seasonal.neutral": "Neutral",
   "financial.seasonal.peakMonths": "Meses pico",
   "financial.seasonal.slowMonths": "Meses bajos",
   "financial.seasonal.servicePatterns": "Patrones por servicio",
-
   "financial.alert.lowCash": "Preocupación de flujo — {{overdue}} vencido de {{outstanding}} pendiente",
   "financial.alert.concentrationRisk": "Concentración de ingresos — {{clientName}} es {{percentage}}% del pendiente",
   "financial.alert.agingWarning": "{{count}} facturas con más de {{days}} días vencidas por un total de {{totalAmount}}",
-
   "financial.month.jan": "Ene",
   "financial.month.feb": "Feb",
   "financial.month.mar": "Mar",
@@ -326,7 +308,6 @@
   "financial.month.oct": "Oct",
   "financial.month.nov": "Nov",
   "financial.month.dec": "Dic",
-
   "financial.settings.title": "Inteligencia financiera",
   "financial.settings.description": "Análisis financiero semanal e información",
   "financial.settings.enableDigest": "Habilitar resumen financiero semanal",
@@ -347,7 +328,6 @@
   "financial.settings.saving": "Guardando",
   "financial.settings.saved": "Configuración financiera guardada",
   "financial.settings.error": "Error al guardar configuración financiera",
-
   "financial.action.acknowledge": "Reconocer",
   "financial.action.dismiss": "Descartar",
   "financial.digest.acknowledged": "Resumen reconocido",
@@ -357,7 +337,6 @@
   "financial.digest.hidePricing": "Ocultar análisis de precios",
   "financial.digest.showSeasonal": "Mostrar patrones estacionales",
   "financial.digest.hideSeasonal": "Ocultar patrones estacionales",
-
   "dashboard.loading": "Cargando estado de Fase C",
   "dashboard.phaseCTitle": "Estado del agente Fase C",
   "dashboard.phaseCSubtitle": "Inteligencia completa en correo, proyectos, facturación, programación y comunicaciones",

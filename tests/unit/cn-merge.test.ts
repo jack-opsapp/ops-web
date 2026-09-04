@@ -13,4 +13,14 @@ describe("cn — custom type-scale tokens survive color merges", () => {
   it("built-in sizes merge with token sizes", () => {
     expect(cn("text-micro", "text-[22px]")).toBe("text-[22px]");
   });
+  it("keeps the Cake display tokens alongside colour tokens (the shared Button label)", () => {
+    // Every <Button> variant pairs `text-cake-button` with a text colour; the
+    // size must survive the merge or the label falls back to the 16px default.
+    expect(cn("font-cakemono font-light text-cake-button uppercase", "text-ops-accent")).toContain(
+      "text-cake-button",
+    );
+    expect(cn("text-cake-button text-black")).toBe("text-cake-button text-black");
+    expect(cn("text-cake-display text-text")).toBe("text-cake-display text-text");
+    expect(cn("text-cake-badge", "text-cake-section")).toBe("text-cake-section");
+  });
 });

@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 
 export interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -107,34 +109,16 @@ class ErrorBoundary extends React.Component<
             </div>
           )}
 
-          {/* Retry button */}
-          <button
+          {/* Retry button — the one primary CTA on the fallback */}
+          <Button
             type="button"
+            variant="primary"
             onClick={this.handleReset}
-            className={cn(
-              "inline-flex items-center gap-2 rounded px-6 py-3 w-fit",
-              "font-mono text-[11px] uppercase tracking-widest",
-              "bg-ops-accent text-white",
-              "transition-colors hover:bg-ops-accent/80",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            )}
+            className="w-fit"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden="true"
-            >
-              <polyline points="23 4 23 10 17 10" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-            </svg>
-            TRY AGAIN
-          </button>
+            <RefreshCw className="h-icon-16 w-icon-16" aria-hidden="true" />
+            Try again
+          </Button>
         </div>
       );
     }

@@ -109,4 +109,3 @@ Tests must reproduce the observed failures:
 - learned `more_direct` and `shorter` edits appear as active directives.
 - Phase C passes the exact source activity and complete opportunity authorization to drafting.
 - legacy default follow-ups no longer claim a quote was sent and vary by sequence.
-

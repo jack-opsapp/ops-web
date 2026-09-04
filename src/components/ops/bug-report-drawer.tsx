@@ -7,7 +7,7 @@ import {
   useCallback,
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Send, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { Send, CheckCircle2, Loader2, AlertCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
@@ -25,6 +25,15 @@ import {
 } from "@/lib/utils/bug-context";
 import { useDictionary } from "@/i18n/client";
 import { Switch } from "@/components/ui/switch";
+import {
+  BugReportElementPicker,
+  type ElementPickResult,
+} from "@/components/ops/bug-report-element-picker";
+import { captureElementCrop } from "@/lib/utils/element-reference";
+import {
+  MAX_ELEMENT_REFERENCES,
+  type ElementReference,
+} from "@/lib/types/bug-report-element";
 // ─── Drawer geometry ───────────────────────────────────────────────────────
 // Bottom-right anchored floating panel (WEB OVERHAUL P5). Rises above the
 // CreateCluster (40px trigger + 16px inset → 68px clearance) and clamps so it
@@ -61,6 +70,43 @@ const SEVERITY_TO_PRIORITY: Record<Severity, BugReportPriority> = {
   major: "high",
   minor: "low",
 };
+
+/** One element the operator pointed at, plus its crop and preview URL. */
+interface PickedElement {
+  reference: ElementReference;
+  crop: Blob | null;
+  thumbUrl: string | null;
+}
+
+/**
+ * Single source of truth for how this drawer captures the page.
+ *
+ * Both captures — the full auto-screenshot and each element crop — read from
+ * here so they can never drift. modern-screenshot is preferred over
+ * html2canvas: it handles backdrop-filter and custom fonts correctly, both of
+ * which are pervasive in this app's frosted-glass surfaces.
+ */
+function buildCaptureOptions() {
+  return {
+    type: "image/png" as const,
+    quality: 0.85,
+    scale: Math.min(window.devicePixelRatio || 1, 2),
+    backgroundColor: "#0A0A0A",
+    filter: (node: Node) => {
+      if (!(node instanceof HTMLElement)) return true;
+      // Skip the bug report drawer + tab itself and anything that opts out.
+      if (node.dataset?.bugReportIgnore === "true") return false;
+      if (node.dataset?.edgeTab === EDGE_TAB_ID_BUG) return false;
+      return true;
+    },
+  };
+}
+
+/** Drawer chip language — shared by the element action and the chips. */
+const CHIP_BASE =
+  "px-2 py-1 rounded-chip border font-mono text-[10px] uppercase tracking-wider transition-colors duration-150";
+const CHIP_GHOST =
+  "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]";
 
 // ─── Drawer ────────────────────────────────────────────────────────────────
 
@@ -99,8 +145,20 @@ export function BugReportDrawer() {
   const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
   const [includeScreenshot, setIncludeScreenshot] = useState(true);
   const [capturingScreenshot, setCapturingScreenshot] = useState(false);
+  const [elementRefs, setElementRefs] = useState<PickedElement[]>([]);
+  const [picking, setPicking] = useState(false);
   const drawerRef = useRef<HTMLElement>(null);
   const lastCaptureToken = useRef<number>(-1);
+  const selectActionRef = useRef<HTMLButtonElement>(null);
+  // Mirror of `elementRefs` so cleanup paths can revoke object URLs without
+  // re-running on every pick.
+  const elementRefsRef = useRef<PickedElement[]>([]);
+
+  useEffect(() => {
+    elementRefsRef.current = elementRefs;
+  }, [elementRefs]);
+
+  const atElementCap = elementRefs.length >= MAX_ELEMENT_REFERENCES;
 
   // Power-user gate — same as legacy. Trades-business-owner default is the
   // single-textarea form; power user (the developer) gets the full triage
@@ -127,19 +185,7 @@ export function BugReportDrawer() {
     setCapturingScreenshot(true);
     try {
       const { domToBlob } = await import("modern-screenshot");
-      const blob = await domToBlob(document.body, {
-        type: "image/png",
-        quality: 0.85,
-        scale: Math.min(window.devicePixelRatio || 1, 2),
-        backgroundColor: "#0A0A0A",
-        filter: (node) => {
-          if (!(node instanceof HTMLElement)) return true;
-          // Skip the bug report drawer + tab itself and anything that opts out.
-          if (node.dataset?.bugReportIgnore === "true") return false;
-          if (node.dataset?.edgeTab === EDGE_TAB_ID_BUG) return false;
-          return true;
-        },
-      });
+      const blob = await domToBlob(document.body, buildCaptureOptions());
       setScreenshotBlob(blob);
     } catch (err) {
       console.warn("Bug report screenshot capture failed:", err);
@@ -148,6 +194,53 @@ export function BugReportDrawer() {
       setCapturingScreenshot(false);
     }
   }, []);
+
+  // ── Element crop capture ──
+  // Runs once per selection (never on hover) — a fresh full-body capture cut
+  // down to the picked element. A failure costs the crop, never the reference.
+  const captureCrop = useCallback(async (el: HTMLElement): Promise<Blob | null> => {
+    try {
+      const { domToBlob } = await import("modern-screenshot");
+      const options = buildCaptureOptions();
+      const { blob } = await captureElementCrop(el, {
+        capture: (root) => domToBlob(root, options),
+        scale: options.scale,
+      });
+      return blob;
+    } catch (err) {
+      console.warn("Bug report element crop failed:", err);
+      return null;
+    }
+  }, []);
+
+  const handlePickSelect = useCallback(
+    (result: ElementPickResult) => {
+      setPicking(false);
+      if (elementRefs.length >= MAX_ELEMENT_REFERENCES) return;
+      const thumbUrl = result.crop ? URL.createObjectURL(result.crop) : null;
+      setElementRefs((prev) => [
+        ...prev,
+        { reference: result.reference, crop: result.crop, thumbUrl },
+      ]);
+      // Focus returns to the control the operator left from.
+      window.requestAnimationFrame(() => selectActionRef.current?.focus());
+    },
+    [elementRefs.length]
+  );
+
+  const handlePickCancel = useCallback(() => {
+    setPicking(false);
+    window.requestAnimationFrame(() => selectActionRef.current?.focus());
+  }, []);
+
+  const handleRemoveElement = useCallback(
+    (id: string) => {
+      const dropped = elementRefsRef.current.find((e) => e.reference.id === id);
+      if (dropped?.thumbUrl) URL.revokeObjectURL(dropped.thumbUrl);
+      setElementRefs((prev) => prev.filter((e) => e.reference.id !== id));
+    },
+    []
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -168,6 +261,10 @@ export function BugReportDrawer() {
   useEffect(() => {
     if (!open) return;
     if (formState === "submitting") return;
+    // While picking, every click lands on the picker overlay — which is
+    // "outside" the drawer. Dismissing here would close the form the operator
+    // is still filling in.
+    if (picking) return;
 
     function handleOutsideMouseDown(e: MouseEvent) {
       const target = e.target as Node | null;
@@ -192,11 +289,14 @@ export function BugReportDrawer() {
     document.addEventListener("mousedown", handleOutsideMouseDown, true);
     return () =>
       document.removeEventListener("mousedown", handleOutsideMouseDown, true);
-  }, [open, close, formState]);
+  }, [open, close, formState, picking]);
 
   // ── Escape closes the drawer (unless submitting) ──
   useEffect(() => {
     if (!open) return;
+    // Escape belongs to the picker while it is up — it cancels the pick, not
+    // the report.
+    if (picking) return;
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
       if (formState === "submitting") return;
@@ -204,7 +304,7 @@ export function BugReportDrawer() {
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, close, formState]);
+  }, [open, close, formState, picking]);
 
   // ── Reset form when the drawer closes ──
   // Done in an effect rather than a setTimeout so re-opening immediately
@@ -222,7 +322,22 @@ export function BugReportDrawer() {
     setErrorMessage(null);
     setScreenshotBlob(null);
     setIncludeScreenshot(true);
+    for (const picked of elementRefsRef.current) {
+      if (picked.thumbUrl) URL.revokeObjectURL(picked.thumbUrl);
+    }
+    setElementRefs([]);
+    setPicking(false);
   }, [open]);
+
+  // Release any thumbnail URLs still held when the drawer leaves the tree.
+  useEffect(
+    () => () => {
+      for (const picked of elementRefsRef.current) {
+        if (picked.thumbUrl) URL.revokeObjectURL(picked.thumbUrl);
+      }
+    },
+    []
+  );
 
   // ── Submit ──
   const handleSubmit = useCallback(async () => {
@@ -261,6 +376,17 @@ export function BugReportDrawer() {
         .filter(Boolean)
         .join(" ")
         .trim();
+
+      // Claim an attachment slot per reference that actually produced a crop.
+      // A reference whose capture failed still lands — it just carries no
+      // index, and does not consume one.
+      const uploadableCrops: Blob[] = [];
+      const elementReferences = elementRefs.map(({ reference, crop }) => {
+        if (!crop) return { ...reference, attachmentIndex: null };
+        const attachmentIndex = uploadableCrops.length;
+        uploadableCrops.push(crop);
+        return { ...reference, attachmentIndex };
+      });
 
       const reportId = await BugReportService.createReport({
         companyId: currentUser.companyId,
@@ -304,6 +430,7 @@ export function BugReportDrawer() {
           screenHeight: ctx.screenHeight,
           userTitle: trimmedTitle,
           userSeverity: severity,
+          ...(elementReferences.length > 0 ? { elementReferences } : {}),
         },
 
         reporterName: reporterName || null,
@@ -345,6 +472,47 @@ export function BugReportDrawer() {
         }
       }
 
+      // Element crops ride the same route with `kind=element&index=n`, one at
+      // a time so arrival order matches the indices already written into
+      // custom_metadata. Best effort, exactly like the main screenshot.
+      if (uploadableCrops.length > 0) {
+        try {
+          const { getFirebaseAuth } = await import("@/lib/firebase/config");
+          const fbUser = getFirebaseAuth().currentUser;
+          if (!fbUser) throw new Error("No Firebase user for element crop upload");
+
+          const idToken = await fbUser.getIdToken();
+
+          for (let index = 0; index < uploadableCrops.length; index++) {
+            try {
+              const form = new FormData();
+              form.append("file", uploadableCrops[index], `element-${index}.png`);
+              form.append("reportId", reportId);
+              form.append("companyId", currentUser.companyId);
+              form.append("kind", "element");
+              form.append("index", String(index));
+
+              const resp = await fetch("/api/bug-reports/screenshot", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${idToken}` },
+                body: form,
+              });
+
+              if (!resp.ok) {
+                const errBody = await resp.json().catch(() => ({}));
+                throw new Error(
+                  errBody.error ?? `Upload failed with status ${resp.status}`
+                );
+              }
+            } catch (cropErr) {
+              console.warn("Bug report element crop upload failed:", cropErr);
+            }
+          }
+        } catch (uploadErr) {
+          console.warn("Bug report element crop upload failed:", uploadErr);
+        }
+      }
+
       setFormState("success");
       setTimeout(() => {
         close(EDGE_TAB_ID_BUG);
@@ -367,22 +535,32 @@ export function BugReportDrawer() {
     company,
     screenshotBlob,
     includeScreenshot,
+    elementRefs,
     close,
   ]);
 
+  // `visible` is dynamic: while picking, the panel drops to fully transparent
+  // with no transition. The operator is looking at the overlay — the drawer
+  // must get out of the way instantly, and must NOT unmount (that would reset
+  // the form they already typed into).
   const variants = reducedMotion
     ? {
         hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { duration: 0.15 } },
+        visible: (isPicking: boolean) => ({
+          opacity: isPicking ? 0 : 1,
+          transition: { duration: isPicking ? 0 : 0.15 },
+        }),
         exit: { opacity: 0, transition: { duration: 0.15 } },
       }
     : {
         hidden: { x: PANEL_W, opacity: 0 },
-        visible: {
+        visible: (isPicking: boolean) => ({
           x: 0,
-          opacity: 1,
-          transition: { duration: 0.26, ease: EASE_SMOOTH },
-        },
+          opacity: isPicking ? 0 : 1,
+          transition: isPicking
+            ? { duration: 0 }
+            : { duration: 0.26, ease: EASE_SMOOTH },
+        }),
         exit: {
           x: PANEL_W,
           opacity: 0,
@@ -396,19 +574,23 @@ export function BugReportDrawer() {
   const panelWidth = `min(${PANEL_W}px, calc(100vw - 32px))`;
 
   return (
+    <>
     <AnimatePresence mode="wait">
       {open && (
         <motion.aside
           ref={drawerRef}
           key="bug-report-drawer"
           variants={variants}
+          custom={picking}
           initial="hidden"
           animate="visible"
           exit="exit"
           role="complementary"
           aria-label={t("bugReport.title") ?? "Report a bug"}
           data-bug-report-ignore="true"
+          data-picking={picking ? "true" : undefined}
           style={{
+            pointerEvents: picking ? "none" : "auto",
             position: "fixed",
             right: 16,
             bottom: CLUSTER_CLEAR,
@@ -426,7 +608,6 @@ export function BugReportDrawer() {
             border: "1px solid var(--glass-border)",
             borderRadius: 10,
             zIndex: 1550,
-            pointerEvents: "auto",
             overflow: "hidden",
           }}
         >
@@ -456,7 +637,7 @@ export function BugReportDrawer() {
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 11,
                   color: "var(--text-mute)",
                   letterSpacing: "0.16em",
                 }}
@@ -481,7 +662,8 @@ export function BugReportDrawer() {
                 aria-hidden
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 9,
+                  fontSize: 11,
+                  lineHeight: 1,
                   color: "var(--text-2)",
                   letterSpacing: 0,
                   padding: "2px 6px",
@@ -547,10 +729,10 @@ export function BugReportDrawer() {
                               onClick={() => setCategory(opt.value)}
                               className={cn(
                                 "px-2 py-1 rounded-chip border transition-colors duration-150",
-                                "font-mono text-[10px] uppercase tracking-wider",
+                                "font-mono text-micro uppercase tracking-wider",
                                 isActive
-                                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                                  : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                                  ? "border-line-hi bg-surface-active text-text"
+                                  : "border-line bg-transparent text-text-mute hover:text-text-2 hover:bg-surface-hover-subtle"
                               )}
                             >
                               {t(opt.labelKey)}
@@ -577,7 +759,7 @@ export function BugReportDrawer() {
                           placeholder={t("bugReport.titlePlaceholder")}
                           className={cn(
                             "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text",
-                            "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                            "bg-surface-input border border-line",
                             "placeholder:text-text-mute",
                             "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                             "transition-colors duration-150"
@@ -603,7 +785,7 @@ export function BugReportDrawer() {
                           rows={3}
                           className={cn(
                             "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
-                            "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                            "bg-surface-input border border-line",
                             "placeholder:text-text-mute",
                             "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                             "transition-colors duration-150"
@@ -623,7 +805,7 @@ export function BugReportDrawer() {
                         rows={5}
                         className={cn(
                           "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
-                          "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                          "bg-surface-input border border-line",
                           "placeholder:text-text-mute",
                           "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                           "transition-colors duration-150"
@@ -653,10 +835,10 @@ export function BugReportDrawer() {
                               onClick={() => setSeverity(isActive ? null : opt.value)}
                               className={cn(
                                 "flex-1 px-2 py-1.5 rounded-chip border transition-colors duration-150",
-                                "font-mono text-[10px] uppercase tracking-wider",
+                                "font-mono text-micro uppercase tracking-wider",
                                 isActive
-                                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                                  : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                                  ? "border-line-hi bg-surface-active text-text"
+                                  : "border-line bg-transparent text-text-mute hover:text-text-2 hover:bg-surface-hover-subtle"
                               )}
                             >
                               {t(opt.labelKey)}
@@ -674,13 +856,13 @@ export function BugReportDrawer() {
                       className={cn(
                         "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-chip border transition-colors cursor-pointer",
                         requiresMyInput
-                          ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
-                          : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
+                          ? "border-line-hi bg-[rgba(255,255,255,0.06)]"
+                          : "border-line bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
                       )}
                     >
                       <span
                         className={cn(
-                          "font-mono text-[10px] uppercase tracking-wider text-left",
+                          "font-mono text-micro uppercase tracking-wider text-left",
                           requiresMyInput ? "text-text-2" : "text-text-mute"
                         )}
                       >
@@ -709,7 +891,7 @@ export function BugReportDrawer() {
                           "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm border transition-colors cursor-pointer",
                           includeScreenshot
                             ? "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)]"
-                            : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]"
+                            : "border-line bg-[rgba(255,255,255,0.02)]"
                         )}
                       >
                         <span
@@ -728,6 +910,59 @@ export function BugReportDrawer() {
                         />
                       </label>
                     )}
+
+                    {/* Picked elements — the operator pointed at these, so
+                        triage does not have to guess which control broke. */}
+                    {elementRefs.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {elementRefs.map(({ reference, thumbUrl }) => (
+                          <span
+                            key={reference.id}
+                            className={cn(
+                              CHIP_BASE,
+                              "flex items-center gap-1.5 border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] text-text-2"
+                            )}
+                          >
+                            {thumbUrl && (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                data-element-chip-thumb=""
+                                src={thumbUrl}
+                                alt=""
+                                className="w-7 h-7 rounded-chip border border-line object-cover"
+                              />
+                            )}
+                            <span className="truncate max-w-[140px]">
+                              {t("bugReport.picker.chip", { name: reference.label })}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={t("bugReport.picker.remove")}
+                              onClick={() => handleRemoveElement(reference.id)}
+                              className="w-5 h-5 flex items-center justify-center text-text-mute hover:text-text-2 transition-colors duration-150"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      ref={selectActionRef}
+                      type="button"
+                      onClick={() => setPicking(true)}
+                      disabled={atElementCap}
+                      className={cn(
+                        CHIP_BASE,
+                        CHIP_GHOST,
+                        atElementCap && "cursor-not-allowed hover:text-text-mute"
+                      )}
+                    >
+                      {atElementCap
+                        ? t("bugReport.picker.max")
+                        : `[ ${t("bugReport.picker.select")} ]`}
+                    </button>
                   </div>
 
                   {/* Error state */}
@@ -749,8 +984,8 @@ export function BugReportDrawer() {
                       "font-mono text-micro uppercase tracking-wider",
                       "transition-all duration-150",
                       title.trim() && formState !== "submitting"
-                        ? "bg-[rgba(255,255,255,0.08)] text-ops-accent border border-[rgba(255,255,255,0.15)] hover:bg-ops-accent/30"
-                        : "bg-[rgba(255,255,255,0.04)] text-text-mute border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
+                        ? "bg-surface-active text-ops-accent border border-[rgba(255,255,255,0.15)] hover:bg-ops-accent/30"
+                        : "bg-surface-input text-text-mute border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
                     )}
                   >
                     {formState === "submitting" ? (
@@ -768,5 +1003,13 @@ export function BugReportDrawer() {
         </motion.aside>
       )}
     </AnimatePresence>
+
+    <BugReportElementPicker
+      open={picking}
+      onSelect={handlePickSelect}
+      onCancel={handlePickCancel}
+      captureCrop={captureCrop}
+    />
+    </>
   );
 }

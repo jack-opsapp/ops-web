@@ -32,6 +32,14 @@ import {
   COMMIT_COLLECTIONS_DRAFT_CAPABILITY_DEFINITION,
   PREPARE_COLLECTIONS_CAPABILITY_DEFINITION,
 } from "./collections-capability";
+import { ANALYZE_HIRING_BREAK_EVEN_CAPABILITY_DEFINITION } from "./hiring-what-if-capability";
+import { PROMISE_RECOVERY_CAPABILITY_DEFINITION } from "./promise-recovery-capability";
+import { ANALYZE_SALES_TRUTH_CAPABILITY_DEFINITION } from "./sales-truth-capability";
+import { CHECK_PAYROLL_READINESS_CAPABILITY_DEFINITION } from "./payroll-readiness-capability";
+import { PREPARE_RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_DEFINITION } from "./recurring-service-price-change-capability";
+import { PREPARE_ESTIMATE_FROM_PAST_JOB_CAPABILITY_DEFINITION } from "./estimate-draft-capability";
+import { PREPARE_WEATHER_RESCHEDULE_CAPABILITY_DEFINITION } from "./weather-reschedule-capability";
+import { PREPARE_CREW_CALLOUT_RECOVERY_CAPABILITY_DEFINITION } from "./crew-callout-recovery-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
@@ -40,6 +48,22 @@ export const INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION =
   "2026-08-30.capability-manifest.v9" as const;
 export const COLLECTIONS_CAPABILITY_MANIFEST_REVISION =
   "2026-08-31.capability-manifest.v10" as const;
+export const HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION =
+  "2026-08-31.capability-manifest.v11" as const;
+export const PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-01.capability-manifest.v12" as const;
+export const SALES_TRUTH_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-01.capability-manifest.v13" as const;
+export const PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-01.capability-manifest.v14" as const;
+export const RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-01.capability-manifest.v15" as const;
+export const ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-02.capability-manifest.v16" as const;
+export const WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-03.capability-manifest.v17" as const;
+export const CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-03.capability-manifest.v18" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -284,6 +308,200 @@ const COLLECTIONS_CAPABILITY_BY_NAME = new Map(
   COLLECTIONS_CAPABILITY_MANIFEST.map((entry) => [entry.name, entry] as const)
 );
 
+const hiringWhatIfManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...COLLECTIONS_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    ANALYZE_HIRING_BREAK_EVEN_CAPABILITY_DEFINITION,
+    HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  hiringWhatIfManifestEntries,
+  HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(hiringWhatIfManifestEntries);
+
+export const HIRING_WHAT_IF_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(hiringWhatIfManifestEntries);
+
+const HIRING_WHAT_IF_CAPABILITY_BY_NAME = new Map(
+  HIRING_WHAT_IF_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
+const promiseRecoveryManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...HIRING_WHAT_IF_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PROMISE_RECOVERY_CAPABILITY_DEFINITION,
+    PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  promiseRecoveryManifestEntries,
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(promiseRecoveryManifestEntries);
+
+export const PROMISE_RECOVERY_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(promiseRecoveryManifestEntries);
+
+const PROMISE_RECOVERY_CAPABILITY_BY_NAME = new Map(
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
+const salesTruthManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...PROMISE_RECOVERY_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, SALES_TRUTH_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    ANALYZE_SALES_TRUTH_CAPABILITY_DEFINITION,
+    SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  salesTruthManifestEntries,
+  SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(salesTruthManifestEntries);
+
+export const SALES_TRUTH_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(salesTruthManifestEntries);
+
+const SALES_TRUTH_CAPABILITY_BY_NAME = new Map(
+  SALES_TRUTH_CAPABILITY_MANIFEST.map((entry) => [entry.name, entry] as const)
+);
+
+const payrollReadinessManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...SALES_TRUTH_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    CHECK_PAYROLL_READINESS_CAPABILITY_DEFINITION,
+    PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  payrollReadinessManifestEntries,
+  PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(payrollReadinessManifestEntries);
+
+export const PAYROLL_READINESS_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(payrollReadinessManifestEntries);
+
+const PAYROLL_READINESS_CAPABILITY_BY_NAME = new Map(
+  PAYROLL_READINESS_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
+const recurringServicePriceChangeManifestEntries: readonly CapabilityManifestEntry[] =
+  [
+    ...PAYROLL_READINESS_CAPABILITY_MANIFEST.map((entry) =>
+      remintEntry(
+        entry,
+        RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+      )
+    ),
+    mintImplementationEntry(
+      PREPARE_RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_DEFINITION,
+      RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+    ),
+  ];
+assertCapabilityManifestInvariants(
+  recurringServicePriceChangeManifestEntries,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(recurringServicePriceChangeManifestEntries);
+
+export const RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(recurringServicePriceChangeManifestEntries);
+
+const RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_BY_NAME = new Map(
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
+const estimateDraftManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_ESTIMATE_FROM_PAST_JOB_CAPABILITY_DEFINITION,
+    ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  estimateDraftManifestEntries,
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(estimateDraftManifestEntries);
+
+export const ESTIMATE_DRAFT_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(estimateDraftManifestEntries);
+
+const ESTIMATE_DRAFT_CAPABILITY_BY_NAME = new Map(
+  ESTIMATE_DRAFT_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
+const weatherRescheduleManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...ESTIMATE_DRAFT_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_WEATHER_RESCHEDULE_CAPABILITY_DEFINITION,
+    WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  weatherRescheduleManifestEntries,
+  WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(weatherRescheduleManifestEntries);
+
+export const WEATHER_RESCHEDULE_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(weatherRescheduleManifestEntries);
+
+const WEATHER_RESCHEDULE_CAPABILITY_BY_NAME = new Map(
+  WEATHER_RESCHEDULE_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
+const crewCalloutRecoveryManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...WEATHER_RESCHEDULE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_CREW_CALLOUT_RECOVERY_CAPABILITY_DEFINITION,
+    CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  crewCalloutRecoveryManifestEntries,
+  CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(crewCalloutRecoveryManifestEntries);
+
+export const CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(crewCalloutRecoveryManifestEntries);
+
+const CREW_CALLOUT_RECOVERY_CAPABILITY_BY_NAME = new Map(
+  CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -304,6 +522,70 @@ export function getCollectionsCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = COLLECTIONS_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getHiringWhatIfCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = HIRING_WHAT_IF_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getPromiseRecoveryCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = PROMISE_RECOVERY_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getSalesTruthCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = SALES_TRUTH_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getPayrollReadinessCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = PAYROLL_READINESS_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getRecurringServicePriceChangeCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getEstimateDraftCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = ESTIMATE_DRAFT_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getWeatherRescheduleCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = WEATHER_RESCHEDULE_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getCrewCalloutRecoveryCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = CREW_CALLOUT_RECOVERY_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -594,6 +876,86 @@ export function resolveCollectionsCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getCollectionsCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveHiringWhatIfCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getHiringWhatIfCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolvePromiseRecoveryCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getPromiseRecoveryCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveSalesTruthCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getSalesTruthCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolvePayrollReadinessCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getPayrollReadinessCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveRecurringServicePriceChangeCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getRecurringServicePriceChangeCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveEstimateDraftCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getEstimateDraftCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveWeatherRescheduleCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getWeatherRescheduleCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveCrewCalloutRecoveryCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getCrewCalloutRecoveryCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

@@ -1,0 +1,13 @@
+{
+  "sessions": [
+    {
+      "name": "rate_limit_writer",
+      "file": "external-api-rate-limit-concurrency-writer.psql"
+    },
+    {
+      "name": "rate_limit_contender",
+      "file": "external-api-rate-limit-concurrency-contender.psql"
+    }
+  ],
+  "timeoutMs": 60000
+}

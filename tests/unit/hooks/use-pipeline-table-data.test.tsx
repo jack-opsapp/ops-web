@@ -19,6 +19,12 @@ vi.mock("@/lib/hooks/use-clients", () => ({
 vi.mock("@/lib/hooks/use-users", () => ({
   useTeamMembers: vi.fn(),
 }));
+vi.mock("@/lib/hooks/use-site-visits", () => ({
+  useSiteVisits: vi.fn(() => ({ data: [] })),
+}));
+vi.mock("@/lib/hooks/use-opportunity-deck-designs", () => ({
+  useLeadDeckMarkers: vi.fn(() => ({ data: [] })),
+}));
 vi.mock("@/lib/hooks/pipeline-table/use-pipeline-stage-configs", () => ({
   usePipelineStageConfigs: vi.fn(),
   // The real stageConfigBySlug is a pure Map builder; reuse a faithful copy.

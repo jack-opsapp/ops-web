@@ -33,6 +33,7 @@ import { SegmentControl, type SegmentControlOption } from "@/components/ui/segme
 import {
   SETTINGS_DOMAINS,
   LEGACY_TAB_TO_SECTION,
+  isSettingsSectionVisible,
   type SettingsDomain,
   type SettingsSection,
 } from "./settings-domains";
@@ -64,22 +65,15 @@ export function SettingsShell() {
   // ── Section visibility (granular permission + company flag + dev gate) ────
   const isSectionVisible = useCallback(
     (s: SettingsSection): boolean => {
-      if (s.devOnly) return devPermission;
-      // Phase-C sections fail CLOSED until flags resolve (the store treats an
-      // unknown slug as accessible, so a flag must be confirmed-enabled, not
-      // merely not-yet-loaded).
-      if (s.flag) {
-        if (!flagsReady) return false;
-        if (!canAccessFeature(s.flag)) return false;
-      }
-      if (s.permission) {
-        if (!permReady) return false;
-        if (!isPermissionUnlocked(s.permission)) return false;
-        if (!can(s.permission)) return false;
-      }
-      // A company fact, not a flag: fails closed until it is known to hold.
-      if (s.requires === "public_integration" && !hasPublicIntegration) return false;
-      return true;
+      return isSettingsSectionVisible(s, {
+        devPermission,
+        permissionsReady: permReady,
+        flagsReady,
+        can,
+        isPermissionUnlocked,
+        canAccessFeature,
+        hasPublicIntegration,
+      });
     },
     [
       devPermission,

@@ -45,6 +45,17 @@ const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
   ["get_operational_overview", "getOperationalOverview"],
   ["prepare_day_closeout", "prepareDayCloseout"],
   ["prepare_collections", "prepareCollections"],
+  ["analyze_hiring_break_even", "analyzeHiringBreakEven"],
+  ["check_customer_reply", "checkCustomerReply"],
+  ["analyze_sales_truth", "analyzeSalesTruth"],
+  ["check_payroll_readiness", "checkPayrollReadiness"],
+  [
+    "prepare_recurring_service_price_change",
+    "prepareRecurringServicePriceChange",
+  ],
+  ["prepare_estimate_from_past_job", "prepareEstimateFromPastJob"],
+  ["prepare_weather_reschedule", "prepareWeatherReschedule"],
+  ["prepare_crew_callout_recovery", "prepareCrewCalloutRecovery"],
 ] as const;
 
 describe("typed MCP domain dispatch", () => {
@@ -54,6 +65,14 @@ describe("typed MCP domain dispatch", () => {
       | P2ReadCapabilityId
       | "prepare_day_closeout"
       | "prepare_collections"
+      | "analyze_hiring_break_even"
+      | "check_customer_reply"
+      | "analyze_sales_truth"
+      | "check_payroll_readiness"
+      | "prepare_recurring_service_price_change"
+      | "prepare_estimate_from_past_job"
+      | "prepare_weather_reschedule"
+      | "prepare_crew_callout_recovery"
     >();
     expect(Object.entries(DOMAIN_METHOD_BY_CAPABILITY)).toEqual(
       EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD

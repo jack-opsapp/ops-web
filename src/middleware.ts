@@ -77,6 +77,12 @@ const CALIBRATION_REDIRECTS: Record<string, string> = {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Public v1 endpoints own bearer authentication at the route boundary.
+  // Never let browser session cookies or dashboard redirect logic participate.
+  if (pathname === "/v1" || pathname.startsWith("/v1/")) {
+    return NextResponse.next();
+  }
+
   // ─── CALIBRATION retirements (308 permanent) ────────────────────────────
   if (CALIBRATION_REDIRECTS[pathname] !== undefined) {
     const target = CALIBRATION_REDIRECTS[pathname];
@@ -107,7 +113,10 @@ export function middleware(request: NextRequest) {
   if (pathname === "/estimates" || pathname === "/invoices") {
     const url = request.nextUrl.clone();
     url.pathname = "/books";
-    url.searchParams.set("segment", pathname === "/estimates" ? "estimates" : "invoices");
+    url.searchParams.set(
+      "segment",
+      pathname === "/estimates" ? "estimates" : "invoices"
+    );
     return NextResponse.redirect(url, 308);
   }
   if (pathname === "/accounting") {
@@ -280,8 +289,9 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico
      * - public files (fonts, images, etc.)
-     * - API routes
+     * - internal API routes
+     * - public v1 API routes (route handlers own bearer authentication)
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|fonts|images|api).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|fonts|images|api|v1).*)",
   ],
 };

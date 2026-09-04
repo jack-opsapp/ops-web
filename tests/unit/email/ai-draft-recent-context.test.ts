@@ -30,6 +30,7 @@ const {
   getCashFlowProjectionMock,
   checkPermissionByIdMock,
   runReplyContextShadowMock,
+  loadDraftScheduleContextMock,
 } = vi.hoisted(() => ({
   openAICreateMock: vi.fn(),
   buildConversationStateMock: vi.fn(),
@@ -45,6 +46,7 @@ const {
   getCashFlowProjectionMock: vi.fn(),
   checkPermissionByIdMock: vi.fn(),
   runReplyContextShadowMock: vi.fn(),
+  loadDraftScheduleContextMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/phase-c-reply-context-shadow", () => ({
@@ -101,6 +103,10 @@ vi.mock("@/lib/api/services/conversation-state/conversation-state", () => ({
 
 vi.mock("@/lib/api/services/conversation-state/persist-routing", () => ({
   persistRoutingDecision: vi.fn(async () => {}),
+}));
+
+vi.mock("@/lib/api/services/draft-schedule-context-service", () => ({
+  loadDraftScheduleContext: loadDraftScheduleContextMock,
 }));
 
 vi.mock("@/lib/supabase/helpers", () => {
@@ -241,7 +247,8 @@ function activityRow(
 
 function latestUserPrompt(): string {
   const request = openAICreateMock.mock.calls.at(-1)?.[0] as
-    { messages?: Array<{ role: string; content: string }> } | undefined;
+    | { messages?: Array<{ role: string; content: string }> }
+    | undefined;
   return (
     request?.messages?.find((message) => message.role === "user")?.content ?? ""
   );
@@ -249,7 +256,8 @@ function latestUserPrompt(): string {
 
 function latestSystemPrompt(): string {
   const request = openAICreateMock.mock.calls.at(-1)?.[0] as
-    { messages?: Array<{ role: string; content: string }> } | undefined;
+    | { messages?: Array<{ role: string; content: string }> }
+    | undefined;
   return (
     request?.messages?.find((message) => message.role === "system")?.content ??
     ""
@@ -317,6 +325,17 @@ beforeEach(() => {
   getCashFlowProjectionMock.mockResolvedValue({ outstanding: 0, overdue: 0 });
   runReplyContextShadowMock.mockReset();
   runReplyContextShadowMock.mockResolvedValue(null);
+  loadDraftScheduleContextMock.mockReset();
+  loadDraftScheduleContextMock.mockResolvedValue({
+    available: true,
+    facts: {
+      timezone: "America/Vancouver",
+      generatedAt: "2026-09-01T17:00:00.000Z",
+      customerTasks: [],
+      customerVisits: [],
+      companyBusyDays: [],
+    },
+  });
 });
 
 describe("AIDraftService recent mailbox context", () => {
@@ -513,6 +532,7 @@ describe("AIDraftService recent mailbox context", () => {
       routingReasons: [],
       responseDisposition: "reply_required",
       responseMode: "schedule",
+      verifiedContext: { schedule: true },
       confidence: 1,
     });
     runReplyContextShadowMock.mockReturnValueOnce(

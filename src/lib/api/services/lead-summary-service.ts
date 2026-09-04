@@ -4347,6 +4347,10 @@ export async function refreshLeadSummariesForOpportunities(input: {
   supabase: LeadSummarySupabaseLike;
   companyId: string;
   opportunityIds: string[];
+  externalIntakeContextByOpportunityId?: ReadonlyMap<
+    string,
+    { content: string; occurredAt: string }
+  >;
   now?: Date;
 }): Promise<TargetedLeadSummaryRefreshResult> {
   const opportunityIds = [...new Set(input.opportunityIds.filter(Boolean))];
@@ -4440,6 +4444,31 @@ export async function refreshLeadSummariesForOpportunities(input: {
         opportunities.map((opportunity) => opportunity.id),
         opportunities
       );
+      for (const opportunity of opportunities) {
+        const externalIntakeContext =
+          input.externalIntakeContextByOpportunityId?.get(
+            opportunity.id
+          );
+        if (!externalIntakeContext) continue;
+        slicesByOpportunity.get(opportunity.id)?.activities.push({
+          id: `external-intake:${opportunity.id}`,
+          opportunity_id: opportunity.id,
+          type: "external_intake",
+          direction: "inbound",
+          subject: "Original website inquiry",
+          content: externalIntakeContext.content,
+          body_text: null,
+          body_text_clean: null,
+          email_connection_id: null,
+          email_message_id: null,
+          email_thread_id: null,
+          to_emails: null,
+          cc_emails: null,
+          outcome: null,
+          duration_minutes: null,
+          created_at: externalIntakeContext.occurredAt,
+        });
+      }
     } catch (cause) {
       if (cause instanceof CronDatabaseOperationError) throw cause;
       throw new CronDatabaseOperationError(
@@ -4518,6 +4547,48 @@ export async function refreshLeadSummariesForOpportunities(input: {
     }
   }
 
+  return result;
+}
+
+export async function refreshExternalIntakeLeadSummary(input: {
+  companyId: string;
+  opportunityId: string;
+  originalContext: {
+    work: Record<string, unknown>;
+    serviceAddress: Record<string, unknown>;
+    answers: unknown[];
+    occurredAt: string;
+  };
+}) {
+  const supabase = (
+    await import("@/lib/supabase/server-client")
+  ).getServiceRoleClient() as unknown as LeadSummarySupabaseLike;
+  const originalContext = JSON.stringify({
+    work: input.originalContext.work,
+    serviceAddress: input.originalContext.serviceAddress,
+    answers: input.originalContext.answers,
+  });
+  const result = await refreshLeadSummariesForOpportunities({
+    supabase,
+    companyId: input.companyId,
+    opportunityIds: [input.opportunityId],
+    externalIntakeContextByOpportunityId: new Map([
+      [
+        input.opportunityId,
+        {
+          content: originalContext,
+          occurredAt: input.originalContext.occurredAt,
+        },
+      ],
+    ]),
+  });
+  if (
+    result.failed.length > 0 ||
+    result.deferred.length > 0 ||
+    (!result.skippedFeatureDisabled && result.written !== 1)
+  ) {
+    throw new Error("external intake lead summary refresh incomplete");
+  }
   return result;
 }
 

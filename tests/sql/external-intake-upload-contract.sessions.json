@@ -1,0 +1,13 @@
+{
+  "sessions": [
+    {
+      "name": "quota_writer",
+      "file": "external-intake-upload-quota-writer.psql"
+    },
+    {
+      "name": "quota_contender",
+      "file": "external-intake-upload-quota-contender.psql"
+    }
+  ],
+  "timeoutMs": 60000
+}
