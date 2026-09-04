@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createSocialPublishCronHandler } from "@/lib/social/publish-cron-handler";
 import { InstagramConnectionError } from "@/lib/social/instagram-connection-service";
@@ -69,13 +70,15 @@ describe("social publish cron", () => {
   it("treats an unconnected Instagram account as an idle cron state", async () => {
     vi.stubEnv("CRON_SECRET", CRON_SECRET);
     const response = await createSocialPublishCronHandler({
-      runBatch: vi.fn().mockRejectedValue(
-        new InstagramConnectionError(
-          "INSTAGRAM_NOT_CONNECTED",
-          "Instagram is not connected",
-          false
-        )
-      ),
+      runBatch: vi
+        .fn()
+        .mockRejectedValue(
+          new InstagramConnectionError(
+            "INSTAGRAM_NOT_CONNECTED",
+            "Instagram is not connected",
+            false
+          )
+        ),
     })(request(CRON_SECRET));
 
     expect(response.status).toBe(200);

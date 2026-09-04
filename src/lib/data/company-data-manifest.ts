@@ -65,7 +65,7 @@
  *
  * ── Derived from the live schema ───────────────────────────────────────────
  * Classification was derived against prod (`ijeekuhbatykdomumfjx`) on
- * 2026-08-14. Three queries reproduce it:
+ * 2026-09-04. Three queries reproduce it:
  *
  *   -- 1. every company-scoped base table, its tenant column type, and whether
  *   --    it can be tombstoned at all
@@ -84,8 +84,8 @@
  *   -- 3. blocking (NO ACTION / RESTRICT) foreign keys between them, which fix
  *   --    the deletion order and expose the two mutual cycles
  *
- * At the time of writing that is 226 in-scope tables — 188 carrying
- * `company_id` and 38 reaching one by foreign key — plus the `companies` row
+ * At the time of writing that is 267 in-scope tables — 228 carrying
+ * `company_id` and 39 reaching one by foreign key — plus the `companies` row
  * itself, and 5 auth-identity tables declared out of scope.
  *
  * ── How to classify a new table ────────────────────────────────────────────
@@ -141,7 +141,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-08-30";
+export const MANIFEST_VERSION = "2026-09-04";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -243,10 +243,8 @@ export const COMPANY_DATA_PURGE_FUNCTION = "purge_company_data";
  *
  * ── Why these exist ────────────────────────────────────────────────────────
  * Classification in this manifest says what a table IS. It says nothing about
- * whether the deleting role may touch it. Thirty live `public` base tables and
- * the six staged job-memory tables withhold from `service_role` at least one
- * privilege the cascade needs — fifteen live tables were created by migrations
- * that granted it nothing at all, fifteen more grant SELECT and withhold DELETE.
+ * whether the deleting role may touch it. Forty-two live `public` base tables
+ * withhold from `service_role` at least one privilege the cascade needs.
  * A rehearsal of the cascade against a disposable
  * prod tenant died at
  * acting-step 23 of 198 on the first of them, and would have died on the next
@@ -356,6 +354,11 @@ export const DEFINER_PURGED_TABLES: readonly DefinerPurgedEntry[] = [
   // These are the dangerous half. The count succeeds, so nothing looks wrong
   // until the DELETE one call later is refused.
   {
+    table: "approved_action_email_intents",
+    reason:
+      "service_role may SELECT but not DELETE immutable approved-action email intents. Purged through purge_company_rows.",
+  },
+  {
     table: "email_conversion_photo_jobs",
     reason:
       "service_role may SELECT but not DELETE — the count succeeds and the purge is refused one call later. Purged through purge_company_rows.",
@@ -463,7 +466,27 @@ export const DEFINER_PURGED_TABLES: readonly DefinerPurgedEntry[] = [
   {
     table: "job_conversations",
     reason:
-      "The staged migration grants service_role SELECT but withholds DELETE from job conversation roots. Purged through purge_company_rows.",
+      "service_role may SELECT but not DELETE job conversation roots. Purged through purge_company_rows.",
+  },
+  {
+    table: "supplier_bill_documents",
+    reason:
+      "service_role may SELECT but not DELETE immutable supplier-bill document evidence. Purged through purge_company_rows.",
+  },
+  {
+    table: "supplier_bill_events",
+    reason:
+      "service_role may SELECT but not DELETE the append-only supplier-bill event ledger. Purging it also erases the matching private prepared-write intents.",
+  },
+  {
+    table: "supplier_bill_intake_documents",
+    reason:
+      "service_role may SELECT but not DELETE immutable supplier-bill intake document evidence. Purged through purge_company_rows.",
+  },
+  {
+    table: "supplier_bill_intake_events",
+    reason:
+      "service_role may SELECT but not DELETE the append-only supplier-bill intake event ledger. Purging it also erases the matching private prepared-write intents.",
   },
 ];
 
@@ -858,6 +881,309 @@ export const PARENT_SCOPED_DATA: readonly ParentScopedEntry[] = [
 ];
 
 export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
+  {
+    table: "supplier_bill_intake_allocations",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "supplier_bill_project_allocations",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "supplier_bill_intake_line_items",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "supplier_bill_intake_checks",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "supplier_bill_intake_documents",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "supplier_bill_intake_events",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Append-only supplier-bill intake lifecycle machinery.",
+  },
+  {
+    table: "supplier_bill_line_items",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "supplier_bill_documents",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "supplier_bill_payments",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "supplier_bill_events",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Append-only supplier-bill lifecycle machinery.",
+  },
+  {
+    table: "supplier_bill_provider_links",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Accounting-provider synchronization bookkeeping.",
+  },
+  {
+    table: "supplier_bill_tax_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Accounting-provider tax-code mapping bookkeeping.",
+  },
+  {
+    table: "supplier_bill_payment_account_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Accounting-provider payment-account mapping bookkeeping.",
+  },
+  {
+    table: "supplier_bill_project_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Accounting-provider project mapping bookkeeping.",
+  },
+  {
+    table: "supplier_bill_intakes",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "supplier_bills",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "suppliers",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "phase_c_bilateral_event_handoffs",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "opportunity_phase_c_work",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Durable Phase C work-queue and claim machinery.",
+  },
+  {
+    table: "opportunity_lifecycle_decisions",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Derived lifecycle decision machinery.",
+  },
+  {
+    table: "lead_summary_refresh_quarantine",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Lead-summary refresh quarantine machinery.",
+  },
+  {
+    table: "lead_summary_refresh_requests",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Lead-summary refresh request queue.",
+  },
+  {
+    table: "catalog_bulk_variant_requests",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Catalog bulk-operation idempotency machinery.",
+  },
+  {
+    table: "site_visit_booking_policies",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "task_scopes",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "deck_design_geometry_regressions",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Deck geometry regression diagnostics, not a customer business record.",
+  },
+  {
+    table: "accounting_oauth_attempts",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Short-lived accounting OAuth state and verifier machinery.",
+  },
+  {
+    table: "sage_business_selection_sessions",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason: "Short-lived Sage connection-selection machinery.",
+  },
+  {
+    table: "sage_payment_method_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "sage_purchase_account_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "sage_sales_account_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "sage_tax_rate_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
   {
     table: "job_memory_version_evidence",
     scope: "company",
@@ -2764,17 +3090,14 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
   },
 ];
 
-export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
-  "agent_control_plane_tenant_roots",
-  "job_conversation_anchors",
-  "job_conversation_redaction_events",
-  "job_conversation_turns",
-  "job_conversations",
-  "job_memory_version_evidence",
-  "job_memory_versions",
-];
+export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [];
 
 export const OUT_OF_SCOPE_TABLES: readonly OutOfScopeEntry[] = [
+  {
+    table: "analytics_health_states",
+    reason:
+      "Global analytics pipeline health state. Its optional notification reference is operational linkage, not company ownership; one customer account must never delete platform-wide monitoring state.",
+  },
   {
     table: "certificates",
     reason:

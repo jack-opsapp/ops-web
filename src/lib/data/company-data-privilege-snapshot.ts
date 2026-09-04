@@ -53,8 +53,8 @@
  * healthy. Blocked is the exceptional, load-bearing state, so blocked is what
  * is checked in.
  *
- * Verified against prod 2026-08-14: 324 base tables in `public` —
- * 294 fully available to `service_role` and 30 blocked (listed below).
+ * Verified against prod 2026-09-04: 374 base tables in `public` —
+ * 332 fully available to `service_role` and 42 blocked (listed below).
  * `calendar_feed_tokens`, `google_calendar_sync_queue`, `meeting_proposals`,
  * and `site_visit_types` are fully available for account export and closure.
  * RLS is not part of this picture: `service_role` carries BYPASSRLS, so table
@@ -81,6 +81,18 @@ export interface ServiceRolePrivileges {
  *   delete: false   later. Silent until the step actually runs.
  */
 export const SERVICE_ROLE_BLOCKED_TABLES: readonly ServiceRolePrivileges[] = [
+  {
+    table: "agent_control_plane_tenant_roots",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "approved_action_email_intents",
+    select: true,
+    update: false,
+    delete: false,
+  },
   {
     table: "email_assignment_contact_form_draft_queue",
     select: false,
@@ -147,14 +159,60 @@ export const SERVICE_ROLE_BLOCKED_TABLES: readonly ServiceRolePrivileges[] = [
     update: false,
     delete: false,
   },
-  { table: "email_send_intents", select: true, update: true, delete: false },
+  {
+    table: "email_send_intents",
+    select: true,
+    update: true,
+    delete: false,
+  },
   {
     table: "email_signature_notification_lifecycle_outbox",
     select: true,
     update: false,
     delete: false,
   },
-  { table: "email_signatures", select: true, update: false, delete: false },
+  {
+    table: "email_signatures",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "job_conversation_anchors",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "job_conversation_redaction_events",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "job_conversation_turns",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "job_conversations",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "job_memory_version_evidence",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "job_memory_versions",
+    select: true,
+    update: false,
+    delete: false,
+  },
   {
     table: "lead_intake_correction_runs",
     select: true,
@@ -215,7 +273,36 @@ export const SERVICE_ROLE_BLOCKED_TABLES: readonly ServiceRolePrivileges[] = [
     update: false,
     delete: false,
   },
-  { table: "stage_transitions", select: true, update: false, delete: false },
+  {
+    table: "stage_transitions",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "supplier_bill_documents",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "supplier_bill_events",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "supplier_bill_intake_documents",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "supplier_bill_intake_events",
+    select: true,
+    update: false,
+    delete: false,
+  },
   {
     table: "task_mutation_events",
     select: false,
@@ -234,7 +321,12 @@ export const SERVICE_ROLE_BLOCKED_TABLES: readonly ServiceRolePrivileges[] = [
     update: false,
     delete: false,
   },
-  { table: "user_email_aliases", select: true, update: false, delete: false },
+  {
+    table: "user_email_aliases",
+    select: true,
+    update: false,
+    delete: false,
+  },
   {
     table: "user_permission_change_deliveries",
     select: false,
@@ -248,9 +340,7 @@ export const SERVICE_ROLE_BLOCKED_TABLES: readonly ServiceRolePrivileges[] = [
  * this branch. Keep these separate from the generated production snapshot;
  * after apply, regenerate the snapshot and remove the staged entry.
  */
-export const STAGED_SERVICE_ROLE_BLOCKED_TABLES: readonly string[] = [
-  "agent_control_plane_tenant_roots",
-];
+export const STAGED_SERVICE_ROLE_BLOCKED_TABLES: readonly string[] = [];
 
 /** Table name → the privileges `service_role` holds on it. */
 export function blockedPrivilegesByTable(): Map<string, ServiceRolePrivileges> {

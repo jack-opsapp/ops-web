@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { storeSocialAsset } from "@/lib/social/asset-store";
 
@@ -47,7 +48,8 @@ describe("social rendered asset storage", () => {
       putS3: vi.fn(),
       putSupabase,
       publicS3Url: vi.fn(),
-      publicSupabaseUrl: (key) => `https://project.supabase.co/storage/v1/object/public/social-media/${key}`,
+      publicSupabaseUrl: (key) =>
+        `https://project.supabase.co/storage/v1/object/public/social-media/${key}`,
     });
 
     expect(putSupabase).toHaveBeenCalledWith(
@@ -67,10 +69,13 @@ describe("social rendered asset storage", () => {
     };
 
     await expect(
-      storeSocialAsset({ ...input, renderVersion: "../../escape" }, dependencies)
+      storeSocialAsset(
+        { ...input, renderVersion: "../../escape" },
+        dependencies
+      )
     ).rejects.toThrow(/render version/i);
-    await expect(storeSocialAsset({ ...input, order: 11 }, dependencies)).rejects.toThrow(
-      /slide order/i
-    );
+    await expect(
+      storeSocialAsset({ ...input, order: 11 }, dependencies)
+    ).rejects.toThrow(/slide order/i);
   });
 });

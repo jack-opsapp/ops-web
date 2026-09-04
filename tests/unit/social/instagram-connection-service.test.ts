@@ -1,9 +1,11 @@
 /** @vitest-environment node */
 
+import { describe, expect, it, vi } from "vitest";
 import {
   InstagramConnectionError,
   InstagramConnectionService,
 } from "@/lib/social/instagram-connection-service";
+import type { InstagramOAuthConnectionResult } from "@/lib/social/instagram-oauth-client";
 import type {
   InstagramConnectionRecord,
   InstagramConnectionRepository,
@@ -50,7 +52,10 @@ function oauth() {
       accessToken: "long-lived-token",
       instagramUserId: connection.instagramUserId,
       username: connection.username,
-      scopes: [...connection.requiredScopes],
+      scopes: [
+        "instagram_business_basic",
+        "instagram_business_content_publish",
+      ] as InstagramOAuthConnectionResult["scopes"],
       issuedAt: NOW.toISOString(),
       expiresAt: "2026-11-01T20:00:00.000Z",
     })),

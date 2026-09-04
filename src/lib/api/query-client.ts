@@ -418,6 +418,15 @@ export const queryKeys = {
       [...queryKeys.accounting.all, "importRun", companyId] as const,
     importReview: (runId: string) =>
       [...queryKeys.accounting.all, "importReview", runId] as const,
+    supplierBillIntakes: (companyId: string) =>
+      [...queryKeys.accounting.all, "supplierBillIntakes", companyId] as const,
+    supplierBillIntake: (companyId: string, intakeId: string) =>
+      [
+        ...queryKeys.accounting.all,
+        "supplierBillIntakes",
+        companyId,
+        intakeId,
+      ] as const,
   },
 
   // Task Templates

@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import {
   SOCIAL_VOICE_REFERENCE_VERSION,
   validateSocialVoice,
@@ -39,7 +40,10 @@ describe("OPS social voice guardrails", () => {
       expect(result.ok).toBe(false);
       expect(result.issues).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ path: "content.caption", code: "banned_language" }),
+          expect.objectContaining({
+            path: "content.caption",
+            code: "banned_language",
+          }),
         ])
       );
     }
@@ -61,7 +65,8 @@ describe("OPS social voice guardrails", () => {
   it("rejects emoji and more than five hashtags", () => {
     const result = validateSocialVoice({
       ...baseContent,
-      caption: "Get control back. 🚀 #trades #crew #jobs #field #operations #business",
+      caption:
+        "Get control back. 🚀 #trades #crew #jobs #field #operations #business",
     });
 
     expect(result.ok).toBe(false);
@@ -73,7 +78,12 @@ describe("OPS social voice guardrails", () => {
   it("names the exact nested slide field that failed", () => {
     const result = validateSocialVoice({
       ...baseContent,
-      slides: [{ ...baseContent.slides[0], body: "A revolutionary platform for crews." }],
+      slides: [
+        {
+          ...baseContent.slides[0],
+          body: "A revolutionary platform for crews.",
+        },
+      ],
     });
 
     expect(result.issues).toEqual([

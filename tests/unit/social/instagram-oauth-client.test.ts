@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   InstagramOAuthClient,
   InstagramOAuthError,
@@ -25,7 +26,7 @@ function response(body: unknown, status = 200): Response {
 
 function fetchSequence(...responses: Response[]) {
   const queue = [...responses];
-  return vi.fn(async () => {
+  return vi.fn<typeof fetch>(async () => {
     const next = queue.shift();
     if (!next) throw new Error("Unexpected fetch");
     return next;

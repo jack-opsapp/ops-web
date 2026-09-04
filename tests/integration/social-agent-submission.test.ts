@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { SocialSubmission } from "@/lib/social/contract";
 import { createSocialSubmissionHandler } from "@/lib/social/agent-submission-handler";
@@ -70,6 +71,10 @@ function postRecord(
     claim_expires_at: null,
     publish_stage: "idle",
     publish_attempts: [],
+    recovery_notification_pending: false,
+    recovery_notification_claim_token: null,
+    recovery_notification_claim_expires_at: null,
+    recovery_notified_at: null,
     last_error_code: null,
     last_error_message: null,
     last_error_retryable: null,

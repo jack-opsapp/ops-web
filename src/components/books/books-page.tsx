@@ -6,7 +6,7 @@
  * the expense review hub, and the cashflow placeholder route.
  *
  * URL contract (master plan §2 + capability inventory §6):
- *   /books?segment=invoices|estimates|expenses|sync
+ *   /books?segment=invoices|estimates|expenses|bills|sync
  *         &view=aging|connections|import
  *         &status=<document status filter>
  *         &action=new
@@ -19,31 +19,63 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useClients, useEstimates, useExpenseBatches, useInvoices, useInvoiceMetrics } from "@/lib/hooks";
+import {
+  useClients,
+  useEstimates,
+  useExpenseBatches,
+  useInvoices,
+  useInvoiceMetrics,
+  useSupplierBillIntakes,
+} from "@/lib/hooks";
 import { formatMetricValue } from "./segment-toolbar";
 import { isBatchNeedsReview } from "@/lib/types/expense-approval";
 import { EstimateStatus, InvoiceStatus } from "@/lib/types/pipeline";
 import type { BooksPeriod } from "@/lib/api/services/books-service";
 import { BOOKS_PERIODS } from "@/lib/api/services/books-service";
 import { LedgerStrip } from "./ledger-strip";
-import { BooksSegmentControl, type BooksSegmentOption } from "./segment-toolbar";
-import { InvoicesSegment, type InvoicesView } from "./segments/invoices-segment";
+import {
+  BooksSegmentControl,
+  type BooksSegmentOption,
+} from "./segment-toolbar";
+import {
+  InvoicesSegment,
+  type InvoicesView,
+} from "./segments/invoices-segment";
 import { EstimatesSegment } from "./segments/estimates-segment";
 import { ExpensesSegment } from "./segments/expenses-segment";
+import { BillsSegment } from "./segments/bills-segment";
 import { SyncSegment, type SyncView } from "./segments/sync-segment";
-import { scheduleViewVariants, scheduleViewVariantsReduced } from "@/lib/utils/motion";
+import {
+  scheduleViewVariants,
+  scheduleViewVariantsReduced,
+} from "@/lib/utils/motion";
 
-export type BooksSegment = "invoices" | "estimates" | "expenses" | "sync";
+export type BooksSegment =
+  | "invoices"
+  | "estimates"
+  | "expenses"
+  | "bills"
+  | "sync";
 
-const SEGMENT_ORDER: BooksSegment[] = ["invoices", "estimates", "expenses", "sync"];
+const SEGMENT_ORDER: BooksSegment[] = [
+  "invoices",
+  "estimates",
+  "expenses",
+  "bills",
+  "sync",
+];
 
 /** Per-segment gate (capability inventory §7). Never role names.
  *  invoices also admits accounting.view-only users — they land on the
  *  A/R aging view (old /accounting parity) without the document list. */
-const SEGMENT_ALLOWED: Record<BooksSegment, (can: (p: string) => boolean) => boolean> = {
+const SEGMENT_ALLOWED: Record<
+  BooksSegment,
+  (can: (p: string) => boolean) => boolean
+> = {
   invoices: (can) => can("invoices.view") || can("accounting.view"),
   estimates: (can) => can("estimates.view"),
   expenses: (can) => can("expenses.approve"),
+  bills: (can) => can("accounting.view"),
   sync: (can) => can("accounting.manage_connections"),
 };
 
@@ -65,7 +97,7 @@ export function BooksPage() {
   // ── Visible segments ──────────────────────────────────────────────────
   const visibleSegments = useMemo(
     () => SEGMENT_ORDER.filter((s) => SEGMENT_ALLOWED[s](can)),
-    [can],
+    [can]
   );
 
   // ── URL state ─────────────────────────────────────────────────────────
@@ -84,15 +116,19 @@ export function BooksPage() {
   const [storedSegment, setStoredSegment] = useState<BooksSegment | null>(null);
   const [segmentHydrated, setSegmentHydrated] = useState(false);
   useEffect(() => {
-    const stored = window.localStorage.getItem(SEGMENT_STORAGE_KEY) as BooksSegment | null;
+    const stored = window.localStorage.getItem(
+      SEGMENT_STORAGE_KEY
+    ) as BooksSegment | null;
     if (stored && SEGMENT_ORDER.includes(stored)) setStoredSegment(stored);
     setSegmentHydrated(true);
   }, []);
 
   const activeSegment: BooksSegment | null = useMemo(() => {
-    if (segmentParam && visibleSegments.includes(segmentParam)) return segmentParam;
+    if (segmentParam && visibleSegments.includes(segmentParam))
+      return segmentParam;
     if (!segmentHydrated) return null;
-    if (storedSegment && visibleSegments.includes(storedSegment)) return storedSegment;
+    if (storedSegment && visibleSegments.includes(storedSegment))
+      return storedSegment;
     return visibleSegments[0] ?? null;
   }, [segmentParam, storedSegment, segmentHydrated, visibleSegments]);
 
@@ -112,7 +148,7 @@ export function BooksPage() {
       const qs = params.toString();
       router.replace(qs ? `/books?${qs}` : "/books", { scroll: false });
     },
-    [router, searchParams],
+    [router, searchParams]
   );
 
   // ── Period (iOS PeriodPill parity, persisted) ─────────────────────────
@@ -143,12 +179,16 @@ export function BooksPage() {
   const invoiceStatusFilter: "all" | "overdue" | InvoiceStatus = useMemo(() => {
     if (statusParam === "overdue") return "overdue";
     const values = Object.values(InvoiceStatus) as string[];
-    return statusParam && values.includes(statusParam) ? (statusParam as InvoiceStatus) : "all";
+    return statusParam && values.includes(statusParam)
+      ? (statusParam as InvoiceStatus)
+      : "all";
   }, [statusParam]);
 
   const estimateStatusFilter: "all" | EstimateStatus = useMemo(() => {
     const values = Object.values(EstimateStatus) as string[];
-    return statusParam && values.includes(statusParam) ? (statusParam as EstimateStatus) : "all";
+    return statusParam && values.includes(statusParam)
+      ? (statusParam as EstimateStatus)
+      : "all";
   }, [statusParam]);
 
   // ── Views ─────────────────────────────────────────────────────────────
@@ -159,9 +199,10 @@ export function BooksPage() {
   const { data: invoices = [] } = useInvoices();
   const { data: estimates = [] } = useEstimates();
   const { data: batches = [] } = useExpenseBatches();
+  const { data: supplierBills = [] } = useSupplierBillIntakes();
   const reviewCount = useMemo(
     () => batches.filter((b) => isBatchNeedsReview(b.status)).length,
-    [batches],
+    [batches]
   );
 
   const segmentOptions = useMemo<BooksSegmentOption<BooksSegment>[]>(() => {
@@ -169,26 +210,44 @@ export function BooksPage() {
       invoices: invoices.length,
       estimates: estimates.length,
       expenses: reviewCount,
+      bills: supplierBills.filter(
+        (bill) => bill.review_stage === "review" || bill.review_stage === "held"
+      ).length,
     };
     return visibleSegments.map((s) => ({
       value: s,
       label: t(`segment.${s}`),
       count: counts[s],
     }));
-  }, [visibleSegments, invoices.length, estimates.length, reviewCount, t]);
+  }, [
+    visibleSegments,
+    invoices.length,
+    estimates.length,
+    reviewCount,
+    supplierBills,
+    t,
+  ]);
 
   const handleSegmentChange = useCallback(
     (segment: BooksSegment) => {
-      updateParams({ segment, view: null, status: null, action: null });
+      updateParams({
+        segment,
+        view: null,
+        status: null,
+        stage: null,
+        bill: null,
+        action: null,
+      });
     },
-    [updateParams],
+    [updateParams]
   );
 
   // ── Top-chase client name resolver for the A/R tile ───────────────────
   const { data: clientsData } = useClients();
   const clientName = useCallback(
-    (clientId: string) => clientsData?.clients.find((c) => c.id === clientId)?.name,
-    [clientsData],
+    (clientId: string) =>
+      clientsData?.clients.find((c) => c.id === clientId)?.name,
+    [clientsData]
   );
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -207,7 +266,7 @@ export function BooksPage() {
   // keeps the URL clean (a lingering seed would re-preselect on the next open).
   const handleCreateHandled = useCallback(
     () => updateParams({ action: null, client: null }),
-    [updateParams],
+    [updateParams]
   );
 
   // The ledger is shared across every segment and PINNED in the TableShell's
@@ -221,7 +280,8 @@ export function BooksPage() {
   const numLocale = getDateLocale(locale);
   const { data: invoiceMetrics = [] } = useInvoiceMetrics();
   const arExtra = useMemo(() => {
-    if (activeSegment !== "invoices" || invoiceMetrics.length === 0) return undefined;
+    if (activeSegment !== "invoices" || invoiceMetrics.length === 0)
+      return undefined;
     const find = (needle: string) =>
       invoiceMetrics.find((m) => m.label.toLowerCase().includes(needle));
     const collected = find("revenue") ?? find("collected");
@@ -233,21 +293,31 @@ export function BooksPage() {
         {collected && (
           <span className="inline-flex items-baseline gap-[5px]">
             <span className="uppercase">{t("stat.collected")}</span>
-            <span className="text-olive">{formatMetricValue(collected, numLocale)}</span>
+            <span className="text-olive">
+              {formatMetricValue(collected, numLocale)}
+            </span>
           </span>
         )}
         {collection && (
           <span className="inline-flex items-baseline gap-[5px]">
-            <span aria-hidden className="text-text-mute">·</span>
+            <span aria-hidden className="text-text-mute">
+              ·
+            </span>
             <span className="uppercase">{t("stat.collectionRate")}</span>
-            <span className="text-text-2">{formatMetricValue(collection, numLocale)}</span>
+            <span className="text-text-2">
+              {formatMetricValue(collection, numLocale)}
+            </span>
           </span>
         )}
         {avgDays && (
           <span className="inline-flex items-baseline gap-[5px]">
-            <span aria-hidden className="text-text-mute">·</span>
+            <span aria-hidden className="text-text-mute">
+              ·
+            </span>
             <span className="uppercase">{t("stat.avgShort")}</span>
-            <span className="text-text-2">{formatMetricValue(avgDays, numLocale)}</span>
+            <span className="text-text-2">
+              {formatMetricValue(avgDays, numLocale)}
+            </span>
           </span>
         )}
       </span>
@@ -276,7 +346,9 @@ export function BooksPage() {
         <motion.div
           key={activeSegment ?? "none"}
           className="flex h-full min-h-0 flex-col"
-          variants={reducedMotion ? scheduleViewVariantsReduced : scheduleViewVariants}
+          variants={
+            reducedMotion ? scheduleViewVariantsReduced : scheduleViewVariants
+          }
           initial="enter"
           animate="center"
           exit="exit"
@@ -287,7 +359,9 @@ export function BooksPage() {
               segmentControl={segmentControl}
               listAllowed={can("invoices.view")}
               view={invoicesView}
-              onViewChange={(view) => updateParams({ view: view === "aging" ? "aging" : null })}
+              onViewChange={(view) =>
+                updateParams({ view: view === "aging" ? "aging" : null })
+              }
               statusFilter={invoiceStatusFilter}
               onStatusFilterChange={(status) => {
                 updateParams({ status: status === "all" ? null : status });
@@ -317,6 +391,10 @@ export function BooksPage() {
 
           {activeSegment === "expenses" && (
             <ExpensesSegment metrics={ledger} segmentControl={segmentControl} />
+          )}
+
+          {activeSegment === "bills" && (
+            <BillsSegment metrics={ledger} segmentControl={segmentControl} />
           )}
 
           {activeSegment === "sync" && (
