@@ -5,6 +5,8 @@ import {
   MCP_EXPOSURE_V4,
   MCP_EXPOSURE_V9,
   MCP_EXPOSURE_V10,
+  MCP_EXPOSURE_V11,
+  MCP_EXPOSURE_V12,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
@@ -13,6 +15,8 @@ import {
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
   ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
+  WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
+  CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
   type LabelledMcpScope,
@@ -73,6 +77,22 @@ export const MCP_CONSENT_CATALOG_V5 = Object.freeze({
   allowedOperations: Object.freeze(["read", "prepare"] as const),
 } as const satisfies McpConsentCatalog);
 
+export const MCP_CONSENT_CATALOG_V6 = Object.freeze({
+  revision: "2026-09-03.mcp-consent-catalog.v6",
+  registeredScopes: REGISTERED_MCP_SCOPES,
+  operations: MCP_SCOPE_OPERATION_BY_ID,
+  consentLabels: WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
+  allowedOperations: Object.freeze(["read", "prepare"] as const),
+} as const satisfies McpConsentCatalog);
+
+export const MCP_CONSENT_CATALOG_V7 = Object.freeze({
+  revision: "2026-09-03.mcp-consent-catalog.v7",
+  registeredScopes: REGISTERED_MCP_SCOPES,
+  operations: MCP_SCOPE_OPERATION_BY_ID,
+  consentLabels: CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS,
+  allowedOperations: Object.freeze(["read", "prepare"] as const),
+} as const satisfies McpConsentCatalog);
+
 export const ACTIVE_MCP_CONSENT_CATALOG_REVISION =
   MCP_CONSENT_CATALOG_V1.revision;
 
@@ -83,6 +103,8 @@ export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
     [MCP_CONSENT_CATALOG_V3.revision]: MCP_CONSENT_CATALOG_V3,
     [MCP_CONSENT_CATALOG_V4.revision]: MCP_CONSENT_CATALOG_V4,
     [MCP_CONSENT_CATALOG_V5.revision]: MCP_CONSENT_CATALOG_V5,
+    [MCP_CONSENT_CATALOG_V6.revision]: MCP_CONSENT_CATALOG_V6,
+    [MCP_CONSENT_CATALOG_V7.revision]: MCP_CONSENT_CATALOG_V7,
   });
 
 function assertConsentCatalog(catalog: McpConsentCatalog): void {
@@ -130,6 +152,8 @@ assertConsentCatalog(MCP_CONSENT_CATALOG_V2);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V3);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V4);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V5);
+assertConsentCatalog(MCP_CONSENT_CATALOG_V6);
+assertConsentCatalog(MCP_CONSENT_CATALOG_V7);
 
 export function resolveMcpConsentCatalogRevision(
   revision: string
@@ -153,15 +177,19 @@ export function consentSnapshotForExposure(
   catalog: McpConsentCatalog
 ): McpConsentSnapshot {
   const requiredCatalogRevision =
-    exposure.revision === MCP_EXPOSURE_V10.revision
-      ? MCP_CONSENT_CATALOG_V5.revision
-      : exposure.revision === MCP_EXPOSURE_V9.revision
-        ? MCP_CONSENT_CATALOG_V4.revision
-        : exposure.revision === MCP_EXPOSURE_V4.revision
-          ? MCP_CONSENT_CATALOG_V3.revision
-          : exposure.revision === MCP_EXPOSURE_V3.revision
-            ? MCP_CONSENT_CATALOG_V2.revision
-            : null;
+    exposure.revision === MCP_EXPOSURE_V12.revision
+      ? MCP_CONSENT_CATALOG_V7.revision
+      : exposure.revision === MCP_EXPOSURE_V11.revision
+        ? MCP_CONSENT_CATALOG_V6.revision
+        : exposure.revision === MCP_EXPOSURE_V10.revision
+          ? MCP_CONSENT_CATALOG_V5.revision
+          : exposure.revision === MCP_EXPOSURE_V9.revision
+            ? MCP_CONSENT_CATALOG_V4.revision
+            : exposure.revision === MCP_EXPOSURE_V4.revision
+              ? MCP_CONSENT_CATALOG_V3.revision
+              : exposure.revision === MCP_EXPOSURE_V3.revision
+                ? MCP_CONSENT_CATALOG_V2.revision
+                : null;
   if (
     requiredCatalogRevision !== null &&
     catalog.revision !== requiredCatalogRevision

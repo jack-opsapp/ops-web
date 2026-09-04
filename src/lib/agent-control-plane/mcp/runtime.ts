@@ -61,6 +61,11 @@ import {
   createWeatherRescheduleService,
   type WeatherRescheduleService,
 } from "@/lib/agent-control-plane/services/weather-reschedule/weather-reschedule-service";
+import { createCrewCalloutRecoveryRepository } from "@/lib/agent-control-plane/services/crew-callout-recovery/crew-callout-recovery-repository";
+import {
+  createCrewCalloutRecoveryService,
+  type CrewCalloutRecoveryService,
+} from "@/lib/agent-control-plane/services/crew-callout-recovery/crew-callout-recovery-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -109,6 +114,7 @@ export interface McpServerRuntime {
   readonly recurringServicePriceChange: RecurringServicePriceChangeService;
   readonly estimateDraft: EstimateDraftService;
   readonly weatherReschedule: WeatherRescheduleService;
+  readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -314,6 +320,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const crewCalloutRecovery = createCrewCalloutRecoveryService({
+    repository: createCrewCalloutRecoveryRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
@@ -327,6 +339,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       recurringServicePriceChange,
       estimateDraft,
       weatherReschedule,
+      crewCalloutRecovery,
     }),
     dayCloseout,
     collections,
@@ -337,6 +350,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     recurringServicePriceChange,
     estimateDraft,
     weatherReschedule,
+    crewCalloutRecovery,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

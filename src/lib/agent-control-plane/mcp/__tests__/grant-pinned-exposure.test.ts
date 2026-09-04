@@ -17,6 +17,7 @@ const V8_REVISION = "2026-09-01.mcp-exposure.v8";
 const V9_REVISION = "2026-09-01.mcp-exposure.v9";
 const V10_REVISION = "2026-09-02.mcp-exposure.v10";
 const V11_REVISION = "2026-09-03.mcp-exposure.v11";
+const V12_REVISION = "2026-09-03.mcp-exposure.v12";
 const V1_TOOLS = [
   "list_scheduled_jobs",
   "list_job_readiness_issues",
@@ -291,6 +292,74 @@ describe("grant-pinned MCP exposure", () => {
     expect(tools).not.toContain("commit_weather_reschedule");
     expect(tools).not.toContain("update_project_task_schedule");
     expect(tools).not.toContain("send_weather_schedule_message");
+  });
+
+  it("keeps dormant v12 additive with only the prepare-only crew call-out recovery preview", async () => {
+    const tools = await listTools(V12_REVISION);
+    expect(tools).toEqual([
+      "analyze_hiring_break_even",
+      "check_customer_reply",
+      "analyze_sales_truth",
+      "check_payroll_readiness",
+      "prepare_recurring_service_price_change",
+      "prepare_estimate_from_past_job",
+      "prepare_weather_reschedule",
+      "prepare_crew_callout_recovery",
+    ]);
+    expect(tools).not.toContain("commit_crew_callout_recovery");
+    expect(tools).not.toContain("update_project_task_assignment");
+    expect(tools).not.toContain("send_crew_callout_message");
+  });
+
+  it("dispatches only the exact v12 call-out preview and preserves zero effects", async () => {
+    const calls: Array<{ actor: ActorContext; args: unknown }> = [];
+    const effects = Object.freeze({
+      project_task_writes: 0,
+      site_visit_writes: 0,
+      calendar_writes: 0,
+      provider_draft_writes: 0,
+      message_writes: 0,
+      messages_sent: 0,
+    });
+    const service = new Proxy(
+      {},
+      {
+        get(_target, property) {
+          if (property === "prepareCrewCalloutRecovery") {
+            return async (actor: ActorContext, args: unknown) => {
+              calls.push({ actor, args });
+              return { effects };
+            };
+          }
+          if (typeof property !== "string") return undefined;
+          return async () => ({ ok: true });
+        },
+      }
+    ) as OpsAgentDomainService;
+    const args = {
+      crew_member_name: "Alex Smith",
+      target_date: "2026-09-03",
+    };
+    const payload = await callTool(
+      V12_REVISION,
+      service,
+      args,
+      "prepare_crew_callout_recovery"
+    );
+    expect(payload.error).toBeUndefined();
+    expect(JSON.parse(payload.result?.content[0]?.text ?? "{}")).toEqual({
+      effects,
+    });
+    expect(calls).toEqual([{ actor: ACTOR_CONTEXT, args }]);
+
+    const rejected = await callTool(
+      V12_REVISION,
+      service,
+      { ...args, send: true },
+      "prepare_crew_callout_recovery"
+    );
+    expect(rejected.error ?? rejected.result?.isError).toBeTruthy();
+    expect(calls).toHaveLength(1);
   });
 
   it("dispatches only the date-bound v11 preview and preserves zero effects", async () => {
