@@ -51,6 +51,7 @@ import { PortalEstimateReady } from "./react/templates/PortalEstimateReady";
 import { PortalInvoiceReady } from "./react/templates/PortalInvoiceReady";
 import { PortalQuestionsReminder } from "./react/templates/PortalQuestionsReminder";
 import { DataSetupRequest } from "./react/templates/DataSetupRequest";
+import { McpToolRequest } from "./react/templates/McpToolRequest";
 import { PrioritySupportActivated } from "./react/templates/PrioritySupportActivated";
 import { Day0Welcome } from "./react/templates/onboarding/Day0Welcome";
 import { Day3Inbox } from "./react/templates/onboarding/Day3Inbox";
@@ -592,6 +593,40 @@ export async function sendBetaAccessRequest(params: {
     list: compliance.list,
     headers: compliance.headers,
     metadata: { companyName: params.companyName, featureTitle: params.featureTitle, requesterEmail: params.userEmail },
+  });
+}
+
+export async function sendMcpToolRequest(params: {
+  requesterEmail: string;
+  details: string;
+  submissionId: string;
+  adminUrl: string;
+}): Promise<void> {
+  const recipient = OPS_SUPPORT_EMAIL;
+  const compliance = buildComplianceHeaders({
+    email: recipient,
+    kind: "mcp_tool_request",
+  });
+  const html = await render(
+    <McpToolRequest
+      {...params}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />
+  );
+
+  await gatedSend({
+    to: recipient,
+    from: DISPATCH,
+    replyTo: params.requesterEmail,
+    subject: `MCP tool request — ${params.submissionId}`,
+    html,
+    emailType: "mcp_tool_request",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      submissionId: params.submissionId,
+    },
   });
 }
 

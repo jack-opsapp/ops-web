@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  isLifecycleDecisionReplayConflict,
   loadPhaseCStageDecisionEvidence,
   recordAndApplyPhaseCStageDecision,
 } from "@/lib/email/phase-c-lifecycle-decision";
@@ -161,5 +162,39 @@ describe("Phase C lifecycle decisions", () => {
       ],
       evidenceMessageIds: ["message-new", "message-old"],
     });
+  });
+
+  it("recognises a replay conflict through the wrapper chain", async () => {
+    const direct = new Error(
+      "Phase C lifecycle decision persistence failed: lifecycle_decision_replay_conflict"
+    );
+    expect(isLifecycleDecisionReplayConflict(direct)).toBe(true);
+
+    const wrapped = new Error("[sync-engine] accept-to-project conversion failed", {
+      cause: direct,
+    });
+    expect(isLifecycleDecisionReplayConflict(wrapped)).toBe(true);
+  });
+
+  it("does not mistake an unrelated persistence failure for a replay conflict", () => {
+    expect(
+      isLifecycleDecisionReplayConflict(
+        new Error(
+          "Phase C lifecycle decision persistence failed: invalid_lifecycle_decision"
+        )
+      )
+    ).toBe(false);
+    expect(isLifecycleDecisionReplayConflict(null)).toBe(false);
+    expect(
+      isLifecycleDecisionReplayConflict("lifecycle_decision_replay_conflict")
+    ).toBe(false);
+  });
+
+  it("terminates on a cyclic cause chain", () => {
+    const a = new Error("a") as Error & { cause?: unknown };
+    const b = new Error("b") as Error & { cause?: unknown };
+    a.cause = b;
+    b.cause = a;
+    expect(isLifecycleDecisionReplayConflict(a)).toBe(false);
   });
 });
