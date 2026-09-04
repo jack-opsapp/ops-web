@@ -26,6 +26,7 @@
     "api:backfill-lead-projections": "node scripts/backfill-external-lead-projections.mjs",
     "mcp:acceptance:day-closeout": "tsx scripts/mcp-day-closeout-host-acceptance.ts",
     "mcp:acceptance:v3-canary": "tsx scripts/mcp-v3-canary-acceptance.ts",
+    "sage:sandbox:war-game": "node --conditions=react-server --import tsx scripts/sage-sandbox-war-game.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

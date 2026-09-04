@@ -14,7 +14,10 @@
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AccountingProvider, type AccountingConnection } from "@/lib/types/pipeline";
+import {
+  AccountingProvider,
+  type AccountingConnection,
+} from "@/lib/types/pipeline";
 import { queryKeys } from "@/lib/api/query-client";
 
 // Mutable state the hoisted mock factories read — set per test.
@@ -25,6 +28,17 @@ const h = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   toastPlain: vi.fn(),
+  sageSelection: {
+    data: undefined as
+      | {
+          businesses: Array<{ id: string; name: string }>;
+          providerEnvironment: "production" | "sandbox";
+        }
+      | undefined,
+    error: null as Error | null,
+    isLoading: false,
+  },
+  selectSageBusiness: vi.fn(),
 }));
 
 vi.mock("@/components/accounting/qbo/quickbooks-import-tab", () => ({
@@ -40,10 +54,23 @@ vi.mock("@/i18n/client", () => ({
 vi.mock("@/lib/hooks/use-accounting", () => ({
   useAccountingConnections: () => ({ data: h.connections, isLoading: false }),
   useInitiateOAuth: () => ({ mutate: vi.fn(), isPending: false }),
+  useSageBusinessSelectionSession: () => h.sageSelection,
+  useSelectSageBusiness: () => ({
+    mutate: h.selectSageBusiness,
+    isPending: false,
+  }),
   useDisconnectProvider: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateSyncEnabled: () => ({ mutate: vi.fn(), isPending: false }),
-  useUpdateSyncMode: () => ({ mutate: vi.fn(), isPending: false, data: undefined }),
-  useTriggerSync: () => ({ mutate: vi.fn(), isPending: false, variables: undefined }),
+  useUpdateSyncMode: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+    data: undefined,
+  }),
+  useTriggerSync: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+    variables: undefined,
+  }),
   useSyncHistory: () => ({ data: [], isLoading: false }),
 }));
 vi.mock("@/lib/store/auth-store", () => ({
@@ -55,13 +82,10 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/books",
 }));
 vi.mock("sonner", () => {
-  const toast = Object.assign(
-    (...args: unknown[]) => h.toastPlain(...args),
-    {
-      success: (...args: unknown[]) => h.toastSuccess(...args),
-      error: (...args: unknown[]) => h.toastError(...args),
-    },
-  );
+  const toast = Object.assign((...args: unknown[]) => h.toastPlain(...args), {
+    success: (...args: unknown[]) => h.toastSuccess(...args),
+    error: (...args: unknown[]) => h.toastError(...args),
+  });
   return { toast };
 });
 
@@ -72,6 +96,7 @@ const CONNECTED_QB: AccountingConnection = {
   companyId: "co",
   provider: AccountingProvider.QuickBooks,
   providerEnvironment: "production",
+  sageBusinessName: null,
   accessToken: "tok",
   refreshToken: "ref",
   tokenExpiresAt: null,
@@ -86,6 +111,14 @@ const CONNECTED_QB: AccountingConnection = {
   updatedAt: null,
 };
 
+const CONNECTED_SAGE: AccountingConnection = {
+  ...CONNECTED_QB,
+  id: "conn-sage",
+  provider: AccountingProvider.Sage,
+  providerEnvironment: "sandbox",
+  sageBusinessName: "OPS Test Ledger",
+};
+
 function renderSegment(view: "connections" | "import" = "connections") {
   const queryClient = new QueryClient();
   const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
@@ -97,7 +130,7 @@ function renderSegment(view: "connections" | "import" = "connections") {
         view={view}
         onViewChange={vi.fn()}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
   return { invalidateSpy };
 }
@@ -105,6 +138,9 @@ function renderSegment(view: "connections" | "import" = "connections") {
 afterEach(() => {
   h.connections = [];
   h.search = "";
+  h.sageSelection.data = undefined;
+  h.sageSelection.error = null;
+  h.sageSelection.isLoading = false;
   vi.clearAllMocks();
 });
 
@@ -123,6 +159,15 @@ describe("Books SYNC segment", () => {
     renderSegment("import");
     expect(screen.getByTestId("qbo-import-tab")).toBeInTheDocument();
   });
+
+  it("keeps the exact Sage business and sandbox identity in the compact badge", () => {
+    h.connections = [CONNECTED_SAGE];
+    renderSegment("connections");
+
+    expect(screen.getByText("OPS Test Ledger")).toBeInTheDocument();
+    expect(screen.getByText("sync.badge.sandbox")).toBeInTheDocument();
+    expect(screen.getByText("sync.badge.live")).toBeInTheDocument();
+  });
 });
 
 describe("Books SYNC segment — post-OAuth landing (eb70d803)", () => {
@@ -139,7 +184,9 @@ describe("Books SYNC segment — post-OAuth landing (eb70d803)", () => {
     expect(h.toastSuccess).toHaveBeenCalledWith("sync.toast.connected");
     expect(h.toastError).not.toHaveBeenCalled();
     // connected/status/message are stripped; the surviving params remain.
-    expect(h.replace).toHaveBeenCalledWith("/books?segment=sync", { scroll: false });
+    expect(h.replace).toHaveBeenCalledWith("/books?segment=sync", {
+      scroll: false,
+    });
   });
 
   it("?status=error&message=access_denied → neutral cancelled toast", () => {
@@ -149,7 +196,9 @@ describe("Books SYNC segment — post-OAuth landing (eb70d803)", () => {
     expect(h.toastPlain).toHaveBeenCalledWith("sync.toast.connectCancelled");
     expect(h.toastError).not.toHaveBeenCalled();
     expect(h.toastSuccess).not.toHaveBeenCalled();
-    expect(h.replace).toHaveBeenCalledWith("/books?segment=sync", { scroll: false });
+    expect(h.replace).toHaveBeenCalledWith("/books?segment=sync", {
+      scroll: false,
+    });
   });
 
   it("?status=error&message=csrf_mismatch → failure toast", () => {
@@ -158,7 +207,9 @@ describe("Books SYNC segment — post-OAuth landing (eb70d803)", () => {
 
     expect(h.toastError).toHaveBeenCalledWith("sync.toast.connectFailed");
     expect(h.toastSuccess).not.toHaveBeenCalled();
-    expect(h.replace).toHaveBeenCalledWith("/books?segment=sync", { scroll: false });
+    expect(h.replace).toHaveBeenCalledWith("/books?segment=sync", {
+      scroll: false,
+    });
   });
 
   it("no outcome params → no toast, no URL rewrite", () => {
@@ -170,5 +221,69 @@ describe("Books SYNC segment — post-OAuth landing (eb70d803)", () => {
     expect(h.toastError).not.toHaveBeenCalled();
     expect(h.toastPlain).not.toHaveBeenCalled();
     expect(h.replace).not.toHaveBeenCalled();
+  });
+
+  it("multiple-business landing binds the chosen Sage business and cleans the URL", async () => {
+    h.search = "segment=sync&sageSelection=session-1";
+    h.sageSelection.data = {
+      businesses: [
+        { id: "business-a", name: "North Ledger" },
+        { id: "business-b", name: "South Ledger" },
+      ],
+      providerEnvironment: "sandbox",
+    };
+    h.selectSageBusiness.mockImplementation((_variables, callbacks) => {
+      callbacks.onSuccess({
+        success: true,
+        providerEnvironment: "sandbox",
+        businessName: "South Ledger",
+      });
+    });
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const { invalidateSpy } = renderSegment("connections");
+
+    await user.click(screen.getByRole("radio", { name: "South Ledger" }));
+    await user.click(
+      screen.getByRole("button", { name: "sync.sageBusiness.connect" })
+    );
+
+    expect(h.selectSageBusiness).toHaveBeenCalledWith(
+      {
+        companyId: "co",
+        sessionId: "session-1",
+        businessId: "business-b",
+      },
+      expect.any(Object)
+    );
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.accounting.connections("co"),
+    });
+    expect(h.toastSuccess).toHaveBeenCalledWith("sync.toast.connected");
+    expect(h.replace).toHaveBeenCalledWith("/books?segment=sync", {
+      scroll: false,
+    });
+  });
+
+  it("cancelling business selection discards only the short-lived session URL", async () => {
+    h.search = "segment=sync&view=connections&sageSelection=session-1";
+    h.sageSelection.data = {
+      businesses: [
+        { id: "business-a", name: "North Ledger" },
+        { id: "business-b", name: "South Ledger" },
+      ],
+      providerEnvironment: "production",
+    };
+    const user = (await import("@testing-library/user-event")).default.setup();
+    renderSegment("connections");
+
+    await user.click(
+      screen.getByRole("button", { name: "sync.sageBusiness.cancel" })
+    );
+
+    expect(h.replace).toHaveBeenCalledWith(
+      "/books?segment=sync&view=connections",
+      { scroll: false }
+    );
+    expect(h.selectSageBusiness).not.toHaveBeenCalled();
   });
 });
