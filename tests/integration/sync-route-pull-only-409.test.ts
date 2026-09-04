@@ -6,8 +6,12 @@ const findUserByAuth = vi.fn();
 const runSyncForConnection = vi.fn();
 const connSingle = vi.fn();
 
-vi.mock("@/lib/firebase/admin-verify", () => ({ verifyAdminAuth: (r: unknown) => verifyAdminAuth(r) }));
-vi.mock("@/lib/supabase/find-user-by-auth", () => ({ findUserByAuth: (...a: unknown[]) => findUserByAuth(...a) }));
+vi.mock("@/lib/firebase/admin-verify", () => ({
+  verifyAdminAuth: (r: unknown) => verifyAdminAuth(r),
+}));
+vi.mock("@/lib/supabase/find-user-by-auth", () => ({
+  findUserByAuth: (...a: unknown[]) => findUserByAuth(...a),
+}));
 vi.mock("@/lib/api/services/sync-orchestrator", () => ({
   runSyncForConnection: (...a: unknown[]) => runSyncForConnection(...a),
 }));
@@ -28,7 +32,10 @@ vi.mock("@/lib/supabase/server-client", () => ({
 
 const CO = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 function post(body: unknown) {
-  return new Request("http://localhost/api/sync", { method: "POST", body: JSON.stringify(body) }) as never;
+  return new Request("http://localhost/api/sync", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }) as never;
 }
 
 describe("POST /api/sync direction gate", () => {
@@ -37,12 +44,21 @@ describe("POST /api/sync direction gate", () => {
     vi.unstubAllEnvs(); // default: ACCOUNTING_WRITE_ENABLED unset → push kill-switch ON
     verifyAdminAuth.mockResolvedValue({ uid: "fb-1", email: "o@x.test" });
     findUserByAuth.mockResolvedValue({ id: "user-1", company_id: CO });
-    runSyncForConnection.mockResolvedValue({ success: true, results: [], message: "ok" });
+    runSyncForConnection.mockResolvedValue({
+      success: true,
+      results: [],
+      message: "ok",
+    });
   });
 
   it("409 when connection is pull_only", async () => {
     connSingle.mockResolvedValue({
-      data: { id: "conn-1", is_connected: true, last_sync_at: null, sync_direction: "pull_only" },
+      data: {
+        id: "conn-1",
+        is_connected: true,
+        last_sync_at: null,
+        sync_direction: "pull_only",
+      },
       error: null,
     });
     const { POST } = await import("@/app/api/sync/route");
@@ -53,7 +69,12 @@ describe("POST /api/sync direction gate", () => {
 
   it("409 (kill-switch) when bidirectional but ACCOUNTING_WRITE_ENABLED is unset", async () => {
     connSingle.mockResolvedValue({
-      data: { id: "conn-1", is_connected: true, last_sync_at: null, sync_direction: "bidirectional" },
+      data: {
+        id: "conn-1",
+        is_connected: true,
+        last_sync_at: null,
+        sync_direction: "bidirectional",
+      },
       error: null,
     });
     const { POST } = await import("@/app/api/sync/route");
@@ -65,7 +86,12 @@ describe("POST /api/sync direction gate", () => {
   it("does not run the legacy QuickBooks sync orchestrator when full CRUD is enabled", async () => {
     vi.stubEnv("ACCOUNTING_WRITE_ENABLED", "true");
     connSingle.mockResolvedValue({
-      data: { id: "conn-1", is_connected: true, last_sync_at: null, sync_direction: "bidirectional" },
+      data: {
+        id: "conn-1",
+        is_connected: true,
+        last_sync_at: null,
+        sync_direction: "bidirectional",
+      },
       error: null,
     });
     const { POST } = await import("@/app/api/sync/route");
