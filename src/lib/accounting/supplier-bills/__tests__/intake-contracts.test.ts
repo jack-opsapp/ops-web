@@ -9,16 +9,19 @@ import {
   requiredChecksForDocument,
   resolveJobMatch,
 } from "../intake-contracts";
+import type { SupplierBillCheckState } from "../intake-contracts";
 
 const OWNER_ID = "10000000-0000-4000-8000-000000000001";
 const PROJECT_A = "10000000-0000-4000-8000-000000000002";
 const PROJECT_B = "10000000-0000-4000-8000-000000000003";
 
-function clearedChecks(kind: "material" | "subcontractor" = "material") {
+function clearedChecks(
+  kind: "material" | "subcontractor" = "material"
+): SupplierBillCheckState[] {
   return requiredChecksForDocument(kind).map((key) => ({
     key,
-    outcome: "clear" as const,
-    disposition: "accepted" as const,
+    outcome: "clear",
+    disposition: "accepted",
     note: null,
   }));
 }
