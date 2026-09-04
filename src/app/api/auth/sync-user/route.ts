@@ -284,12 +284,47 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         updates.last_name = lastName;
       }
 
-      const { error: updateError } = await db.from("users").update(updates).eq("id", existingRow.id);
+      // Identity-bearing fields are the ones whose loss corrupts the session:
+      // private.resolve_uid() — and therefore every users RLS policy, plus
+      // create_company_for_owner / join_user_to_company — resolves identity off
+      // auth_id / firebase_uid. If the write that sets them is rejected we must
+      // NOT report success: the caller would proceed on state the database does
+      // not hold, and (as in the 2026-09-03 expression-index privilege
+      // incident) stay permanently unable to see its own row under RLS.
+      const carriesIdentity =
+        Object.prototype.hasOwnProperty.call(updates, "auth_id") ||
+        Object.prototype.hasOwnProperty.call(updates, "firebase_uid");
+
+      // `.select().single()` makes the response the row the database actually
+      // holds, so a rejected — or silently zero-row — write can never be echoed
+      // back as if it had persisted.
+      const { data: updatedRow, error: updateError } = await db
+        .from("users")
+        .update(updates)
+        .eq("id", existingRow.id)
+        .select("*")
+        .single();
+
       if (updateError) {
-        console.error("[sync-user] Failed to update user auth fields:", updateError.message);
+        console.error(
+          "[sync-user] Failed to update user auth fields:",
+          updateError.message,
+          { rowId: existingRow.id, carriesIdentity }
+        );
+        if (carriesIdentity) {
+          return NextResponse.json(
+            {
+              error:
+                "Could not persist your account identity. Please try signing in again.",
+            },
+            { status: 500 }
+          );
+        }
       }
 
-      const user = mapUserFromDb({ ...existingRow, ...updates });
+      // On a tolerated (cosmetic-only) failure fall back to the row as last
+      // read — never to a merge of the updates we failed to write.
+      const user = mapUserFromDb(updatedRow ?? existingRow);
       const company = user.companyId ? await fetchCompanyById(user.companyId) : null;
 
       return NextResponse.json({ user, company });

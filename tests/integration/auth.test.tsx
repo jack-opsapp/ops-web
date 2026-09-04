@@ -28,7 +28,7 @@ vi.mock("@/lib/firebase/auth", () => ({
   signInWithGoogle: vi.fn(),
   signInWithEmail: vi.fn(),
   signOut: vi.fn(),
-  onAuthStateChanged: vi.fn(),
+  onIdTokenChanged: vi.fn(),
   getCurrentUser: vi.fn(),
   getIdToken: vi.fn(),
 }));
@@ -38,7 +38,7 @@ import {
   signInWithEmail,
   signInWithGoogle,
   signOut,
-  onAuthStateChanged,
+  onIdTokenChanged,
   getCurrentUser,
 } from "@/lib/firebase/auth";
 

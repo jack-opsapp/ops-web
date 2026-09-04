@@ -24,6 +24,7 @@ import { IconBtn } from "@/components/ops/projects/workspace/atoms/icon-btn";
 import { Btn } from "@/components/ops/projects/workspace/atoms/btn";
 import { Field } from "@/components/ops/projects/workspace/atoms/field";
 import { TextInput } from "@/components/ops/projects/workspace/atoms/text-input";
+import { PortalAccessBlock } from "@/components/clients/portal-access-block";
 
 function ContactRow({
   label,
@@ -341,6 +342,9 @@ export function ContactTab({
           )}
         </Stack>
       </Section>
+
+      {/* Portal access — who can see this client's record from the customer portal */}
+      <PortalAccessBlock clientId={clientId} />
 
       {/* Notes */}
       <Section title={t("window.section.notes")}>

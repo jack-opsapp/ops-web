@@ -55,6 +55,7 @@ describe("settings Website information architecture", () => {
         can: () => permissionGranted,
         isPermissionUnlocked: () => true,
         canAccessFeature,
+        hasPublicIntegration: true,
       });
 
       expect(visible).toBe(expected);

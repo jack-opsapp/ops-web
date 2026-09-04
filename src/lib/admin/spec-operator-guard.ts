@@ -6,7 +6,7 @@
  * MUST re-check the gate independently before mutating any SPEC table.
  *
  * Re-check protocol:
- *  1. Resolve Firebase token from cookies (`__session` / `ops-auth-token`).
+ *  1. Resolve Firebase token from cookies (`ops-auth-token` / `__session`).
  *  2. Verify the token, derive the OPS user_id.
  *  3. Call `isSpecOperator(userId)` — the same TS mirror the layout uses.
  *  4. Return `{ userId }` on success or `null` on any failure.
@@ -21,6 +21,11 @@ import { cookies, headers } from "next/headers";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { isSpecOperator } from "@/lib/admin/spec-permissions";
+import {
+  LEGACY_SESSION_COOKIE_NAME,
+  OPS_AUTH_COOKIE_NAME,
+  selectFirebaseIdTokenCookie,
+} from "@/lib/auth/firebase-id-token-cookie";
 
 export interface SpecOperatorContext {
   userId: string;
@@ -33,8 +38,10 @@ export async function requireSpecOperatorAction(): Promise<SpecOperatorContext |
 
     const token =
       headersList.get("authorization")?.replace("Bearer ", "") ||
-      cookieStore.get("__session")?.value ||
-      cookieStore.get("ops-auth-token")?.value;
+      selectFirebaseIdTokenCookie(
+        cookieStore.get(OPS_AUTH_COOKIE_NAME)?.value,
+        cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value
+      );
     if (!token) return null;
 
     const fbUser = await verifyAuthToken(token);

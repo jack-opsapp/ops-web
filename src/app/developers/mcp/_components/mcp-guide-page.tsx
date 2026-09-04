@@ -1,4 +1,4 @@
-import { ArrowUpRight, Mail } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 import { CopyCodeButton } from "@/app/developers/_components/copy-code-button";
 import { DevelopersHeader } from "@/app/developers/_components/developers-header";
@@ -8,9 +8,9 @@ import type {
   PublicMcpTool,
   PublicMcpToolGroupLabel,
 } from "@/lib/agent-control-plane/mcp/docs/reference";
-import { OPS_SUPPORT_EMAIL } from "@/lib/email/constants";
 
 import { McpGuideNavigation } from "./mcp-guide-navigation";
+import { RequestToolForm } from "./request-tool-form";
 
 interface McpGuidePageProps {
   readonly copy: McpDocsCopy;
@@ -133,10 +133,6 @@ export function McpGuidePage({ copy, reference }: McpGuidePageProps) {
   const toolById = new Map(reference.tools.map((tool) => [tool.id, tool]));
   const codexCommand = `codex mcp add ops --url ${reference.endpoint}`;
   const claudeCommand = `claude mcp add --transport http ops ${reference.endpoint}`;
-  const requestHref = `mailto:${OPS_SUPPORT_EMAIL}?subject=${encodeURIComponent(
-    copy.requestToolSubject
-  )}&body=${encodeURIComponent(copy.requestToolTemplate)}`;
-
   return (
     <div className="min-h-screen bg-background text-text">
       <DevelopersHeader
@@ -533,28 +529,11 @@ export function McpGuidePage({ copy, reference }: McpGuidePageProps) {
                   <p className="mt-1 max-w-3xl font-mohave text-body text-text-2">
                     {copy.requestToolBody}
                   </p>
-                  <p className="mt-3 font-mono text-micro uppercase tracking-wider text-text-3">
-                    {copy.requestToolSafety}
-                  </p>
                 </div>
-                <div className="self-start rounded-modal border border-glass-border bg-glass-dense p-3 lg:col-span-5">
-                  <p className="font-mono text-micro uppercase tracking-wider text-text-3">
-                    {copy.requestToolEmailLabel}
-                  </p>
-                  <a
-                    href={requestHref}
-                    className="mt-1 block break-all font-mono text-data-sm text-text-2 underline decoration-text-3 underline-offset-4 transition-colors duration-150 ease-smooth hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
-                  >
-                    {OPS_SUPPORT_EMAIL}
-                  </a>
-                  <a
-                    href={requestHref}
-                    className="mt-3 inline-flex min-h-control-36 items-center gap-1 rounded border border-ops-accent px-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
-                  >
-                    <Mail aria-hidden className="h-icon-16 w-icon-16" />
-                    {copy.requestToolAction}
-                  </a>
-                </div>
+                <RequestToolForm
+                  copy={copy}
+                  className="self-start lg:col-span-5"
+                />
               </div>
             </section>
 

@@ -9,7 +9,7 @@ import {
   reauthenticateWithCredential,
   updatePassword as firebaseUpdatePassword,
   signOut as firebaseSignOut,
-  onAuthStateChanged as firebaseOnAuthStateChanged,
+  onIdTokenChanged as firebaseOnIdTokenChanged,
   type User,
   type Unsubscribe,
 } from "firebase/auth";
@@ -26,7 +26,7 @@ appleProvider.addScope("name");
 
 // ─── Redirect Flag ──────────────────────────────────────────────────────────
 // In Firebase v11, calling getRedirectResult() proactively blocks
-// onAuthStateChanged from firing. We only call it when we know a
+// the Firebase auth observer from firing. We only call it when we know a
 // redirect was initiated (flagged via sessionStorage).
 const REDIRECT_FLAG_KEY = "ops-auth-redirect-pending";
 const REDIRECT_CTX_KEY = "ops-auth-redirect-ctx";
@@ -143,7 +143,7 @@ export function clearRedirectContext(): void {
  *
  * In redirect mode, the returned promise never resolves on success (the
  * browser navigates away). In popup mode, it resolves after the popup
- * closes; the subsequent onAuthStateChanged fire drives AuthProvider.
+ * closes; the subsequent ID-token observer fire drives AuthProvider.
  */
 export async function signInWithGoogle(ctx: RedirectContext): Promise<void> {
   setRedirectContext(ctx);
@@ -218,13 +218,13 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * Subscribe to auth state changes.
+ * Subscribe to auth state and ID-token changes.
  * Returns an unsubscribe function.
  */
-export function onAuthStateChanged(
+export function onIdTokenChanged(
   callback: (user: User | null) => void
 ): Unsubscribe {
-  return firebaseOnAuthStateChanged(auth, callback);
+  return firebaseOnIdTokenChanged(auth, callback);
 }
 
 /**

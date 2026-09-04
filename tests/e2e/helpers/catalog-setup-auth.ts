@@ -34,7 +34,8 @@ import { expect, type Page, type Route } from "@playwright/test";
 
 export const COMPANY_ID = "00000000-0000-4000-8000-000000000001";
 export const CURRENT_USER_ID = "00000000-0000-4000-8000-000000000101";
-export const AUTH_TOKEN = "mock-id-token";
+export const AUTH_TOKEN =
+  "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtb2NrLWZpcmViYXNlLXVzZXIiLCJleHAiOjQxMDI0NDQ4MDB9.signature";
 const FIREBASE_FALLBACK_API_KEY = "ops-e2e-api-key";
 
 export const E2E_ORIGIN =

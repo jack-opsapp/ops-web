@@ -432,34 +432,49 @@ async function loadCompleteCommercialEvidence(input: {
   };
 }
 
-function lifecycleEvidenceForOutcome(input: {
+/**
+ * Evidence for an immutable receipt is what the episode held AT the decisive
+ * event, never what arrived after it. `events` is loaded ascending by
+ * (occurred_at, id), so the decisive event's index is the decision boundary.
+ * Slice on the index and not on a timestamp: provider delivery timestamps are
+ * re-stamped after ingest, so a timestamp boundary is not reproducible.
+ *
+ * Without the boundary, a settled thread's receipt grew on every replay under
+ * an unchanged immutable key and collided forever (bug 2db2e0d0).
+ *
+ * Exported for the boundary contract test.
+ */
+export function lifecycleEvidenceForOutcome(input: {
   outcome: NonNullable<CommercialOutcomeDecision>;
   events: CommercialEvidenceEvent[];
   messages: CommercialEvidenceMessage[];
 }): CommercialDecisionEvidence {
+  const decisiveIndex = input.events.findIndex(
+    (event) => event.id === input.outcome.decisiveEvidenceKey
+  );
+  if (decisiveIndex < 0) {
+    throw new Error("commercial lifecycle decision has no decisive event");
+  }
+  const boundaryEvents = input.events.slice(0, decisiveIndex + 1);
+  const boundaryEventIds = new Set(boundaryEvents.map((event) => event.id));
   const evidenceMessageIds = new Set(input.outcome.evidenceMessageIds);
   evidenceMessageIds.add(input.outcome.decisiveMessageId);
-  const evidenceEvents = input.events.filter(
+  const evidenceEvents = boundaryEvents.filter(
     (event) =>
       event.id === input.outcome.decisiveEvidenceKey ||
       evidenceMessageIds.has(event.provider_message_id)
   );
-  const sourceEvent = evidenceEvents.find(
-    (event) => event.id === input.outcome.decisiveEvidenceKey
-  );
-  if (!sourceEvent) {
-    throw new Error("commercial lifecycle decision has no decisive event");
-  }
   return {
-    sourceEventId: sourceEvent.id,
+    sourceEventId: input.outcome.decisiveEvidenceKey,
     evidenceEventIds: [...new Set(evidenceEvents.map((event) => event.id))],
     evidenceMessageIds: [
       ...new Set(
         input.messages
           .filter(
             (message) =>
-              message.evidenceKey === input.outcome.decisiveEvidenceKey ||
-              evidenceMessageIds.has(message.providerMessageId)
+              boundaryEventIds.has(message.evidenceKey) &&
+              (message.evidenceKey === input.outcome.decisiveEvidenceKey ||
+                evidenceMessageIds.has(message.providerMessageId))
           )
           .map((message) => message.providerMessageId)
       ),

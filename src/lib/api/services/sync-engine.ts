@@ -44,6 +44,7 @@ import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-clien
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
 import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
 import {
+  isLifecycleDecisionReplayConflict,
   loadPhaseCStageDecisionEvidence,
   recordAndApplyPhaseCStageDecision,
 } from "@/lib/email/phase-c-lifecycle-decision";
@@ -2977,8 +2978,11 @@ async function applyLabel(
  * manual stage, a final Won/discarded lead, or a thread the router held for
  * human review. Engine-owned Lost deferrals remain eligible for a later,
  * evidence-backed acceptance or re-deferral.
- * Non-fatal — a failure here must not break the sync loop. The cheap stage/manual
- * guard runs BEFORE the (heavier) state build to skip the common no-op case.
+ * Fail-closed by design: any error here becomes a LifecyclePersistenceError so
+ * the mailbox cursor holds and the idempotent cycle replays. The single
+ * exception is a lifecycle replay conflict, which runSync isolates to the one
+ * lead — see the accept loop. The cheap stage/manual guard runs BEFORE the
+ * (heavier) state build to skip the common no-op case.
  */
 async function maybeAutoAdvanceOnAccept(args: {
   providerThreadId: string | null;
@@ -7050,6 +7054,27 @@ export const SyncEngine = {
                 });
                 console.warn(
                   `[sync-engine] commercial outcome recovery deferred for opportunity ${opportunityId}: ${acceptError.message}`
+                );
+                continue;
+              }
+              // A settled receipt refusing a replay is this lead's business,
+              // not the mailbox's. The decision it already carries is durable
+              // and applied, so re-recording it writes nothing — while failing
+              // the run here holds the provider cursor and starves every other
+              // message behind one lead. Bug 2db2e0d0 froze Gmail ingestion for
+              // 44 hours on exactly this path. It stays in result.errors so the
+              // cron still reports 503 and the health monitor still sees it:
+              // the mailbox drains, the alarm keeps ringing.
+              if (isLifecycleDecisionReplayConflict(acceptError)) {
+                const conflict =
+                  acceptError instanceof Error
+                    ? acceptError.message
+                    : "unknown error";
+                console.warn(
+                  `[sync-engine] lifecycle decision replay conflict isolated for opportunity ${opportunityId}; mailbox cursor will advance: ${conflict}`
+                );
+                result.errors.push(
+                  `[sync-engine] lifecycle decision replay conflict isolated for opportunity ${opportunityId}: ${conflict}`
                 );
                 continue;
               }

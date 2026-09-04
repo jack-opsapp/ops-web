@@ -6,13 +6,18 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import {
-  onAuthStateChanged,
+  onIdTokenChanged,
   getIdToken,
   checkRedirectResult,
   clearRedirectFlag,
   isRedirectPending,
   clearRedirectContext,
 } from "@/lib/firebase/auth";
+import {
+  getFirebaseIdTokenCookieMaxAge,
+  LEGACY_SESSION_COOKIE_NAME,
+  OPS_AUTH_COOKIE_NAME,
+} from "@/lib/auth/firebase-id-token-cookie";
 import { getFirebaseAuth } from "@/lib/firebase/config";
 import {
   attemptDevBypass,
@@ -111,17 +116,30 @@ function revokePersistedActorAuthority(queryClient: QueryClient): QueryClient {
  * Firebase auth is client-side only (localStorage), but middleware runs
  * on the server and can only read cookies.
  */
-function setAuthCookie(token: string | null) {
-  if (typeof document === "undefined") return;
+function setAuthCookie(token: string | null): boolean {
+  if (typeof document === "undefined") return false;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  const clearCookie = (name: string) => {
+    document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  };
+
   if (token) {
-    document.cookie = `ops-auth-token=${token}; path=/; max-age=2592000; SameSite=Lax`;
-  } else {
-    document.cookie = "ops-auth-token=; path=/; max-age=0";
-    // Legacy/server-rendered routes also accept __session, and several prefer
-    // it over ops-auth-token. Revocation must clear both names atomically from
-    // the browser's perspective or the prior actor can remain authenticated.
-    document.cookie = "__session=; path=/; max-age=0";
+    const maxAge = getFirebaseIdTokenCookieMaxAge(token);
+    if (maxAge === null) {
+      clearCookie(OPS_AUTH_COOKIE_NAME);
+      clearCookie(LEGACY_SESSION_COOKIE_NAME);
+      return false;
+    }
+    document.cookie = `${OPS_AUTH_COOKIE_NAME}=${token}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
+    // Canonical writes retire any stale legacy value so server surfaces cannot
+    // accidentally choose a different actor's token.
+    clearCookie(LEGACY_SESSION_COOKIE_NAME);
+    return true;
   }
+
+  clearCookie(OPS_AUTH_COOKIE_NAME);
+  clearCookie(LEGACY_SESSION_COOKIE_NAME);
+  return true;
 }
 
 /**
@@ -129,7 +147,7 @@ function setAuthCookie(token: string | null) {
  *
  * Uses authStateReady() as the primary mechanism (Promise-based,
  * resolves when Firebase has determined auth state). Falls back to
- * onAuthStateChanged for reactive updates (sign-in, sign-out, token refresh).
+ * onIdTokenChanged for reactive updates (sign-in, sign-out, token refresh).
  *
  * Important: The LoginPage handles the initial syncUser call during
  * a fresh sign-in. AuthProvider only calls syncUser when Firebase
@@ -165,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Handle redirect result only if a redirect was actually initiated.
     // We keep a reference to the promise so handleAuthState can defer the
     // unauth conclusion until getRedirectResult actually resolves —
-    // onAuthStateChanged fires null synchronously on subscribe, which
+    // onIdTokenChanged fires null synchronously on subscribe, which
     // otherwise races against the redirect processing and eats the ctx.
     let redirectResultPromise: Promise<
       import("firebase/auth").User | null
@@ -203,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     /**
      * Process a Firebase user (or null) into Zustand state.
-     * Called from both authStateReady and onAuthStateChanged.
+     * Called from both authStateReady and onIdTokenChanged.
      */
     async function handleAuthState(
       firebaseUser: import("firebase/auth").User | null
@@ -212,10 +230,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // If Firebase reports no user but we have a pending redirect result,
       // wait for it before concluding unauth. A synchronous null fire from
-      // onAuthStateChanged can precede the redirect's processing — acting on
+      // onIdTokenChanged can precede the redirect's processing — acting on
       // it would clear the freshly-stashed redirect ctx and strand a valid
       // sign-in. If the redirect resolves with a user, Firebase will fire
-      // onAuthStateChanged again with that user; we let that call handle it.
+      // onIdTokenChanged again with that user; we let that call handle it.
       if (!firebaseUser && redirectResultPromise) {
         const redirectUser = await redirectResultPromise;
         redirectResultPromise = null; // single-use defer
@@ -252,14 +270,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Dev bypass: when NEXT_PUBLIC_DEV_BYPASS_AUTH=true, mint a custom
         // Firebase token via /api/dev/bypass-token and sign in as the
         // selected dev user. Once signed in, Firebase fires
-        // onAuthStateChanged again with the bypass user and the normal
+        // onIdTokenChanged again with the bypass user and the normal
         // authed path takes over. Used to test inside the Claude Code
         // preview sandbox where OAuth popups are blocked.
         if (isDevBypassEnabled() && !bypassAttempted) {
           bypassAttempted = true;
           const ok = await attemptDevBypass();
           if (cancelled) return;
-          if (ok) return; // wait for the next onAuthStateChanged fire
+          if (ok) return; // wait for the next onIdTokenChanged fire
         }
 
         revokeUnauthenticatedClient();
@@ -305,7 +323,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!idToken) {
         throw new Error("Firebase returned no ID token");
       }
-      setAuthCookie(idToken);
+      if (!setAuthCookie(idToken)) {
+        throw new Error("Firebase returned an expired or malformed ID token");
+      }
 
       if (syncingFirebaseUids.get(firebaseUser.uid) !== actorGeneration) {
         // Check if the login page already handled this (user already in store)
@@ -491,8 +511,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       firebaseUser: import("firebase/auth").User | null
     ) => {
       const actorKey = firebaseUser?.uid ?? "signed-out";
-      // Firebase can deliver the same actor through authStateReady,
-      // onAuthStateChanged, and token-refresh callbacks while the canonical
+      // Firebase can deliver the same actor through authStateReady and
+      // ID-token callbacks while the canonical
       // sync is still running. A duplicate must not replace the only timeout
       // protecting that in-flight sync.
       if (activeAuthProcessing?.actorKey === actorKey) return;
@@ -527,7 +547,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // ── Primary: authStateReady() ───────────────────────────────────────────
     // Resolves when Firebase has determined auth state. Unlike
-    // onAuthStateChanged, this doesn't block on redirect resolution.
+    // the observer callback, this doesn't block on redirect resolution.
     const firebaseAuth = getFirebaseAuth();
     let initialCheckDone = false;
 
@@ -551,12 +571,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-    // ── Secondary: onAuthStateChanged for reactive updates ──────────────────
+    // ── Secondary: onIdTokenChanged for reactive updates ───────────────────
     // Handles sign-in, sign-out, and token refresh AFTER the initial check.
     let unsubscribe: (() => void) | undefined;
     try {
-      unsubscribe = onAuthStateChanged((firebaseUser) => {
-        console.log("[AuthProvider] onAuthStateChanged fired:", !!firebaseUser);
+      unsubscribe = onIdTokenChanged((firebaseUser) => {
+        console.log("[AuthProvider] onIdTokenChanged fired:", !!firebaseUser);
         if (!initialCheckDone) {
           // First fire — use this as the initial check
           initialCheckDone = true;
