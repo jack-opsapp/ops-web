@@ -11,7 +11,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
-export const PORTAL_SHARE_RETIRED = Object.freeze({
+const PORTAL_SHARE_RETIRED = Object.freeze({
   error: "portal_link_sharing_retired",
 });
 

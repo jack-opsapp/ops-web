@@ -31,7 +31,28 @@ vi.mock("@/lib/firebase/admin-verify", () => ({
   verifyAdminAuth: mocks.verifyAdminAuth,
 }));
 
-import { POST } from "@/app/api/portal/share/route";
+import * as portalShareRoute from "@/app/api/portal/share/route";
+
+const { POST } = portalShareRoute;
+
+const ALLOWED_NEXT_ROUTE_EXPORTS = new Set([
+  "GET",
+  "HEAD",
+  "OPTIONS",
+  "POST",
+  "PUT",
+  "DELETE",
+  "PATCH",
+  "config",
+  "generateStaticParams",
+  "revalidate",
+  "dynamic",
+  "dynamicParams",
+  "fetchCache",
+  "preferredRegion",
+  "runtime",
+  "maxDuration",
+]);
 
 const RETIRED_BODY = { error: "portal_link_sharing_retired" };
 
@@ -79,6 +100,14 @@ function sourceFilesContaining(needle: string): string[] {
 }
 
 describe("POST /api/portal/share — frozen", () => {
+  it("exports only fields supported by the Next route-module contract", () => {
+    const invalidExports = Object.keys(portalShareRoute).filter(
+      (name) => !ALLOWED_NEXT_ROUTE_EXPORTS.has(name)
+    );
+
+    expect(invalidExports).toEqual([]);
+  });
+
   it("answers 410 with the retirement body for an admin request", async () => {
     mocks.verifyAdminAuth.mockResolvedValue({
       uid: "firebase-admin",
