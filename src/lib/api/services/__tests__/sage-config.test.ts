@@ -24,7 +24,7 @@ describe("Sage provider configuration", () => {
   beforeEach(() => {
     vi.resetModules();
     clearSageEnvironment();
-    process.env.NODE_ENV = "test";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "test";
   });
 
   afterEach(() => {
@@ -38,7 +38,7 @@ describe("Sage provider configuration", () => {
   });
 
   it("defaults a production runtime to the production profile", async () => {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
     const { getSageProviderEnvironment } = await import("../sage-config");
 
     expect(getSageProviderEnvironment()).toBe("production");
