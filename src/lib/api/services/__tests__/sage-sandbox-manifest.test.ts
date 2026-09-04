@@ -14,7 +14,7 @@ const CONNECTION_ID = "20000000-0000-4000-8000-000000000001";
 const USER_ID = "30000000-0000-4000-8000-000000000001";
 const CATEGORY_ID = "40000000-0000-4000-8000-000000000001";
 
-function readyEnvironment(): NodeJS.ProcessEnv {
+function readyEnvironment(): Record<string, string | undefined> {
   return {
     SAGE_ACTIVE_PROFILE: "sandbox",
     ACCOUNTING_WRITE_ENABLED: "true",

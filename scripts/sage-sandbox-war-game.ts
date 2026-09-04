@@ -119,7 +119,9 @@ export type SageSandboxPreflight =
   | { status: "ready"; config: SageSandboxConfig }
   | { status: "blocked"; reason: string };
 
-function value(environment: NodeJS.ProcessEnv, name: string): string {
+type Environment = Readonly<Record<string, string | undefined>>;
+
+function value(environment: Environment, name: string): string {
   return environment[name]?.trim() ?? "";
 }
 
@@ -281,7 +283,7 @@ export function providerCleanupTargets(
 }
 
 export function preflightSageSandboxWarGame(
-  environment: NodeJS.ProcessEnv = process.env
+  environment: Environment = process.env
 ): SageSandboxPreflight {
   if (value(environment, "SAGE_ACTIVE_PROFILE") !== "sandbox") {
     return blocked("SAGE_ACTIVE_PROFILE must be explicitly set to sandbox.");
@@ -1028,7 +1030,7 @@ async function writeAccepted(
 }
 
 export async function runSageSandboxWarGame(
-  environment: NodeJS.ProcessEnv = process.env
+  environment: Environment = process.env
 ): Promise<
   | { status: "blocked"; reason: string }
   | { status: "finished"; manifest: SageSandboxManifest; artifactPath: string }
