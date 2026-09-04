@@ -401,6 +401,13 @@ export const queryKeys = {
     all: ["accounting"] as const,
     connections: (companyId: string) =>
       [...queryKeys.accounting.all, "connections", companyId] as const,
+    sageBusinessSelection: (companyId: string, sessionId: string) =>
+      [
+        ...queryKeys.accounting.all,
+        "sageBusinessSelection",
+        companyId,
+        sessionId,
+      ] as const,
     syncHistory: (companyId: string) =>
       [...queryKeys.accounting.all, "syncHistory", companyId] as const,
     syncIssues: (companyId: string) =>

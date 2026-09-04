@@ -11,6 +11,43 @@ import type {
   AccountingProvider,
 } from "@/lib/types/pipeline";
 
+export interface SageBusinessChoice {
+  id: string;
+  name: string;
+}
+
+export interface SageBusinessSelectionSession {
+  businesses: SageBusinessChoice[];
+  providerEnvironment: "production" | "sandbox";
+}
+
+export interface SageBusinessSelectionResult {
+  success: true;
+  providerEnvironment: "production" | "sandbox";
+  businessName: string;
+}
+
+export class AccountingRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "AccountingRequestError";
+  }
+}
+
+async function accountingResponseError(
+  response: Response,
+  fallback: string
+): Promise<AccountingRequestError> {
+  const body = await response.json().catch(() => null);
+  return new AccountingRequestError(
+    typeof body?.error === "string" ? body.error : fallback,
+    response.status
+  );
+}
+
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
 function mapConnectionFromDb(
@@ -22,6 +59,11 @@ function mapConnectionFromDb(
     provider: row.provider as AccountingProvider,
     providerEnvironment:
       row.provider_environment === "sandbox" ? "sandbox" : "production",
+    sageBusinessName:
+      typeof row.sage_business_name === "string" &&
+      row.sage_business_name.trim()
+        ? row.sage_business_name.trim()
+        : null,
     // OAuth secrets (access_token / refresh_token) and the customer-identifying
     // realm_id are NEVER read into the client bundle (Intuit security req):
     // they are encrypted at rest and only the server decrypts them. The client
@@ -34,7 +76,8 @@ function mapConnectionFromDb(
     lastSyncAt: parseDate(row.last_sync_at),
     syncEnabled: (row.sync_enabled as boolean) ?? false,
     syncDirection:
-      (row.sync_direction as "pull_only" | "push_only" | "bidirectional") ?? "pull_only",
+      (row.sync_direction as "pull_only" | "push_only" | "bidirectional") ??
+      "pull_only",
     propagateDeletes: (row.propagate_deletes as boolean) ?? false,
     webhookVerifierToken: null,
     createdAt: parseDate(row.created_at),
@@ -47,14 +90,22 @@ export interface AccountingSyncIssue {
   entityType: "customer" | "invoice" | "estimate" | "payment";
   entityId: string;
   externalId: string | null;
-  operation: "create" | "update" | "void" | "inactivate" | "delete_soft" | "link" | "reconcile";
+  operation:
+    | "create"
+    | "update"
+    | "void"
+    | "inactivate"
+    | "delete_soft"
+    | "link"
+    | "reconcile";
   status: "blocked" | "needs_review";
   lastError: string | null;
   updatedAt: Date;
 }
 
 function mapSyncIssue(row: Record<string, unknown>): AccountingSyncIssue {
-  const updatedAt = parseDate(row.updatedAt as string | null | undefined) ?? new Date(0);
+  const updatedAt =
+    parseDate(row.updatedAt as string | null | undefined) ?? new Date(0);
 
   return {
     id: String(row.id),
@@ -79,12 +130,14 @@ export const AccountingService = {
     const { data, error } = await supabase
       .from("accounting_connections")
       .select(
-        "id, company_id, provider, provider_environment, token_expires_at, is_connected, last_sync_at, sync_enabled, sync_direction, propagate_deletes, created_at, updated_at"
+        "id, company_id, provider, provider_environment, sage_business_name, token_expires_at, is_connected, last_sync_at, sync_enabled, sync_direction, propagate_deletes, created_at, updated_at"
       )
       .eq("company_id", companyId);
 
     if (error)
-      throw new Error(`Failed to fetch accounting connections: ${error.message}`);
+      throw new Error(
+        `Failed to fetch accounting connections: ${error.message}`
+      );
     return (data ?? []).map(mapConnectionFromDb);
   },
 
@@ -113,6 +166,92 @@ export const AccountingService = {
     }
 
     return response.json();
+  },
+
+  async getSageBusinessSelection(
+    companyId: string,
+    sessionId: string
+  ): Promise<SageBusinessSelectionSession> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    const params = new URLSearchParams({ companyId, sessionId });
+    const response = await fetch(
+      `/api/integrations/sage/businesses?${params}`,
+      {
+        headers: {
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+      }
+    );
+    if (!response.ok) {
+      throw await accountingResponseError(
+        response,
+        "Failed to load Sage businesses"
+      );
+    }
+    const body = (await response.json()) as Record<string, unknown>;
+    const providerEnvironment = body.providerEnvironment;
+    if (
+      (providerEnvironment !== "production" &&
+        providerEnvironment !== "sandbox") ||
+      !Array.isArray(body.businesses) ||
+      !body.businesses.every(
+        (business) =>
+          business &&
+          typeof business === "object" &&
+          typeof (business as { id?: unknown }).id === "string" &&
+          Boolean((business as { id: string }).id.trim()) &&
+          typeof (business as { name?: unknown }).name === "string" &&
+          Boolean((business as { name: string }).name.trim())
+      )
+    ) {
+      throw new AccountingRequestError("Invalid Sage business response", 500);
+    }
+    return {
+      providerEnvironment,
+      businesses: (body.businesses as SageBusinessChoice[]).map((business) => ({
+        id: business.id.trim(),
+        name: business.name.trim(),
+      })),
+    };
+  },
+
+  async selectSageBusiness(
+    companyId: string,
+    sessionId: string,
+    businessId: string
+  ): Promise<SageBusinessSelectionResult> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    const response = await fetch("/api/integrations/sage/businesses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+      body: JSON.stringify({ companyId, sessionId, businessId }),
+    });
+    if (!response.ok) {
+      throw await accountingResponseError(
+        response,
+        "Failed to connect Sage business"
+      );
+    }
+    const body = (await response.json()) as Record<string, unknown>;
+    if (
+      body.success !== true ||
+      (body.providerEnvironment !== "production" &&
+        body.providerEnvironment !== "sandbox") ||
+      typeof body.businessName !== "string" ||
+      !body.businessName.trim()
+    ) {
+      throw new AccountingRequestError("Invalid Sage connection response", 500);
+    }
+    return {
+      success: true,
+      providerEnvironment: body.providerEnvironment,
+      businessName: body.businessName.trim(),
+    };
   },
 
   async disconnectProvider(
@@ -182,7 +321,12 @@ export const AccountingService = {
         "Content-Type": "application/json",
         ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
       },
-      body: JSON.stringify({ companyId, provider, syncDirection, propagateDeletes }),
+      body: JSON.stringify({
+        companyId,
+        provider,
+        syncDirection,
+        propagateDeletes,
+      }),
     });
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null);
@@ -211,9 +355,7 @@ export const AccountingService = {
     }
   },
 
-  async getSyncHistory(
-    companyId: string
-  ): Promise<
+  async getSyncHistory(companyId: string): Promise<
     Array<{
       id: string;
       provider: string;
