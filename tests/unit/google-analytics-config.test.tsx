@@ -31,6 +31,7 @@ describe("GoogleAnalytics", () => {
     expect(scripts[1]?.props.children).toContain(
       `gtag('config', "G-TEST123", {`
     );
+    expect(scripts[1]?.props.children).toContain('["app.opsapp.co"]');
     expect(scripts[1]?.props.children).toContain(
       "page_location: window.location.origin + analyticsPath"
     );
@@ -51,7 +52,9 @@ describe("GA measurement ID parsing", () => {
   });
 
   it("serializes the measurement ID instead of interpolating executable text", () => {
-    const script = buildGoogleAnalyticsConfigScript("G-TEST123");
+    const script = buildGoogleAnalyticsConfigScript("G-TEST123", [
+      "app.opsapp.co",
+    ]);
     expect(script).toContain(`gtag('consent', 'default', {`);
     expect(script).toContain(`'ad_storage': 'denied'`);
     expect(script).toContain(`'ad_user_data': 'denied'`);
@@ -68,6 +71,7 @@ describe("GA measurement ID parsing", () => {
     const browser = {
       dataLayer,
       location: {
+        hostname: "app.opsapp.co",
         origin: "https://app.opsapp.co",
         pathname:
           "/projects/01890f3b-57d2-8a11-9c7f-426614174000/tasks/42",
@@ -77,9 +81,10 @@ describe("GA measurement ID parsing", () => {
     Object.assign(globalThis, { dataLayer });
 
     try {
-      new Function("window", buildGoogleAnalyticsConfigScript("G-TEST123"))(
-        browser
-      );
+      new Function(
+        "window",
+        buildGoogleAnalyticsConfigScript("G-TEST123", ["app.opsapp.co"])
+      )(browser);
       const configCall = Array.from(dataLayer[2] ?? []);
       expect(configCall).toEqual([
         "config",
@@ -93,6 +98,48 @@ describe("GA measurement ID parsing", () => {
     } finally {
       Reflect.deleteProperty(globalThis, "dataLayer");
     }
+  });
+
+  it.each([
+    "localhost",
+    "api.localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "::1",
+    "analytics-preview.vercel.app",
+    "example.com",
+  ])("does not initialize GA on non-production host %s", (hostname) => {
+    const browser: Record<string, unknown> = {
+      location: {
+        hostname,
+        origin: `http://${hostname}`,
+        pathname: "/admin/analytics",
+      },
+    };
+
+    new Function(
+      "window",
+      buildGoogleAnalyticsConfigScript("G-TEST123", ["app.opsapp.co"])
+    )(browser);
+
+    expect(browser).not.toHaveProperty("dataLayer");
+  });
+
+  it("initializes GA on the canonical web-app hostname", () => {
+    const browser: Record<string, unknown> = {
+      location: {
+        hostname: "app.opsapp.co",
+        origin: "https://app.opsapp.co",
+        pathname: "/admin/analytics",
+      },
+    };
+
+    new Function(
+      "window",
+      buildGoogleAnalyticsConfigScript("G-TEST123", ["app.opsapp.co"])
+    )(browser);
+
+    expect(browser).toHaveProperty("dataLayer");
   });
 
   it("fails production configuration when a non-empty measurement ID is invalid", () => {

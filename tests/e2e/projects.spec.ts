@@ -92,7 +92,7 @@ async function setupMocks(page: Page) {
     };
     (window as any).__FIREBASE_AUTH_MOCK__ = {
       currentUser: mockUser,
-      onAuthStateChanged: (callback: (user: any) => void) => {
+      onIdTokenChanged: (callback: (user: any) => void) => {
         // Auto-trigger as authenticated
         setTimeout(() => callback(mockUser), 100);
         return () => {};

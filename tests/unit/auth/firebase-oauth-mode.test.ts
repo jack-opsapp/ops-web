@@ -26,7 +26,7 @@ vi.mock("firebase/auth", () => {
     reauthenticateWithCredential: vi.fn(),
     updatePassword: vi.fn(),
     signOut: vi.fn(),
-    onAuthStateChanged: vi.fn(),
+    onIdTokenChanged: vi.fn(),
   };
 });
 

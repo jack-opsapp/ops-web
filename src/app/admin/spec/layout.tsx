@@ -3,6 +3,11 @@ import { cookies, headers } from "next/headers";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { isSpecOperator } from "@/lib/admin/spec-permissions";
+import {
+  LEGACY_SESSION_COOKIE_NAME,
+  OPS_AUTH_COOKIE_NAME,
+  selectFirebaseIdTokenCookie,
+} from "@/lib/auth/firebase-id-token-cookie";
 
 /**
  * SPEC admin gate.
@@ -25,8 +30,10 @@ async function requireSpecOperator() {
 
   const token =
     headersList.get("authorization")?.replace("Bearer ", "") ||
-    cookieStore.get("__session")?.value ||
-    cookieStore.get("ops-auth-token")?.value;
+    selectFirebaseIdTokenCookie(
+      cookieStore.get(OPS_AUTH_COOKIE_NAME)?.value,
+      cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value
+    );
 
   if (!token) return null;
 

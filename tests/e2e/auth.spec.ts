@@ -19,7 +19,7 @@ async function mockFirebaseAuth(page: Page) {
     // Mock Firebase Auth for E2E testing
     (window as any).__FIREBASE_AUTH_MOCK__ = {
       currentUser: null,
-      onAuthStateChanged: (callback: (user: any) => void) => {
+      onIdTokenChanged: (callback: (user: any) => void) => {
         // Store the callback so tests can trigger auth state changes
         (window as any).__AUTH_CALLBACK__ = callback;
         return () => {}; // unsubscribe

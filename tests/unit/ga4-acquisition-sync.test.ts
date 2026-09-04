@@ -15,6 +15,7 @@ import {
   GA4_ACQUISITION_METRICS,
   buildGA4AcquisitionRequest,
   fetchGA4AcquisitionDate,
+  fetchGA4ConversionQA,
 } from "@/lib/analytics/ga4-acquisition-client";
 
 const fixture = JSON.parse(
@@ -45,7 +46,7 @@ function storeMock() {
   return {
     latest: vi.fn().mockResolvedValue({
       cursor: null,
-      metadata: { backfill_complete: true },
+      metadata: { backfill_complete: true, hostname_filter_version: 1 },
     }),
     begin: vi.fn().mockImplementation(async (source: string) => `run-${source}`),
     annotate: vi.fn().mockResolvedValue(undefined),
@@ -60,7 +61,7 @@ describe("GA4 acquisition warehouse", () => {
   beforeEach(() => {
     vi.stubEnv("GA4_MARKETING_PROPERTY_ID", "475051117");
     vi.stubEnv("GA4_WEB_APP_PROPERTY_ID", "539494652");
-    vi.stubEnv("GA4_IOS_APP_PROPERTY_ID", "514229717");
+    vi.stubEnv("GA4_IOS_PROPERTY_ID", "514229717");
   });
 
   afterEach(() => {
@@ -80,6 +81,61 @@ describe("GA4 acquisition warehouse", () => {
       ...GA4_ACQUISITION_METRICS,
     ]);
     expect(request.offset).toBe(100_000);
+    expect(request.dimensions).not.toContainEqual({ name: "hostName" });
+    expect(request.dimensionFilter).toEqual({
+      filter: {
+        fieldName: "hostName",
+        inListFilter: {
+          values: ["opsapp.co", "www.opsapp.co", "try.opsapp.co"],
+          caseSensitive: false,
+        },
+      },
+    });
+  });
+
+  it("uses the web-app production hostname for the app acquisition report", () => {
+    const request = buildGA4AcquisitionRequest("web_app", "2026-08-28");
+
+    expect(request.dimensionFilter).toEqual({
+      filter: {
+        fieldName: "hostName",
+        inListFilter: {
+          values: ["app.opsapp.co"],
+          caseSensitive: false,
+        },
+      },
+    });
+  });
+
+  it("keeps iOS conversion QA free of a hostname filter", async () => {
+    const client = {
+      runReport: vi.fn().mockResolvedValue([{ rows: [] }]),
+    };
+
+    await fetchGA4ConversionQA("2026-08-20", "2026-08-28", { client });
+
+    expect(client.runReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        property: "properties/514229717",
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            inListFilter: {
+              values: [
+                "sign_up",
+                "begin_trial",
+                "complete_onboarding",
+                "create_first_project",
+                "purchase",
+              ],
+            },
+          },
+        },
+      })
+    );
+    expect(client.runReport.mock.calls[0][0].dimensions).not.toContainEqual({
+      name: "hostName",
+    });
   });
 
   it("paginates without treating a permission failure as zero traffic", async () => {
@@ -151,7 +207,10 @@ describe("GA4 acquisition warehouse", () => {
     expect(
       planGA4Sync({
         today: "2026-08-30",
-        latestState: { cursor: null, metadata: { backfill_complete: true } },
+        latestState: {
+          cursor: null,
+          metadata: { backfill_complete: true, hostname_filter_version: 1 },
+        },
       }).dates
     ).toEqual([
       "2026-08-22",
@@ -192,6 +251,71 @@ describe("GA4 acquisition warehouse", () => {
     ]);
     expect(store.replaceGA4Date).toHaveBeenCalledTimes(14);
     expect(store.complete).toHaveBeenCalledTimes(3);
+    expect(store.complete).toHaveBeenCalledWith(
+      "run-ga4_marketing",
+      expect.objectContaining({
+        metadata: expect.objectContaining({ hostname_filter_version: 1 }),
+      })
+    );
+  });
+
+  it("restarts a completed pre-filter sync at the 14-month retention boundary", () => {
+    const plan = planGA4Sync({
+      today: "2026-08-30",
+      latestState: {
+        cursor: null,
+        metadata: { backfill_complete: true },
+      },
+      backfillDaysPerRun: 2,
+    });
+
+    expect(plan).toEqual({
+      dates: [
+        "2025-06-28",
+        "2025-06-29",
+        "2026-08-22",
+        "2026-08-23",
+        "2026-08-24",
+        "2026-08-25",
+        "2026-08-26",
+        "2026-08-27",
+        "2026-08-28",
+      ],
+      latestFinalizedDate: "2026-08-28",
+      nextCursor: "2025-06-30",
+      backfillComplete: false,
+    });
+  });
+
+  it("continues an in-progress cursor written by the current hostname filter", () => {
+    const plan = planGA4Sync({
+      today: "2026-08-30",
+      latestState: {
+        cursor: "2025-07-10",
+        metadata: {
+          backfill_complete: false,
+          hostname_filter_version: 1,
+        },
+      },
+      backfillDaysPerRun: 2,
+    });
+
+    expect(plan).toEqual({
+      dates: [
+        "2025-07-10",
+        "2025-07-11",
+        "2026-08-22",
+        "2026-08-23",
+        "2026-08-24",
+        "2026-08-25",
+        "2026-08-26",
+        "2026-08-27",
+        "2026-08-28",
+      ],
+      latestFinalizedDate: "2026-08-28",
+      nextCursor: "2025-07-12",
+      backfillComplete: false,
+    });
   });
 
   it("records failed runs for every source when top-level preflight throws", async () => {
@@ -230,7 +354,10 @@ describe("GA4 acquisition warehouse", () => {
     const cursorFailure = new Error("Analytics sync state read failed: timeout");
     vi.mocked(store.latest).mockImplementation(async (source) => {
       if (source === "ga4_marketing") throw cursorFailure;
-      return { cursor: null, metadata: { backfill_complete: true } };
+      return {
+        cursor: null,
+        metadata: { backfill_complete: true, hostname_filter_version: 1 },
+      };
     });
 
     await expect(
@@ -264,6 +391,7 @@ describe("GA4 acquisition warehouse", () => {
     expect(store.annotate).toHaveBeenCalledWith("run-ga4_web_app", {
       property_key: "web_app",
       property_id: "539494652",
+      hostname_filter_version: 1,
       requested_dates: [
         "2026-08-22",
         "2026-08-23",
