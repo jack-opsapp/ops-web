@@ -26772,6 +26772,26 @@ export type Database = {
         Args: { p_opportunity_id: string }
         Returns: Json
       }
+      list_quickbooks_reconcile_candidates: {
+        Args: {
+          p_limit?: number
+          p_provider_environment: string
+        }
+        Returns: {
+          company_id: string
+          connection_id: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          last_audit_ops_updated_at: string | null
+          last_audit_qb_updated_at: string | null
+          last_reconciled_at: string | null
+          last_sync_at: string | null
+          money_touched: boolean
+          ops_updated_at: string | null
+          source_table: string
+        }[]
+      }
       list_phase_c_graduation_actor_scopes_as_system: {
         Args: { p_limit?: number }
         Returns: {
