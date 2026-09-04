@@ -63,7 +63,7 @@ export class SupplierBillIntakeRepository implements SupplierBillIntakeRepositor
     const [intake, lines, checks, document, events] = await Promise.all([
       this.client
         .from("supplier_bill_intakes")
-        .select("*")
+        .select("*,supplier_bills(balance,status)")
         .eq("company_id", companyId)
         .eq("id", intakeId)
         .is("deleted_at", null)
