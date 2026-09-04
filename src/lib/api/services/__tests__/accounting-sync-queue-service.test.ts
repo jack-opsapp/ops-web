@@ -16,7 +16,10 @@ function clientMock() {
   return { rpc, from, update, eq };
 }
 
-function guardedClientMock(result: { data: { id: string } | null; error: unknown }) {
+function guardedClientMock(result: {
+  data: { id: string } | null;
+  error: unknown;
+}) {
   const eq = vi.fn();
   const maybeSingle = vi.fn(() => Promise.resolve(result));
   const select = vi.fn(() => ({ maybeSingle }));
@@ -30,7 +33,9 @@ function guardedClientMock(result: { data: { id: string } | null; error: unknown
   return { from, update, eq, select, maybeSingle };
 }
 
-function queueRow(overrides: Partial<AccountingSyncQueueRow> = {}): AccountingSyncQueueRow {
+function queueRow(
+  overrides: Partial<AccountingSyncQueueRow> = {}
+): AccountingSyncQueueRow {
   return {
     id: "q-1",
     companyId: "7a88c7d6-d4e3-49be-9d21-0a989e0f3222",
@@ -50,6 +55,9 @@ function queueRow(overrides: Partial<AccountingSyncQueueRow> = {}): AccountingSy
     runAfter: "2026-06-05T10:00:00.000Z",
     lockedAt: "2026-06-05T10:01:00.000Z",
     lockedBy: "worker-1",
+    providerRequestId: null,
+    providerAcceptedAt: null,
+    idempotencyExpiresAt: null,
     lastError: null,
     payloadSnapshot: {},
     createdAt: "2026-06-05T09:59:00.000Z",
@@ -58,7 +66,9 @@ function queueRow(overrides: Partial<AccountingSyncQueueRow> = {}): AccountingSy
   };
 }
 
-function queueDbRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function queueDbRow(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
   return {
     id: "q-1",
     company_id: "7a88c7d6-d4e3-49be-9d21-0a989e0f3222",
@@ -78,6 +88,9 @@ function queueDbRow(overrides: Record<string, unknown> = {}): Record<string, unk
     run_after: "2026-06-05T10:10:00.000Z",
     locked_at: null,
     locked_by: null,
+    provider_request_id: null,
+    provider_accepted_at: null,
+    idempotency_expires_at: null,
     last_error: "rate limited",
     payload_snapshot: {},
     created_at: "2026-06-05T09:59:00.000Z",
@@ -110,6 +123,9 @@ describe("AccountingSyncQueueService", () => {
           run_after: "2026-06-05T10:00:00.000Z",
           locked_at: "2026-06-05T10:01:00.000Z",
           locked_by: "w-1",
+          provider_request_id: "sage-request-1",
+          provider_accepted_at: "2026-06-05T10:01:01.000Z",
+          idempotency_expires_at: "2026-06-12T10:01:01.000Z",
           last_error: null,
           payload_snapshot: { source: "trigger" },
           created_at: "2026-06-05T09:59:00.000Z",
@@ -120,7 +136,11 @@ describe("AccountingSyncQueueService", () => {
     });
     const service = new AccountingSyncQueueService(db as never);
 
-    const rows = await service.claimDue({ provider: "quickbooks", limit: 10, workerId: "w-1" });
+    const rows = await service.claimDue({
+      provider: "quickbooks",
+      limit: 10,
+      workerId: "w-1",
+    });
 
     expect(db.rpc).toHaveBeenCalledWith("claim_accounting_sync_queue", {
       p_provider: "quickbooks",
@@ -139,16 +159,58 @@ describe("AccountingSyncQueueService", () => {
         idempotencyKey: "invoice:2873266e-8d86-47e4-819b-7e570084f06f",
         maxAttempts: 5,
         lockedBy: "w-1",
+        providerRequestId: "sage-request-1",
+        providerAcceptedAt: "2026-06-05T10:01:01.000Z",
+        idempotencyExpiresAt: "2026-06-12T10:01:01.000Z",
         payloadSnapshot: { source: "trigger" },
       }),
     ]);
+  });
+
+  it("records provider acceptance through the worker-owned RPC", async () => {
+    const db = clientMock();
+    db.rpc.mockResolvedValue({
+      data: queueDbRow({
+        status: "claimed",
+        provider_request_id: "sage-request-2",
+        provider_accepted_at: "2026-06-05T10:01:01.000Z",
+        idempotency_expires_at: "2026-06-12T10:01:01.000Z",
+      }),
+      error: null,
+    });
+    const service = new AccountingSyncQueueService(db as never);
+
+    const result = await service.recordProviderAcceptance({
+      id: "q-1",
+      workerId: "worker-1",
+      providerRequestId: "sage-request-2",
+      acceptedAt: "2026-06-05T10:01:01.000Z",
+      idempotencyExpiresAt: "2026-06-12T10:01:01.000Z",
+    });
+
+    expect(db.rpc).toHaveBeenCalledWith("record_accounting_sync_acceptance", {
+      p_queue_id: "q-1",
+      p_worker_id: "worker-1",
+      p_provider_request_id: "sage-request-2",
+      p_provider_accepted_at: "2026-06-05T10:01:01.000Z",
+      p_idempotency_expires_at: "2026-06-12T10:01:01.000Z",
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        providerRequestId: "sage-request-2",
+        providerAcceptedAt: "2026-06-05T10:01:01.000Z",
+      })
+    );
   });
 
   it("marks a row succeeded and clears lock fields", async () => {
     const db = guardedClientMock({ data: { id: "q-1" }, error: null });
     const service = new AccountingSyncQueueService(db as never);
 
-    await service.markSucceeded("q-1", { externalId: "123", workerId: "worker-1" });
+    await service.markSucceeded("q-1", {
+      externalId: "123",
+      workerId: "worker-1",
+    });
 
     expect(db.from).toHaveBeenCalledWith("accounting_sync_queue");
     expect(db.update).toHaveBeenCalledWith(
@@ -171,7 +233,9 @@ describe("AccountingSyncQueueService", () => {
 
     await service.markSucceeded("q-1", { workerId: "worker-1" });
 
-    const updateCalls = db.update.mock.calls as unknown as Array<[Record<string, unknown>]>;
+    const updateCalls = db.update.mock.calls as unknown as Array<
+      [Record<string, unknown>]
+    >;
     const patch = updateCalls[0][0];
     expect(patch).toEqual(
       expect.objectContaining({
@@ -191,9 +255,13 @@ describe("AccountingSyncQueueService", () => {
     db.rpc.mockResolvedValue({ data: queueDbRow(), error: null });
     const service = new AccountingSyncQueueService(db as never);
 
-    const result = await service.scheduleRetry(queueRow({ attempts: 2, maxAttempts: 5 }), "rate limited", {
-      workerId: "worker-1",
-    });
+    const result = await service.scheduleRetry(
+      queueRow({ attempts: 2, maxAttempts: 5 }),
+      "rate limited",
+      {
+        workerId: "worker-1",
+      }
+    );
 
     expect(db.rpc).toHaveBeenCalledWith("retry_accounting_sync_queue", {
       p_queue_id: "q-1",
@@ -203,16 +271,42 @@ describe("AccountingSyncQueueService", () => {
     });
     const args = db.rpc.mock.calls[0][1] as { p_run_after: string };
     expect(Date.parse(args.p_run_after)).toBeGreaterThan(Date.now());
-    expect(result).toEqual(expect.objectContaining({ id: "q-1", status: "pending", lastError: "rate limited" }));
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: "q-1",
+        status: "pending",
+        lastError: "rate limited",
+      })
+    );
+  });
+
+  it("refuses to retry a write already accepted by the provider", async () => {
+    const db = clientMock();
+    const service = new AccountingSyncQueueService(db as never);
+
+    await expect(
+      service.scheduleRetry(
+        queueRow({ providerAcceptedAt: "2026-06-05T10:01:01.000Z" }),
+        "ambiguous transport",
+        { workerId: "worker-1" }
+      )
+    ).rejects.toThrow(
+      "Accepted accounting write cannot be retried automatically"
+    );
+    expect(db.rpc).not.toHaveBeenCalled();
   });
 
   it("blocks a row when max attempts are exhausted", async () => {
     const db = guardedClientMock({ data: { id: "q-1" }, error: null });
     const service = new AccountingSyncQueueService(db as never);
 
-    const result = await service.scheduleRetry(queueRow({ attempts: 5, maxAttempts: 5 }), "validation failed", {
-      workerId: "worker-1",
-    });
+    const result = await service.scheduleRetry(
+      queueRow({ attempts: 5, maxAttempts: 5 }),
+      "validation failed",
+      {
+        workerId: "worker-1",
+      }
+    );
 
     expect(db.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -238,9 +332,13 @@ describe("AccountingSyncQueueService", () => {
     });
     const service = new AccountingSyncQueueService(db as never);
 
-    const result = await service.scheduleRetry(queueRow({ attempts: 2, maxAttempts: 5 }), "rate limited", {
-      workerId: "worker-1",
-    });
+    const result = await service.scheduleRetry(
+      queueRow({ attempts: 2, maxAttempts: 5 }),
+      "rate limited",
+      {
+        workerId: "worker-1",
+      }
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -254,7 +352,9 @@ describe("AccountingSyncQueueService", () => {
     const db = guardedClientMock({ data: { id: "q-1" }, error: null });
     const service = new AccountingSyncQueueService(db as never);
 
-    await service.markBlocked("q-1", "missing customer link", { workerId: "worker-1" });
+    await service.markBlocked("q-1", "missing customer link", {
+      workerId: "worker-1",
+    });
 
     expect(db.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -272,7 +372,9 @@ describe("AccountingSyncQueueService", () => {
     const db = guardedClientMock({ data: { id: "q-1" }, error: null });
     const service = new AccountingSyncQueueService(db as never);
 
-    await service.markNeedsReview("q-1", "money conflict", { workerId: "worker-1" });
+    await service.markNeedsReview("q-1", "money conflict", {
+      workerId: "worker-1",
+    });
 
     expect(db.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -312,7 +414,10 @@ describe("AccountingSyncQueueService", () => {
     const db = guardedClientMock({ data: { id: "q-1" }, error: null });
     const service = new AccountingSyncQueueService(db as never);
 
-    await service.markSucceeded("q-1", { externalId: "123", workerId: "worker-1" });
+    await service.markSucceeded("q-1", {
+      externalId: "123",
+      workerId: "worker-1",
+    });
 
     expect(db.eq).toHaveBeenCalledWith("id", "q-1");
     expect(db.eq).toHaveBeenCalledWith("status", "claimed");
@@ -325,9 +430,9 @@ describe("AccountingSyncQueueService", () => {
     const db = guardedClientMock({ data: null, error: null });
     const service = new AccountingSyncQueueService(db as never);
 
-    await expect(service.markBlocked("q-1", "stale worker", { workerId: "worker-1" })).rejects.toThrow(
-      "Accounting sync queue update lost ownership"
-    );
+    await expect(
+      service.markBlocked("q-1", "stale worker", { workerId: "worker-1" })
+    ).rejects.toThrow("Accounting sync queue update lost ownership");
   });
 
   it("throws when the retry RPC reports a stale claim/no-op", async () => {
@@ -336,7 +441,11 @@ describe("AccountingSyncQueueService", () => {
     const service = new AccountingSyncQueueService(db as never);
 
     await expect(
-      service.scheduleRetry(queueRow({ lockedBy: "worker-1" }), "rate limited", { workerId: "worker-1" })
+      service.scheduleRetry(
+        queueRow({ lockedBy: "worker-1" }),
+        "rate limited",
+        { workerId: "worker-1" }
+      )
     ).rejects.toThrow("Accounting sync queue retry lost ownership");
   });
 });

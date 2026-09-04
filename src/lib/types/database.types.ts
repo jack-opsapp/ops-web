@@ -210,6 +210,7 @@ export type Database = {
           error_code: string | null
           estimate_id: string
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string
           response: Json | null
           status: string
@@ -595,6 +596,7 @@ export type Database = {
           entity_type: string
           external_id: string | null
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string
           last_error: string | null
           locked_at: string | null
@@ -602,6 +604,8 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider_accepted_at: string | null
+          provider_request_id: string | null
           provider: string
           run_after: string
           source_action: string
@@ -619,6 +623,7 @@ export type Database = {
           entity_type: string
           external_id?: string | null
           id?: string
+          idempotency_expires_at?: string | null
           idempotency_key: string
           last_error?: string | null
           locked_at?: string | null
@@ -626,6 +631,8 @@ export type Database = {
           max_attempts?: number
           operation: string
           payload_snapshot?: Json
+          provider_accepted_at?: string | null
+          provider_request_id?: string | null
           provider?: string
           run_after?: string
           source_action: string
@@ -643,6 +650,7 @@ export type Database = {
           entity_type?: string
           external_id?: string | null
           id?: string
+          idempotency_expires_at?: string | null
           idempotency_key?: string
           last_error?: string | null
           locked_at?: string | null
@@ -650,6 +658,8 @@ export type Database = {
           max_attempts?: number
           operation?: string
           payload_snapshot?: Json
+          provider_accepted_at?: string | null
+          provider_request_id?: string | null
           provider?: string
           run_after?: string
           source_action?: string
@@ -24512,6 +24522,7 @@ export type Database = {
           entity_type: string
           external_id: string | null
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string
           last_error: string | null
           locked_at: string | null
@@ -24519,6 +24530,8 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider_accepted_at: string | null
+          provider_request_id: string | null
           provider: string
           run_after: string
           source_action: string
@@ -29413,6 +29426,48 @@ export type Database = {
           opportunity_id: string
         }[]
       }
+      record_accounting_sync_acceptance: {
+        Args: {
+          p_idempotency_expires_at: string
+          p_provider_accepted_at: string
+          p_provider_request_id: string
+          p_queue_id: string
+          p_worker_id: string
+        }
+        Returns: {
+          attempts: number
+          company_id: string
+          connection_id: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          external_id: string | null
+          id: string
+          idempotency_expires_at: string | null
+          idempotency_key: string
+          last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          operation: string
+          payload_snapshot: Json
+          provider: string
+          provider_accepted_at: string | null
+          provider_request_id: string | null
+          run_after: string
+          source_action: string
+          source_table: string
+          source_updated_at: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounting_sync_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_auto_bug:
         | {
             Args: {
@@ -30292,6 +30347,7 @@ export type Database = {
           entity_type: string
           external_id: string | null
           id: string
+          idempotency_expires_at: string | null
           idempotency_key: string
           last_error: string | null
           locked_at: string | null
@@ -30299,6 +30355,8 @@ export type Database = {
           max_attempts: number
           operation: string
           payload_snapshot: Json
+          provider_accepted_at: string | null
+          provider_request_id: string | null
           provider: string
           run_after: string
           source_action: string

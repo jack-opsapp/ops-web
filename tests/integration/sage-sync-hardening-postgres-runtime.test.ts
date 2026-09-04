@@ -70,7 +70,7 @@ async function query(database: string, sql: string): Promise<string> {
 
 async function withDatabase(runtimeFile: string): Promise<void> {
   assertSafeTarget();
-  const database = `sage_sync_oauth_${process.pid}_${randomBytes(4).toString("hex")}`;
+  const database = `sage_sync_runtime_${process.pid}_${randomBytes(4).toString("hex")}`;
   let created = false;
   try {
     const version = await query("postgres", "show server_version_num");
@@ -94,10 +94,14 @@ async function withDatabase(runtimeFile: string): Promise<void> {
         "supabase/migrations/20260904040000_sage_connection_identity_and_oauth.sql"
       )
     );
+    await runFile(
+      database,
+      join(ROOT, "supabase/migrations/20260904050000_sage_queue_hardening.sql")
+    );
     await runFile(database, join(ROOT, runtimeFile));
   } finally {
     if (created) {
-      if (!/^sage_sync_oauth_[0-9]+_[0-9a-f]{8}$/.test(database)) {
+      if (!/^sage_sync_runtime_[0-9]+_[0-9a-f]{8}$/.test(database)) {
         throw new Error("Refusing to drop an unexpected PostgreSQL database");
       }
       await execFileAsync(
@@ -112,5 +116,9 @@ async function withDatabase(runtimeFile: string): Promise<void> {
 describe.runIf(RUN_POSTGRES)("Sage OAuth PostgreSQL 17 runtime", () => {
   it("consumes secrets once and isolates Sage businesses and environments", async () => {
     await withDatabase("tests/sql/sage-sync-hardening-oauth-runtime.sql");
+  });
+
+  it("routes, orders, and safely recovers Sage queue work", async () => {
+    await withDatabase("tests/sql/sage-sync-hardening-queue-runtime.sql");
   });
 });

@@ -9,13 +9,19 @@ export const ACCOUNTING_SYNC_TERMINAL_STATUSES = [
 export type AccountingSyncProvider = "quickbooks" | "sage";
 
 export type AccountingSyncEntityType =
-  "customer" | "invoice" | "estimate" | "payment";
+  | "customer"
+  | "invoice"
+  | "estimate"
+  | "payment";
 
 export type SupplierBillSyncEntityType =
-  "supplier" | "supplier_bill" | "supplier_bill_payment";
+  | "supplier"
+  | "supplier_bill"
+  | "supplier_bill_payment";
 
 export type AccountingSyncQueueEntityType =
-  AccountingSyncEntityType | SupplierBillSyncEntityType;
+  | AccountingSyncEntityType
+  | SupplierBillSyncEntityType;
 
 export type AccountingSyncOperation =
   | "create"
@@ -45,13 +51,27 @@ export type AccountingSyncDirection =
   | "system";
 
 export type AccountingSyncDecision =
-  "ops_won" | "qb_won" | "skipped" | "needs_review" | "retry" | "blocked";
+  | "ops_won"
+  | "qb_won"
+  | "skipped"
+  | "needs_review"
+  | "retry"
+  | "blocked";
 
 export type AccountingSyncAuditStatus =
-  "succeeded" | "failed" | "blocked" | "needs_review" | "skipped";
+  | "succeeded"
+  | "failed"
+  | "blocked"
+  | "needs_review"
+  | "skipped";
 
 export type AccountingSyncAuditSource =
-  "trigger" | "worker" | "webhook" | "reconcile" | "operator" | "system";
+  | "trigger"
+  | "worker"
+  | "webhook"
+  | "reconcile"
+  | "operator"
+  | "system";
 
 export type AccountingSyncSnapshot = Record<string, unknown>;
 
@@ -76,6 +96,9 @@ export interface AccountingSyncQueueRow<
   runAfter: string;
   lockedAt: string | null;
   lockedBy: string | null;
+  providerRequestId: string | null;
+  providerAcceptedAt: string | null;
+  idempotencyExpiresAt: string | null;
   lastError: string | null;
   payloadSnapshot: AccountingSyncSnapshot;
   createdAt: string;
