@@ -1,16 +1,19 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(
-  resolve(
-    process.cwd(),
-    "supabase/migrations/20260904050000_agent_dispatch_confirmation_task.sql"
-  ),
-  "utf8"
-).toLowerCase();
+const migrationFile = "20260904070000_agent_dispatch_confirmation_task.sql";
+const migrationDirectory = resolve(process.cwd(), "supabase/migrations");
+const sql = readFileSync(resolve(migrationDirectory, migrationFile), "utf8").toLowerCase();
 
 describe("dispatch confirmation task SQL contract", () => {
+  it("owns a unique migration-ledger version", () => {
+    const version = migrationFile.slice(0, 14);
+    expect(
+      readdirSync(migrationDirectory).filter((file) => file.startsWith(version))
+    ).toEqual([migrationFile]);
+  });
+
   it("keeps policy, evidence, decisions, and receipts private", () => {
     for (const table of [
       "agent_company_policy_versions",
