@@ -5,7 +5,14 @@ import {
   InstagramConnectionError,
   InstagramConnectionService,
 } from "@/lib/social/instagram-connection-service";
-import type { InstagramOAuthConnectionResult } from "@/lib/social/instagram-oauth-client";
+import {
+  InstagramOAuthClient,
+  type InstagramOAuthConnectionResult,
+} from "@/lib/social/instagram-oauth-client";
+import {
+  decryptInstagramToken,
+  encryptInstagramToken,
+} from "@/lib/social/token-cipher";
 import type {
   InstagramConnectionRecord,
   InstagramConnectionRepository,
@@ -91,7 +98,10 @@ describe("Instagram connection service", () => {
   beforeEach(() => {
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
 
   it.each([
     "state_validation",
@@ -212,6 +222,71 @@ describe("Instagram connection service", () => {
       }).completeAuthorization("valid", "code")
     ).rejects.toMatchObject({ code: "INSTAGRAM_OAUTH_ADMIN_REVOKED" });
     expect(revokedOAuth.exchangeAuthorizationCode).not.toHaveBeenCalled();
+  });
+
+  it("stores an encrypted renewable connection from direct Meta responses", async () => {
+    vi.stubEnv(
+      "INSTAGRAM_TOKEN_ENC_KEY",
+      Buffer.alloc(32, 7).toString("base64")
+    );
+    const repo = repository();
+    const payloads = [
+      {
+        access_token: "short-live-fixture",
+        user_id: "102000000000000",
+        permissions:
+          "instagram_business_basic,instagram_business_content_publish",
+      },
+      { access_token: "long-live-fixture", expires_in: 5_184_000 },
+      { user_id: connection.instagramUserId, username: connection.username },
+    ];
+    const fetcher = vi.fn<typeof fetch>(async () => {
+      if (payloads.length === 0) throw new Error("Unexpected Meta request");
+      return new Response(JSON.stringify(payloads.shift()), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const subject = new InstagramConnectionService({
+      repository: repo,
+      oauth: new InstagramOAuthClient(
+        {
+          appId: "fixture-app-id",
+          appSecret: "fixture-app-secret",
+          redirectUri:
+            "https://app.opsapp.co/api/admin/social/instagram/callback",
+          apiVersion: "v25.0",
+        },
+        { fetcher, now: () => NOW }
+      ),
+      encryptToken: encryptInstagramToken,
+      decryptToken: decryptInstagramToken,
+      isAdminEmail: async () => true,
+      createClaimToken: () => "unused-refresh-claim",
+      now: () => NOW,
+    });
+
+    const status = await subject.completeAuthorization(
+      "opaque-state",
+      "one-time-code"
+    );
+
+    expect(status).toMatchObject({
+      connected: true,
+      username: connection.username,
+      tokenExpiresAt: "2026-11-01T20:00:00.000Z",
+      needsReconnect: false,
+    });
+    expect(repo.upsertConnection).toHaveBeenCalledOnce();
+    const stored = vi.mocked(repo.upsertConnection).mock.calls[0][0];
+    expect(stored.instagramUserId).toBe(connection.instagramUserId);
+    expect(stored.accessTokenCiphertext).toMatch(/^ig-token:v1:/);
+    expect(decryptInstagramToken(stored.accessTokenCiphertext)).toBe(
+      "long-live-fixture"
+    );
+    expect(JSON.stringify(stored)).not.toContain("long-live-fixture");
+    expect(JSON.stringify(status)).not.toContain("long-live-fixture");
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it("never exposes credentials in public status", async () => {

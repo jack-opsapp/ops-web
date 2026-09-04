@@ -310,6 +310,176 @@ describe("Instagram OAuth client", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    { tokenWrapped: false, profileWrapped: false },
+    { tokenWrapped: false, profileWrapped: true },
+    { tokenWrapped: true, profileWrapped: false },
+    { tokenWrapped: true, profileWrapped: true },
+  ])(
+    "connects with token wrapper $tokenWrapped and profile wrapper $profileWrapped",
+    async ({ tokenWrapped, profileWrapped }) => {
+      const token = {
+        access_token: SHORT_TOKEN,
+        user_id: "102000000000000",
+        permissions: tokenWrapped
+          ? ["instagram_business_basic", "instagram_business_content_publish"]
+          : "instagram_business_basic,instagram_business_content_publish",
+      };
+      const profile = {
+        user_id: "17841400000000000",
+        username: "opsjournal",
+      };
+      const fetcher = fetchSequence(
+        response(tokenWrapped ? { data: [token] } : token),
+        response({ access_token: LONG_TOKEN, expires_in: 5_184_000 }),
+        response(profileWrapped ? { data: [profile] } : profile)
+      );
+      const client = new InstagramOAuthClient(config, { fetcher });
+
+      await expect(
+        client.exchangeAuthorizationCode("single-use-code")
+      ).resolves.toMatchObject({
+        accessToken: LONG_TOKEN,
+        instagramUserId: profile.user_id,
+        username: profile.username,
+        scopes: [
+          "instagram_business_basic",
+          "instagram_business_content_publish",
+        ],
+      });
+      expect(fetcher).toHaveBeenCalledTimes(3);
+      expect(console.error).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(
+    [
+      undefined,
+      null,
+      [],
+      "instagram_business_basic",
+      ["instagram_business_basic"],
+      { instagram_business_content_publish: true },
+    ].map((permissions) => ({ permissions }))
+  )(
+    "rejects a direct token without both granted scopes: $permissions",
+    async ({ permissions }) => {
+      const fetcher = fetchSequence(
+        response({ access_token: SHORT_TOKEN, permissions })
+      );
+      const client = new InstagramOAuthClient(config, { fetcher });
+
+      await expect(
+        client.exchangeAuthorizationCode("code")
+      ).rejects.toMatchObject({
+        code: "INSTAGRAM_SCOPE_MISSING",
+        retryable: false,
+      });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
+        SHORT_TOKEN
+      );
+    }
+  );
+
+  it.each(
+    [
+      null,
+      [],
+      "invalid",
+      { access_token: "" },
+      { access_token: 123 },
+      { data: [] },
+      { data: [null] },
+      { data: [[]] },
+      {
+        data: [
+          {
+            access_token: SHORT_TOKEN,
+            permissions:
+              "instagram_business_basic,instagram_business_content_publish",
+          },
+          {
+            access_token: "other-token",
+            permissions:
+              "instagram_business_basic,instagram_business_content_publish",
+          },
+        ],
+      },
+      { data: { access_token: SHORT_TOKEN } },
+      {
+        data: [],
+        access_token: SHORT_TOKEN,
+        permissions:
+          "instagram_business_basic,instagram_business_content_publish",
+      },
+    ].map((payload) => ({ payload }))
+  )(
+    "rejects malformed or ambiguous token records: $payload",
+    async ({ payload }) => {
+      const fetcher = fetchSequence(response(payload));
+      const client = new InstagramOAuthClient(config, { fetcher });
+
+      await expect(
+        client.exchangeAuthorizationCode("code")
+      ).rejects.toMatchObject({
+        code: "INSTAGRAM_OAUTH_RESPONSE_INVALID",
+      });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it.each(
+    [
+      null,
+      [],
+      "invalid",
+      {},
+      { id: "102000000000000", username: "opsjournal" },
+      { user_id: "17841400000000000", username: " " },
+      { user_id: 17841400000000000, username: "opsjournal" },
+      { data: [] },
+      { data: [null] },
+      { data: { user_id: "17841400000000000", username: "opsjournal" } },
+      {
+        data: [
+          { user_id: "17841400000000000", username: "opsjournal" },
+          { user_id: "17841400000000001", username: "otheraccount" },
+        ],
+      },
+      { data: [], user_id: "17841400000000000", username: "opsjournal" },
+    ].map((profile) => ({ profile }))
+  )(
+    "rejects malformed or ambiguous profile records: $profile",
+    async ({ profile }) => {
+      const fetcher = fetchSequence(
+        response({
+          data: [
+            {
+              access_token: SHORT_TOKEN,
+              user_id: "102000000000000",
+              permissions:
+                "instagram_business_basic,instagram_business_content_publish",
+            },
+          ],
+        }),
+        response({ access_token: LONG_TOKEN, expires_in: 5_184_000 }),
+        response(profile)
+      );
+      const client = new InstagramOAuthClient(config, { fetcher });
+
+      await expect(
+        client.exchangeAuthorizationCode("code")
+      ).rejects.toMatchObject({
+        code: "INSTAGRAM_PROFILE_INVALID",
+      });
+      expect(fetcher).toHaveBeenCalledTimes(3);
+      const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+      expect(logged).not.toContain(SHORT_TOKEN);
+      expect(logged).not.toContain(LONG_TOKEN);
+    }
+  );
+
   it("refreshes a long-lived token for another validated lifetime", async () => {
     const now = new Date("2026-09-02T20:00:00.000Z");
     const fetcher = fetchSequence(
