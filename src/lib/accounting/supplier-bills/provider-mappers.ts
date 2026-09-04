@@ -1,3 +1,10 @@
+import {
+  SageMappingError,
+  buildSageContact,
+  buildSageContactPayment,
+  buildSagePurchaseInvoice,
+} from "@/lib/api/services/sage-push-mappers";
+
 export class ProviderMappingError extends Error {
   constructor(
     readonly code: string,
@@ -125,17 +132,6 @@ function qboLines(line: ProviderBillLine): Record<string, unknown>[] {
   });
 }
 
-function quantity(value: string): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new ProviderMappingError(
-      "invalid_provider_quantity",
-      "Provider quantity is invalid."
-    );
-  }
-  return parsed;
-}
-
 function required(value: string | null, code: string, message: string): string {
   if (!value?.trim()) throw new ProviderMappingError(code, message);
   return value.trim();
@@ -227,13 +223,13 @@ export function buildSageSupplierPayload(
   supplier: SupplierPayloadSource
 ): Record<string, unknown> {
   return {
-    contact: {
+    contact: buildSageContact({
       name: supplier.displayName,
-      contact_type_ids: ["VENDOR"],
-      ...(supplier.email ? { email: supplier.email } : {}),
-      ...(supplier.phone ? { telephone: supplier.phone } : {}),
-      ...(supplier.taxNumber ? { tax_number: supplier.taxNumber } : {}),
-    },
+      kind: "supplier",
+      email: supplier.email,
+      phone: supplier.phone,
+      taxNumber: supplier.taxNumber,
+    }),
   };
 }
 
@@ -246,33 +242,33 @@ export function buildSagePurchaseInvoicePayload(
     "sage_due_date_required",
     "Sage requires a due date before this bill can sync."
   );
-  return {
-    purchase_invoice: {
-      contact_id: required(
-        vendorId,
-        "sage_vendor_required",
-        "Sage vendor link is required."
-      ),
-      date: bill.invoiceDate,
-      due_date: dueDate,
-      vendor_reference: bill.invoiceNumber,
-      invoice_lines: bill.lines.map((line) => ({
-        description: line.description,
-        quantity: quantity(line.quantity),
-        unit_price: amount(line.unitPrice),
-        ledger_account_id: required(
-          line.externalAccountId,
-          "sage_account_mapping_required",
-          "Sage ledger account mapping is required before this bill can sync."
+  try {
+    return {
+      purchase_invoice: buildSagePurchaseInvoice({
+        contactId: required(
+          vendorId,
+          "sage_vendor_required",
+          "Sage vendor link is required."
         ),
-        tax_rate_id: required(
-          line.externalTaxCodeId,
-          "sage_tax_mapping_required",
-          "Sage tax mapping is required before this bill can sync."
-        ),
-      })),
-    },
-  };
+        date: bill.invoiceDate,
+        dueDate,
+        reference: bill.invoiceNumber,
+        lines: bill.lines.map((line) => ({
+          description: line.description,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          subtotal: line.subtotal,
+          ledgerAccountId: line.externalAccountId,
+          taxRateId: line.externalTaxCodeId,
+        })),
+      }),
+    };
+  } catch (error) {
+    if (error instanceof SageMappingError) {
+      throw new ProviderMappingError(error.code, error.message);
+    }
+    throw error;
+  }
 }
 
 export function buildSageContactPaymentPayload(
@@ -283,32 +279,36 @@ export function buildSageContactPaymentPayload(
     "sage_bank_account_required",
     "Sage requires a bank account mapping before this payment can sync."
   );
-  const total = amount(payment.amount);
-  return {
-    contact_payment: {
-      transaction_type_id: "VENDOR_PAYMENT",
-      contact_id: required(
-        payment.vendorId,
-        "sage_vendor_required",
-        "Sage vendor link is required."
-      ),
-      bank_account_id: bankAccountId,
-      date: payment.paymentDate,
-      total_amount: total,
-      ...(payment.paymentMethodId
-        ? { payment_method_id: payment.paymentMethodId }
-        : {}),
-      ...(payment.reference ? { reference: payment.reference } : {}),
-      allocated_artefacts: [
-        {
-          artefact_id: required(
-            payment.billId,
-            "sage_bill_required",
-            "Sage bill link is required."
-          ),
-          amount: total,
-        },
-      ],
-    },
-  };
+  try {
+    return {
+      contact_payment: buildSageContactPayment({
+        transactionType: "VENDOR_PAYMENT",
+        contactId: required(
+          payment.vendorId,
+          "sage_vendor_required",
+          "Sage vendor link is required."
+        ),
+        bankAccountId,
+        paymentMethodId: payment.paymentMethodId,
+        date: payment.paymentDate,
+        amount: payment.amount,
+        reference: payment.reference,
+        allocations: [
+          {
+            artefactId: required(
+              payment.billId,
+              "sage_bill_required",
+              "Sage bill link is required."
+            ),
+            amount: payment.amount,
+          },
+        ],
+      }),
+    };
+  } catch (error) {
+    if (error instanceof SageMappingError) {
+      throw new ProviderMappingError(error.code, error.message);
+    }
+    throw error;
+  }
 }
