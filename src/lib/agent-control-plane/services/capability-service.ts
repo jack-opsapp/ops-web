@@ -37,6 +37,10 @@ import {
   type WeatherRescheduleService,
 } from "./weather-reschedule/weather-reschedule-service";
 import {
+  isTrustedCrewCalloutRecoveryService,
+  type CrewCalloutRecoveryService,
+} from "./crew-callout-recovery/crew-callout-recovery-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -52,7 +56,8 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   PayrollReadinessService &
   RecurringServicePriceChangeService &
   EstimateDraftService &
-  WeatherRescheduleService;
+  WeatherRescheduleService &
+  CrewCalloutRecoveryService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
@@ -65,6 +70,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly recurringServicePriceChange: RecurringServicePriceChangeService;
   readonly estimateDraft: EstimateDraftService;
   readonly weatherReschedule: WeatherRescheduleService;
+  readonly crewCalloutRecovery: CrewCalloutRecoveryService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -102,6 +108,9 @@ export function createOpsAgentCapabilityService(input: {
   if (!isTrustedWeatherRescheduleService(input.weatherReschedule)) {
     throw new TypeError("A trusted weather reschedule service is required");
   }
+  if (!isTrustedCrewCalloutRecoveryService(input.crewCalloutRecovery)) {
+    throw new TypeError("A trusted crew call-out recovery service is required");
+  }
   const service = Object.freeze({
     ...input.reads,
     ...input.dayCloseout,
@@ -113,6 +122,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.recurringServicePriceChange,
     ...input.estimateDraft,
     ...input.weatherReschedule,
+    ...input.crewCalloutRecovery,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;

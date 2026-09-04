@@ -56,6 +56,7 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   prepare_recurring_service_price_change: "prepareRecurringServicePriceChange",
   prepare_estimate_from_past_job: "prepareEstimateFromPastJob",
   prepare_weather_reschedule: "prepareWeatherReschedule",
+  prepare_crew_callout_recovery: "prepareCrewCalloutRecovery",
 } as const satisfies Readonly<
   Record<
     | CurrentProductionMcpToolId
@@ -68,7 +69,8 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
     | "check_payroll_readiness"
     | "prepare_recurring_service_price_change"
     | "prepare_estimate_from_past_job"
-    | "prepare_weather_reschedule",
+    | "prepare_weather_reschedule"
+    | "prepare_crew_callout_recovery",
     AsyncDomainMethodName
   >
 >);
@@ -84,7 +86,8 @@ export type McpDomainCapabilityId =
   | "check_payroll_readiness"
   | "prepare_recurring_service_price_change"
   | "prepare_estimate_from_past_job"
-  | "prepare_weather_reschedule";
+  | "prepare_weather_reschedule"
+  | "prepare_crew_callout_recovery";
 export type McpDomainMethodName =
   (typeof DOMAIN_METHOD_BY_CAPABILITY)[McpDomainCapabilityId];
 

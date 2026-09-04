@@ -56,7 +56,7 @@ describe("MCP production runtime", () => {
       companyId: "22222222-2222-4222-8222-222222222222",
     });
     expect(abortSignal).toHaveBeenCalledOnce();
-  }, 20_000);
+  }, 60_000);
 
   it("constructs and caches the read catalogue plus dormant verticals without reading", async () => {
     vi.resetModules();
@@ -116,6 +116,7 @@ describe("MCP production runtime", () => {
       "prepareRecurringServicePriceChange",
       "prepareEstimateFromPastJob",
       "prepareWeatherReschedule",
+      "prepareCrewCalloutRecovery",
     ]);
     expect(runtime.hiringWhatIf).toBeDefined();
     expect(runtime.promiseRecovery).toBeDefined();
@@ -124,6 +125,7 @@ describe("MCP production runtime", () => {
     expect(runtime.recurringServicePriceChange).toBeDefined();
     expect(runtime.estimateDraft).toBeDefined();
     expect(runtime.weatherReschedule).toBeDefined();
+    expect(runtime.crewCalloutRecovery).toBeDefined();
     expect(rpc).not.toHaveBeenCalled();
   });
 

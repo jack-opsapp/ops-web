@@ -7,6 +7,8 @@ import {
   MCP_CONSENT_CATALOG_V3,
   MCP_CONSENT_CATALOG_V4,
   MCP_CONSENT_CATALOG_V5,
+  MCP_CONSENT_CATALOG_V6,
+  MCP_CONSENT_CATALOG_V7,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,
   resolveMcpConsentCatalogRevision,
@@ -17,6 +19,8 @@ import {
   MCP_EXPOSURE_V4,
   MCP_EXPOSURE_V9,
   MCP_EXPOSURE_V10,
+  MCP_EXPOSURE_V11,
+  MCP_EXPOSURE_V12,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
@@ -26,6 +30,8 @@ import {
   MCP_SCOPE_OPERATION_BY_ID,
   PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
   ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS,
+  WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS,
+  CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
@@ -196,6 +202,45 @@ describe("versioned MCP consent catalogue", () => {
     ).toBe(MCP_CONSENT_CATALOG_V5);
     expect(MCP_CONSENT_CATALOG_V5.consentLabels).toBe(
       ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
+    );
+    expect(
+      resolveMcpConsentCatalogRevision(MCP_CONSENT_CATALOG_V6.revision)
+    ).toBe(MCP_CONSENT_CATALOG_V6);
+    expect(MCP_CONSENT_CATALOG_V6.consentLabels).toBe(
+      WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
+    );
+    expect(
+      resolveMcpConsentCatalogRevision(MCP_CONSENT_CATALOG_V7.revision)
+    ).toBe(MCP_CONSENT_CATALOG_V7);
+    expect(MCP_CONSENT_CATALOG_V7.consentLabels).toBe(
+      CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
+    );
+    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V1);
+  });
+
+  it("binds dormant v11 and v12 to distinct immutable consent catalogues", () => {
+    expect(() =>
+      consentSnapshotForExposure(MCP_EXPOSURE_V12, MCP_CONSENT_CATALOG_V6)
+    ).toThrow("MCP exposure consent catalogue mismatch");
+    expect(
+      consentSnapshotForExposure(MCP_EXPOSURE_V11, MCP_CONSENT_CATALOG_V6)
+    ).toMatchObject({
+      consentCatalogRevision: "2026-09-03.mcp-consent-catalog.v6",
+      exposureRevision: MCP_EXPOSURE_V11.revision,
+    });
+    const v12 = consentSnapshotForExposure(
+      MCP_EXPOSURE_V12,
+      MCP_CONSENT_CATALOG_V7
+    );
+    expect(v12).toMatchObject({
+      consentCatalogRevision: "2026-09-03.mcp-consent-catalog.v7",
+      exposureRevision: MCP_EXPOSURE_V12.revision,
+    });
+    expect(v12.acceptedLabels).toContain(
+      "Prepare exact weather and crew recovery schedule proposals for approval"
+    );
+    expect(v12.acceptedLabels).toContain(
+      "Prepare exact client schedule-update and crew recovery messages for approval"
     );
   });
 
