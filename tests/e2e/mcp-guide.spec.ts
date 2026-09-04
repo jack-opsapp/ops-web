@@ -127,10 +127,18 @@ test.describe("public MCP developer guide", () => {
   });
 
   test("copies the endpoint and confirms the clipboard write", async ({
-    context,
     page,
   }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            window.sessionStorage.setItem("ops-mcp-test-clipboard", value);
+          },
+        },
+      });
+    });
     await openGuide(page, VIEWPORTS[3]);
 
     const copyButton = page.getByRole("button", {
@@ -140,20 +148,101 @@ test.describe("public MCP developer guide", () => {
 
     await expect(copyButton).toContainText("Copied");
     await expect
-      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .poll(() =>
+        page.evaluate(() =>
+          window.sessionStorage.getItem("ops-mcp-test-clipboard")
+        )
+      )
       .toBe("https://app.opsapp.co/api/mcp");
   });
 
-  test("uses the support mailto with an encoded tool-request subject", async ({
+  test("submits a tool request through the embedded form", async ({ page }) => {
+    let submitted: Record<string, unknown> | null = null;
+    await page.route("**/api/developers/mcp/tool-requests", async (route) => {
+      submitted = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          submissionId: submitted.submissionId,
+          replayed: false,
+        }),
+      });
+    });
+    await openGuide(page, VIEWPORTS[3]);
+
+    await page
+      .getByRole("textbox", { name: "Work email" })
+      .fill("owner@example.com");
+    await page
+      .getByRole("textbox", { name: "What should the tool do?" })
+      .fill("Show the latest site visit evidence that still needs follow-up.");
+    await page.getByRole("button", { name: "Send request" }).click();
+
+    const status = page
+      .getByRole("status")
+      .filter({ hasText: "Request received" });
+    await expect(status).toBeVisible();
+    await expect(status).toContainText(
+      "OPS will review it and use your email if more detail is needed."
+    );
+    expect(submitted).toEqual({
+      submissionId: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      ),
+      email: "owner@example.com",
+      details:
+        "Show the latest site visit evidence that still needs follow-up.",
+      website: "",
+    });
+    await expect(page.locator('#request-tool a[href^="mailto:"]')).toHaveCount(
+      0
+    );
+  });
+
+  test("validates the embedded request form without leaving the guide", async ({
     page,
   }) => {
     await openGuide(page, VIEWPORTS[3]);
 
+    await page.getByRole("button", { name: "Send request" }).click();
+
+    await expect(page.getByText("Enter your work email.")).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "support@opsapp.co", exact: true })
-    ).toHaveAttribute(
-      "href",
-      /^mailto:support@opsapp\.co\?subject=OPS%20MCP%20tool%20request&/
+      page.getByText("Describe the tool you need in at least 20 characters.")
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/developers\/mcp$/);
+  });
+
+  test("announces rate limiting without clearing the request", async ({
+    page,
+  }) => {
+    await page.route("**/api/developers/mcp/tool-requests", async (route) => {
+      await route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        headers: { "Retry-After": "60" },
+        body: JSON.stringify({ error: "rate_limited" }),
+      });
+    });
+    await openGuide(page, VIEWPORTS[3]);
+    const email = page.getByRole("textbox", { name: "Work email" });
+    const details = page.getByRole("textbox", {
+      name: "What should the tool do?",
+    });
+    await email.fill("owner@example.com");
+    await details.fill(
+      "Show the latest site visit evidence that still needs follow-up."
+    );
+    await page.getByRole("button", { name: "Send request" }).click();
+
+    await expect(
+      page.getByRole("form", { name: "Request a tool" }).getByRole("alert")
+    ).toContainText("Too many requests. Try again later.");
+    await expect(email).toHaveValue("owner@example.com");
+    await expect(details).toHaveValue(
+      "Show the latest site visit evidence that still needs follow-up."
     );
   });
 
@@ -166,8 +255,9 @@ test.describe("public MCP developer guide", () => {
     await expect(
       page.getByRole("button", { name: "Copy: MCP endpoint" })
     ).toHaveCSS("transition-property", "none");
-    await expect(
-      page.getByRole("link", { name: "Email the request" })
-    ).toHaveCSS("transition-property", "none");
+    await expect(page.getByRole("button", { name: "Send request" })).toHaveCSS(
+      "transition-property",
+      "none"
+    );
   });
 });
