@@ -4,6 +4,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MONEY_RE = /^(0|[1-9]\d{0,11})(?:\.(\d{1,2}))?$/;
 const QUANTITY_RE = /^(0|[1-9]\d{0,9})(?:\.\d{1,4})?$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
+const ZERO_CENTS = BigInt(0);
+const CENTS_PER_UNIT = BigInt(100);
 
 export type SupplierBillRoute = "supplier_bill" | "expense";
 export type SupplierBillStatus = "open" | "paid";
@@ -159,12 +161,12 @@ function moneyCents(value: string, label: string): bigint {
   const match = MONEY_RE.exec(value);
   if (!match) fail("invalid_amount", `${label} is invalid.`);
   const [whole, fraction = ""] = value.split(".");
-  return BigInt(whole) * 100n + BigInt((fraction + "00").slice(0, 2));
+  return BigInt(whole) * CENTS_PER_UNIT + BigInt((fraction + "00").slice(0, 2));
 }
 
 function moneyString(cents: bigint): string {
-  const whole = cents / 100n;
-  const fraction = String(cents % 100n).padStart(2, "0");
+  const whole = cents / CENTS_PER_UNIT;
+  const fraction = String(cents % CENTS_PER_UNIT).padStart(2, "0");
   return `${whole}.${fraction}`;
 }
 
@@ -215,13 +217,13 @@ export function canonicalizeSupplierBillCapture(
   const taxCents = moneyCents(input.taxTotal, "Tax total");
   const totalCents = moneyCents(input.total, "Total");
   const balanceCents = moneyCents(input.balance, "Balance");
-  if (totalCents <= 0n || subtotalCents + taxCents !== totalCents) {
+  if (totalCents <= ZERO_CENTS || subtotalCents + taxCents !== totalCents) {
     fail("amount_mismatch", "Bill subtotal plus tax must equal total.");
   }
-  if (balanceCents < 0n || balanceCents > totalCents) {
+  if (balanceCents < ZERO_CENTS || balanceCents > totalCents) {
     fail("invalid_balance", "Bill balance must be between zero and total.");
   }
-  if (balanceCents !== 0n && balanceCents !== totalCents) {
+  if (balanceCents !== ZERO_CENTS && balanceCents !== totalCents) {
     fail(
       "opening_balance_unsupported",
       "Partially settled documents require payment history before capture."
@@ -235,9 +237,9 @@ export function canonicalizeSupplierBillCapture(
     fail("too_many_line_items", "A bill cannot contain more than 500 lines.");
   }
 
-  let lineSubtotalCents = 0n;
-  let lineTaxCents = 0n;
-  let lineTotalCents = 0n;
+  let lineSubtotalCents = ZERO_CENTS;
+  let lineTaxCents = ZERO_CENTS;
+  let lineTotalCents = ZERO_CENTS;
   const positions = new Set<number>();
   const projectIds = new Set<string>();
   const lineItems = input.lineItems.map((line) => {
@@ -265,7 +267,7 @@ export function canonicalizeSupplierBillCapture(
         "Each line subtotal plus tax must equal line total."
       );
     }
-    if (lineTotal <= 0n || unitPriceCents < 0n) {
+    if (lineTotal <= ZERO_CENTS || unitPriceCents < ZERO_CENTS) {
       fail("invalid_amount", "Bill line amounts must be positive.");
     }
 
@@ -275,25 +277,27 @@ export function canonicalizeSupplierBillCapture(
         "Every bill line requires a project allocation."
       );
     }
-    let allocatedCents = 0n;
+    let allocatedCents = ZERO_CENTS;
     const seenProjects = new Set<string>();
-    const allocations = line.allocations.map((allocation) => {
-      const projectId = requireUuid(allocation.projectId, "Project ID");
-      if (seenProjects.has(projectId)) {
-        fail(
-          "duplicate_allocation",
-          "A line cannot allocate the same project twice."
-        );
+    const allocations = line.allocations.map(
+      (allocation: SupplierBillAllocationInput) => {
+        const projectId = requireUuid(allocation.projectId, "Project ID");
+        if (seenProjects.has(projectId)) {
+          fail(
+            "duplicate_allocation",
+            "A line cannot allocate the same project twice."
+          );
+        }
+        seenProjects.add(projectId);
+        projectIds.add(projectId);
+        const amountCents = moneyCents(allocation.amount, "Allocation amount");
+        if (amountCents <= ZERO_CENTS) {
+          fail("invalid_amount", "Allocation amounts must be positive.");
+        }
+        allocatedCents += amountCents;
+        return { projectId, amount: moneyString(amountCents) };
       }
-      seenProjects.add(projectId);
-      projectIds.add(projectId);
-      const amountCents = moneyCents(allocation.amount, "Allocation amount");
-      if (amountCents <= 0n) {
-        fail("invalid_amount", "Allocation amounts must be positive.");
-      }
-      allocatedCents += amountCents;
-      return { projectId, amount: moneyString(amountCents) };
-    });
+    );
     if (allocatedCents !== lineTotal) {
       fail(
         "allocation_mismatch",
@@ -368,13 +372,13 @@ export function canonicalizeSupplierBillCapture(
         paidDate: requireDate(input.paidPurchase.paidDate, "Paid date"),
       }
     : null;
-  if (balanceCents === 0n && !paidPurchase) {
+  if (balanceCents === ZERO_CENTS && !paidPurchase) {
     fail(
       "paid_purchase_required",
       "Paid documents require expense settlement details."
     );
   }
-  if (balanceCents > 0n && paidPurchase) {
+  if (balanceCents > ZERO_CENTS && paidPurchase) {
     fail(
       "unexpected_paid_purchase",
       "Unpaid bills cannot include paid purchase details."
@@ -382,7 +386,7 @@ export function canonicalizeSupplierBillCapture(
   }
 
   const route: SupplierBillRoute =
-    balanceCents === 0n ? "expense" : "supplier_bill";
+    balanceCents === ZERO_CENTS ? "expense" : "supplier_bill";
   const status: SupplierBillStatus = route === "expense" ? "paid" : "open";
   const action = route === "expense" ? "RECORD PAID PURCHASE" : "RECORD BILL";
 
