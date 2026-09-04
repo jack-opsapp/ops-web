@@ -49,8 +49,12 @@ The sandbox client id and secret must be distinct from any configured production
 From `ops-web`:
 
 ```bash
-npm exec tsx scripts/sage-sandbox-war-game.ts
+npm run sage:sandbox:war-game
 ```
+
+The package command supplies Node's `react-server` export condition so the
+standalone operator process can load the same server-only modules used by the
+Next.js runtime. Do not replace it with a bare `tsx` invocation.
 
 Exit codes:
 
