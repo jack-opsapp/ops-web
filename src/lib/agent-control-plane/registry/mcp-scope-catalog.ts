@@ -15,6 +15,7 @@ export const REGISTERED_MCP_SCOPES = Object.freeze([
   "ops.company.read",
   "ops.correspondence.read",
   "ops.customer_contacts.read",
+  "ops.customers.prepare",
   "ops.customers.read",
   "ops.expenses.read",
   "ops.files.read",
@@ -56,6 +57,7 @@ export const MCP_SCOPE_OPERATION_BY_ID = Object.freeze({
   "ops.company.read": "read",
   "ops.correspondence.read": "read",
   "ops.customer_contacts.read": "read",
+  "ops.customers.prepare": "prepare",
   "ops.customers.read": "read",
   "ops.expenses.read": "read",
   "ops.files.read": "read",
@@ -151,8 +153,14 @@ export const DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS =
       "Prepare one evidence-backed internal dispatch follow-up task for exact approval",
   } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
+export const CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...MCP_SCOPE_CONSENT_LABELS,
+  "ops.customers.prepare":
+    "Prepare customer notes and lead details, owner and follow-up date changes for exact approval inside OPS",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 export type LabelledMcpScope =
-  keyof typeof DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS;
+  | keyof typeof DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
+  | keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,

@@ -1,3 +1,17 @@
+import type { ActorAuthorityRepository } from "../actor/authority-repository";
+import {
+  isActorContext,
+  type ActorContext,
+} from "../actor/resolve-actor-context";
+import {
+  CAPABILITY_MANIFEST_REVISION,
+  CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
+} from "../registry/capability-manifest";
+import { reauthorizeResolvedMcpActor } from "../mcp/actor-reauthorization";
+import {
+  isTrustedCustomerUpdateService,
+  type CustomerUpdateService,
+} from "./customer-update/customer-update-service";
 import "server-only";
 
 import {
@@ -62,10 +76,12 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   EstimateDraftService &
   WeatherRescheduleService &
   CrewCalloutRecoveryService &
-  DispatchConfirmationTaskService;
+  DispatchConfirmationTaskService &
+  CustomerUpdateService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
+  readonly authorityRepository: ActorAuthorityRepository;
   readonly dayCloseout: DayCloseoutService;
   readonly collections: CollectionsService;
   readonly hiringWhatIf: HiringWhatIfService;
@@ -76,6 +92,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly estimateDraft: EstimateDraftService;
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
+  readonly customerUpdate: CustomerUpdateService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
@@ -124,8 +141,35 @@ export function createOpsAgentCapabilityService(input: {
       "A trusted dispatch confirmation task service is required"
     );
   }
+  if (!isTrustedCustomerUpdateService(input.customerUpdate))
+    throw new TypeError("A trusted customer update service is required");
+  // Preserve the independently proven v8 read contracts under the additive v20
+  // catalogue. Re-resolve the same principal and scope ceiling; never copy or
+  // fabricate a nominal ActorContext or change prepare/commit authority.
+  type ReadMethod = (
+    actor: ActorContext,
+    request: never,
+    options?: { signal?: AbortSignal }
+  ) => Promise<unknown>;
+  const reads = Object.fromEntries(
+    Object.entries(input.reads).map(([name, method]) => [
+      name,
+      async (
+        actor: ActorContext,
+        request: never,
+        options?: { signal?: AbortSignal }
+      ) => {
+        const readActor = await reauthorizeCustomerUpdateReadActor(
+          actor,
+          input.authorityRepository,
+          options?.signal
+        );
+        return (method as ReadMethod)(readActor, request, options);
+      },
+    ])
+  ) as unknown as OpsAgentReadCatalogueService;
   const service = Object.freeze({
-    ...input.reads,
+    ...reads,
     ...input.dayCloseout,
     ...input.collections,
     ...input.hiringWhatIf,
@@ -137,6 +181,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.weatherReschedule,
     ...input.crewCalloutRecovery,
     ...input.dispatchConfirmationTask,
+    ...input.customerUpdate,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;
@@ -150,4 +195,23 @@ export function isTrustedOpsAgentCapabilityService(
     value !== null &&
     TRUSTED_CAPABILITY_SERVICES.has(value)
   );
+}
+
+export async function reauthorizeCustomerUpdateReadActor(
+  actor: ActorContext,
+  authorityRepository: ActorAuthorityRepository,
+  signal?: AbortSignal
+): Promise<ActorContext> {
+  if (
+    !isActorContext(actor) ||
+    actor.capabilityManifestRevision !==
+      CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
+  )
+    return actor;
+  return reauthorizeResolvedMcpActor({
+    actorContext: actor,
+    authorityRepository,
+    capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
+    signal,
+  });
 }

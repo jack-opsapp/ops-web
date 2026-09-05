@@ -1,3 +1,7 @@
+import {
+  PREPARE_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
+  COMMIT_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
+} from "./customer-update-capability";
 import "server-only";
 
 import {
@@ -70,6 +74,9 @@ export const CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION =
   "2026-09-03.capability-manifest.v18" as const;
 export const DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION =
   "2026-09-03.capability-manifest.v19" as const;
+
+export const CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-04.capability-manifest.v20" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -539,6 +546,46 @@ const DISPATCH_CONFIRMATION_TASK_CAPABILITY_BY_NAME = new Map(
     (entry) => [entry.name, entry] as const
   )
 );
+
+const customerUpdateEntries = [
+  ...CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
+    CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
+  ),
+  mintImplementationEntry(
+    COMMIT_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
+    CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  customerUpdateEntries,
+  CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(customerUpdateEntries);
+export const CUSTOMER_UPDATE_CAPABILITY_MANIFEST = Object.freeze(
+  customerUpdateEntries
+);
+export function getCustomerUpdateCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = CUSTOMER_UPDATE_CAPABILITY_MANIFEST.find(
+    (e) => e.name === name
+  );
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+export function resolveCustomerUpdateCapabilityAuthorization(
+  name: string,
+  input: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getCustomerUpdateCapabilityManifestEntry(name),
+    input
+  );
+}
 
 export function getCapabilityManifestEntry(
   name: string

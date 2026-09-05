@@ -372,5 +372,22 @@
   "dashboard.milestoneAutoSend": "Envío automático",
   "dashboard.emailsAnalyzed": "Correos analizados",
   "dashboard.unchangedRate": "Enviados sin cambios",
-  "dashboard.rejections": "Rechazos (30d)"
+  "dashboard.rejections": "Rechazos (30d)",
+  "type.approve_customer_update": "Cambio del prospecto",
+  "customerUpdate.heading": "Revisar cambio del prospecto",
+  "customerUpdate.invalid": "La vista previa no está disponible. Prepara un cambio nuevo.",
+  "customerUpdate.title": "Título del prospecto",
+  "customerUpdate.description": "Detalles del proyecto",
+  "customerUpdate.owner": "Persona responsable",
+  "customerUpdate.followUp": "Recordatorio de seguimiento",
+  "customerUpdate.notes": "Notas del cliente",
+  "customerUpdate.before": "Antes",
+  "customerUpdate.after": "Después",
+  "customerUpdate.evidence": "Evidencia de respaldo",
+  "customerUpdate.correspondence": "Correspondencia existente",
+  "customerUpdate.statement": "Declaración del operador · verifica antes de aprobar",
+  "customerUpdate.effects": "Actualiza solo los campos mostrados. No envía mensajes, crea borradores externos ni cambia horarios o contabilidad.",
+  "customerUpdate.assignmentEffects": "Registra la asignación, resuelve sugerencias pendientes y actualiza las vistas internas. No envía avisos de asignación.",
+  "customerUpdate.expires": "La aprobación vence",
+  "customerUpdate.save": "GUARDAR CAMBIOS"
 }

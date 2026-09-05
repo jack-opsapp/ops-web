@@ -7,7 +7,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest, isErrorResponse, requirePermission } from "../_lib/auth";
+import {
+  authenticateRequest,
+  isErrorResponse,
+  requirePermission,
+} from "../_lib/auth";
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
@@ -52,8 +56,12 @@ export async function GET(request: NextRequest) {
     }
 
     const status = url.searchParams.get("status") as AgentActionStatus | null;
-    const actionType = url.searchParams.get("actionType") as AgentActionType | null;
-    const priority = url.searchParams.get("priority") as AgentActionPriority | null;
+    const actionType = url.searchParams.get(
+      "actionType"
+    ) as AgentActionType | null;
+    const priority = url.searchParams.get(
+      "priority"
+    ) as AgentActionPriority | null;
 
     // `?statuses=a,b` drives the HISTORY view. An unknown status is a client
     // bug, so it becomes a 400 rather than a silently empty queue.
@@ -65,12 +73,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const actions = await ApprovalQueueService.getQueue(auth.companyId, {
-      status: status ?? undefined,
-      statuses,
-      actionType: actionType ?? undefined,
-      priority: priority ?? undefined,
-    });
+    const actions = await ApprovalQueueService.getQueue(
+      auth.companyId,
+      {
+        status: status ?? undefined,
+        statuses,
+        actionType: actionType ?? undefined,
+        priority: priority ?? undefined,
+      },
+      auth.id
+    );
 
     return NextResponse.json({ actions });
   } catch (err) {
@@ -115,14 +127,25 @@ export async function POST(request: NextRequest) {
     }
 
     const VALID_ACTION_TYPES = [
-      "create_project", "create_task", "create_invoice",
-      "send_email", "send_status_email", "send_invoice_email",
-      "send_payment_reminder", "reassign_task", "archive_project", "close_project",
-      "client_health_alert", "financial_insight",
-      "optimize_schedule", "reschedule_tasks",
-      "send_appointment_confirmation", "send_day_before_reminder",
+      "create_project",
+      "create_task",
+      "create_invoice",
+      "send_email",
+      "send_status_email",
+      "send_invoice_email",
+      "send_payment_reminder",
+      "reassign_task",
+      "archive_project",
+      "close_project",
+      "client_health_alert",
+      "financial_insight",
+      "optimize_schedule",
+      "reschedule_tasks",
+      "send_appointment_confirmation",
+      "send_day_before_reminder",
       "send_schedule_changed",
-      "send_subcontractor_coordination", "process_reschedule_request",
+      "send_subcontractor_coordination",
+      "process_reschedule_request",
     ];
     if (!VALID_ACTION_TYPES.includes(actionType)) {
       return NextResponse.json(

@@ -36,7 +36,8 @@ export type AgentActionType =
   | "process_reschedule_request"
   | "file_day_closeout"
   | "approve_collections_draft"
-  | "approve_dispatch_confirmation_task";
+  | "approve_dispatch_confirmation_task"
+  | "approve_customer_update";
 
 export type AgentActionStatus =
   | "pending"

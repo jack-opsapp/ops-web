@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
@@ -175,5 +175,60 @@ describe("ActionDetail", () => {
     expect(
       screen.getByRole("button", { name: "dispatch.action.leaveOpen" })
     ).toBeInTheDocument();
+  });
+});
+
+import { resultFixture } from "@/lib/agent-control-plane/services/customer-update/__tests__/fixtures";
+describe("customer update exact approval", () => {
+  it("renders literal evidence and submits the displayed seal without proposed edits", () => {
+    const result = resultFixture();
+    const approve = vi.fn();
+    render(
+      <ActionDetail
+        action={make({
+          actionType: "approve_customer_update",
+          actionData: {
+            proposal: result.proposal,
+            preview_sha256: result.preview_sha256,
+            change_set_id: result.change_set_id,
+          },
+        })}
+        onApprove={approve}
+        onReject={() => {}}
+        t={(k) => k}
+      />
+    );
+    expect(screen.getAllByText(/Inspect the west roof/).length).toBeGreaterThan(
+      0
+    );
+    expect(
+      screen.getByText(result.proposal.evidence[0]!.text)
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "customerUpdate.save" })
+    );
+    expect(approve).toHaveBeenCalledWith("action-1", {
+      preview_sha256: result.preview_sha256,
+      change_set_id: result.change_set_id,
+    });
+  });
+  it("disables approval when the displayed preview is invalid or expired", () => {
+    const result = resultFixture();
+    result.proposal.expires_at = "2000-01-01T00:00:00.000Z";
+    const { unmount } = renderDetail({
+      actionType: "approve_customer_update",
+      actionData: { proposal: result.proposal },
+    });
+    expect(
+      screen.getByRole("button", { name: "customerUpdate.save" })
+    ).toBeDisabled();
+    unmount();
+    renderDetail({
+      actionType: "approve_customer_update",
+      actionData: { proposal: {} },
+    });
+    expect(
+      screen.getByRole("button", { name: "customerUpdate.save" })
+    ).toBeDisabled();
   });
 });

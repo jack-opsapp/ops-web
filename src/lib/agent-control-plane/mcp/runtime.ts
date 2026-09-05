@@ -1,3 +1,8 @@
+import {
+  createCustomerUpdateService,
+  type CustomerUpdateService,
+} from "../services/customer-update/customer-update-service";
+import { createCustomerUpdateRepository } from "../services/customer-update/customer-update-repository";
 import "server-only";
 
 import { createSupabaseActorAuthorityRepository } from "@/lib/agent-control-plane/actor/authority-repository";
@@ -120,6 +125,7 @@ export interface McpServerRuntime {
   readonly estimateDraft: EstimateDraftService;
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
+  readonly customerUpdate: CustomerUpdateService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
@@ -332,6 +338,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const customerUpdate = createCustomerUpdateService({
+    repository: createCustomerUpdateRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
   const dispatchConfirmationTask = createDispatchConfirmationTaskService({
     repository: createDispatchConfirmationTaskRepository({
       rpc: rpcClient.rpc.bind(rpcClient),
@@ -342,6 +354,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
       reads: readService,
+      authorityRepository,
       dayCloseout,
       collections,
       hiringWhatIf,
@@ -353,6 +366,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       weatherReschedule,
       crewCalloutRecovery,
       dispatchConfirmationTask,
+      customerUpdate,
     }),
     dayCloseout,
     collections,
@@ -365,6 +379,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     weatherReschedule,
     crewCalloutRecovery,
     dispatchConfirmationTask,
+    customerUpdate,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

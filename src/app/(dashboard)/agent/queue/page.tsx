@@ -94,6 +94,7 @@ const BULK_EXCLUDED: ReadonlySet<AgentActionType> = new Set<AgentActionType>([
   "file_day_closeout",
   "approve_collections_draft",
   "approve_dispatch_confirmation_task",
+  "approve_customer_update",
 ]);
 
 const HISTORY_FILTER = { statuses: [...HISTORY_STATUSES] };

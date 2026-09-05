@@ -48,6 +48,7 @@ function runtime(
     crewCalloutRecovery: {} as McpServerRuntime["crewCalloutRecovery"],
     dispatchConfirmationTask:
       {} as McpServerRuntime["dispatchConfirmationTask"],
+    customerUpdate: {} as McpServerRuntime["customerUpdate"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {

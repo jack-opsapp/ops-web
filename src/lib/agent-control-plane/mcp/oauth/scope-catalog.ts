@@ -1,3 +1,5 @@
+import { MCP_EXPOSURE_V14 } from "../../registry/mcp-exposure-catalog";
+import { CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS } from "../../registry/mcp-scope-catalog";
 import "server-only";
 
 import {
@@ -103,6 +105,13 @@ export const MCP_CONSENT_CATALOG_V8 = Object.freeze({
   allowedOperations: Object.freeze(["read", "prepare"] as const),
 } as const satisfies McpConsentCatalog);
 
+export const MCP_CONSENT_CATALOG_V9 = Object.freeze({
+  revision: "2026-09-04.mcp-consent-catalog.v9",
+  registeredScopes: REGISTERED_MCP_SCOPES,
+  operations: MCP_SCOPE_OPERATION_BY_ID,
+  consentLabels: CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
+  allowedOperations: Object.freeze(["read", "prepare"] as const),
+} as const satisfies McpConsentCatalog);
 export const ACTIVE_MCP_CONSENT_CATALOG_REVISION =
   MCP_CONSENT_CATALOG_V1.revision;
 
@@ -116,6 +125,7 @@ export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
     [MCP_CONSENT_CATALOG_V6.revision]: MCP_CONSENT_CATALOG_V6,
     [MCP_CONSENT_CATALOG_V7.revision]: MCP_CONSENT_CATALOG_V7,
     [MCP_CONSENT_CATALOG_V8.revision]: MCP_CONSENT_CATALOG_V8,
+    [MCP_CONSENT_CATALOG_V9.revision]: MCP_CONSENT_CATALOG_V9,
   });
 
 function assertConsentCatalog(catalog: McpConsentCatalog): void {
@@ -166,6 +176,7 @@ assertConsentCatalog(MCP_CONSENT_CATALOG_V5);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V6);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V7);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V8);
+assertConsentCatalog(MCP_CONSENT_CATALOG_V9);
 
 export function resolveMcpConsentCatalogRevision(
   revision: string
@@ -189,21 +200,23 @@ export function consentSnapshotForExposure(
   catalog: McpConsentCatalog
 ): McpConsentSnapshot {
   const requiredCatalogRevision =
-    exposure.revision === MCP_EXPOSURE_V13.revision
-      ? MCP_CONSENT_CATALOG_V8.revision
-      : exposure.revision === MCP_EXPOSURE_V12.revision
-        ? MCP_CONSENT_CATALOG_V7.revision
-        : exposure.revision === MCP_EXPOSURE_V11.revision
-          ? MCP_CONSENT_CATALOG_V6.revision
-          : exposure.revision === MCP_EXPOSURE_V10.revision
-            ? MCP_CONSENT_CATALOG_V5.revision
-            : exposure.revision === MCP_EXPOSURE_V9.revision
-              ? MCP_CONSENT_CATALOG_V4.revision
-              : exposure.revision === MCP_EXPOSURE_V4.revision
-                ? MCP_CONSENT_CATALOG_V3.revision
-                : exposure.revision === MCP_EXPOSURE_V3.revision
-                  ? MCP_CONSENT_CATALOG_V2.revision
-                  : null;
+    exposure.revision === MCP_EXPOSURE_V14.revision
+      ? MCP_CONSENT_CATALOG_V9.revision
+      : exposure.revision === MCP_EXPOSURE_V13.revision
+        ? MCP_CONSENT_CATALOG_V8.revision
+        : exposure.revision === MCP_EXPOSURE_V12.revision
+          ? MCP_CONSENT_CATALOG_V7.revision
+          : exposure.revision === MCP_EXPOSURE_V11.revision
+            ? MCP_CONSENT_CATALOG_V6.revision
+            : exposure.revision === MCP_EXPOSURE_V10.revision
+              ? MCP_CONSENT_CATALOG_V5.revision
+              : exposure.revision === MCP_EXPOSURE_V9.revision
+                ? MCP_CONSENT_CATALOG_V4.revision
+                : exposure.revision === MCP_EXPOSURE_V4.revision
+                  ? MCP_CONSENT_CATALOG_V3.revision
+                  : exposure.revision === MCP_EXPOSURE_V3.revision
+                    ? MCP_CONSENT_CATALOG_V2.revision
+                    : null;
   if (
     requiredCatalogRevision !== null &&
     catalog.revision !== requiredCatalogRevision

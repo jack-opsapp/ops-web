@@ -1,0 +1,18 @@
+{
+  "postgres": "17",
+  "checks_passed": 52,
+  "concurrency": "two companies overlapped; both committed",
+  "sha256": {
+    "supabase/migrations/20260904233000_agent_customer_opportunity_update.sql": "e478142143fe9ebde253a1231cba34255a8d9757556187a6f324677c981831b2",
+    "tests/sql/agent-customer-update-auth.sql": "7782fd86e5eeb873d3275f61f106ef23ae8ba73b684b3d32489dfaecf0236789",
+    "tests/sql/agent-customer-update-checks.sql": "a8402f3f4ef088f9e1deeed8f0b9f38b552199017fcc359e62a058b7f8916b97",
+    "tests/sql/agent-customer-update-concurrency-worker.sql": "da7371fcf264831b03d98d7bb6dfa9be39659a61215c9f0f9cc051628675188d",
+    "tests/sql/agent-customer-update-concurrency.sql": "6151d9adfd1d3be43cbb90d9e3c4d14b35240c623479907c33628e9aa0153457",
+    "tests/sql/agent-customer-update-prerequisites.sql": "fd786d89ab99b5883368a2d20e4c75f8990e6c1d6ec8387697910628096f7a98",
+    "tests/sql/agent-customer-update-privacy.sql": "42bfba25c044f7f7c8948a9f1a0cbacde8de57d3897b8c7e828971805d91e708",
+    "tests/sql/agent-customer-update-run-runtime.sh": "ee3cf11efb2218bccf81af19795cb51ce23ab072508b1f3e834079fb85d2c62b",
+    "tests/sql/agent-customer-update-runtime.sql": "119aa3a117d8f78ae6c53b4426b3f345f1e69b7ce378fdaed7c0788cde921115",
+    "tests/sql/agent-customer-update-setup.sql": "fc35a3865f8190e4f15eb44bc6dfe31f38812db9e9bc1dc320b3b344b3d5b5fa"
+  },
+  "limits": "Live-derived columns/defaults/NOT NULL and real authority, assignment core, token guard, enqueue functions/triggers. Unrelated FKs/RLS policies, production notification/accounting/work-queue trigger graph and provider workers are not replicated. No production mutations."
+}

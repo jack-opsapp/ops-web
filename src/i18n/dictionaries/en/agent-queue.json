@@ -372,5 +372,22 @@
   "dashboard.milestoneAutoSend": "Auto-Send",
   "dashboard.emailsAnalyzed": "Emails analyzed",
   "dashboard.unchangedRate": "Sent unchanged",
-  "dashboard.rejections": "Rejections (30d)"
+  "dashboard.rejections": "Rejections (30d)",
+  "type.approve_customer_update": "Lead update",
+  "customerUpdate.heading": "Review lead update",
+  "customerUpdate.invalid": "This preview is unavailable. Prepare a new update.",
+  "customerUpdate.title": "Lead title",
+  "customerUpdate.description": "Project details",
+  "customerUpdate.owner": "Responsible person",
+  "customerUpdate.followUp": "Follow-up reminder",
+  "customerUpdate.notes": "Customer notes",
+  "customerUpdate.before": "Before",
+  "customerUpdate.after": "After",
+  "customerUpdate.evidence": "Supporting evidence",
+  "customerUpdate.correspondence": "Existing correspondence",
+  "customerUpdate.statement": "Operator statement · verify before approval",
+  "customerUpdate.effects": "Updates only the fields shown. No messages, provider drafts, schedule or accounting changes.",
+  "customerUpdate.assignmentEffects": "Records assignment history, resolves pending assignment suggestions and refreshes internal views. Assignment notifications stay silent.",
+  "customerUpdate.expires": "Approval expires",
+  "customerUpdate.save": "SAVE CHANGES"
 }

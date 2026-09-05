@@ -60,6 +60,7 @@ export const ACTION_TYPE_ICONS: Record<
   file_day_closeout: CalendarCheck,
   approve_collections_draft: Receipt,
   approve_dispatch_confirmation_task: ListTodo,
+  approve_customer_update: FileText,
 };
 
 // ─── Priority / Status Tag Variants ───────────────────────────────────────────
