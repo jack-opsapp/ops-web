@@ -128,7 +128,16 @@ was consumed; no connection or social post was stored. The existing callback
 log contains only a generic failure, and Vercel has no saved trace. The exact
 completion failure is not yet proven.
 
-The diagnostic change in this worktree is **local, pending production approval**.
+The diagnostic change was **approved and deployed on 2026-09-04 at 22:51 UTC**.
+Production commit `4cfa65ef6e2de2dfe7ab0557da222b7f1908b581` contains only the
+diagnostic commit on top of then-current main `6a2a7c94b`. Vercel deployment
+`dpl_FBcP4c3v3TSvsjNyEADuFK2M9Q32` is READY and assigned to `app.opsapp.co`.
+All 149 focused tests, targeted TypeScript, formatting, and the production build
+passed. Live probes verified the missing-code callback returns the canonical
+`invalid_callback` redirect and the unauthenticated admin API returns 401, both
+with `no-store` caching. A fresh operator login is pending; these probes do not
+prove a successful Instagram connection.
+
 It logs source-defined stages (`state_validation`, `admin_validation`,
 `code_exchange`, `token_upgrade`, `profile_lookup`, `token_encryption`, and
 `connection_storage`), allowlisted local error codes, numeric HTTP/provider
@@ -137,12 +146,68 @@ when the nested Meta flow fails. It never logs credentials, authorization codes,
 state, emails, URLs, provider messages, stack traces, or response bodies. Public
 callback responses and all OAuth/publishing behavior are unchanged.
 
-After an approved deployment, start one fresh `CONNECT INSTAGRAM` attempt and
+After this deployment, start one fresh `CONNECT INSTAGRAM` attempt and
 read the two stage-level log entries for that request. Correct the evidenced
 failure, then verify the encrypted account row and displayed username. An
 expired or consumed authorization code must never be replayed. Do not infer a
 successful connection from callback HTTP 307 alone, and do not publish a test
 post.
+
+### Direct-response parsing correction — 2026-09-04
+
+The next real callback at **22:57:54 UTC** ran on the diagnostic production
+deployment above. Its safe log reported `stage=code_exchange`,
+`code=INSTAGRAM_OAUTH_RESPONSE_INVALID`, and `responseShape=object`. The request
+received parseable JSON with a successful HTTP status; OPS rejected it before
+token upgrade because the parser required a `data` array. The logs deliberately
+do not retain token contents, so they do not establish the returned fields or
+a completed account connection.
+
+The correction accepts a direct token/profile record or exactly one record in a
+`data` array. Required publishing permissions, token lifetime, professional
+`user_id`, username, state consumption, and encryption remain mandatory.
+Malformed, empty, and multi-record wrappers are rejected, without falling back
+to unrelated top-level fields or the app-scoped token ID. Missing permissions
+remain a connection failure; requested scopes are never treated as granted.
+
+The correction was **approved and deployed on 2026-09-04 at 23:10 UTC**. Eleven regression and
+safety cases failed before the fix. The final focused suite passes 183 tests,
+including actual OAuth parsing and AES-GCM encryption through the service's
+persistence boundary. Targeted TypeScript and formatting passed; independent
+review found no actionable issue. Production source is `c5c0acbfa32984d272cf80d64408f3b670a26e88`, containing
+parser commit `fc287e589` and its updated runbook on top of prior production.
+Deployment `dpl_7sdv4qkR2hJZij4m2QREtRyhgSz2` passed the production build and was
+independently verified READY through the `app.opsapp.co` alias. Live probes
+returned the canonical missing-code callback redirect (307) and unauthenticated
+admin rejection (401), both with no-store caching. A fresh operator login was
+requested after deployment. Verify the encrypted stored row and visible username
+before reporting connection success. At 23:01 UTC, both connection and post
+counts were still zero. The first real publication remains separately gated.
+
+### Renewable-token rejection — 2026-09-04
+
+The deployed parser correction passed the initial token/permission step on two
+fresh attempts at 23:18:31 and 23:19:17 UTC. Both then failed at `token_upgrade`
+with HTTP 400, `INSTAGRAM_OAUTH_REJECTED`, and Meta code 100. The code uses the
+documented official endpoint and parameters; production has no endpoint
+origin overrides. Code 100 alone does not prove which parameter Meta rejected.
+
+A local diagnostic update now extracts only allowlisted parameter/reason hints
+from provider wording, removes known secrets before matching, and revalidates
+the labels before logging. Raw text and credential values are excluded. Hints
+reflect matched wording and are not proof of a cause. No OAuth requests,
+permissions, storage, or publishing behavior changed. Release candidate:
+`d1388a8568cbab3e0aa8dc6e1cf1e4e5c0b57cbe`; implementation commit `d283fe0ed`.
+Thirteen diagnostic cases failed before the change. Verification passed 197
+of 198 tests in the broad run; an unchanged renderer timed out, then passed in
+isolation. TypeScript, formatting, and independent review passed.
+
+Jackson approved this diagnostic deployment and related code fixes until the
+connection is verified. The hint update is awaiting its production build.
+After release, obtain a fresh login
+and read the safe hints before changing credentials or request behavior.
+Do not replay prior authorization codes or bypass the renewable-token step.
+Detailed plan: `docs/plans/2026-09-04-instagram-token-upgrade-diagnostics.md`.
 
 ### Publishing failures
 

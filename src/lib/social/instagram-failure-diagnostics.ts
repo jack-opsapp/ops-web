@@ -31,9 +31,33 @@ const LOCAL_ERROR_CODES = new Set([
   "INSTAGRAM_PROFILE_INVALID",
 ]);
 
+const PROVIDER_HINT_RULES = [
+  ["appsecret_proof", /\bapp[_ -]?secret[_ -]?proof\b/i],
+  ["client_secret", /\b(?:client|app)[_ -]?secret\b(?![_ -]?proof)/i],
+  ["access_token", /\baccess[_ -]?token\b/i],
+  ["client_id", /\b(?:client|app|application)[_ -]?id\b/i],
+  ["grant_type", /\bgrant[_ -]?type\b/i],
+  ["redirect_uri", /\bredirect[_ -]?(?:uri|url)\b/i],
+  [
+    "invalid",
+    /\binvalid\b|\bmalformed\b|\bcannot parse\b|\bnot valid\b|\berror validating\b/i,
+  ],
+  ["missing", /\bmissing\b|\bis required\b|\bmust be provided\b/i],
+  ["expired", /\bexpired\b|\bexpiration\b/i],
+  [
+    "unsupported_request",
+    /\bunsupported (?:get |post )?request\b|\bunknown path\b/i,
+  ],
+  ["permission", /\bpermissions?\b|\bnot authorized\b|\baccess denied\b/i],
+  ["rate_limit", /\brate limit\b|\btoo many requests\b/i],
+] as const;
+
+type InstagramProviderHint = (typeof PROVIDER_HINT_RULES)[number][0];
+
 export interface InstagramProviderFailureDetails {
   providerCode?: number;
   providerSubcode?: number;
+  providerHints?: InstagramProviderHint[];
 }
 
 export interface InstagramFailureDiagnostic extends InstagramProviderFailureDetails {
@@ -55,17 +79,27 @@ function numericCode(value: unknown): number | undefined {
     : undefined;
 }
 
-/** Only numeric provider codes are retained; never messages, traces, or bodies. */
+/** Only numeric codes and source-defined hints survive; never provider text. */
 export function instagramProviderFailureDetails(
-  payload: unknown
+  payload: unknown,
+  secrets: readonly string[] = []
 ): InstagramProviderFailureDetails {
   const body = record(payload);
   const error = body.error ? record(body.error) : body;
   const providerCode = numericCode(error.code);
   const providerSubcode = numericCode(error.error_subcode);
+  const rawMessage = error.message ?? error.error_message;
+  let message = typeof rawMessage === "string" ? rawMessage : "";
+  for (const secret of secrets) {
+    if (secret) message = message.split(secret).join("[redacted]");
+  }
+  const providerHints = PROVIDER_HINT_RULES.filter(([, pattern]) =>
+    pattern.test(message.slice(0, 8192))
+  ).map(([hint]) => hint);
   return {
     ...(providerCode !== undefined ? { providerCode } : {}),
     ...(providerSubcode !== undefined ? { providerSubcode } : {}),
+    ...(providerHints.length > 0 ? { providerHints } : {}),
   };
 }
 
@@ -83,6 +117,11 @@ export function instagramFailureDiagnostic(
   const httpStatus = numericCode(error.httpStatus);
   const providerCode = numericCode(details.providerCode);
   const providerSubcode = numericCode(details.providerSubcode);
+  const providerHints = PROVIDER_HINT_RULES.map(([hint]) => hint).filter(
+    (hint) =>
+      Array.isArray(details.providerHints) &&
+      details.providerHints.includes(hint)
+  );
   return {
     stage,
     code,
@@ -91,6 +130,7 @@ export function instagramFailureDiagnostic(
       : {}),
     ...(providerCode !== undefined ? { providerCode } : {}),
     ...(providerSubcode !== undefined ? { providerSubcode } : {}),
+    ...(providerHints.length > 0 ? { providerHints } : {}),
   };
 }
 

@@ -179,6 +179,22 @@ function tokenLifetime(payload: unknown): {
   return { accessToken: token.trim(), expiresIn };
 }
 
+/** Meta returns single records directly or inside a one-item data array. */
+function singleResponseRecord(
+  payload: unknown
+): Record<string, unknown> | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+  if (!("data" in payload)) return payload as Record<string, unknown>;
+  const data = payload.data;
+  if (!Array.isArray(data) || data.length !== 1) return null;
+  const row: unknown = data[0];
+  return row && typeof row === "object" && !Array.isArray(row)
+    ? (row as Record<string, unknown>)
+    : null;
+}
+
 export class InstagramOAuthClient {
   private readonly config: ReturnType<typeof validatedConfig>;
   private readonly dependencies: InstagramOAuthDependencies;
@@ -211,7 +227,7 @@ export class InstagramOAuthClient {
   private async requestJson(
     url: URL,
     init: RequestInit,
-    _secrets: string[]
+    secrets: string[]
   ): Promise<unknown> {
     let response: Response;
     try {
@@ -247,7 +263,11 @@ export class InstagramOAuthClient {
         `Meta rejected the Instagram connection request (HTTP ${response.status})`,
         response.status === 429 || response.status >= 500,
         response.status,
-        instagramProviderFailureDetails(payload)
+        instagramProviderFailureDetails(payload, [
+          this.config.appSecret,
+          this.config.appId,
+          ...secrets,
+        ])
       );
     }
     return payload;
@@ -280,22 +300,16 @@ export class InstagramOAuthClient {
         [normalizedCode]
       );
       responsePayload = shortPayload;
-      const shortRow =
-        shortPayload &&
-        typeof shortPayload === "object" &&
-        Array.isArray((shortPayload as { data?: unknown }).data)
-          ? (shortPayload as { data: unknown[] }).data[0]
-          : null;
-      if (!shortRow || typeof shortRow !== "object") {
+      const shortRow = singleResponseRecord(shortPayload);
+      if (!shortRow) {
         throw new InstagramOAuthError(
           "INSTAGRAM_OAUTH_RESPONSE_INVALID",
           "Meta returned an invalid short-lived token response",
           true
         );
       }
-      const shortToken = (shortRow as { access_token?: unknown }).access_token;
-      const rawPermissions = (shortRow as { permissions?: unknown })
-        .permissions;
+      const shortToken = shortRow.access_token;
+      const rawPermissions = shortRow.permissions;
       const permissions = Array.isArray(rawPermissions)
         ? rawPermissions.filter(
             (value): value is string => typeof value === "string"
@@ -350,20 +364,9 @@ export class InstagramOAuthClient {
         [shortToken.trim(), longToken.accessToken]
       );
       responsePayload = profilePayload;
-      const profileRow =
-        profilePayload &&
-        typeof profilePayload === "object" &&
-        Array.isArray((profilePayload as { data?: unknown }).data)
-          ? (profilePayload as { data: unknown[] }).data[0]
-          : null;
-      const userId =
-        profileRow && typeof profileRow === "object"
-          ? (profileRow as { user_id?: unknown }).user_id
-          : null;
-      const username =
-        profileRow && typeof profileRow === "object"
-          ? (profileRow as { username?: unknown }).username
-          : null;
+      const profileRow = singleResponseRecord(profilePayload);
+      const userId = profileRow?.user_id;
+      const username = profileRow?.username;
       if (
         typeof userId !== "string" ||
         !userId.trim() ||
