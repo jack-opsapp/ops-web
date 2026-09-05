@@ -52,7 +52,9 @@ export const CustomerUpdateEvidenceSchema = z.discriminatedUnion("kind", [
 export const PrepareCustomerUpdateInputSchema = z
   .object({
     opportunity_id: Id,
-    expected_updated_at: Stamp,
+    expected_updated_at: Stamp.describe(
+      "Copy dates.updated_at exactly from get_job_summary identity, preserving every fractional digit."
+    ),
     changes: CustomerUpdateChangesSchema,
     customer: z
       .object({ id: Id, expected_updated_at: Stamp, notes: Text })
