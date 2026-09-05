@@ -41,7 +41,10 @@ independent review passed. The broad focused run passed 197 tests and hit one
 with one worker in 1.83 seconds; all 198 selected tests passed across the two
 runs. The first run had no OAuth or diagnostic failures.
 
-This change is local and awaits production approval. Deploy only this narrow
+Jackson explicitly approved deployment of this diagnostic update and related
+code fixes until the Instagram connection is verified on 2026-09-04. This
+approval does not authorize a first real publication. The change is ready for
+production deployment. Deploy only this narrow
 update on top of then-current main. Request one fresh operator login after the
 deployment is READY on `app.opsapp.co`, inspect the fixed hints, and correct the
 evidenced rejection. A connected encrypted row and visible username remain the

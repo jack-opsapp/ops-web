@@ -170,15 +170,44 @@ Malformed, empty, and multi-record wrappers are rejected, without falling back
 to unrelated top-level fields or the app-scoped token ID. Missing permissions
 remain a connection failure; requested scopes are never treated as granted.
 
-Jackson approved deployment of this correction on 2026-09-04. The correction
-is **committed and approved; production deployment is in progress**. Eleven regression and
+The correction was **approved and deployed on 2026-09-04 at 23:10 UTC**. Eleven regression and
 safety cases failed before the fix. The final focused suite passes 183 tests,
 including actual OAuth parsing and AES-GCM encryption through the service's
 persistence boundary. Targeted TypeScript and formatting passed; independent
-review found no actionable issue. Production integration candidate:
-`fc287e5895b2a6a05f77afe3cb1d5589a8ce4413`. After verifying this correction is live, request a fresh login. Verify the encrypted stored row and visible username
+review found no actionable issue. Production source is `c5c0acbfa32984d272cf80d64408f3b670a26e88`, containing
+parser commit `fc287e589` and its updated runbook on top of prior production.
+Deployment `dpl_7sdv4qkR2hJZij4m2QREtRyhgSz2` passed the production build and was
+independently verified READY through the `app.opsapp.co` alias. Live probes
+returned the canonical missing-code callback redirect (307) and unauthenticated
+admin rejection (401), both with no-store caching. A fresh operator login was
+requested after deployment. Verify the encrypted stored row and visible username
 before reporting connection success. At 23:01 UTC, both connection and post
 counts were still zero. The first real publication remains separately gated.
+
+### Renewable-token rejection — 2026-09-04
+
+The deployed parser correction passed the initial token/permission step on two
+fresh attempts at 23:18:31 and 23:19:17 UTC. Both then failed at `token_upgrade`
+with HTTP 400, `INSTAGRAM_OAUTH_REJECTED`, and Meta code 100. The code uses the
+documented official endpoint and parameters; production has no endpoint
+origin overrides. Code 100 alone does not prove which parameter Meta rejected.
+
+A local diagnostic update now extracts only allowlisted parameter/reason hints
+from provider wording, removes known secrets before matching, and revalidates
+the labels before logging. Raw text and credential values are excluded. Hints
+reflect matched wording and are not proof of a cause. No OAuth requests,
+permissions, storage, or publishing behavior changed. Release candidate:
+`d1388a8568cbab3e0aa8dc6e1cf1e4e5c0b57cbe`; implementation commit `d283fe0ed`.
+Thirteen diagnostic cases failed before the change. Verification passed 197
+of 198 tests in the broad run; an unchanged renderer timed out, then passed in
+isolation. TypeScript, formatting, and independent review passed.
+
+Jackson approved this diagnostic deployment and related code fixes until the
+connection is verified. The hint update is awaiting its production build.
+After release, obtain a fresh login
+and read the safe hints before changing credentials or request behavior.
+Do not replay prior authorization codes or bypass the renewable-token step.
+Detailed plan: `docs/plans/2026-09-04-instagram-token-upgrade-diagnostics.md`.
 
 ### Publishing failures
 
