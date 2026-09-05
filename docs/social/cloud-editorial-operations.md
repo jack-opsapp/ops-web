@@ -1,6 +1,6 @@
 # Cloud Instagram editorial operations
 
-Status: implemented and verified locally on 2026-09-05. Not deployed or activated. The earlier Instagram OAuth repair is complete; its approval does not authorize this release or a first publication.
+Status: production migration, deployment and preparation-only activation approved on 2026-09-05; release verification in progress. First publication is separately unauthorized.
 
 ## Purpose and schedule
 
@@ -22,6 +22,8 @@ Vancouver is pinned to `Etc/GMT+7`: BC adopted permanent UTC−7 in March 2026. 
 The worker reads only published `public.blog_posts` fields: `id`, `title`, `slug`, `content`, `published_at`, `is_live`, and `thumbnail_url`. It removes scripts/styles/HTML and clips text to 12,000 characters. Blog slots use sources at most 30 days old; other slots allow 180 days. Future, unpublished, malformed, empty, or recently used sources are excluded. A saved source snapshot is revalidated before generation and after generation. A retry reuses that exact snapshot and any completed package.
 
 Other formats use a distinct practical angle supported by those public sources. The worker does not inspect private customer records, infer shipped features from code, or invent testimonials and results. Product/proof/release/dispatch formats require source support; dispatch also needs an authentic image. Both prompts treat source text and previous hooks as untrusted data. Neither model can invoke tools or publish.
+
+Both writer and editor receive the complete versioned `docs/social/voice/sam-parr-field-guide.md` as a creative reference. Its SHA-256 is recorded on approved packages and rejected editor audits. OPS evidence and voice rules override its website-specific advice; its example claims are never evidence about OPS. The file is explicitly included in the cloud function bundle.
 
 The writer returns a strict structured package. Deterministic checks enforce OPS voice, field lengths, exact evidence excerpts, numeric support, URL ownership, compatible imagery, and near-duplicate hooks. An independent editor checks every claim, freshness, usefulness, repetition, and format support. Model review is fallible; it supplements these constraints and the operator's inspection, rather than proving every semantic claim.
 
@@ -47,11 +49,11 @@ Tables have RLS, no browser grants or policies, and explicit service-role privil
 
 ## Cost limits
 
-Two `gpt-5.6-sol` calls are allowed per attempt: writer and editor. Each has a 65-second timeout, no SDK retries, a 32KB serialized input limit including schema, and at most 4,000 completion tokens. No tools or external research calls are available to the models.
+Two `gpt-5.6-sol` calls are allowed per attempt: writer and editor. Each has a 65-second timeout, no SDK retries, a 64KB serialized input limit including schema, and at most 4,000 completion tokens. No tools or external research calls are available to the models.
 
-Each claim reserves US$0.50 against a configurable monthly allowance capped at US$20. Reservations are retained after crashes and retries, so the ledger intentionally overestimates usage. At the reviewed [OpenAI standard prices](https://developers.openai.com/api/docs/pricing), input is US$4/M tokens and output US$20/M. Recheck prices before changing the model or bounds. This is an application estimate allowance, not a provider-enforced billing limit.
+Each claim reserves US$0.75 against a configurable monthly allowance capped at US$20. Reservations are retained after crashes and retries, so the ledger intentionally overestimates usage. At the reviewed [OpenAI standard prices](https://developers.openai.com/api/docs/pricing), input is US$4/M tokens and output US$20/M. Recheck prices before changing the model or bounds. This is an application estimate allowance, not a provider-enforced billing limit.
 
-The successful local canary used 4,157 input and 1,772 output tokens across both stages: estimated **US$0.052068**. One preceding canary attempt failed; its complete usage was not available, so this number is not the total testing bill. Vercel function execution and asset storage are additional usage. [Vercel cron pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) states that cron is included but function usage is billed normally; this schedule requires a plan supporting subdaily cron.
+The full-guide local canary used 17,257 input and 1,296 output tokens across both stages: estimated **US$0.094948**, producing five slides. The earlier condensed-guide canary cost US$0.052068 and is preserved under `prior-condensed-guide/`. One preceding attempt failed with incomplete usage, so neither number is the total testing bill. Vercel function execution and asset storage are additional usage. [Vercel cron pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) states that cron is included but function usage is billed normally; this schedule requires a plan supporting subdaily cron.
 
 ## Notifications and inspection
 
@@ -80,4 +82,4 @@ Behavioral tests live under `tests/unit/social/editorial/`. They cover schedule 
 
 `tests/sql/social-editorial-runtime.mjs` applies the exact migration to a disposable local PostgreSQL database. It proves concurrent claims, stale owners, attempt exhaustion, monthly reservations, mode changes during rendering, source withdrawal, terminal preview behavior, recovery, RLS/grants and notification replay. Its fixed local socket intentionally cannot target a production database.
 
-`tests/integration/social-editorial-canary.test.ts` is skipped unless `OPS_RUN_EDITORIAL_CANARY=1`. It runs real bounded model calls and the production renderer, but injects local asset writes and bypasses application notifications and all database writes. `docs/artifacts/social-editorial/` contains the approved canary, four actual JPEGs and a browser-inspected static rendering of the real admin component. This proves the local generation/render path; production scheduling, storage, recipient delivery and first publication still need their separate live checks.
+`tests/integration/social-editorial-canary.test.ts` is skipped unless `OPS_RUN_EDITORIAL_CANARY=1`. It runs real bounded model calls and the production renderer, but injects local asset writes and bypasses application notifications and all database writes. `docs/artifacts/social-editorial/` contains the approved canary, five actual JPEGs and a browser-inspected static rendering of the real admin component. This proves the local generation/render path; production scheduling, storage, recipient delivery and first publication still need their separate live checks.

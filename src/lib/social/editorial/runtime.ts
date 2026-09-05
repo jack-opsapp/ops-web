@@ -4,12 +4,14 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { createEditorialRepository } from "./repository";
 import { editorialPreviewId } from "./policy";
 import { generateEditorial } from "./generator";
+import { loadCopywritingReference } from "./copywriting-reference";
 import { runEditorial } from "./worker";
 import { renderSocialPost } from "../render/render-social-post";
 import { selectSocialTemplate } from "../template-selector";
 import { createSubmissionSocialRepository } from "../repository";
 import { submitSocialPost } from "../submission-service";
 export async function runCloudEditorial() {
+  const { path, sha256 } = loadCopywritingReference();
   const db = getServiceRoleClient();
   const recovery = await db.rpc("recover_social_editorial");
   if (recovery.error) throw recovery.error;
@@ -43,7 +45,7 @@ export async function runCloudEditorial() {
     });
     if (error) throw error;
   }
-  return result;
+  return { ...result, copywriting_reference: { path, sha256 } };
 }
 export async function readCloudEditorial() {
   const db = getServiceRoleClient();

@@ -33,7 +33,7 @@ try {
   sql("update social_editorial_settings set mode='prepare'");
   assert.equal(sql(claim), "1");
   assert.equal(sql(claim), "0");
-  assert.equal(sql("select reserved_usd from social_editorial_runs"), "0.50");
+  assert.equal(sql("select reserved_usd from social_editorial_runs"), "0.75");
   assert.equal(
     sql(
       `select finish_social_editorial(${date},'22222222-2222-4222-8222-222222222222','prepared',null)`

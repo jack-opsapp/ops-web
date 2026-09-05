@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import {
   generateEditorial,
   type Completion,
@@ -45,6 +47,31 @@ function complete(answer: unknown = draft): Completion {
   });
 }
 describe("bounded writer and independent editor", () => {
+  it("gives both stages the exact versioned Sam Parr guide and records its identity", async () => {
+    const path = "docs/social/voice/sam-parr-field-guide.md";
+    const content = readFileSync(path, "utf8");
+    const sha256 = createHash("sha256").update(content).digest("hex");
+    const seen: string[] = [];
+    const provider: Completion = async (request) => {
+      const data = JSON.parse(request.data);
+      expect(data.copywriting_reference).toEqual({ path, sha256, content });
+      expect(request.system).toContain("style reference only");
+      seen.push(request.stage);
+      return {
+        value: request.stage === "writer" ? draft : review,
+        usage: { input: 100, output: 100 },
+      };
+    };
+    const result = await generateEditorial(
+      source,
+      "protocol",
+      [],
+      new Date("2026-09-07"),
+      provider
+    );
+    expect(seen).toEqual(["writer", "editor"]);
+    expect(result.references).toEqual([{ path, sha256 }]);
+  });
   it("produces a validated package with evidence and usage", async () => {
     const p = await generateEditorial(
       source,

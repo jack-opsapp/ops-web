@@ -11,7 +11,7 @@ create table public.social_editorial_runs (
  mode text not null check(mode in ('prepare','publish')),
  state text not null default 'working' check(state in ('working','retry','prepared','submitted','skipped','failed')),
  attempts integer not null default 0 check(attempts between 0 and 3),
- reserved_usd numeric(8,2) not null default 0 check(reserved_usd between 0 and 1.50),
+ reserved_usd numeric(8,2) not null default 0 check(reserved_usd between 0 and 2.25),
  claim_token uuid,
  lease_until timestamptz,
  next_attempt_at timestamptz,
@@ -47,11 +47,11 @@ begin
   return;
  end if;
  select coalesce(sum(reserved_usd),0) into spent from public.social_editorial_runs where slot_date>=date_trunc('month',p_date)::date and slot_date<(date_trunc('month',p_date)+interval '1 month')::date;
- if r.attempts>=3 or spent+0.50>s.monthly_budget_usd then
+ if r.attempts>=3 or spent+0.75>s.monthly_budget_usd then
   update public.social_editorial_runs set state='failed',last_code=case when r.attempts>=3 then 'ATTEMPTS_EXHAUSTED' else 'BUDGET_EXHAUSTED' end,claim_token=null,lease_until=null,updated_at=now() where slot_date=p_date;
   return;
  end if;
- return query update public.social_editorial_runs set state='working',attempts=attempts+1,reserved_usd=reserved_usd+0.50,claim_token=p_token,lease_until=now()+interval '6 minutes',next_attempt_at=null,updated_at=now() where slot_date=p_date returning *;
+ return query update public.social_editorial_runs set state='working',attempts=attempts+1,reserved_usd=reserved_usd+0.75,claim_token=p_token,lease_until=now()+interval '6 minutes',next_attempt_at=null,updated_at=now() where slot_date=p_date returning *;
 end $$;
 
 create function public.checkpoint_social_editorial(p_date date,p_token uuid,p_source jsonb,p_package jsonb)
