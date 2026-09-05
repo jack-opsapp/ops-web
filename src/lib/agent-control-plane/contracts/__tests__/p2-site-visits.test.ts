@@ -125,7 +125,7 @@ describe("P2 site-visit input contracts", () => {
     ).toBe(false);
   });
 
-  it("requires canonical filters, status order, and a meaningful unlinked history selector", () => {
+  it("requires valid filters and a meaningful unlinked history selector", () => {
     const valid = {
       view: "visit_history",
       created_from: "2026-01-01T00:00:00.000Z",
@@ -136,7 +136,6 @@ describe("P2 site-visit input contracts", () => {
     expect(ListSiteVisitsInputSchema.safeParse(valid).success).toBe(true);
 
     for (const invalid of [
-      { ...valid, statuses: ["completed", "cancelled"] },
       { ...valid, statuses: ["completed", "completed"] },
       {
         ...valid,

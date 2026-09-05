@@ -70,8 +70,12 @@ export const CustomerContextInputSchema = z
     sections: UniqueSectionsSchema.default([
       ...CUSTOMER_CONTEXT_DEFAULT_SECTIONS,
     ]),
-    contact_purpose: CustomerContextContactPurposeSchema.optional(),
-    job_kinds: UniqueJobKindsSchema.optional(),
+    contact_purpose: CustomerContextContactPurposeSchema.optional().describe(
+      "Required exactly when contacts is selected; omit otherwise. Choose communication or scheduling."
+    ),
+    job_kinds: UniqueJobKindsSchema.optional().describe(
+      "Required exactly when job_rollup is selected; omit otherwise. Select opportunity, project, or both."
+    ),
   })
   .strict()
   .superRefine((input, context) => {

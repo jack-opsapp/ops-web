@@ -612,7 +612,17 @@ export const GetIntegrationHealthInputSchema = z
     integrations: z
       .array(IntegrationHealthSelectionSchema)
       .min(1)
-      .max(INTEGRATION_HEALTH_MAX_ITEMS),
+      .max(INTEGRATION_HEALTH_MAX_ITEMS)
+      .transform((values) =>
+        [...values].sort((left, right) => {
+          const a = integrationSelectionKey(left);
+          const b = integrationSelectionKey(right);
+          return a < b ? -1 : a > b ? 1 : 0;
+        })
+      )
+      .describe(
+        "Unique integration selections in any order; OPS canonicalizes ordering."
+      ),
   })
   .strict()
   .refine(

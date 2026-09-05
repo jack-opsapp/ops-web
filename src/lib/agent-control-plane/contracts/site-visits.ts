@@ -4,6 +4,7 @@ import { DeckDesignRefSchema } from "./job-artifacts";
 import {
   createP2CanonicalTextSchema,
   P2CanonicalTimestampSchema,
+  P2ReadTimestampInputSchema,
   P2CanonicalUuidSchema,
   P2_FETCH_LIMIT,
   P2_MAX_PAGE_ITEMS,
@@ -73,6 +74,7 @@ const UniqueStatusesSchema = z
   .array(SiteVisitStatusSchema)
   .min(1)
   .max(SiteVisitStatusSchema.options.length)
+  .transform((values) => [...values].sort())
   .refine(
     (statuses) =>
       new Set(statuses).size === statuses.length &&
@@ -80,7 +82,8 @@ const UniqueStatusesSchema = z
         (status, index) => index === 0 || statuses[index - 1]! < status
       ),
     "SITE_VISIT_STATUS_VECTOR_NOT_CANONICAL"
-  );
+  )
+  .describe("Select unique values in any order; OPS canonicalizes ordering.");
 
 const ListCommonShape = {
   cursor: OpaqueCursorSchema.optional(),
@@ -100,8 +103,8 @@ export const ListSiteVisitsInputSchema = z
       .object({
         ...ListCommonShape,
         view: z.literal("booked_appointments"),
-        from: P2CanonicalTimestampSchema,
-        to: P2CanonicalTimestampSchema,
+        from: P2ReadTimestampInputSchema,
+        to: P2ReadTimestampInputSchema,
         statuses: UniqueStatusesSchema.default(["in_progress", "scheduled"]),
       })
       .strict(),
@@ -109,8 +112,8 @@ export const ListSiteVisitsInputSchema = z
       .object({
         ...ListCommonShape,
         view: z.literal("visit_history"),
-        created_from: P2CanonicalTimestampSchema,
-        created_to: P2CanonicalTimestampSchema,
+        created_from: P2ReadTimestampInputSchema,
+        created_to: P2ReadTimestampInputSchema,
         statuses: UniqueStatusesSchema.optional(),
         include_unlinked: z.boolean().default(false),
       })
@@ -173,6 +176,7 @@ const UniqueContextSectionsSchema = z
   .array(SiteVisitContextSectionSchema)
   .min(1)
   .max(SiteVisitContextSectionSchema.options.length)
+  .transform((values) => [...values].sort())
   .refine(
     (sections) =>
       new Set(sections).size === sections.length &&
@@ -180,7 +184,8 @@ const UniqueContextSectionsSchema = z
         (section, index) => index === 0 || sections[index - 1]! < section
       ),
     "SITE_VISIT_SECTION_VECTOR_NOT_CANONICAL"
-  );
+  )
+  .describe("Select unique values in any order; OPS canonicalizes ordering.");
 
 const ContextCommonShape = {
   site_visit_ref: SiteVisitRefSchema,
