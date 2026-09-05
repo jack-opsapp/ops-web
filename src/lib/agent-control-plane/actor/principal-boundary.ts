@@ -201,10 +201,12 @@ export function createMcpPrincipalFromValidatedGrant(input: {
   applicationId?: string | null;
   protocolEra?: string | null;
 }): ValidatedMcpPrincipal {
+  // OAuth scopes are ASCII tokens. Match the consent catalogue and the
+  // database's COLLATE "C" order before binding the exact grant array.
   const validatedScopes = Object.freeze(
     Array.from(
       new Set(input.validatedScopes.map((scope) => requireOAuthScope(scope)))
-    ).sort((left, right) => left.localeCompare(right))
+    ).sort()
   );
 
   return brandVerifiedPrincipal({
