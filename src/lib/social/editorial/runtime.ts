@@ -5,6 +5,7 @@ import { createEditorialRepository } from "./repository";
 import { editorialPreviewId } from "./policy";
 import { generateEditorial } from "./generator";
 import { loadCopywritingReference } from "./copywriting-reference";
+import { getEditorialOperator } from "./operator";
 import { runEditorial } from "./worker";
 import { renderSocialPost } from "../render/render-social-post";
 import { selectSocialTemplate } from "../template-selector";
@@ -33,15 +34,11 @@ export async function runCloudEditorial() {
         }),
       }),
   });
-  const userId =
-    process.env.SOCIAL_OPERATOR_USER_ID ?? process.env.PMF_OPERATOR_USER_ID;
-  const companyId =
-    process.env.SOCIAL_OPERATOR_COMPANY_ID ??
-    process.env.PMF_OPERATOR_COMPANY_ID;
-  if (userId && companyId) {
+  const operator = getEditorialOperator(process.env);
+  if (operator) {
     const { error } = await db.rpc("notify_social_editorial", {
-      p_user_id: userId,
-      p_company_id: companyId,
+      p_user_id: operator.userId,
+      p_company_id: operator.companyId,
     });
     if (error) throw error;
   }
