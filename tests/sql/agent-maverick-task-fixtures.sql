@@ -1,0 +1,11 @@
+\set ON_ERROR_STOP on
+set request.jwt.claim.role='service_role';
+insert into private.mcp_oauth_clients(client_id,client_name,redirect_uris,token_endpoint_auth_method,grant_types,response_types,scope,registration_source,scope_ceiling,consent_catalog_revision,exposure_revision) values (
+'91000000-0000-4000-8000-000000000010','Maverick fixture',array['https://claude.ai/api/mcp/auth_callback'],'none',array['authorization_code','refresh_token'],array['code'],'ops.schedule.read ops.tasks.read','manual',array['ops.schedule.read','ops.tasks.read'],'2026-08-22.mcp-consent-catalog.v1','2026-08-22.mcp-exposure.v1');
+insert into private.mcp_oauth_grants(id,user_id,company_id,client_id,scopes,accepted_labels,consent_catalog_revision,exposure_revision,revision) values (
+'91000000-0000-4000-8000-000000000011','91000000-0000-4000-8000-000000000002','91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000010',array['ops.schedule.read','ops.tasks.read'],private.mcp_oauth_labels_for_scopes(array['ops.schedule.read','ops.tasks.read'],'2026-08-22.mcp-consent-catalog.v1'),'2026-08-22.mcp-consent-catalog.v1','2026-08-22.mcp-exposure.v1',md5('maverick-test'));
+insert into public.project_tasks(id,company_id,project_id,custom_title,status,start_date,end_date,all_day,team_member_ids,schedule_version,confirmed_schedule_version,schedule_confirmed_at) values (
+'91000000-0000-4000-8000-000000000012','91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000004','Synthetic paving','active','2026-03-15T07:00:00Z','2026-03-16T07:00:00Z',true,array['91000000-0000-4000-8000-000000000002'],1,1,'2026-03-01T00:00:00Z');
+create function maverick_test.task_context() returns jsonb language sql stable as $$
+select public.read_agent_task_context_as_system('maverick-task','91000000-0000-4000-8000-000000000002','91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000011','91000000-0000-4000-8000-000000000010',md5('maverick-test'),array['ops.schedule.read','ops.tasks.read'],maverick_test.revision(),maverick_test.permissions(),'get_task_context','get_task_context:2026-08-22.v1','2026-08-22.capability-manifest.v8',array['ops.schedule.read','ops.tasks.read'],'all','all','all',null,null,'91000000-0000-4000-8000-000000000012',array['schedule'],501,25,25);
+$$;

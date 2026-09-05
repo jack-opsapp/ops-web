@@ -1,0 +1,228 @@
+--- private.read_agent_job_conversation_context_v3_impl (live)
++++ private.read_agent_job_conversation_context_v3_impl (repaired)
+@@ -305,17 +305,17 @@
+            turn.channel,
+            context_provider_source.delivered_at,
+            turn.ingested_at,
+-           context_provider_source.connection_id,
++           context_provider_source.connection_id as source_connection_id,
+            context_provider_source.provider_message_id,
+            turn.provider_delivery_source_id,
+-           context_provider_source.source_sha256,
++           context_provider_source.source_sha256 as provider_delivery_source_sha256,
+            turn.source_activity_id,
+            turn.source_correspondence_event_id,
+-           context_provider_source.normalized_subject,
++           context_provider_source.normalized_subject as subject,
+            context_provider_source.recipient_identities,
+            context_provider_source.cc_recipient_identities,
+            context_provider_source.normalized_plain_text,
+-           context_provider_source.source_sha256,
++           context_provider_source.source_sha256 as original_content_hash,
+            context_provider_source.attachment_evidence_ids
+     from requested_anchor requested
+     join recent_id recent on true
+@@ -505,8 +505,8 @@
+            turn.participant_resolution_status,
+            turn.participant_resolution_revision,
+            context_provider_source.delivered_at,
+-           context_provider_source.source_sha256,
+-           context_provider_source.source_sha256,
++           context_provider_source.source_sha256 as provider_delivery_source_sha256,
++           context_provider_source.source_sha256 as original_content_hash,
+            context_provider_source.attachment_evidence_ids,
+            left(context_provider_source.normalized_plain_text, 4001) as bounded_plain_text
+     from requested_anchor requested
+--- private.read_agent_job_conversation_context_as_system_v6_core (live)
++++ private.read_agent_job_conversation_context_as_system_v6_core (repaired)
+@@ -13,8 +13,7 @@
+     raise exception 'invalid_agent_job_conversation_context_request'
+       using errcode = '22023';
+   end if;
+-  return private.reprove_agent_read_jsonb_for_manifest(
+-    private.read_agent_job_conversation_context_v6_bridge(
++  return private.read_agent_job_conversation_context_v6_bridge(
+       p_request_id,
+       p_actor_user_id,
+       p_company_id,
+@@ -32,8 +31,6 @@
+       p_exact_turn_limit,
+       p_sections,
+       p_required_through_turn_id
+-    ),
+-    p_capability_manifest_revision
+   );
+ end;
+ $function$
+--- private.read_agent_job_conversation_context_as_system_v7_core (live)
++++ private.read_agent_job_conversation_context_as_system_v7_core (repaired)
+@@ -43,9 +43,6 @@
+        '2026-08-14.capability-manifest.v6' then
+     return v_v6_result;
+   end if;
+-  return private.reprove_agent_read_jsonb_for_manifest(
+-    v_v6_result,
+-    '2026-08-20.capability-manifest.v7'
+-  );
++  return v_v6_result;
+ end;
+ $function$
+--- public.read_agent_job_conversation_context_as_system (live)
++++ public.read_agent_job_conversation_context_as_system (repaired)
+@@ -37,8 +37,6 @@
+   ) then
+     return v_result;
+   end if;
+-  return private.reprove_agent_read_jsonb_for_manifest(
+-    v_result, '2026-08-22.capability-manifest.v8'
+-  );
++  return v_result;
+ end;
+ $function$
+--- private.agent_p2_task_context_v1 (live)
++++ private.agent_p2_task_context_v1 (repaired)
+@@ -150,7 +150,8 @@
+     ) permission(value)
+     group by authority.permission_snapshot_revision
+   ), read_context as materialized (
+-    select task_revision.source_revision as task_revision,
++    select company.timezone as company_timezone,
++           task_revision.source_revision as task_revision,
+            operational_revision.source_revision as operational_revision,
+            authority.tasks_scope,
+            authority.projects_scope,
+@@ -231,6 +232,7 @@
+            task.start_date,
+            task.end_date,
+            task.all_day,
++           context.company_timezone,
+            task.schedule_version,
+            task.schedule_confirmed_at,
+            task.confirmed_schedule_version,
+@@ -874,7 +876,9 @@
+                     and extract(
+                       year from task.start_date at time zone 'UTC'
+                     ) between 1 and 9999
+-                     then private.agent_rfc3339_utc(task.start_date)
++                     then private.agent_rfc3339_utc(private.agent_task_read_instant(
++                       task.start_date,task.all_day,task.company_timezone,false
++                     ))
+                  end,
+                  'ends_at', case
+                    when task.end_date is not null
+@@ -882,7 +886,9 @@
+                     and extract(
+                       year from task.end_date at time zone 'UTC'
+                     ) between 1 and 9999
+-                     then private.agent_rfc3339_utc(task.end_date)
++                     then private.agent_rfc3339_utc(private.agent_task_read_instant(
++                       task.end_date,task.all_day,task.company_timezone,true
++                     ))
+                  end,
+                  'all_day', case
+                    when (task.start_date is null) <> (task.end_date is null)
+--- private.agent_p2_task_list_v1 (live)
++++ private.agent_p2_task_list_v1 (repaired)
+@@ -211,7 +211,8 @@
+     ) permission(value)
+     group by authority.permission_snapshot_revision
+   ), read_context as materialized (
+-    select task_revision.source_revision as task_revision,
++    select company.timezone as company_timezone,
++           task_revision.source_revision as task_revision,
+            operational_revision.source_revision as operational_revision,
+            authority.tasks_scope,
+            authority.projects_scope,
+@@ -291,6 +292,8 @@
+            task.status,
+            task.start_date,
+            task.end_date,
++           private.agent_task_read_instant(task.start_date,task.all_day,context.company_timezone,false) as read_starts_at,
++           private.agent_task_read_instant(coalesce(task.end_date,task.start_date),task.all_day,context.company_timezone,true) as read_ends_at,
+            task.schedule_version,
+            task.schedule_confirmed_at,
+            task.confirmed_schedule_version,
+@@ -373,8 +376,8 @@
+         p_view_kind <> 'schedule_window'
+         or (
+           task.start_date is not null
+-          and task.start_date < p_window_ends_before
+-          and coalesce(task.end_date, task.start_date) >=
++          and task.read_starts_at < p_window_ends_before
++          and task.read_ends_at >
+             p_window_starts_at
+         )
+       )
+@@ -382,7 +385,7 @@
+         p_view_kind <> 'overdue'
+         or (
+           task.status = 'active'
+-          and coalesce(task.end_date, task.start_date) <
++          and task.read_ends_at <=
+             p_overdue_as_of
+         )
+       )
+@@ -400,7 +403,7 @@
+             pg_catalog.cardinality(
+               coalesce(task.team_member_ids, array[]::text[])
+             ) = 0
+-            or coalesce(task.end_date, task.start_date) < task.read_at
++            or task.read_ends_at <= task.read_at
+             or task.start_date is not null and (
+               task.schedule_confirmed_at is null
+               or task.confirmed_schedule_version is distinct from
+--- private.agent_p2_task_attention_v1 (live)
++++ private.agent_p2_task_attention_v1 (repaired)
+@@ -76,7 +76,8 @@
+     ) permission(value)
+     group by authority.permission_snapshot_revision
+   ), read_context as materialized (
+-    select task_revision.source_revision as task_revision,
++    select company.timezone as company_timezone,
++           task_revision.source_revision as task_revision,
+            operational_revision.source_revision as operational_revision,
+            authority.tasks_scope,
+            authority.projects_scope
+@@ -105,6 +106,8 @@
+            task.team_member_ids,
+            task.start_date,
+            task.end_date,
++           private.agent_task_read_instant(task.start_date,task.all_day,context.company_timezone,false) as read_starts_at,
++           private.agent_task_read_instant(coalesce(task.end_date,task.start_date),task.all_day,context.company_timezone,true) as read_ends_at,
+            task.schedule_version,
+            task.schedule_confirmed_at,
+            task.confirmed_schedule_version,
+@@ -134,7 +137,7 @@
+            task_type.display as task_type_display,
+            raw.team_member_ids,
+            case
+-             when coalesce(raw.end_date, raw.start_date) < p_read_at
++             when raw.read_ends_at <= p_read_at
+                then 'overdue'
+              when pg_catalog.cardinality(
+                coalesce(raw.team_member_ids, array[]::text[])
+@@ -142,12 +145,12 @@
+              else 'confirmation_required'
+            end as reason_code,
+            case
+-             when coalesce(raw.end_date, raw.start_date) < p_read_at
+-               then coalesce(raw.end_date, raw.start_date)
++             when raw.read_ends_at <= p_read_at
++               then raw.read_ends_at
+              when pg_catalog.cardinality(
+                coalesce(raw.team_member_ids, array[]::text[])
+              ) = 0 then p_read_at
+-             else raw.start_date
++             else raw.read_starts_at
+            end as attention_at,
+            raw.task_revision,
+            raw.operational_revision,
+@@ -166,7 +169,7 @@
+         pg_catalog.cardinality(
+           coalesce(raw.team_member_ids, array[]::text[])
+         ) = 0
+-        or coalesce(raw.end_date, raw.start_date) < p_read_at
++        or raw.read_ends_at <= p_read_at
+         or raw.start_date is not null and (
+           raw.schedule_confirmed_at is null
+           or raw.confirmed_schedule_version is distinct from

@@ -442,9 +442,13 @@ const SummaryFinancialComponentsSchema = uniqueEnumArray(
 const JobSummaryInputBaseSchema = z
   .object({
     job_ref: CurrentJobRefSchema,
-    sections: SummarySectionsSchema.default(["identity"]),
+    sections: SummarySectionsSchema.default(["identity"]).describe(
+      "Selected job facts. schedule and readiness are project only; opportunity summaries support identity, participants, financials, activity and conversation."
+    ),
     readiness_rule_codes: SummaryReadinessRulesSchema.optional(),
-    financial_components: SummaryFinancialComponentsSchema.optional(),
+    financial_components: SummaryFinancialComponentsSchema.optional().describe(
+      "Required exactly when financials is selected; omit otherwise. Opportunities allow estimate_rollup only. Projects allow estimate_rollup and invoice_rollup."
+    ),
   })
   .strict()
   .superRefine((input, context) => {

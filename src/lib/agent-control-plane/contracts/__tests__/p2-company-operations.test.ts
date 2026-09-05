@@ -411,7 +411,7 @@ describe("P2 company operations contracts", () => {
 });
 
 describe("P2 integration-health contracts", () => {
-  it("accepts only a bounded unique canonical provider/type selection", () => {
+  it("accepts bounded unique provider/type selections in any order", () => {
     expect(INTEGRATION_HEALTH_MAX_ITEMS).toBe(4);
     expect(
       GetIntegrationHealthInputSchema.parse({
@@ -433,10 +433,6 @@ describe("P2 integration-health contracts", () => {
 
     for (const integrations of [
       [],
-      [
-        { integration_type: "mailbox", provider: "gmail" },
-        { integration_type: "accounting", provider: "quickbooks" },
-      ],
       [
         { integration_type: "accounting", provider: "quickbooks" },
         { integration_type: "accounting", provider: "quickbooks" },

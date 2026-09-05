@@ -122,11 +122,12 @@ describe("OPS agent control-plane v1 contracts", () => {
     );
   });
 
+  // Use a region that still changes clocks. B.C. ended fall-back in 2026.
   it("keeps schedule instants explicit in UTC, local time, and IANA timezone", () => {
     const schedule = {
       utc: "2026-11-01T16:30:00.000Z",
       local: "2026-11-01T08:30:00",
-      timezone: "America/Vancouver",
+      timezone: "America/Los_Angeles",
     };
 
     expect(ScheduleInstantSchema.parse(schedule)).toEqual(schedule);
@@ -149,49 +150,49 @@ describe("OPS agent control-plane v1 contracts", () => {
       ScheduleInstantSchema.safeParse({
         utc: "2026-03-08T09:30:00.000Z",
         local: "2026-03-08T01:30:00",
-        timezone: "America/Vancouver",
+        timezone: "America/Los_Angeles",
       }).success
     ).toBe(true);
     expect(
       ScheduleInstantSchema.safeParse({
         utc: "2026-03-08T10:30:00.000Z",
         local: "2026-03-08T03:30:00",
-        timezone: "America/Vancouver",
+        timezone: "America/Los_Angeles",
       }).success
     ).toBe(true);
     expect(
       ScheduleInstantSchema.safeParse({
         utc: "2026-03-08T10:30:00.000Z",
         local: "2026-03-08T02:30:00",
-        timezone: "America/Vancouver",
+        timezone: "America/Los_Angeles",
       }).success
     ).toBe(false);
     expect(
       ScheduleInstantSchema.safeParse({
         utc: "2026-11-01T08:30:00.000Z",
         local: "2026-11-01T01:30:00",
-        timezone: "America/Vancouver",
+        timezone: "America/Los_Angeles",
       }).success
     ).toBe(true);
     expect(
       ScheduleInstantSchema.safeParse({
         utc: "2026-11-01T09:30:00.000Z",
         local: "2026-11-01T01:30:00",
-        timezone: "America/Vancouver",
+        timezone: "America/Los_Angeles",
       }).success
     ).toBe(true);
     expect(
       ScheduleInstantSchema.safeParse({
         utc: "2026-11-01T09:30:00.000Z",
         local: "2026-11-01T02:30:00",
-        timezone: "America/Vancouver",
+        timezone: "America/Los_Angeles",
       }).success
     ).toBe(false);
     expect(
       ScheduleInstantSchema.safeParse({
         utc: "2026-11-01T10:30:00.000Z",
         local: "2026-11-01T02:30:00",
-        timezone: "America/Vancouver",
+        timezone: "America/Los_Angeles",
       }).success
     ).toBe(true);
   });

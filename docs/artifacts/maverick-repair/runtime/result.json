@@ -1,0 +1,11 @@
+{
+  "postgres": "17",
+  "conversation_checks": 16,
+  "task_checks": 41,
+  "invariant_checks": 3,
+  "red_reproductions": 2,
+  "migration_replay": "passed",
+  "unexpected_source_drift": "rejected",
+  "migration_sha256": "4c4022d54ba0278ca4d0d33705ce10c358242a00d4dfdb3bbb3a54aace40838d",
+  "limits": "Disposable synthetic fixtures with live function snapshots and real authority checks. Unrelated production FKs, write triggers and workers are not replicated. No production writes. Civil time follows each runtime's installed IANA timezone data."
+}
