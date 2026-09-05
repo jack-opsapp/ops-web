@@ -31,5 +31,9 @@
 
 ## 5. Documentation and dormant release
 - Update Bible API/data/workflow sections and migration copy in same session.
-- Publish/deploy dormant code under standing release permission; respect separately enforced production migration authorization. Never create production policies, grants, business mutations, canaries or routine schedules.
+- Publish/deploy dormant code under standing release permission; respect separately enforced production migration authorization. Never create tenant write policies, grants, business mutations, canaries or routine schedules. The proposed migration includes one technical effect fingerprint only.
 - Read back migration ACLs, zero rows and unchanged public read-only metadata; report READY source independently from host acceptance and activation.
+
+## Execution status
+
+Implementation, independent review, visual inspection, 52 PostgreSQL checks, 396 integrated application tests and full type-check are complete. Dormant application release proceeds under standing permission. Production migration was rejected by automatic approval review and remains unapplied pending exact user authorization; no activation or host acceptance is claimed. See `docs/artifacts/phase12/release-proof.md`.
