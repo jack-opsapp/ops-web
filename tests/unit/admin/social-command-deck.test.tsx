@@ -1,5 +1,11 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render as rtlRender,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { SocialCommandDeck } from "@/app/admin/social/_components/social-command-deck";
 import { socialPostFixture } from "../../helpers/social-fixtures";
 
@@ -30,6 +36,20 @@ let instagramConnection:
   needsReconnect: false,
 };
 
+const render = (ui: React.ReactNode) => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+  });
+  client.setQueryData(["social-cloud-editorial"], {
+    settings: { mode: "off" },
+    runs: [],
+  });
+  return rtlRender(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+};
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({
     t: (_key: string, fallback?: string | Record<string, unknown>) =>

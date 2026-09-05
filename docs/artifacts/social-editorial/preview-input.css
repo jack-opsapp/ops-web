@@ -1,0 +1,6 @@
+@font-face {font-family:Mohave;src:url('/fonts/Mohave-Regular.ttf')}
+@font-face {font-family:'JetBrains Mono';src:url('/fonts/JetBrainsMono-Regular.ttf')}
+@font-face {font-family:'cake-mono';src:url('/fonts/CakeMono-Light.woff2');font-weight:300}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
