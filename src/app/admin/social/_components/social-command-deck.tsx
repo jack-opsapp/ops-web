@@ -1,5 +1,6 @@
 "use client";
 
+import { CloudProduction } from "./cloud-production";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -619,6 +620,7 @@ export function SocialCommandDeck({
           </p>
         )}
       </header>
+      <CloudProduction />
 
       <div className="grid grid-cols-12 gap-3 p-3 xl:p-4">
         <Surface

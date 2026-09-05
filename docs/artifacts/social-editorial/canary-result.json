@@ -1,0 +1,282 @@
+{
+  "approved": true,
+  "selection": {
+    "selectorVersion": "feed-cycle-2026-09-01",
+    "storyType": "operator_protocol",
+    "visualTreatment": "signal_grid",
+    "postFormat": "carousel",
+    "preferenceDisposition": "not_provided",
+    "preferenceReasons": [],
+    "scoreBreakdown": {
+      "story": 100,
+      "fit": 62,
+      "cadence": 0,
+      "preference": 0,
+      "tieBreak": 0.36845448598462494
+    },
+    "considered": [
+      {
+        "treatment": "editorial_cover",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.8073490866942679,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.8073490866942679
+        }
+      },
+      {
+        "treatment": "split_signal",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.8177441288292744,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.8177441288292744
+        }
+      },
+      {
+        "treatment": "operator_brief",
+        "compatible": true,
+        "reasons": [],
+        "score": 108.8552471443208,
+        "scoreBreakdown": {
+          "story": 100,
+          "fit": 8,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.8552471443208044
+        }
+      },
+      {
+        "treatment": "field_frame",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.40823113345732703,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.40823113345732703
+        }
+      },
+      {
+        "treatment": "proof_board",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.15414444360745708,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.15414444360745708
+        }
+      },
+      {
+        "treatment": "signal_grid",
+        "compatible": true,
+        "reasons": [],
+        "score": 162.3684544859846,
+        "scoreBreakdown": {
+          "story": 100,
+          "fit": 62,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.36845448598462494
+        }
+      },
+      {
+        "treatment": "roast_file",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.1719379183305283,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.1719379183305283
+        }
+      }
+    ]
+  },
+  "package": {
+    "submission": {
+      "contract_version": "2026-09-01",
+      "source": {
+        "type": "blog",
+        "id": "35ff76ec-fd07-409c-af4e-8496483d7a3f",
+        "url": "https://opsapp.co/journal/word-of-mouth-isnt-a-marketing-plan",
+        "published_at": "2026-08-31T12:16:00.000Z"
+      },
+      "content": {
+        "title": "Your best work is hiding in your camera roll",
+        "hook": "Your camera roll knows the job happened. The customer searching your name does not.",
+        "angle": "Turn each finished job into visible proof with a repeatable before-during-after photo habit.",
+        "caption": "Word of mouth may put your name in someone’s phone.\n\nThen your public record has to back it up.\n\nTry a three-photo habit on every job:\n\nBefore: one wide shot from a clear angle.\n\nDuring: one detail that shows the work people rarely see.\n\nAfter: the finished work from the original angle.\n\nNothing fancy. No photo shoot. Just a record that lets the work speak after the truck leaves.\n\n#OwnerOperator #TradeCrew #JobsiteProof\n\nSource: https://opsapp.co/journal/word-of-mouth-isnt-a-marketing-plan",
+        "cta": "On the next job, take all three shots before you load up.",
+        "alt_text": "A five-part instructional carousel showing a simple jobsite photo routine: capture one wide photo before work, one detail during the work, and the finished result from the original angle, then save the set together.",
+        "slides": [
+          {
+            "headline": "Your best work is hiding",
+            "body": "Your camera roll knows the job happened.\n\nThe customer searching your name does not.",
+            "image_url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788330467150-c767123c.png",
+            "alt_text": "Your best work is hiding"
+          },
+          {
+            "headline": "Take the before shot",
+            "body": "Stand back.\n\nPick one clear angle that shows the full starting point.",
+            "alt_text": "Take the before shot"
+          },
+          {
+            "headline": "Show the hidden work",
+            "body": "Capture one useful detail during the job.\n\nThe part that gets covered up is often the part worth showing.",
+            "alt_text": "Show the hidden work"
+          },
+          {
+            "headline": "Return to the same angle",
+            "body": "Take the finished shot from where you started.\n\nMake the change easy to see.",
+            "alt_text": "Return to the same angle"
+          },
+          {
+            "headline": "Make three photos part of cleanup",
+            "body": "Before. During. After.\n\nSave the set before the tools go back in the truck.",
+            "alt_text": "Make three photos part of cleanup"
+          }
+        ]
+      },
+      "media": [
+        {
+          "url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788330467150-c767123c.png",
+          "alt_text": "A five-part instructional carousel showing a simple jobsite photo routine: capture one wide photo before work, one detail during the work, and the finished result from the original angle, then save the set together."
+        }
+      ],
+      "preferences": {
+        "story_type": "operator_protocol",
+        "format": "carousel"
+      }
+    },
+    "evidence": [
+      {
+        "claim": "A referral can lead to an online search rather than directly to a call.",
+        "quote": "Your customer tells her neighbor about the deck, the neighbor takes your name, and then she does exactly what you'd do: pulls out her phone."
+      },
+      {
+        "claim": "Photos of actual local work can strengthen the public record people see.",
+        "quote": "A Google profile with a real star rating, recent reviews, photos of actual local work, and calm answers to the people who complained: that's a green light."
+      },
+      {
+        "claim": "The source recommends a before-during-after photo habit on every job.",
+        "quote": "The three-photo habit. Before, during, after, on every job."
+      }
+    ],
+    "review": {
+      "approved": true,
+      "grounded": true,
+      "current": true,
+      "distinct": true,
+      "useful": true,
+      "format_supported": true,
+      "reason": "approved"
+    },
+    "usage": [
+      {
+        "stage": "writer",
+        "model": "gpt-5.6-sol",
+        "input": 8411,
+        "output": 1043,
+        "estimated_usd": 0.054504,
+        "prompt_version": "ops-editorial-2026-09-05-v2"
+      },
+      {
+        "stage": "editor",
+        "model": "gpt-5.6-sol",
+        "input": 8846,
+        "output": 253,
+        "estimated_usd": 0.040444,
+        "prompt_version": "ops-editorial-2026-09-05-v2"
+      }
+    ],
+    "references": [
+      {
+        "path": "docs/social/voice/sam-parr-field-guide.md",
+        "sha256": "33eb69c729c46c56995cedcb87955b732eeba763b0d6a93401e3e6c404ab086e"
+      }
+    ],
+    "preview": [
+      {
+        "order": 1,
+        "url": "slide-1.jpg",
+        "alt_text": "Your best work is hiding",
+        "sha256": "092e3feeeb9c4701ee4fffc039865531a05b4ac18486e49d03a9b3e031e82c55",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 45490,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-1.jpg"
+      },
+      {
+        "order": 2,
+        "url": "slide-2.jpg",
+        "alt_text": "Take the before shot",
+        "sha256": "bf389a7913176ac7d274feed66c15b47b7241a023b81be0addb8579fe265c5f7",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 39897,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-2.jpg"
+      },
+      {
+        "order": 3,
+        "url": "slide-3.jpg",
+        "alt_text": "Show the hidden work",
+        "sha256": "bfa559f920855f351bcffe25b828d1d60cb471846f16248fdb278e567bd53b3a",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 47468,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-3.jpg"
+      },
+      {
+        "order": 4,
+        "url": "slide-4.jpg",
+        "alt_text": "Return to the same angle",
+        "sha256": "5b2946a14e9edaf19e6796d069eafa8ef79c0dc0c41eceda672b127ff0a12065",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 43829,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-4.jpg"
+      },
+      {
+        "order": 5,
+        "url": "slide-5.jpg",
+        "alt_text": "Make three photos part of cleanup",
+        "sha256": "0500fed685de6b88504bf5e140314124db24fa53d62870aedc1ff6691a9d0ece",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 49103,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-5.jpg"
+      }
+    ]
+  }
+}

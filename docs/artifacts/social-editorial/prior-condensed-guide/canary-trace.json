@@ -1,0 +1,94 @@
+[
+  {
+    "stage": "writer",
+    "parsed": {
+      "title": "Run the search before the customer does",
+      "hook": "The referral got your name. The phone search can decide whether you get the call.",
+      "angle": "Turn word of mouth into visible proof with one private-browser check and one small fix.",
+      "caption": "Word of mouth did its job.\n\nThen the customer searched your name.\n\nThat search can expose a quiet leak: stale photos, missing profile details, or a review nobody answered.\n\nRun this check tonight:\n\nOpen a private tab.\nSearch your business name plus your town.\nFind the weakest proof.\nFix one item.\n\nThe two-year-old job photo has served with honor. It can retire from the front line.\n\nRepeat the check weekly until the public record looks like the work your crew already does.\n\n#OwnerOperator #TradeBusiness #LocalReputation",
+      "cta": "Save this for the next ten-minute gap between jobs.",
+      "alt_text": "Four-slide checklist showing trade business owners how to search their business in a private browser, inspect their public proof, identify the weakest area, and make one small update.",
+      "story_type": "operator_protocol",
+      "slides": [
+        {
+          "headline": "The referral got your name",
+          "body": "The phone search can decide whether you get the call. Treat it like a second front door."
+        },
+        {
+          "headline": "Run the driveway search",
+          "body": "Open a private browser tab. Search your business name plus your town. Look at the result like a stranger would."
+        },
+        {
+          "headline": "Find the weakest proof",
+          "body": "Check for missing profile details, stale job photos, old reviews, or reviews with no reply. Pick one. Not all four."
+        },
+        {
+          "headline": "Make one visible fix",
+          "body": "Add recent job photos, complete one missing field, or answer one review calmly and factually. Then get back to the real work."
+        }
+      ],
+      "evidence": [
+        {
+          "claim": "A referral may lead to online research rather than directly to a call.",
+          "quote": "The referral gets you into the research. It no longer skips it."
+        },
+        {
+          "claim": "Recent reviews, real work photos, and calm review responses can shape what a prospective customer sees.",
+          "quote": "A Google profile with a real star rating, recent reviews, photos of actual local work, and calm answers to the people who complained: that's a green light."
+        },
+        {
+          "claim": "Owners can inspect their public presence by searching their business name and town in a private browser tab.",
+          "quote": "Grab your phone, open a private browser tab, and search your business name plus your town."
+        },
+        {
+          "claim": "The suggested check includes profile completeness and photo recency.",
+          "quote": "First: what actually loads. Is the profile yours, is it complete, and are the photos recent, or is the newest proof of your work older than your newest truck?"
+        }
+      ]
+    },
+    "usage": {
+      "prompt_tokens": 1840,
+      "completion_tokens": 1558,
+      "total_tokens": 3398,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 1837,
+        "audio_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 978,
+        "audio_tokens": 0,
+        "accepted_prediction_tokens": 0,
+        "rejected_prediction_tokens": 0
+      }
+    }
+  },
+  {
+    "stage": "editor",
+    "parsed": {
+      "approved": true,
+      "grounded": true,
+      "current": true,
+      "distinct": true,
+      "useful": true,
+      "format_supported": true,
+      "reason": "approved"
+    },
+    "usage": {
+      "prompt_tokens": 2317,
+      "completion_tokens": 214,
+      "total_tokens": 2531,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 2314,
+        "audio_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 169,
+        "audio_tokens": 0,
+        "accepted_prediction_tokens": 0,
+        "rejected_prediction_tokens": 0
+      }
+    }
+  }
+]

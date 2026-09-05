@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const baseNextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/api/cron/social-editorial": ["./docs/social/voice/sam-parr-field-guide.md"],
+  },
   eslint: {
     // Warnings from other agents' unused imports break the Vercel build.
     // tsc --noEmit catches real errors. Lint cleanup is a separate task.

@@ -1,0 +1,264 @@
+{
+  "approved": true,
+  "selection": {
+    "selectorVersion": "feed-cycle-2026-09-01",
+    "storyType": "operator_protocol",
+    "visualTreatment": "signal_grid",
+    "postFormat": "carousel",
+    "preferenceDisposition": "not_provided",
+    "preferenceReasons": [],
+    "scoreBreakdown": {
+      "story": 100,
+      "fit": 62,
+      "cadence": 0,
+      "preference": 0,
+      "tieBreak": 0.36845448598462494
+    },
+    "considered": [
+      {
+        "treatment": "editorial_cover",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.8073490866942679,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.8073490866942679
+        }
+      },
+      {
+        "treatment": "split_signal",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.8177441288292744,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.8177441288292744
+        }
+      },
+      {
+        "treatment": "operator_brief",
+        "compatible": true,
+        "reasons": [],
+        "score": 108.8552471443208,
+        "scoreBreakdown": {
+          "story": 100,
+          "fit": 8,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.8552471443208044
+        }
+      },
+      {
+        "treatment": "field_frame",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.40823113345732703,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.40823113345732703
+        }
+      },
+      {
+        "treatment": "proof_board",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.15414444360745708,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.15414444360745708
+        }
+      },
+      {
+        "treatment": "signal_grid",
+        "compatible": true,
+        "reasons": [],
+        "score": 162.3684544859846,
+        "scoreBreakdown": {
+          "story": 100,
+          "fit": 62,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.36845448598462494
+        }
+      },
+      {
+        "treatment": "roast_file",
+        "compatible": false,
+        "reasons": [
+          "not available for operator_protocol"
+        ],
+        "score": 0.1719379183305283,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.1719379183305283
+        }
+      }
+    ]
+  },
+  "package": {
+    "submission": {
+      "contract_version": "2026-09-01",
+      "source": {
+        "type": "blog",
+        "id": "35ff76ec-fd07-409c-af4e-8496483d7a3f",
+        "url": "https://opsapp.co/journal/word-of-mouth-isnt-a-marketing-plan",
+        "published_at": "2026-08-31T12:16:00.000Z"
+      },
+      "content": {
+        "title": "Run the search before the customer does",
+        "hook": "The referral got your name. The phone search can decide whether you get the call.",
+        "angle": "Turn word of mouth into visible proof with one private-browser check and one small fix.",
+        "caption": "Word of mouth did its job.\n\nThen the customer searched your name.\n\nThat search can expose a quiet leak: stale photos, missing profile details, or a review nobody answered.\n\nRun this check tonight:\n\nOpen a private tab.\nSearch your business name plus your town.\nFind the weakest proof.\nFix one item.\n\nThe two-year-old job photo has served with honor. It can retire from the front line.\n\nRepeat the check weekly until the public record looks like the work your crew already does.\n\n#OwnerOperator #TradeBusiness #LocalReputation\n\nSource: https://opsapp.co/journal/word-of-mouth-isnt-a-marketing-plan",
+        "cta": "Save this for the next ten-minute gap between jobs.",
+        "alt_text": "Four-slide checklist showing trade business owners how to search their business in a private browser, inspect their public proof, identify the weakest area, and make one small update.",
+        "slides": [
+          {
+            "headline": "The referral got your name",
+            "body": "The phone search can decide whether you get the call. Treat it like a second front door.",
+            "image_url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788330467150-c767123c.png",
+            "alt_text": "The referral got your name"
+          },
+          {
+            "headline": "Run the driveway search",
+            "body": "Open a private browser tab. Search your business name plus your town. Look at the result like a stranger would.",
+            "alt_text": "Run the driveway search"
+          },
+          {
+            "headline": "Find the weakest proof",
+            "body": "Check for missing profile details, stale job photos, old reviews, or reviews with no reply. Pick one. Not all four.",
+            "alt_text": "Find the weakest proof"
+          },
+          {
+            "headline": "Make one visible fix",
+            "body": "Add recent job photos, complete one missing field, or answer one review calmly and factually. Then get back to the real work.",
+            "alt_text": "Make one visible fix"
+          }
+        ]
+      },
+      "media": [
+        {
+          "url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788330467150-c767123c.png",
+          "alt_text": "Four-slide checklist showing trade business owners how to search their business in a private browser, inspect their public proof, identify the weakest area, and make one small update."
+        }
+      ],
+      "preferences": {
+        "story_type": "operator_protocol",
+        "format": "carousel"
+      }
+    },
+    "evidence": [
+      {
+        "claim": "A referral may lead to online research rather than directly to a call.",
+        "quote": "The referral gets you into the research. It no longer skips it."
+      },
+      {
+        "claim": "Recent reviews, real work photos, and calm review responses can shape what a prospective customer sees.",
+        "quote": "A Google profile with a real star rating, recent reviews, photos of actual local work, and calm answers to the people who complained: that's a green light."
+      },
+      {
+        "claim": "Owners can inspect their public presence by searching their business name and town in a private browser tab.",
+        "quote": "Grab your phone, open a private browser tab, and search your business name plus your town."
+      },
+      {
+        "claim": "The suggested check includes profile completeness and photo recency.",
+        "quote": "First: what actually loads. Is the profile yours, is it complete, and are the photos recent, or is the newest proof of your work older than your newest truck?"
+      }
+    ],
+    "review": {
+      "approved": true,
+      "grounded": true,
+      "current": true,
+      "distinct": true,
+      "useful": true,
+      "format_supported": true,
+      "reason": "approved"
+    },
+    "usage": [
+      {
+        "stage": "writer",
+        "model": "gpt-5.6-sol",
+        "input": 1840,
+        "output": 1558,
+        "estimated_usd": 0.03852,
+        "prompt_version": "ops-editorial-2026-09-05-v1"
+      },
+      {
+        "stage": "editor",
+        "model": "gpt-5.6-sol",
+        "input": 2317,
+        "output": 214,
+        "estimated_usd": 0.013548,
+        "prompt_version": "ops-editorial-2026-09-05-v1"
+      }
+    ],
+    "preview": [
+      {
+        "order": 1,
+        "url": "slide-1.jpg",
+        "alt_text": "The referral got your name",
+        "sha256": "8ff2dc5de004a41b54ad3c2a4a248a70b1a65b13186a5afcba51e2728cd8992e",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 48021,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-1.jpg"
+      },
+      {
+        "order": 2,
+        "url": "slide-2.jpg",
+        "alt_text": "Run the driveway search",
+        "sha256": "950d47ec04aadd42f088e1294178b961c66bbf056b4fc02cc4e97951b616bc92",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 50316,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-2.jpg"
+      },
+      {
+        "order": 3,
+        "url": "slide-3.jpg",
+        "alt_text": "Find the weakest proof",
+        "sha256": "daa0a6a8da02efbcf9aa5a68b75e4e3760b7e7782238fb34dc72465824f23c88",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 48478,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-3.jpg"
+      },
+      {
+        "order": 4,
+        "url": "slide-4.jpg",
+        "alt_text": "Make one visible fix",
+        "sha256": "81f7f72e566704306589b32d4b122d6ae405c80e5f65dc961927707266460bd9",
+        "width": 1080,
+        "height": 1350,
+        "bytes": 50884,
+        "content_type": "image/jpeg",
+        "storage_key": "slide-4.jpg"
+      }
+    ]
+  }
+}
