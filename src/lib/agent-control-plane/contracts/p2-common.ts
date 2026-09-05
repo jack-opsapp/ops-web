@@ -34,6 +34,19 @@ export const P2CanonicalTimestampSchema = z
     );
   }, "Timestamp must be a canonical UTC instant");
 
+/** Normalize only user-supplied read windows; evidence and RPC outputs stay exact. */
+export const P2ReadTimestampInputSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/)
+  .describe(
+    "UTC timestamp ending in Z, with seconds and optional 1-3 fractional digits; for example 2026-09-07T07:00:00Z. Local times and offsets are not accepted."
+  )
+  .transform((value) => {
+    const [seconds, fraction = ""] = value.slice(0, -1).split(".");
+    return `${seconds}.${fraction.padEnd(3, "0")}Z`;
+  })
+  .pipe(P2CanonicalTimestampSchema);
+
 export interface P2CanonicalTextBounds {
   readonly minimumScalars: number;
   readonly maximumScalars: number;

@@ -3,6 +3,7 @@ import { z } from "zod-v4";
 import {
   createP2CanonicalTextSchema,
   P2CanonicalTimestampSchema,
+  P2ReadTimestampInputSchema,
   P2CanonicalUuidSchema,
   P2_MAX_PAGE_ITEMS,
   P2_MAX_SOURCE_ROWS,
@@ -69,12 +70,14 @@ const UniqueTaskStatesSchema = z
   .array(TaskStateSchema)
   .min(1)
   .max(TaskStateSchema.options.length)
+  .transform((values) => [...values].sort())
   .refine(
     (states) =>
       new Set(states).size === states.length &&
       states.every((state, index) => index === 0 || states[index - 1]! < state),
     "TASK_STATE_VECTOR_NOT_CANONICAL"
-  );
+  )
+  .describe("Select unique values in any order; OPS canonicalizes ordering.");
 
 export const TaskListViewSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("all") }).strict(),
@@ -91,8 +94,8 @@ export const TaskListViewSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("schedule_window"),
-      starts_at: P2CanonicalTimestampSchema,
-      ends_before: P2CanonicalTimestampSchema,
+      starts_at: P2ReadTimestampInputSchema,
+      ends_before: P2ReadTimestampInputSchema,
     })
     .strict()
     .refine((view) => {
@@ -105,7 +108,7 @@ export const TaskListViewSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("overdue"),
-      as_of: P2CanonicalTimestampSchema,
+      as_of: P2ReadTimestampInputSchema,
     })
     .strict(),
   z.object({ kind: z.literal("unassigned") }).strict(),
@@ -140,6 +143,7 @@ const UniqueTaskContextSectionsSchema = z
   .array(TaskContextSectionSchema)
   .min(1)
   .max(TaskContextSectionSchema.options.length)
+  .transform((values) => [...values].sort())
   .refine(
     (sections) =>
       new Set(sections).size === sections.length &&
@@ -147,6 +151,9 @@ const UniqueTaskContextSectionsSchema = z
         (section, index) => index === 0 || sections[index - 1]! < section
       ),
     "TASK_CONTEXT_SECTION_VECTOR_NOT_CANONICAL"
+  )
+  .describe(
+    "Select unique values in any order; OPS canonicalizes ordering. In schedule, all-day ends_at is the exclusive midnight after the final included civil date in the company timezone."
   );
 
 export const GetTaskContextInputSchema = z
@@ -444,7 +451,9 @@ export const TaskScheduleDetailSchema = z
   .object({
     state: z.enum(["scheduled", "partial", "unscheduled"]),
     starts_at: P2CanonicalTimestampSchema.nullable(),
-    ends_at: P2CanonicalTimestampSchema.nullable(),
+    ends_at: P2CanonicalTimestampSchema.nullable().describe(
+      "For all-day tasks, the exclusive company-local midnight after the last included civil date; otherwise the stored end instant."
+    ),
     all_day: z.boolean(),
     schedule_version: SafeVersionSchema,
     confirmation: TaskConfirmationStateSchema,

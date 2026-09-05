@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ActorAccessError } from "@/lib/agent-control-plane/actor/errors";
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
+import { MCP_EXPOSURE_V14 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import { AgentErrorSchema } from "@/lib/agent-control-plane/contracts";
 import {
   CustomerUpdateRepositoryError,
@@ -24,6 +25,34 @@ import {
 } from "./fixtures";
 
 describe("customer update domain boundary", () => {
+  it("preserves the full consented 21-scope grant through principal, actor, service and RPC", async () => {
+    const scopes = [...MCP_EXPOSURE_V14.grantableScopes].sort();
+    expect(scopes).toHaveLength(21);
+    expect(scopes.indexOf("ops.catalog.read")).toBeLessThan(
+      scopes.indexOf("ops.catalog_costs.read")
+    );
+    const { actor, authorityClient } = await actorFixture({ scopes });
+    const rpc = vi.fn<CustomerUpdateRpcClient["rpc"]>((name, args) => {
+      // Reproduce the database's ordered grant equality at the actual RPC boundary.
+      expect(args.p_granted_scope_ceiling).toEqual(scopes);
+      expect(args).toMatchObject({
+        p_actor_user_id: ACTOR_ID,
+        p_company_id: COMPANY_ID,
+        p_oauth_grant_id: GRANT_ID,
+        p_oauth_client_id: CLIENT_ID,
+        p_grant_revision: "8".repeat(32),
+        p_exposure_revision: "2026-09-04.mcp-exposure.v14",
+      });
+      return Promise.resolve({ data: resultFixture(), error: null });
+    });
+    const service = createCustomerUpdateService({
+      repository: createCustomerUpdateRepository({ rpc }),
+      authorityRepository: authorityClient.repository,
+    });
+    await service.prepareCustomerUpdate(actor, REQUEST);
+    expect(rpc).toHaveBeenCalledOnce();
+  });
+
   it("reauthorizes, sends the exact v20/v14 authority binding, and returns one sealed proposal", async () => {
     const { actor, authorityClient } = await actorFixture();
     const rpc = vi.fn<CustomerUpdateRpcClient["rpc"]>(() =>

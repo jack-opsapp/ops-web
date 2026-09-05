@@ -1,0 +1,105 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-customer-updates-web-p12
+
+ ✓ src/lib/agent-control-plane/contracts/__tests__/communication.test.ts (25 tests) 26ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-company-operations.test.ts (24 tests) 47ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/discovery.test.ts (39 tests) 44ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/job-catalog.test.ts (57 tests) 144ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-catalog-purchasing.test.ts (14 tests) 31ms
+ ✓ src/lib/agent-control-plane/actor/__tests__/resolve-actor-context.test.ts (22 tests) 16ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/manifest.test.ts (37 tests) 31ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/task13-manifest-v6-authorization.test.ts (17 tests) 47ms
+ ✓ src/lib/agent-control-plane/services/__tests__/get-job-conversation-context.test.ts (18 tests) 56ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/mcp-exposure-catalog.test.ts (20 tests) 11ms
+ ✓ src/lib/agent-control-plane/actor/__tests__/authorize-entity-query.test.ts (30 tests) 23ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-repository.test.ts (9 tests) 43ms
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > answers 401 with the resource-metadata challenge and zero capability vocabulary when unauthenticated
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > returns 503 without disclosure when the cursor key is not provisioned
+{"at":"mcp_transport","outcome":"unconfigured"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > allows the claude.ai origin through to the auth gate
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-sales-documents.test.ts (11 tests) 18ms
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > allows the chatgpt.com origin through to the auth gate
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > gates GET and DELETE identically and answers 405 when authenticated
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+ ✓ src/lib/agent-control-plane/contracts/__tests__/schemas.test.ts (17 tests) 26ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/crew-callout-recovery.test.ts (11 tests) 24ms
+ ✓ src/lib/agent-control-plane/services/__tests__/job-conversation-context-rpc.test.ts (11 tests) 17ms
+ ✓ src/lib/agent-control-plane/actor/__tests__/supabase-repositories.test.ts (20 tests) 7ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/grant-pinned-exposure.test.ts (19 tests) 72ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/transport.test.ts (45 tests) 664ms
+ ✓ src/lib/agent-control-plane/actor/__tests__/authorize-capability.test.ts (15 tests) 55ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-site-visits.test.ts (9 tests) 62ms
+ ✓ src/lib/agent-control-plane/services/p2/tasks/__tests__/task-repository.test.ts (7 tests) 58ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-deck-design-geometry.test.ts (10 tests) 33ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/schedule.test.ts (12 tests) 52ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/recurring-service-price-change.test.ts (25 tests) 55ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/weather-reschedule.test.ts (10 tests) 59ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/site-visit-capabilities.test.ts (11 tests) 26ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-services.test.ts (6 tests) 86ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/payroll-readiness.test.ts (4 tests) 49ms
+ ✓ src/lib/agent-control-plane/services/p2/tasks/__tests__/task-services.test.ts (5 tests) 167ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/estimate-draft.test.ts (7 tests) 37ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/manifest-v8.test.ts (5 tests) 7ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-customer-context.test.ts (6 tests) 15ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-common.test.ts (76 tests) 26ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/promise-recovery.test.ts (18 tests) 17ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/hiring-what-if.test.ts (7 tests) 28ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-expenses.test.ts (9 tests) 15ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-tasks.test.ts (6 tests) 19ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/v7-compatibility.test.ts (4 tests) 9ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-job-artifacts.test.ts (8 tests) 20ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-operational-overview.test.ts (8 tests) 15ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/day-closeout.test.ts (7 tests) 41ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/sales-truth.test.ts (3 tests) 42ms
+ ✓ src/lib/agent-control-plane/actor/__tests__/capability-policy-boundary.test.ts (16 tests) 729ms
+   ✓ manifest capability policy boundary > keeps nominal policy minting inside the manifest and closed P2 definition harness 443ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-authorization.test.ts (6 tests) 29ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/collections.test.ts (6 tests) 43ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-work-queue.test.ts (6 tests) 28ms
+ ✓ src/lib/agent-control-plane/services/p2/integrations/__tests__/integration-repository.test.ts (5 tests) 57ms
+ ✓ src/lib/agent-control-plane/services/p2/tasks/__tests__/task-authorization.test.ts (4 tests) 10ms
+ ✓ src/lib/agent-control-plane/actor/__tests__/principal-boundary.test.ts (6 tests) 1243ms
+   ✓ verified principal source boundary > allows the trusted principal boundary only in auth adapters and tests 591ms
+   ✓ verified principal source boundary > allows the MCP reauthorization adapter only at exact composition and domain seams 643ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/p2-candidate-capabilities.test.ts (6 tests) 20ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/estimate-draft-capability.test.ts (4 tests) 43ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/weather-reschedule-capability.test.ts (4 tests) 48ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/crew-callout-recovery-capability.test.ts (4 tests) 41ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/discovery-capabilities.test.ts (6 tests) 10ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/promise-recovery-capability.test.ts (4 tests) 8ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/recurring-service-price-change-capability.test.ts (4 tests) 40ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-candidates.test.ts (3 tests) 7ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-cursor.test.ts (3 tests) 21ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/dispatch-confirmation-task.test.ts (2 tests) 8ms
+ ✓ src/lib/agent-control-plane/services/customer-update/__tests__/customer-update.test.ts (8 tests) 27ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/maverick-read-inputs.test.ts (11 tests) 7ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/hiring-what-if-capability.test.ts (2 tests) 7ms
+ ✓ src/lib/agent-control-plane/services/p2/integrations/__tests__/integration-authorization.test.ts (3 tests) 12ms
+ ✓ src/lib/agent-control-plane/services/p2/tasks/__tests__/task-cursor.test.ts (4 tests) 16ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/conversation-context-capability.test.ts (5 tests) 7ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-proof.test.ts (3 tests) 6ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/sales-truth-capability.test.ts (3 tests) 9ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/payroll-readiness-capability.test.ts (3 tests) 7ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/dispatch-confirmation-task-capability.test.ts (3 tests) 5ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/day-closeout-capability.test.ts (2 tests) 6ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/collections-capability.test.ts (2 tests) 3ms
+ ✓ src/lib/agent-control-plane/services/p2/integrations/__tests__/integration-read.test.ts (3 tests) 21ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/invisible-office-manifest.test.ts (2 tests) 6ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/customer-update.test.ts (10 tests) 6ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/customer-update-capability.test.ts (2 tests) 3ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/postgres-uuid.test.ts (12 tests) 5ms
+ ✓ src/lib/agent-control-plane/services/p2/integrations/__tests__/integration-proof.test.ts (1 test) 5ms
+
+ Test Files  78 passed (78)
+      Tests  892 passed (892)
+   Start at  12:05:50
+   Duration  8.49s (transform 2.94s, setup 9.31s, collect 25.95s, tests 4.88s, environment 20.33s, prepare 3.08s)

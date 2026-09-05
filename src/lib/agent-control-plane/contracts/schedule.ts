@@ -107,8 +107,12 @@ function withValidWindow<TSchema extends z.ZodType>(schema: TSchema) {
 
 export const ScheduledJobsInputSchema = withValidWindow(
   CursorRequestSchema.extend({
-    from: Rfc3339UtcTimestampSchema,
-    to: Rfc3339UtcTimestampSchema,
+    from: Rfc3339UtcTimestampSchema.describe(
+      "Inclusive UTC start ending in Z, for example 2026-09-07T07:00:00Z."
+    ),
+    to: Rfc3339UtcTimestampSchema.describe(
+      "Exclusive UTC end ending in Z. Window must be positive and at most 90 days."
+    ),
     task_statuses: UniqueTaskStatusesSchema.default(["active"]),
     confirmation_states: UniqueConfirmationStatesSchema.optional(),
     display_timezone: IanaTimeZoneSchema.optional(),
@@ -117,8 +121,12 @@ export const ScheduledJobsInputSchema = withValidWindow(
 
 export const JobReadinessIssuesInputSchema = withValidWindow(
   CursorRequestSchema.extend({
-    from: Rfc3339UtcTimestampSchema,
-    to: Rfc3339UtcTimestampSchema,
+    from: Rfc3339UtcTimestampSchema.describe(
+      "Inclusive UTC start ending in Z, for example 2026-09-07T07:00:00Z."
+    ),
+    to: Rfc3339UtcTimestampSchema.describe(
+      "Exclusive UTC end ending in Z. Window must be positive and at most 90 days."
+    ),
     rule_codes: UniqueReadinessRuleCodesSchema.default([
       ...READINESS_RULE_CODES,
     ]),
