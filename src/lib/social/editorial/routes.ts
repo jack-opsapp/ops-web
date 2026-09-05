@@ -26,7 +26,10 @@ export function createEditorialReadHandler(d: {
       await d.authenticate(request);
       return json(await d.read());
     } catch (error) {
-      if (error instanceof NextResponse) return error;
+      if (error instanceof NextResponse) {
+        error.headers.set("cache-control", "no-store");
+        return error;
+      }
       return json({ error: "Cloud production could not be loaded." }, 500);
     }
   };
