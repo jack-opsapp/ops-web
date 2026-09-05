@@ -54,13 +54,11 @@ describe("editorial route boundaries", () => {
         return {};
       },
     });
-    expect(
-      (
-        await handler(
-          new NextRequest("https://ops.test/api/admin/social/editorial")
-        )
-      ).status
-    ).toBe(403);
+    const response = await handler(
+      new NextRequest("https://ops.test/api/admin/social/editorial")
+    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get("cache-control")).toBe("no-store");
     expect(read).toBe(false);
   });
   it("returns no-store verified admin output", async () => {
