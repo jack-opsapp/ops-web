@@ -1,6 +1,6 @@
 # Cloud Instagram editorial operations
 
-Status: production migration, deployment and preparation-only activation approved on 2026-09-05; release verification in progress. First publication is separately unauthorized.
+Status: production preparation-only workflow active as of 2026-09-05 23:51:50 UTC. Deployment and authenticated worker checks passed; first scheduled generation is 2026-09-07 at 10:00 Vancouver (17:00 UTC). First publication is separately unauthorized. Release evidence: `../artifacts/social-editorial/production-release-2026-09-05.md`.
 
 ## Purpose and schedule
 
@@ -59,7 +59,7 @@ The full-guide local canary used 17,257 input and 1,296 output tokens across bot
 
 Prepared and failed rows form a durable notification outbox through `notified_at`. `notify_social_editorial` inserts the notification and acknowledges the row in one transaction; a replay inserts zero duplicates. Notification type is `social_editorial`; prepared notifications are standard and failed notifications persistent. Both link to `/admin/social#cloud-production`.
 
-Recipients use `SOCIAL_OPERATOR_USER_ID` and `SOCIAL_OPERATOR_COMPANY_ID`, with corresponding `PMF_OPERATOR_*` fallbacks. Verify the exact recipient before activation. Missing configuration leaves the outbox unacknowledged. Notification failure does not discard a completed draft.
+Recipients use a complete `SOCIAL_OPERATOR_USER_ID` / `SOCIAL_OPERATOR_COMPANY_ID` pair, otherwise a complete `PMF_OPERATOR_*` pair. IDs are trimmed; incomplete social overrides fail closed instead of mixing recipients. Before activation, the fallback was independently verified as active Jackson Sweet with a matching active company. Missing configuration leaves the outbox unacknowledged. Notification failure does not discard a completed draft.
 
 Open `/admin/social`, expand cloud production, and inspect the rendered slides, full caption, source link and status. The admin API also retains source snapshots, review results, usage and rejected editor output for investigation. Skipped unsupported ideas remain visible in history without a failure alert.
 
@@ -82,4 +82,4 @@ Behavioral tests live under `tests/unit/social/editorial/`. They cover schedule 
 
 `tests/sql/social-editorial-runtime.mjs` applies the exact migration to a disposable local PostgreSQL database. It proves concurrent claims, stale owners, attempt exhaustion, monthly reservations, mode changes during rendering, source withdrawal, terminal preview behavior, recovery, RLS/grants and notification replay. Its fixed local socket intentionally cannot target a production database.
 
-`tests/integration/social-editorial-canary.test.ts` is skipped unless `OPS_RUN_EDITORIAL_CANARY=1`. It runs real bounded model calls and the production renderer, but injects local asset writes and bypasses application notifications and all database writes. `docs/artifacts/social-editorial/` contains the approved canary, five actual JPEGs and a browser-inspected static rendering of the real admin component. This proves the local generation/render path; production scheduling, storage, recipient delivery and first publication still need their separate live checks.
+`tests/integration/social-editorial-canary.test.ts` is skipped unless `OPS_RUN_EDITORIAL_CANARY=1`. It runs real bounded model calls and the production renderer, but injects local asset writes and bypasses application notifications and all database writes. `docs/artifacts/social-editorial/` contains the approved canary, five actual JPEGs and a browser-inspected static rendering of the real admin component. This proves the local generation/render path. The production schedule, guide bundle, authenticated invocation, auth rejections and preparation activation are now verified; production generation, storage, notification delivery and first publication have not yet been observed. Publication remains separately unauthorized.

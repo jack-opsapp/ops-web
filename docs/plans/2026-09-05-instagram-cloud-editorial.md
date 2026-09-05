@@ -1,6 +1,6 @@
 # Cloud Instagram editorial production
 
-Status: implemented and verified locally; no production activation or publication authorized. Operational contract and release procedure: `docs/social/cloud-editorial-operations.md`.
+Status: deployed and active in preparation-only mode after explicit approval; first publication remains separately unauthorized. Operational contract and release procedure: `docs/social/cloud-editorial-operations.md`.
 
 Required Skills: custom-skills:executing-plans, superpowers:test-driven-development, supabase:supabase, ops-copywriter:ops-copywriter, superpowers:verification-before-completion.
 
@@ -39,3 +39,7 @@ Production database migration, code deployment, paid cloud activation and first 
 ## Approved release and canonical copy guide (2026-09-05)
 
 Jackson approved production migration, deployment, and preparation-only cloud activation with the US$20 monthly allowance. His follow-up asked whether the workflow references the actual Sam Parr guide. Both stages now receive the complete versioned file, record its SHA-256 on the package/rejection audit, and prioritize OPS constraints over website-specific examples. The deployed cron also reads the guide and returns its fingerprint as a zero-cost bundle-readiness check. Input bound is 64KB; the conservative attempt reservation is US$0.75, preserving the same monthly allowance. Exact local PostgreSQL and 274 focused social/API/admin tests passed. A fresh full-guide canary produced five JPEGs for US$0.094948; first real Instagram publication remains unauthorized.
+
+## Production release evidence (2026-09-05 23:52 UTC)
+
+Final source `baa32daadafd37a931bd2bae9b6cee2147eb17fb` passed the full Vercel build as `dpl_7QzcFZb7nh8uTXwWne7kvCsaDv51` and is aliased to `app.opsapp.co`. Migration `20260905233314` is applied with service-only access. Independent readback confirmed `prepare`, US$20 allowance, zero editorial runs and zero social posts after activation. Authenticated cron invocations before and after activation returned HTTP 200 on the final deployment; both unauthenticated routes returned HTTP 401 with `Cache-Control: no-store`. Vercel reports the enabled 15-minute schedule on that deployment. Final focused verification passed 277 tests across 28 files and targeted TypeScript. The worker loaded the full guide in the cloud; no production model call, asset write or draft notification was forced outside the weekday window. First scheduled generation opportunity is Monday 2026-09-07 10:00 Vancouver (17:00 UTC). See `docs/artifacts/social-editorial/production-release-2026-09-05.md` for proof and remaining runtime limits.
