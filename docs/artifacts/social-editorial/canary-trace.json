@@ -1,0 +1,94 @@
+[
+  {
+    "stage": "writer",
+    "parsed": {
+      "title": "Your best work is hiding in your camera roll",
+      "hook": "Your camera roll knows the job happened. The customer searching your name does not.",
+      "angle": "Turn each finished job into visible proof with a repeatable before-during-after photo habit.",
+      "caption": "Word of mouth may put your name in someone’s phone.\n\nThen your public record has to back it up.\n\nTry a three-photo habit on every job:\n\nBefore: one wide shot from a clear angle.\n\nDuring: one detail that shows the work people rarely see.\n\nAfter: the finished work from the original angle.\n\nNothing fancy. No photo shoot. Just a record that lets the work speak after the truck leaves.\n\n#OwnerOperator #TradeCrew #JobsiteProof",
+      "cta": "On the next job, take all three shots before you load up.",
+      "alt_text": "A five-part instructional carousel showing a simple jobsite photo routine: capture one wide photo before work, one detail during the work, and the finished result from the original angle, then save the set together.",
+      "story_type": "operator_protocol",
+      "slides": [
+        {
+          "headline": "Your best work is hiding",
+          "body": "Your camera roll knows the job happened.\n\nThe customer searching your name does not."
+        },
+        {
+          "headline": "Take the before shot",
+          "body": "Stand back.\n\nPick one clear angle that shows the full starting point."
+        },
+        {
+          "headline": "Show the hidden work",
+          "body": "Capture one useful detail during the job.\n\nThe part that gets covered up is often the part worth showing."
+        },
+        {
+          "headline": "Return to the same angle",
+          "body": "Take the finished shot from where you started.\n\nMake the change easy to see."
+        },
+        {
+          "headline": "Make three photos part of cleanup",
+          "body": "Before. During. After.\n\nSave the set before the tools go back in the truck."
+        }
+      ],
+      "evidence": [
+        {
+          "claim": "A referral can lead to an online search rather than directly to a call.",
+          "quote": "Your customer tells her neighbor about the deck, the neighbor takes your name, and then she does exactly what you'd do: pulls out her phone."
+        },
+        {
+          "claim": "Photos of actual local work can strengthen the public record people see.",
+          "quote": "A Google profile with a real star rating, recent reviews, photos of actual local work, and calm answers to the people who complained: that's a green light."
+        },
+        {
+          "claim": "The source recommends a before-during-after photo habit on every job.",
+          "quote": "The three-photo habit. Before, during, after, on every job."
+        }
+      ]
+    },
+    "usage": {
+      "prompt_tokens": 8411,
+      "completion_tokens": 1043,
+      "total_tokens": 9454,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 8408,
+        "audio_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 512,
+        "audio_tokens": 0,
+        "accepted_prediction_tokens": 0,
+        "rejected_prediction_tokens": 0
+      }
+    }
+  },
+  {
+    "stage": "editor",
+    "parsed": {
+      "approved": true,
+      "grounded": true,
+      "current": true,
+      "distinct": true,
+      "useful": true,
+      "format_supported": true,
+      "reason": "approved"
+    },
+    "usage": {
+      "prompt_tokens": 8846,
+      "completion_tokens": 253,
+      "total_tokens": 9099,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 8843,
+        "audio_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 208,
+        "audio_tokens": 0,
+        "accepted_prediction_tokens": 0,
+        "rejected_prediction_tokens": 0
+      }
+    }
+  }
+]

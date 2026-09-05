@@ -4,6 +4,8 @@ This is the authoritative handoff for any scheduled writer that asks OPS Web to 
 
 The agent never receives Instagram credentials.
 
+The replacement cloud writer is documented in [Cloud editorial operations](cloud-editorial-operations.md). It uses this same downstream contract and remains off until its separate production activation is approved. Its preparation mode saves held previews without calling this publishing endpoint.
+
 ## Required reading
 
 Read these versioned references before writing:
