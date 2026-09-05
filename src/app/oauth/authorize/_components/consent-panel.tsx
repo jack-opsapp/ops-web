@@ -19,7 +19,7 @@ import {
  * The consent decision surface for the OPS remote MCP mount.
  *
  * One question, one panel: who is asking, which OPS company it touches, what
- * it can do (read-only), exactly what it can see, then approve or deny. No
+ * it can do, exactly what it can see or prepare, then approve or deny. No
  * dashboard chrome — an operator arriving here from a connector is
  * mid-handshake, not navigating the product, so navigation would only offer
  * ways to abandon the flow halfway.
@@ -241,6 +241,9 @@ function ConsentPanelBody({
   }
 
   const inFlight = pending !== null;
+  const preparesChanges = context.scopes.some((line) =>
+    line.scope.endsWith(".prepare")
+  );
 
   return (
     <ConsentShell>
@@ -257,11 +260,13 @@ function ConsentPanelBody({
       </div>
 
       <p className={`mt-2 ${BODY_TEXT} text-text-2`}>
-        Read-only. Nothing gets changed in OPS.
+        {preparesChanges
+          ? "Prepare work for approval. Each change needs your approval in OPS."
+          : "Read-only. Nothing gets changed in OPS."}
       </p>
 
       <div className="mt-3">
-        <p className={MICRO_LABEL}>CAN VIEW</p>
+        <p className={MICRO_LABEL}>{preparesChanges ? "ACCESS" : "CAN VIEW"}</p>
         <ul className="mt-1 border-t border-line">
           {context.scopes.map((line) => (
             <li

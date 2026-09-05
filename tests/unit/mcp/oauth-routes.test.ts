@@ -19,6 +19,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MCP_EXPOSURE_V14 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 const APP_URL = "https://app.opsapp.co";
 
 const mocks = vi.hoisted(() => {
@@ -51,6 +52,7 @@ import {
 import {
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_CONSENT_LABELS,
+  CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 import { GET as authorizationServerGet } from "@/app/.well-known/oauth-authorization-server/route";
@@ -400,7 +402,7 @@ describe("OAuth discovery documents", () => {
   const expectedProtectedResource = {
     resource: `${config.issuer}/api/mcp`,
     authorization_servers: [config.issuer],
-    scopes_supported: SCOPES,
+    scopes_supported: [...MCP_EXPOSURE_V14.grantableScopes],
     bearer_methods_supported: ["header"],
     resource_name: "OPS",
   };
@@ -433,7 +435,7 @@ describe("OAuth discovery documents", () => {
       token_endpoint: config.tokenEndpoint,
       registration_endpoint: config.registrationEndpoint,
       revocation_endpoint: config.revocationEndpoint,
-      scopes_supported: SCOPES,
+      scopes_supported: [...MCP_EXPOSURE_V14.grantableScopes],
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
@@ -478,10 +480,10 @@ describe("POST /api/mcp/oauth/register", () => {
     expect(call.args).toEqual({
       p_client_name: "Claude",
       p_redirect_uris: [CALLBACK],
-      p_scope: SCOPE_PARAMETER,
-      p_scope_ceiling: SCOPES,
-      p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
-      p_exposure_revision: EXPOSURE_REVISION,
+      p_scope: MCP_EXPOSURE_V14.grantableScopes.join(" "),
+      p_scope_ceiling: [...MCP_EXPOSURE_V14.grantableScopes],
+      p_consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
+      p_exposure_revision: MCP_EXPOSURE_V14.revision,
       p_software_id: "claude-connector",
       p_software_version: null,
     });
@@ -494,7 +496,7 @@ describe("POST /api/mcp/oauth/register", () => {
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      scope: SCOPE_PARAMETER,
+      scope: MCP_EXPOSURE_V14.grantableScopes.join(" "),
     });
     expect(body).not.toHaveProperty("client_secret");
     expect(JSON.stringify(body)).not.toContain("client_secret");
@@ -988,7 +990,9 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
     const rotate = lastCallTo("rotate_mcp_oauth_refresh_token_as_system");
     expect(rotate.args.p_presented_hash).toBe(sha256Hex(presented));
     expect(rotate.args.p_client_id).toBe(CLIENT_ID);
-    expect(rotate.args.p_active_grantable_scopes).toEqual(SCOPES);
+    expect(rotate.args.p_active_grantable_scopes).toEqual([
+      ...MCP_EXPOSURE_V14.grantableScopes,
+    ]);
     expect(rotate.args.p_new_access_hash).toBe(sha256Hex(body.access_token));
     expect(rotate.args.p_new_refresh_hash).toBe(sha256Hex(body.refresh_token));
     expect(rotate.args.p_new_refresh_hash).not.toBe(body.refresh_token);
@@ -1051,7 +1055,7 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
     expect(
       lastCallTo("rotate_mcp_oauth_refresh_token_as_system").args
         .p_active_grantable_scopes
-    ).toEqual(SCOPES);
+    ).toEqual([...MCP_EXPOSURE_V14.grantableScopes]);
     expect(state.rotatedRow.exposure_revision).toBe(
       "2026-08-22.mcp-exposure.v1"
     );
@@ -1252,5 +1256,92 @@ describe("POST /api/mcp/oauth/revoke", () => {
       limit: 60,
       windowSec: 60,
     });
+  });
+});
+
+describe("Phase 12 token exchange", () => {
+  const scopes = [
+    "ops.correspondence.read",
+    "ops.customers.prepare",
+    "ops.customers.read",
+    "ops.jobs.read",
+    "ops.team.read",
+  ];
+  const revision = {
+    consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
+    exposure_revision: MCP_EXPOSURE_V14.revision,
+  };
+  it("exchanges an approved minimum-scope code and retains exactly its authority", async () => {
+    const labels = scopes.map(
+      (scope) =>
+        CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS[
+          scope as keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+        ]
+    );
+    state.clientRow = {
+      ...defaultClientRow(),
+      ...revision,
+      scope: scopes.join(" "),
+      scope_ceiling: scopes,
+    };
+    state.codeRow = {
+      ...defaultCodeRow(),
+      ...revision,
+      scopes,
+      accepted_labels: labels,
+    };
+    const response = await tokenPost(
+      formRequest(
+        "/api/mcp/oauth/token",
+        form({
+          grant_type: "authorization_code",
+          client_id: CLIENT_ID,
+          code: mintCredential(AUTHORIZATION_CODE_PREFIX),
+          redirect_uri: CALLBACK,
+          code_verifier: CODE_VERIFIER,
+          resource: RESOURCE,
+        })
+      )
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).scope).toBe(scopes.join(" "));
+    const args = lastCallTo("mint_mcp_oauth_grant_as_system").args;
+    expect(args).toMatchObject({
+      p_active_grantable_scopes: [...MCP_EXPOSURE_V14.grantableScopes],
+      p_active_exposure_revision: revision.exposure_revision,
+    });
+    expect(args).not.toHaveProperty("p_scopes");
+  });
+  it("refreshes a minimum-scope v14 grant without adding other reads", async () => {
+    const labels = scopes.map(
+      (scope) =>
+        CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS[
+          scope as keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+        ]
+    );
+    state.clientRow = {
+      ...defaultClientRow(),
+      ...revision,
+      scope: scopes.join(" "),
+      scope_ceiling: scopes,
+    };
+    state.rotatedRow = {
+      ...defaultRotatedRow(),
+      ...revision,
+      scopes,
+      accepted_labels: labels,
+    };
+    const response = await tokenPost(
+      formRequest(
+        "/api/mcp/oauth/token",
+        form({
+          grant_type: "refresh_token",
+          refresh_token: mintCredential(REFRESH_TOKEN_PREFIX),
+          client_id: CLIENT_ID,
+        })
+      )
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).scope).toBe(scopes.join(" "));
   });
 });

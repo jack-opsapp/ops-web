@@ -33,7 +33,8 @@
     "list_team_members": "Devuelve el directorio del equipo activo con identidades de miembros solo para visualización.",
     "list_team_availability": "Devuelve estados diarios y acotados de capacidad dentro de la empresa para el equipo activo o el miembro actual, sin detalles de eventos del calendario.",
     "get_integration_health": "Devuelve información acotada y de alto nivel sobre el estado de conexión, sincronización, progreso, motivo y consentimiento del calendario para las integraciones seleccionadas explícitamente.",
-    "get_operational_overview": "Devuelve un recuento acotado de alto nivel y un estado de salud definido por un conjunto fijo de valores para cada componente operativo autorizado de forma independiente."
+    "get_operational_overview": "Devuelve un recuento acotado de alto nivel y un estado de salud definido por un conjunto fijo de valores para cada componente operativo autorizado de forma independiente.",
+    "prepare_customer_update": "Prepara una vista previa exacta de los cambios de una oportunidad existente y, de forma opcional, las notas del cliente vinculado, con evidencia atribuida. Los cambios requieren aprobación dentro de OPS; no autoriza mensajes, borradores externos, cambios de agenda ni contabilidad."
   },
   "scopeConsentLabels": {
     "ops.jobs.read": "Ver tus trabajos y su estado",
@@ -55,6 +56,7 @@
     "ops.company.read": "Ver el perfil operativo de la empresa",
     "ops.team.read": "Ver el directorio del equipo y la disponibilidad de la empresa",
     "ops.integrations.read": "Ver el estado de las integraciones sin exponer credenciales",
-    "ops.operations.read": "Ver colas de trabajo autorizadas y resúmenes operativos"
+    "ops.operations.read": "Ver colas de trabajo autorizadas y resúmenes operativos",
+    "ops.customers.prepare": "Preparar cambios de notas de clientes y de detalles, responsables y fechas de seguimiento de oportunidades para su aprobación exacta dentro de OPS"
   }
 }

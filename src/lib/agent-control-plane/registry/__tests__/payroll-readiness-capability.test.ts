@@ -8,7 +8,6 @@ import {
 } from "../capability-manifest";
 import {
   ACTIVE_MCP_EXPOSURE_REVISION,
-  MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V7,
   MCP_EXPOSURE_V8,
   capabilityManifestRevisionForExposure,
@@ -87,7 +86,7 @@ describe("payroll readiness capability", () => {
     ).toThrow();
   });
 
-  it("keeps v1-v7 and active v2 stable while adding one dormant v8 read", () => {
+  it("keeps v1-v7 stable while adding one dormant v8 read", () => {
     expect(MCP_EXPOSURE_V8).toEqual({
       revision: "2026-09-01.mcp-exposure.v8",
       toolIds: [
@@ -108,6 +107,6 @@ describe("payroll readiness capability", () => {
     expect(
       capabilityManifestRevisionForExposure(MCP_EXPOSURE_V8.revision)
     ).toBe(PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION);
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V2.revision);
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
   });
 });

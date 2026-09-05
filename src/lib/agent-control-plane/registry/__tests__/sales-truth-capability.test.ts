@@ -8,7 +8,6 @@ import {
 } from "../capability-manifest";
 import {
   ACTIVE_MCP_EXPOSURE_REVISION,
-  MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V6,
   MCP_EXPOSURE_V7,
   capabilityManifestRevisionForExposure,
@@ -114,6 +113,6 @@ describe("sales-truth capability", () => {
     expect(
       capabilityManifestRevisionForExposure(MCP_EXPOSURE_V7.revision)
     ).toBe(SALES_TRUTH_CAPABILITY_MANIFEST_REVISION);
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V2.revision);
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
   });
 });

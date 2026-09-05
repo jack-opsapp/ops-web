@@ -19,3 +19,11 @@ Independent readback after rejection: private.agent_customer_updates is absent a
 The dormant application code is backward compatible: the active exposure remains v2, no new proposal exists, and the visibility RPC is called only for this new action type. Existing queue paths do not require the unapplied database objects. Final application deployment status and the pending migration boundary are recorded in the Bible specification `specs/2026-09-04-ops-mcp-customer-opportunity-updates.md`.
 
 Deployment uses the existing OPS hosting/database resources; no new paid service or tier is introduced. Provider usage remains under the existing plans.
+
+## Approved activation continuation
+
+Jackson explicitly approved the exact migration and enabling write access. The original migration was applied as production ledger `20260905033402_agent_customer_opportunity_update`, 77,521 bytes, MD5 `2b6326f6bc1c63706c9b20d0b1cdfa41`, SHA-256 `e478142143fe9ebde253a1231cba34255a8d9757556187a6f324677c981831b2`. Independent readback confirmed both private tables with RLS/no browser access, service-only mutation RPCs, restrictive SELECT/INSERT/UPDATE/DELETE rules, one valid technical effect fingerprint and zero proposals. The reviewed graph retained all 30 triggers and 62 helpers with only the two intended assignment functions changed.
+
+The activation migration `20260905033621_agent_customer_update_oauth_activation.sql` updates the live bearer resolver for v14 while preserving v1/v2 and the v3 canary gate, requires immutable identity/consent/label/ceiling bindings, and permits least-privilege client ceilings without weakening the mandatory five update scopes. Tested SHA-256 `b1d8423379a94c2dbf0d0b5b3d694769ac4637a0d8af77f7b409e5533da8bbac`.
+
+Verification: 104 real PostgreSQL OAuth assertions plus 44 authority/transaction assertions, 1,041 application/MCP/consent/public-guide tests, full TypeScript check, and independent review passed. Consent and English/Spanish guide distinguish read from prepare-for-approval. No hosted user consent, production grants, tokens or business edits are performed by this release. Existing connectors retain old scopes and need a new connection plus OPS consent for customer updates. Final applied activation ledger and production deployment are recorded in the Bible contract.

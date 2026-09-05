@@ -15,9 +15,9 @@ import {
   MCP_SCOPE_CONSENT_LABELS,
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
 } from "../mcp-scope-catalog";
-describe("customer update dormant catalogue", () => {
+describe("customer update active catalogue", () => {
   it("exposes only its prepare tool alongside immutable production reads", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V2.revision);
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V14.revision);
     expect(MCP_EXPOSURE_V14.toolIds).toEqual([
       ...MCP_EXPOSURE_V2.toolIds,
       "prepare_customer_update",

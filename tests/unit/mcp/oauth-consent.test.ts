@@ -46,6 +46,7 @@ import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth";
 import {
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_CONSENT_LABELS,
+  CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -1435,5 +1436,82 @@ describe("MCP OAuth consent — exact synthetic v3 canary", () => {
         ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
       )
     ).toBe(false);
+  });
+});
+
+describe("Phase 12 exact scope consent", () => {
+  const scopes = [
+    "ops.correspondence.read",
+    "ops.customers.prepare",
+    "ops.customers.read",
+    "ops.jobs.read",
+    "ops.team.read",
+  ];
+  function setup() {
+    const previous = mocks.rpc.getMockImplementation()!;
+    const revisions = {
+      consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
+      exposure_revision: "2026-09-04.mcp-exposure.v14",
+    };
+    const labels = scopes.map(
+      (scope) =>
+        CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS[
+          scope as keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+        ]
+    );
+    mocks.rpc.mockImplementation(async (fn: string, ...args: unknown[]) => {
+      if (fn === "get_mcp_oauth_client_as_system")
+        return {
+          data: [
+            {
+              ...CLIENT_ROW,
+              ...revisions,
+              scope: scopes.join(" "),
+              scope_ceiling: scopes,
+            },
+          ],
+          error: null,
+        };
+      if (fn === "consume_mcp_oauth_consent_preview_as_system")
+        return {
+          data: [
+            {
+              ...CONSUMED_PREVIEW_ROW,
+              ...revisions,
+              scopes,
+              accepted_labels: labels,
+            },
+          ],
+          error: null,
+        };
+      return previous(fn, ...args);
+    });
+    return labels;
+  }
+  it("defaults an omitted scope request to the registered client ceiling", async () => {
+    const labels = setup();
+    const response = await contextPOST(
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ scope: undefined })
+      )
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).scopes).toEqual(
+      scopes.map((scope, index) => ({ scope, label: labels[index] }))
+    );
+  });
+  it("binds the user's exact displayed prepare consent to the issued code", async () => {
+    const labels = setup();
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+    expect(response.status).toBe(200);
+    expect(createCodeArgs()).toMatchObject({
+      p_scopes: scopes,
+      p_accepted_labels: labels,
+      p_consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
+      p_exposure_revision: "2026-09-04.mcp-exposure.v14",
+    });
   });
 });

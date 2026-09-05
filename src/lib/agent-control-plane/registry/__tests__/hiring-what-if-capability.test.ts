@@ -76,7 +76,7 @@ describe("hiring what-if capability isolation", () => {
   });
 
   it("adds one dormant read-only v5 without changing v1 through v4", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-08-29.mcp-exposure.v2");
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
     expect(MCP_EXPOSURE_V1.revision).toBe("2026-08-22.mcp-exposure.v1");
     expect(MCP_EXPOSURE_V2.toolIds).toHaveLength(34);
     expect(MCP_EXPOSURE_V3).toEqual({

@@ -367,7 +367,7 @@ export const MCP_EXPOSURE_V14 = Object.freeze({
   ),
 } as const satisfies McpExposure);
 
-export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V2.revision;
+export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V14.revision;
 
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
   Object.freeze({

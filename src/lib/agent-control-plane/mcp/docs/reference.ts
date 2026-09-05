@@ -3,11 +3,15 @@ import "server-only";
 import esReference from "@/i18n/dictionaries/es/mcp-reference.json";
 import type { Locale } from "@/i18n/types";
 import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth/config";
-import { getCapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-manifest";
+import {
+  getCapabilityManifestEntry,
+  getCustomerUpdateCapabilityManifestEntry,
+} from "@/lib/agent-control-plane/registry/capability-manifest";
 import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   MCP_SCOPE_OPERATION_BY_ID,
   mcpScopeConsentLabel,
+  CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
   type McpScopeOperation,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
@@ -29,11 +33,11 @@ export interface PublicMcpToolGroup {
 export interface PublicMcpTool {
   readonly id: string;
   readonly description: string;
-  readonly operation: "read";
+  readonly operation: "read" | "prepare";
   readonly availability: "available";
   readonly requiredScopes: readonly string[];
   readonly annotations: Readonly<{
-    readOnlyHint: true;
+    readOnlyHint: boolean;
     destructiveHint: false;
     idempotentHint: boolean;
     openWorldHint: boolean;
@@ -42,7 +46,7 @@ export interface PublicMcpTool {
 
 export interface PublicMcpScope {
   readonly id: string;
-  readonly operation: "read";
+  readonly operation: "read" | "prepare";
   readonly consentLabel: string;
 }
 
@@ -88,6 +92,7 @@ const PUBLIC_MCP_TOOL_GROUPS = Object.freeze([
       "search_jobs",
       "list_customer_jobs",
       "get_customer_context",
+      "prepare_customer_update",
     ]),
   }),
   Object.freeze({
@@ -230,9 +235,16 @@ function publicScope(scopeId: string): PublicMcpScope {
   const operation = MCP_SCOPE_OPERATION_BY_ID[
     scopeId as keyof typeof MCP_SCOPE_OPERATION_BY_ID
   ] as McpScopeOperation | undefined;
-  const consentLabel = mcpScopeConsentLabel(scopeId);
-  if (operation !== "read" || consentLabel === null) {
-    throw new TypeError("Active MCP scope is not safe for public read docs");
+  const consentLabel =
+    scopeId === "ops.customers.prepare"
+      ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS[scopeId]
+      : mcpScopeConsentLabel(scopeId);
+  if (
+    (operation !== "read" &&
+      !(operation === "prepare" && scopeId === "ops.customers.prepare")) ||
+    consentLabel === null
+  ) {
+    throw new TypeError("Active MCP scope is not safe for public docs");
   }
   return Object.freeze({
     id: scopeId,
@@ -245,14 +257,20 @@ function publicTool(
   toolId: string,
   activeScopeOrder: readonly string[]
 ): PublicMcpTool {
-  const entry = getCapabilityManifestEntry(toolId);
+  const entry =
+    toolId === "prepare_customer_update"
+      ? getCustomerUpdateCapabilityManifestEntry(toolId)
+      : getCapabilityManifestEntry(toolId);
   if (
-    entry.operation !== "read" ||
+    (entry.operation !== "read" &&
+      !(
+        entry.operation === "prepare" && toolId === "prepare_customer_update"
+      )) ||
     entry.availability.implementation !== "available" ||
-    entry.annotations.readOnlyHint !== true ||
+    entry.annotations.readOnlyHint !== (entry.operation === "read") ||
     entry.annotations.destructiveHint !== false
   ) {
-    throw new TypeError("Active MCP tool is not safe for public read docs");
+    throw new TypeError("Active MCP tool is not safe for public docs");
   }
 
   const requiredScopeSet = new Set(
@@ -267,9 +285,11 @@ function publicTool(
     requiredScopes.length !== requiredScopeSet.size ||
     requiredScopes.some(
       (scope) =>
-        MCP_SCOPE_OPERATION_BY_ID[
-          scope as keyof typeof MCP_SCOPE_OPERATION_BY_ID
-        ] !== "read"
+        !(["read", "prepare"] as readonly string[]).includes(
+          MCP_SCOPE_OPERATION_BY_ID[
+            scope as keyof typeof MCP_SCOPE_OPERATION_BY_ID
+          ]
+        )
     )
   ) {
     throw new TypeError("Active MCP tool requires an undocumented scope");
@@ -278,11 +298,11 @@ function publicTool(
   return Object.freeze({
     id: entry.name,
     description: requiredNonBlank(entry.description, "MCP tool description"),
-    operation: "read" as const,
+    operation: entry.operation,
     availability: "available" as const,
     requiredScopes: Object.freeze(requiredScopes),
     annotations: Object.freeze({
-      readOnlyHint: true as const,
+      readOnlyHint: entry.annotations.readOnlyHint,
       destructiveHint: false as const,
       idempotentHint: entry.annotations.idempotentHint,
       openWorldHint: entry.annotations.openWorldHint,

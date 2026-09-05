@@ -8,7 +8,6 @@ import {
 } from "../capability-manifest";
 import {
   ACTIVE_MCP_EXPOSURE_REVISION,
-  MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
   MCP_EXPOSURE_V4,
   MCP_EXPOSURE_V5,
@@ -129,8 +128,10 @@ describe("promise-recovery capability", () => {
     expect(
       capabilityManifestRevisionForExposure(MCP_EXPOSURE_V6.revision)
     ).toBe(PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION);
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V2.revision);
-    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V2);
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
+    expect(resolveActiveMcpExposure().revision).toBe(
+      "2026-09-04.mcp-exposure.v14"
+    );
   });
 
   it("does not alter the dormant Phase 3 or Phase 4 exposure contracts", () => {

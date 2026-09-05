@@ -19,7 +19,7 @@ import {
   sha256Hex,
   type CredentialPrefix,
 } from "@/lib/agent-control-plane/mcp/oauth/tokens";
-import { resolveActiveMcpConsentCatalog } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
+import { MCP_CONSENT_CATALOG_V1 } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
 import {
   MCP_EXPOSURE_V1,
   type McpExposure,
@@ -92,7 +92,7 @@ describe("immutable consent claims", () => {
       isConsentSnapshotValidForExposure(
         claims,
         MCP_EXPOSURE_V1,
-        resolveActiveMcpConsentCatalog(),
+        MCP_CONSENT_CATALOG_V1,
         { requireActiveExposureRevision: true }
       )
     ).toBe(true);
@@ -100,7 +100,7 @@ describe("immutable consent claims", () => {
       isConsentSnapshotValidForExposure(
         { ...claims, exposureRevision: "test.mcp-exposure.v0" },
         MCP_EXPOSURE_V1,
-        resolveActiveMcpConsentCatalog(),
+        MCP_CONSENT_CATALOG_V1,
         { requireActiveExposureRevision: true }
       )
     ).toBe(false);
@@ -120,7 +120,7 @@ describe("immutable consent claims", () => {
       isConsentSnapshotValidForExposure(
         claims,
         expandedExposure,
-        resolveActiveMcpConsentCatalog(),
+        MCP_CONSENT_CATALOG_V1,
         { requireActiveExposureRevision: false }
       )
     ).toBe(true);
@@ -129,7 +129,7 @@ describe("immutable consent claims", () => {
   });
 
   it("fails closed for a widened scope, mismatched label, or wrong consent catalogue", () => {
-    const catalog = resolveActiveMcpConsentCatalog();
+    const catalog = MCP_CONSENT_CATALOG_V1;
     expect(
       isConsentSnapshotValidForExposure(
         {

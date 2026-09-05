@@ -441,7 +441,11 @@ export function McpGuidePage({ copy, reference }: McpGuidePageProps) {
                     </dd>
                     <span className="sr-only">
                       {copy.permissionScopeLabel} {index + 1}.{" "}
-                      {copy.permissionAccessLabel}: {copy.modeReadOnly}.
+                      {copy.permissionAccessLabel}:{" "}
+                      {scope.operation === "prepare"
+                        ? copy.scopePrepareLabel
+                        : copy.scopeReadLabel}
+                      .
                     </span>
                   </div>
                 ))}

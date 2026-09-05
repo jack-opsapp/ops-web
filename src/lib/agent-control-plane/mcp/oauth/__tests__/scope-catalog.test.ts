@@ -10,6 +10,7 @@ import {
   MCP_CONSENT_CATALOG_V6,
   MCP_CONSENT_CATALOG_V7,
   MCP_CONSENT_CATALOG_V8,
+  MCP_CONSENT_CATALOG_V9,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,
   resolveMcpConsentCatalogRevision,
@@ -85,6 +86,7 @@ const EXPECTED_REGISTERED_SCOPES = [
   "ops.company.read",
   "ops.correspondence.read",
   "ops.customer_contacts.read",
+  "ops.customers.prepare",
   "ops.customers.read",
   "ops.expenses.read",
   "ops.files.read",
@@ -121,9 +123,9 @@ const EXISTING_READ_LABELS = {
 } as const;
 
 describe("registered MCP scope vocabulary", () => {
-  it("pins the reviewed 31-scope union while preserving all 18 existing scope IDs", () => {
+  it("pins the reviewed 32-scope union while preserving all 18 existing scope IDs", () => {
     expect([...REGISTERED_MCP_SCOPES]).toEqual(EXPECTED_REGISTERED_SCOPES);
-    expect(REGISTERED_MCP_SCOPES).toHaveLength(31);
+    expect(REGISTERED_MCP_SCOPES).toHaveLength(32);
     expect(
       EXISTING_SCOPE_VOCABULARY.every((scope) =>
         REGISTERED_MCP_SCOPES.includes(scope)
@@ -166,12 +168,12 @@ describe("versioned MCP consent catalogue", () => {
 
   it("resolves one immutable active catalogue revision backed by the neutral vocabulary", () => {
     expect(ACTIVE_MCP_CONSENT_CATALOG_REVISION).toBe(
-      "2026-08-22.mcp-consent-catalog.v1"
+      "2026-09-04.mcp-consent-catalog.v9"
     );
-    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V1);
+    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V9);
     expect(
       resolveMcpConsentCatalogRevision(ACTIVE_MCP_CONSENT_CATALOG_REVISION)
-    ).toBe(MCP_CONSENT_CATALOG_V1);
+    ).toBe(MCP_CONSENT_CATALOG_V9);
     expect(MCP_CONSENT_CATALOG_V1.registeredScopes).toBe(REGISTERED_MCP_SCOPES);
     expect(MCP_CONSENT_CATALOG_V1.operations).toBe(MCP_SCOPE_OPERATION_BY_ID);
     expect(MCP_CONSENT_CATALOG_V1.consentLabels).toBe(MCP_SCOPE_CONSENT_LABELS);
@@ -224,7 +226,7 @@ describe("versioned MCP consent catalogue", () => {
     expect(MCP_CONSENT_CATALOG_V8.consentLabels).toBe(
       DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
     );
-    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V1);
+    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V9);
   });
 
   it("binds dormant v11-v13 to distinct immutable consent catalogues", () => {
@@ -367,7 +369,7 @@ describe("versioned MCP consent catalogue", () => {
         resolveActiveMcpConsentCatalog()
       )
     ).toEqual({
-      consentCatalogRevision: "2026-08-22.mcp-consent-catalog.v1",
+      consentCatalogRevision: "2026-09-04.mcp-consent-catalog.v9",
       exposureRevision: "test.mcp-exposure.v2",
       scopeCeiling: ["ops.tasks.read", "ops.catalog.read"],
       acceptedLabels: [

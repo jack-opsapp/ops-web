@@ -8,7 +8,6 @@ import {
 } from "../capability-manifest";
 import {
   ACTIVE_MCP_EXPOSURE_REVISION,
-  MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V12,
   MCP_EXPOSURE_V13,
   capabilityManifestRevisionForExposure,
@@ -54,7 +53,7 @@ describe("dispatch confirmation task dormant capability", () => {
   });
 
   it("keeps production v2 immutable and remints v18 into v19", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V2.revision);
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
     expect(DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION).toBe(
       "2026-09-03.capability-manifest.v19"
     );

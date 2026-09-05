@@ -68,8 +68,8 @@ describe("public MCP developer guide", () => {
     ).toBeInTheDocument();
 
     const overview = sectionNamed(/^OPS MCP server$/i);
-    expect(overview).toHaveTextContent(/available tools\s*34/i);
-    expect(overview).toHaveTextContent(/read scopes\s*20/i);
+    expect(overview).toHaveTextContent(/available tools\s*35/i);
+    expect(overview).toHaveTextContent(/permission scopes\s*21/i);
     const pageText = document.body.textContent ?? "";
     expect(pageText).toMatch(/latest site visit.*still needs follow-up/i);
     expect(pageText).toMatch(/deck design geometry.*(?:this|the) job/i);
@@ -95,26 +95,28 @@ describe("public MCP developer guide", () => {
       /not (?:yet )?listed in (?:the )?public plugin directory/i
     );
 
-    expect(codex).toHaveTextContent(
-      /full 34-tool catalog verified end to end/i
-    );
+    expect(codex).toHaveTextContent(/34 read tools verified end to end/i);
     expect(claude).toHaveTextContent(
       /OAuth and (?:the )?original 11-tool catalog verified/i
     );
-    expect(claude).toHaveTextContent(/current 34-tool acceptance pending/i);
+    expect(claude).toHaveTextContent(/current 35-tool acceptance pending/i);
     expect(chatgpt).toHaveTextContent(/registration path verified/i);
     expect(chatgpt).toHaveTextContent(
-      /authenticated 34-tool acceptance pending/i
+      /authenticated 35-tool acceptance pending/i
     );
   });
 
-  it("states the read-only boundary without implying send or edit authority", () => {
+  it("states exact approval is required before business changes", () => {
     renderGuide();
 
-    const boundary = sectionNamed(/read-only/i);
-    expect(boundary).toHaveTextContent(/read-only/i);
+    const boundary = sectionNamed(/you approve every change/i);
+    expect(boundary).toHaveTextContent(
+      /business changes require your approval inside OPS/i
+    );
     expect(boundary).toHaveTextContent(/no sends/i);
-    expect(boundary).toHaveTextContent(/no edits/i);
+    expect(boundary).toHaveTextContent(
+      /prepare exact customer notes or lead updates/i
+    );
   });
 
   it("explains OAuth, server-enforced permissions, and revocation", () => {

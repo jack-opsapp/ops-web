@@ -184,7 +184,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     client.consent_catalog_revision
   );
   const scopes = resolveRequestedScopes(
-    typeof rawScope === "string" ? rawScope : null,
+    typeof rawScope === "string" && rawScope.trim() ? rawScope : client.scope,
     exposure
   );
   if (!scopes) return invalidRequest();

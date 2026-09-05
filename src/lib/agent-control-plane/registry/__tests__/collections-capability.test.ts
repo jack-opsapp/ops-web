@@ -55,7 +55,7 @@ describe("collections capability isolation", () => {
   });
 
   it("adds an inactive one-tool v4 without changing v2 or v3", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-08-29.mcp-exposure.v2");
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
     expect(MCP_EXPOSURE_V2.toolIds).toHaveLength(34);
     expect(MCP_EXPOSURE_V3).toEqual({
       revision: "2026-08-30.mcp-exposure.v3",

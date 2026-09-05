@@ -35,24 +35,34 @@ describe("public MCP guide reference", () => {
     expectTypeOf<PublicMcpToolGroupLabel>().toEqualTypeOf<ExpectedPublicMcpToolGroupLabel>();
   });
 
-  it("resolves the exact active read-only exposure without leaking internal policy", () => {
+  it("resolves the active read and exact-approval exposure without leaking internal policy", () => {
     const reference = resolvePublicMcpReference();
 
     expect(reference.endpoint.endsWith("/api/mcp")).toBe(true);
     expect(reference.transport).toBe("Streamable HTTP");
-    expect(reference.activeExposureRevision).toBe("2026-08-29.mcp-exposure.v2");
-    expect(reference.tools).toHaveLength(34);
-    expect(reference.scopes).toHaveLength(20);
+    expect(reference.activeExposureRevision).toBe(
+      "2026-09-04.mcp-exposure.v14"
+    );
+    expect(reference.tools).toHaveLength(35);
+    expect(reference.scopes).toHaveLength(21);
 
     expect(
       reference.tools.every(
-        (tool) => tool.operation === "read" && tool.availability === "available"
+        (tool) =>
+          (tool.operation === "read" ||
+            (tool.id === "prepare_customer_update" &&
+              tool.operation === "prepare" &&
+              !tool.annotations.readOnlyHint)) &&
+          tool.availability === "available"
       )
     ).toBe(true);
     expect(
       reference.scopes.every(
         (scope) =>
-          scope.operation === "read" && scope.consentLabel.trim().length > 0
+          (scope.operation === "read" ||
+            (scope.id === "ops.customers.prepare" &&
+              scope.operation === "prepare")) &&
+          scope.consentLabel.trim().length > 0
       )
     ).toBe(true);
 
@@ -169,6 +179,6 @@ describe("public MCP guide reference", () => {
         toolDescriptions: completeToolDescriptions,
         scopeConsentLabels: {},
       } satisfies PublicMcpReferenceLocalization)
-    ).toThrow(/scope consent localization.*ops.jobs.read/i);
+    ).toThrow(/scope consent localization.*ops.catalog.read/i);
   });
 });

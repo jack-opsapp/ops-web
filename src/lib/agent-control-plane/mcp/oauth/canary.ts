@@ -9,8 +9,12 @@ import {
 import {
   MCP_CONSENT_CATALOG_V1,
   MCP_CONSENT_CATALOG_V2,
+  MCP_CONSENT_CATALOG_V9,
 } from "./scope-catalog";
 import {
+  MCP_EXPOSURE_V1,
+  MCP_EXPOSURE_V14,
+  resolveActiveMcpExposure,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
   type McpExposure,
@@ -51,6 +55,32 @@ export async function resolveOAuthExposureForSubject(input: {
   readonly userId: string;
   readonly companyId: string;
 }): Promise<McpExposure | null> {
+  const active = resolveActiveMcpExposure();
+  if (
+    active === MCP_EXPOSURE_V14 &&
+    !input.client.disabled &&
+    input.client.exposure_revision === active.revision &&
+    input.client.consent_catalog_revision === MCP_CONSENT_CATALOG_V9.revision &&
+    input.client.scope_ceiling.length > 0 &&
+    arraysEqual(
+      input.client.scope_ceiling,
+      active.grantableScopes.filter((scope) =>
+        input.client.scope_ceiling.includes(scope)
+      )
+    ) &&
+    input.client.scope === input.client.scope_ceiling.join(" ")
+  )
+    return active;
+
+  if (
+    clientMatchesExposure(
+      input.client,
+      MCP_EXPOSURE_V1,
+      MCP_CONSENT_CATALOG_V1.revision
+    )
+  )
+    return MCP_EXPOSURE_V1;
+
   if (
     clientMatchesExposure(
       input.client,

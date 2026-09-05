@@ -7,6 +7,8 @@ import {
 } from "@/lib/agent-control-plane/mcp/oauth/grants";
 import { resolveOAuthExposureForSubject } from "@/lib/agent-control-plane/mcp/oauth/canary";
 import {
+  MCP_EXPOSURE_V1,
+  MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
@@ -213,4 +215,65 @@ describe("MCP OAuth canary exposure resolver", () => {
       )
     ).rejects.toBeInstanceOf(McpOAuthStoreError);
   });
+});
+
+describe("approved customer update OAuth activation", () => {
+  function updateClient(overrides: Partial<ClientRow> = {}): ClientRow {
+    return client({
+      exposure_revision: MCP_EXPOSURE_V14.revision,
+      consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
+      scope: MCP_EXPOSURE_V14.grantableScopes.join(" "),
+      scope_ceiling: [...MCP_EXPOSURE_V14.grantableScopes],
+      ...overrides,
+    });
+  }
+  it("accepts the exact active v14 client without a canary binding", async () => {
+    const r = rpcReturning([]);
+    await expect(
+      resolveOAuthExposureForSubject({
+        rpcClient: r.client,
+        client: updateClient(),
+        userId: USER_ID,
+        companyId: COMPANY_ID,
+      })
+    ).resolves.toBe(MCP_EXPOSURE_V14);
+    expect(r.rpc).not.toHaveBeenCalled();
+  });
+  it("preserves a historical v1 client without expanding its seven scopes", async () => {
+    const r = rpcReturning([]);
+    await expect(
+      resolveOAuthExposureForSubject({
+        rpcClient: r.client,
+        client: client({
+          exposure_revision: MCP_EXPOSURE_V1.revision,
+          scope: MCP_EXPOSURE_V1.grantableScopes.join(" "),
+          scope_ceiling: [...MCP_EXPOSURE_V1.grantableScopes],
+        }),
+        userId: USER_ID,
+        companyId: COMPANY_ID,
+      })
+    ).resolves.toBe(MCP_EXPOSURE_V1);
+    expect(r.rpc).not.toHaveBeenCalled();
+  });
+  it.each([
+    { disabled: true },
+    { consent_catalog_revision: V2_CONSENT_REVISION },
+    { scope_ceiling: [...MCP_EXPOSURE_V2.grantableScopes] },
+    { scope: MCP_EXPOSURE_V2.grantableScopes.join(" ") },
+    { exposure_revision: "2026-09-03.mcp-exposure.v13" },
+  ])(
+    "rejects mismatched or disabled customer update authority %j",
+    async (overrides) => {
+      const r = rpcReturning([]);
+      await expect(
+        resolveOAuthExposureForSubject({
+          rpcClient: r.client,
+          client: updateClient(overrides),
+          userId: USER_ID,
+          companyId: COMPANY_ID,
+        })
+      ).resolves.toBeNull();
+      expect(r.rpc).not.toHaveBeenCalled();
+    }
+  );
 });

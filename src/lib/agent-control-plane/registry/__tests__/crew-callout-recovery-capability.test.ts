@@ -9,7 +9,6 @@ import {
 } from "../capability-manifest";
 import {
   ACTIVE_MCP_EXPOSURE_REVISION,
-  MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V11,
   MCP_EXPOSURE_V12,
   capabilityManifestRevisionForExposure,
@@ -93,8 +92,8 @@ describe("crew call-out recovery dormant capability", () => {
     });
   });
 
-  it("makes v12 additive to v11 while production remains exactly v2", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V2.revision);
+  it("makes v12 additive to v11 while the historical v2 catalogue stays immutable", () => {
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
     expect(MCP_EXPOSURE_V12.toolIds).toEqual([
       ...MCP_EXPOSURE_V11.toolIds,
       "prepare_crew_callout_recovery",

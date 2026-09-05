@@ -299,12 +299,12 @@ describe("immutable MCP exposure catalogue", () => {
     );
   });
 
-  it("keeps every revision deeply frozen while referentially reusing active v2", () => {
+  it("keeps every revision deeply frozen while referentially reusing active v14", () => {
     const first = resolveActiveMcpExposure();
     const second = resolveActiveMcpExposure();
 
     expectTypeOf(resolveActiveMcpExposure).toEqualTypeOf<() => McpExposure>();
-    expect(first).toBe(MCP_EXPOSURE_V2);
+    expect(first).toBe(MCP_EXPOSURE_V14);
     expect(second).toBe(first);
     expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V1.revision]).toBe(
       MCP_EXPOSURE_V1
@@ -392,7 +392,7 @@ describe("immutable MCP exposure catalogue", () => {
     expect(
       resolveMcpExposureRevision(MCP_EXPOSURE_CATALOG, MCP_EXPOSURE_V6.revision)
     ).toBe(MCP_EXPOSURE_V6);
-    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V2);
+    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V14);
     const entry = getPromiseRecoveryCapabilityManifestEntry(
       "check_customer_reply"
     );
@@ -448,7 +448,7 @@ describe("immutable MCP exposure catalogue", () => {
 
   it("pins inactive v3 to the single prepare-only closeout vertical", () => {
     expect(MCP_EXPOSURE_V3).toEqual(EXPECTED_EXPOSURE_V3);
-    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V2);
+    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V14);
     const entry = getInvisibleOfficeCapabilityManifestEntry(
       "prepare_day_closeout"
     );

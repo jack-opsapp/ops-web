@@ -6,7 +6,7 @@ import {
   validateClientRegistration as validateClientRegistrationForExposure,
   type ClientRegistrationResult,
 } from "@/lib/agent-control-plane/mcp/oauth/clients";
-import { resolveActiveMcpConsentCatalog } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
+import { MCP_CONSENT_CATALOG_V1 } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
 import { SUPPORTED_READ_SCOPES } from "@/lib/agent-control-plane/mcp/oauth/scopes";
 import {
   MCP_EXPOSURE_V1,
@@ -24,7 +24,7 @@ function validateClientRegistration(payload: unknown) {
   return validateClientRegistrationForExposure(
     payload,
     MCP_EXPOSURE_V1,
-    resolveActiveMcpConsentCatalog()
+    MCP_CONSENT_CATALOG_V1
   );
 }
 
@@ -292,7 +292,7 @@ describe("dynamic client registration — accepted shapes", () => {
         validateClientRegistrationForExposure(
           claudePayload({ scope: "ops.tasks.read" }),
           expandedExposure,
-          resolveActiveMcpConsentCatalog()
+          MCP_CONSENT_CATALOG_V1
         )
       )
     ).toMatchObject({
@@ -304,7 +304,7 @@ describe("dynamic client registration — accepted shapes", () => {
       validateClientRegistrationForExposure(
         claudePayload({ scope: "ops.tasks.read" }),
         MCP_EXPOSURE_V1,
-        resolveActiveMcpConsentCatalog()
+        MCP_CONSENT_CATALOG_V1
       ).ok
     ).toBe(false);
   });

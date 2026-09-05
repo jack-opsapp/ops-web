@@ -23,11 +23,11 @@ describe("public MCP guide metadata", () => {
     await expect(generateMetadata()).resolves.toMatchObject({
       title: "Guía del servidor MCP de OPS",
       description:
-        "Conecta Codex, Claude o ChatGPT al servidor MCP de OPS de solo lectura y consulta las herramientas, permisos, seguridad y flujos verificados.",
+        "Conecta Codex, Claude o ChatGPT con OPS para consultar registros autorizados y preparar cambios exactos de clientes y oportunidades para su aprobación. Consulta herramientas, permisos y verificación.",
       openGraph: {
         title: "Guía del servidor MCP de OPS",
         description:
-          "Conecta Codex, Claude o ChatGPT al servidor MCP de OPS de solo lectura y consulta las herramientas, permisos, seguridad y flujos verificados.",
+          "Conecta Codex, Claude o ChatGPT con OPS para consultar registros autorizados y preparar cambios exactos de clientes y oportunidades para su aprobación. Consulta herramientas, permisos y verificación.",
       },
     });
     expect(getLocaleMock).toHaveBeenCalledOnce();

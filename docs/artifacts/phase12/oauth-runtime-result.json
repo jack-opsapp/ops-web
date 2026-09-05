@@ -1,0 +1,13 @@
+{
+  "postgres": "17",
+  "oauth_checks_passed": 104,
+  "authority_checks_passed": 44,
+  "sha256": {
+    "supabase/migrations/20260905033621_agent_customer_update_oauth_activation.sql": "b1d8423379a94c2dbf0d0b5b3d694769ac4637a0d8af77f7b409e5533da8bbac",
+    "tests/sql/agent-customer-update-oauth-run-runtime.sh": "9374692ab5fe1cc4a086c111fca2b58b3200bc80c221dc94f8b3ff11b670d174",
+    "tests/sql/agent-customer-update-oauth-runtime.sql": "bbd47f741ae470964932b1a3b528b515992f7d2627ae5b179d6b456e2460d0f1",
+    "tests/sql/agent-customer-update-oauth-setup.sql": "5b418fdad62565e2fbe47cd0acff2e6ae48cc716ab975ff482d98d6f995b69b2",
+    "tests/sql/agent-customer-update-oauth-subset-authority.sql": "7905f2fafdd110ccf2a493093c121052e162e271b1db8490b35c45943fd967c3"
+  },
+  "limits": "Actual live OAuth functions, constraints and immutable/canary triggers, then exact activation migration. Minimal local identity tables; no HTTP host interaction, no production consent, tokens, grants or business mutations."
+}

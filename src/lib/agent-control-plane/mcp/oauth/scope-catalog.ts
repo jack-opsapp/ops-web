@@ -113,7 +113,7 @@ export const MCP_CONSENT_CATALOG_V9 = Object.freeze({
   allowedOperations: Object.freeze(["read", "prepare"] as const),
 } as const satisfies McpConsentCatalog);
 export const ACTIVE_MCP_CONSENT_CATALOG_REVISION =
-  MCP_CONSENT_CATALOG_V1.revision;
+  MCP_CONSENT_CATALOG_V9.revision;
 
 export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
   Object.freeze({
