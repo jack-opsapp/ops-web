@@ -101,8 +101,7 @@ export interface CapacityEditRow {
   buildDaysMin: number;
   buildDaysMax: number;
   supportWindowDays: number;
-  subscriptionMultiplierEstimate: number; // numeric(4,2)
-  retainerMonthlyCents: number;
+  retainerMonthlyCents: number; // care plan per month (v2); 0 = none
   polishHoursBudget: number; // numeric(4,2), 0.5 increments
   isAcceptingBookings: boolean;
   manualNextStartOverride: string | null; // YYYY-MM-DD

@@ -4,8 +4,8 @@
  * SERVER ONLY. The overview path in `spec-queries.ts` reads a narrow projection
  * of `spec_capacity` (slot_ceiling + booking flags + override + public_note)
  * because the overview only renders the read-only panel. The editor needs every
- * editable column — duration ranges, pricing, multiplier, retainer cost, polish
- * budget, admin_notes — so it gets its own loader to keep the two surfaces from
+ * editable column — duration ranges, care plan, polish budget, admin_notes — so
+ * it gets its own loader to keep the two surfaces from
  * leaking into each other.
  *
  * `private.is_spec_operator()` already gates `spec_capacity` reads/writes at the
@@ -37,7 +37,6 @@ export async function getCapacityEditRows(): Promise<CapacityEditRow[]> {
         build_days_min,
         build_days_max,
         support_window_days,
-        subscription_multiplier_estimate,
         retainer_monthly_cents,
         polish_hours_budget,
         is_accepting_bookings,
@@ -60,7 +59,6 @@ export async function getCapacityEditRows(): Promise<CapacityEditRow[]> {
     buildDaysMin: Number(r.build_days_min ?? 0),
     buildDaysMax: Number(r.build_days_max ?? 0),
     supportWindowDays: Number(r.support_window_days ?? 0),
-    subscriptionMultiplierEstimate: Number(r.subscription_multiplier_estimate ?? 0),
     retainerMonthlyCents: Number(r.retainer_monthly_cents ?? 0),
     polishHoursBudget: Number(r.polish_hours_budget ?? 0),
     isAcceptingBookings: !!r.is_accepting_bookings,

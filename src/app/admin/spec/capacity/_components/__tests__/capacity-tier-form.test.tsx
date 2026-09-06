@@ -16,7 +16,6 @@ const row = (tier: CapacityEditRow["tier"]): CapacityEditRow => ({
   buildDaysMin: 3,
   buildDaysMax: 7,
   supportWindowDays: 30,
-  subscriptionMultiplierEstimate: 0,
   retainerMonthlyCents: 0,
   polishHoursBudget: 2,
   isAcceptingBookings: true,
@@ -45,5 +44,20 @@ describe("CapacityTierForm heading", () => {
     expect(
       screen.getByText(/FROM \$25,000 · P1 \$6,250 FIXED · TOTAL LOCKED AT SCOPE SIGN-OFF/),
     ).toBeTruthy();
+  });
+});
+
+describe("CapacityTierForm — Tier Model v2 pricing fields", () => {
+  it("no longer offers the retired subscription multiplier", () => {
+    const { container } = render(<CapacityTierForm row={row("spec02")} />);
+    expect(container.querySelector('input[name="subscription_multiplier_estimate"]')).toBeNull();
+    expect(screen.queryByText(/SUBSCRIPTION MULTIPLIER/)).toBeNull();
+  });
+
+  it("labels the monthly figure as the care plan and keeps it in whole dollars", () => {
+    render(<CapacityTierForm row={{ ...row("spec02"), retainerMonthlyCents: 39_500 }} />);
+    const input = screen.getByLabelText(/CARE PLAN/) as HTMLInputElement;
+    expect(input.name).toBe("retainer_monthly_dollars");
+    expect(input.value).toBe("395");
   });
 });

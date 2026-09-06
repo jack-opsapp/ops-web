@@ -119,7 +119,6 @@ interface ValidatedRow {
   build_days_min: number;
   build_days_max: number;
   support_window_days: number;
-  subscription_multiplier_estimate: number;
   retainer_monthly_cents: number;
   polish_hours_budget: number;
   is_accepting_bookings: boolean;
@@ -164,14 +163,6 @@ function validate(
 
   const support = parseInt0(formData.get("support_window_days"));
   if (!Number.isFinite(support) || support < 0) errors.support_window_days = "MUST BE INTEGER ≥ 0";
-
-  const multiplier = parseFloat0(formData.get("subscription_multiplier_estimate"));
-  if (!Number.isFinite(multiplier) || multiplier < 0) {
-    errors.subscription_multiplier_estimate = "MUST BE NUMBER ≥ 0";
-  } else if (multiplier > 99.99) {
-    // numeric(4,2) caps at 99.99
-    errors.subscription_multiplier_estimate = "MAX 99.99";
-  }
 
   const retainerDollars = parseInt0(formData.get("retainer_monthly_dollars"));
   if (!Number.isFinite(retainerDollars) || retainerDollars < 0) {
@@ -232,7 +223,6 @@ function validate(
       build_days_min: buildMin,
       build_days_max: buildMax,
       support_window_days: support,
-      subscription_multiplier_estimate: Math.round(multiplier * 100) / 100,
       retainer_monthly_cents: retainerDollars * 100,
       polish_hours_budget: Math.round(polish * 100) / 100,
       is_accepting_bookings: isAccepting,

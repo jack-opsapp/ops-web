@@ -169,23 +169,12 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
         </Field>
       </Section>
 
-      {/* Pricing */}
+      {/* Pricing — the tier total is a model constant (see tierHint); the
+          v1 subscription multiplier is retired (10_TIER_MODEL_V2 § 5). */}
       <Section label="// PRICING">
         <Field
-          label="SUBSCRIPTION MULTIPLIER ESTIMATE"
-          hint="e.g. 0.30 for build · published on /spec"
-          error={errors.subscription_multiplier_estimate}
-        >
-          <NumberInput
-            name="subscription_multiplier_estimate"
-            defaultValue={row.subscriptionMultiplierEstimate.toFixed(2)}
-            min={0}
-            step={0.01}
-          />
-        </Field>
-        <Field
-          label="RETAINER MONTHLY ($)"
-          hint="Whole dollars · stored as cents"
+          label="CARE PLAN ($ / MO)"
+          hint="Whole dollars · stored as cents · 0 = no care plan · billing starts when the support window ends"
           error={errors.retainer_monthly_dollars}
         >
           <DollarInput
