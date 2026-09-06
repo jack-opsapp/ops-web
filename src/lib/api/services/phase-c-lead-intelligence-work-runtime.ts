@@ -57,6 +57,7 @@ interface OpportunityRow {
 
 interface CorrespondenceEventRow {
   id: string;
+  source: string;
   activity_id: string | null;
   connection_id: string | null;
   provider_thread_id: string;
@@ -163,6 +164,15 @@ function activityMessageKey(
   messageId: string | null
 ): string | null {
   return connectionId && messageId ? `${connectionId}\u0000${messageId}` : null;
+}
+
+function isLegacyProjectionWithoutMessageIdentity(
+  event: CorrespondenceEventRow
+): boolean {
+  return (
+    rowString(event.provider_message_id) === null &&
+    rowString(event.source)?.startsWith("legacy_") === true
+  );
 }
 
 function exactActivityForEvent(input: {
@@ -607,29 +617,26 @@ class PhaseCLeadIntelligenceRuntimeProcessor {
         .eq("id", work.companyId)
         .maybeSingle(),
       this.connection(work),
-      allPages<CorrespondenceEventRow>(
-        (from, to) => {
-          let query = this.supabase
-            .from("opportunity_correspondence_events")
-            .select(
-              "id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, from_email, to_emails, cc_emails, subject, occurred_at"
-            )
-            .eq("company_id", work.companyId)
-            .eq("opportunity_id", work.opportunityId)
-            .eq("is_meaningful", true)
-            .eq("opportunity_projection_applied", true);
-          if (scope === "source_thread") {
-            query = query
-              .eq("connection_id", work.requiredConnectionId)
-              .eq("provider_thread_id", work.requiredProviderThreadId);
-          }
-          return query
-            .order("occurred_at", { ascending: true })
-            .order("id", { ascending: true })
-            .range(from, to);
-        },
-        "Phase C correspondence evidence lookup"
-      ),
+      allPages<CorrespondenceEventRow>((from, to) => {
+        let query = this.supabase
+          .from("opportunity_correspondence_events")
+          .select(
+            "id, source, activity_id, connection_id, provider_thread_id, provider_message_id, direction, from_email, to_emails, cc_emails, subject, occurred_at"
+          )
+          .eq("company_id", work.companyId)
+          .eq("opportunity_id", work.opportunityId)
+          .eq("is_meaningful", true)
+          .eq("opportunity_projection_applied", true);
+        if (scope === "source_thread") {
+          query = query
+            .eq("connection_id", work.requiredConnectionId)
+            .eq("provider_thread_id", work.requiredProviderThreadId);
+        }
+        return query
+          .order("occurred_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to);
+      }, "Phase C correspondence evidence lookup"),
       allPages<ActivityRow>(
         (from, to) =>
           this.supabase
@@ -659,8 +666,16 @@ class PhaseCLeadIntelligenceRuntimeProcessor {
     if (!connection || connection.companyId !== work.companyId) {
       throw new Error("Phase C work email connection is missing or mismatched");
     }
-    if (!events.some((event) => event.id === work.requiredEventId)) {
+    const requiredEvent = events.find(
+      (event) => event.id === work.requiredEventId
+    );
+    if (!requiredEvent) {
       throw new Error("Phase C required evidence event is not projected");
+    }
+    if (!rowString(requiredEvent.provider_message_id)) {
+      throw new Error(
+        "Phase C required evidence event has no provider message identity"
+      );
     }
 
     const activitiesById = new Map(activities.map((row) => [row.id, row]));
@@ -675,14 +690,20 @@ class PhaseCLeadIntelligenceRuntimeProcessor {
       matches.push(activity);
       activitiesByMessage.set(key, matches);
     }
-    const resolved = events.map((event) => ({
-      event,
-      activity: exactActivityForEvent({
+    // Legacy projections deliberately preserve lifecycle history without
+    // inventing provider-message identity. They cannot safely become message
+    // or appointment context, while exact message-backed events still must pass
+    // every activity identity check below.
+    const resolved = events
+      .filter((event) => !isLegacyProjectionWithoutMessageIdentity(event))
+      .map((event) => ({
         event,
-        activitiesById,
-        activitiesByMessage,
-      }),
-    }));
+        activity: exactActivityForEvent({
+          event,
+          activitiesById,
+          activitiesByMessage,
+        }),
+      }));
     const messages = resolved.map(normalizedMessage);
     const eventMessages = resolved.map<PhaseCEventMessage>(
       ({ event, activity }) => ({
