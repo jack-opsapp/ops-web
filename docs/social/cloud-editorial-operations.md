@@ -4,7 +4,7 @@ Status: production migration, deployment and preparation-only activation approve
 
 ## Purpose and schedule
 
-Vercel starts `GET /api/cron/social-editorial` every 15 minutes. The server selects one weekday slot beginning at 10:00 Vancouver time, with recovery until 20:00. There is no dependency on Claude Desktop, Codex Desktop, a browser session, or a running Mac. Unfinished previous dates become failed; they do not accumulate into a publishing burst.
+Vercel starts `GET /api/cron/social-editorial` every 15 minutes at :08, :23, :38 and :53 (`8-59/15 * * * *`). That is the last full-day 15-minute grid inside the platform's three-lane-per-minute cron budget: the bare `*/15` grid lands on the `*/5` minutes that already carry three lanes, and `13-59/15` belongs to the publish worker. Each run first takes the shared durable cron workload lease (`social-editorial`, 360 seconds): while another run holds it the call returns `200 already_running`, and while the database pressure circuit is open or workload control is unreachable it fails closed with `503` without touching the ledger. An `off` or outside-window tick resolves as an idle result and completes the lease as a success. The server selects one weekday slot beginning at 10:00 Vancouver time, with recovery until 20:00, so the offset only moves the first eligible tick of a window to 10:08. There is no dependency on Claude Desktop, Codex Desktop, a browser session, or a running Mac. Unfinished previous dates become failed; they do not accumulate into a publishing burst.
 
 | Day | Editorial preference |
 | --- | --- |
@@ -41,7 +41,7 @@ Migration: `supabase/migrations/20260905185527_create_social_editorial.sql`.
 
 Each `social_editorial_runs.slot_date` is unique. The row records originating mode, source snapshot, attempts, reserved allowance, lease, package, review, usage, optional rejection audit, preview assets and linked social post. A terminal prepared row stays held when mode changes; old previews never become automatic publications.
 
-Claims lock the settings row and run, use a six-minute lease, and allow at most three attempts. Retries wait 15 minutes. Every date uses `cloud-editorial-v1:YYYY-MM-DD` for the downstream idempotency key. If the downstream row already exists, the worker reconciles it rather than creating another. Rendering waits for recovery; failed/cancelled or uncertain downstream delivery requires inspection. The existing publisher retains ownership of Meta uncertainty and reconciliation.
+Claims lock the settings row and run, use a six-minute lease, and allow at most three attempts. This ledger lease is separate from the cron workload lease above: the workload lease keeps two Vercel invocations from running at once, while the ledger lease owns one slot date across attempts. Retries wait 15 minutes. Every date uses `cloud-editorial-v1:YYYY-MM-DD` for the downstream idempotency key. If the downstream row already exists, the worker reconciles it rather than creating another. Rendering waits for recovery; failed/cancelled or uncertain downstream delivery requires inspection. The existing publisher retains ownership of Meta uncertainty and reconciliation.
 
 The database handoff trigger serializes new automatic rendering/review transitions with the mode control. Turning off during rendering prevents promotion into automatic review. **Turning off does not cancel a post that already entered the review queue.** Use the existing STOP action for those rows.
 
@@ -69,7 +69,7 @@ No step in this section grants approval by itself.
 
 1. Obtain explicit approval for this production code release, new migration and paid preparation-only activation. Integrate onto current production source while preserving concurrent work, and rerun focused verification.
 2. Verify current production schemas and migration history; apply the exact additive migration with settings still `off`. Independently verify the default, RLS, grants and RPC execution restrictions.
-3. Deploy the code. Verify `OPENAI_API_KEY`, `CRON_SECRET` of at least 32 characters, existing storage settings and the exact operator recipient. Do not print secrets. Confirm the cron schedule and expected authentication failures.
+3. Deploy the code. Verify `OPENAI_API_KEY`, `CRON_SECRET` of at least 32 characters, existing storage settings and the exact operator recipient. Do not print secrets. Confirm the cron schedule (`8-59/15 * * * *`) and expected authentication failures.
 4. Set only the exact singleton to `prepare`, preserving the US$20 allowance or an explicitly approved lower limit. Read it back independently. During a weekday 10:00–20:00 window, allow or invoke one authenticated cron run. Outside that window, wait for the next scheduled opportunity rather than bypassing the schedule in production.
 5. Verify one durable date row, source snapshot, approved package, actual JPEG URLs and held-preview UI. Verify no new `social_posts` row for that date's key and no Instagram publication. Repeat the cron invocation and confirm no extra generation or duplicate notification.
 6. Leave preparation active only within the approved scope. Obtain separate explicit permission before enabling `publish` or manually submitting a held draft. A first real post requires exact queue and Meta permalink readback after the veto window.
@@ -78,7 +78,7 @@ Rollback control is the singleton's `off` mode. Independently inspect and STOP a
 
 ## Local verification
 
-Behavioral tests live under `tests/unit/social/editorial/`. They cover schedule boundaries, source freshness, voice/evidence, retry snapshots and packages, prepare/off controls, downstream reconciliation, auth, safe errors, shared thumbnail rendering and the inspection UI.
+Behavioral tests live under `tests/unit/social/editorial/`. They cover schedule boundaries, source freshness, voice/evidence, retry snapshots and packages, prepare/off controls, downstream reconciliation, admin auth, safe errors, shared thumbnail rendering and the inspection UI. `tests/integration/social-editorial-cron.test.ts` covers the cron boundary: authentication before the lease, the leased run, idle ticks completing the lease, `already_running`, the fail-closed `503` responses and concealed errors. `tests/unit/api/heavy-cron-schedule-isolation.test.ts` pins the schedule and proves the three-lane budget across all 1,440 minutes of the day.
 
 `tests/sql/social-editorial-runtime.mjs` applies the exact migration to a disposable local PostgreSQL database. It proves concurrent claims, stale owners, attempt exhaustion, monthly reservations, mode changes during rendering, source withdrawal, terminal preview behavior, recovery, RLS/grants and notification replay. Its fixed local socket intentionally cannot target a production database.
 
