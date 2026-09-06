@@ -23,7 +23,7 @@ the first live post remains a separate explicit release gate.
   `instagram_business_content_publish` approved for the account setup.
 - A currently supported Graph API version selected deliberately from the Meta app configuration.
 - Public HTTPS JPEG URLs that Meta can fetch without cookies, headers, or expiring signatures.
-- A Vercel plan that supports the configured two-minute cron schedule.
+- A Vercel plan that supports the configured 15-minute cron schedule (`13-59/15 * * * *`).
 - The `20260901235149_create_social_publishing.sql` and
   `20260902195639_create_instagram_connection.sql` migrations applied and independently read back.
 
@@ -71,7 +71,7 @@ the token or app secret.
 5. The renderer produces public 1080 × 1350 JPEGs. S3 is the default; Supabase Storage is the fallback.
 6. The post enters `review` and opens a 10-minute veto window in `/admin/social`.
 7. An operator may edit and regenerate, stop, or publish immediately. Editing begins a fresh 10-minute window.
-8. Vercel calls `GET /api/cron/social-publish` every two minutes. Before claiming work, the worker verifies the connection and takes the single-worker token-refresh lease when needed.
+8. Vercel calls `GET /api/cron/social-publish` every 15 minutes at :13, :28, :43, and :58 — the densest full-day slot left inside the platform's three-lane-per-minute cron budget. Each run first takes the shared durable cron workload lease (`social-publish`): while another run holds it the call returns `200 already_running`, and while the database pressure circuit is open it fails closed with `503`. Inside the lease, the worker verifies the connection and takes the single-worker token-refresh lease when needed. Due work is claimed by whichever run comes next, so a post leaves its veto window within 15 minutes; `PUBLISH NOW` does not wait for cron.
 9. For each claim, OPS checks `content_publishing_limit`, creates and polls Meta containers, publishes once, then stores the media ID and permalink.
 10. Success resolves the veto notification. Exhausted, stale, or uncertain work enters a leased database outbox; the persistent operator notification and outbox acknowledgement commit atomically.
 
@@ -222,7 +222,7 @@ Detailed plan: `docs/plans/2026-09-04-instagram-token-upgrade-diagnostics.md`.
 ## Token renewal and reconnection
 
 Meta long-lived Instagram user tokens are valid for about 60 days. The existing
-two-minute worker checks the encrypted connection before claiming posts. Once a
+15-minute worker checks the encrypted connection before claiming posts. Once a
 token reaches seven days before expiry and is at least 24 hours old, one worker
 claims the database refresh lease, asks Meta for a replacement, encrypts it, and
 atomically swaps it into the connection row. Other workers continue without
@@ -246,7 +246,7 @@ S3 objects are written with immutable public caching. The Supabase Storage fallb
 
 ## Schedule and cost
 
-The two-minute cron runs about 21,600 times in a 30-day month. Vercel does not charge a separate cron fee; invocations consume the project’s normal function allowance. Sub-daily cron schedules require Pro or Enterprise. Rendering occurs only on submission or edit, so idle ticks perform a bounded indexed claim and exit. No new rendering vendor is required.
+The 15-minute cron runs about 2,880 times in a 30-day month. Vercel does not charge a separate cron fee; invocations consume the project’s normal function allowance. Sub-daily cron schedules require Pro or Enterprise. Rendering occurs only on submission or edit, so idle ticks perform a bounded indexed claim and exit. No new rendering vendor is required.
 
 Before production approval, re-check the current [Vercel Cron Jobs documentation](https://vercel.com/docs/cron-jobs) and [Vercel Functions pricing](https://vercel.com/docs/functions/usage-and-pricing) because limits and rates can change.
 

@@ -246,7 +246,7 @@
     },
     {
       "path": "/api/cron/social-publish",
-      "schedule": "*/2 * * * *"
+      "schedule": "13-59/15 * * * *"
     },
     {
       "path": "/api/cron/social-editorial",
