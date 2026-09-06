@@ -5,6 +5,7 @@ import type {
   SpecPaymentMilestone,
   SpecPaymentStatus,
 } from "@/lib/admin/spec-types";
+import { SPEC_TIER_MILESTONE_SHAPE } from "@/lib/admin/spec-tiers";
 import { formatCents, formatDate, statusLabel } from "./format";
 
 interface MilestonesTabProps {
@@ -42,7 +43,7 @@ const MILESTONE_NAME: Record<SpecPaymentMilestone, string> = {
 export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
   const totalPaid = data.rows
     .filter((r) => r.status === "paid" || r.status === "partially_refunded")
-    .reduce((sum, r) => sum + r.amountCents, 0);
+    .reduce((sum, r) => sum + (r.amountCents ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -59,7 +60,7 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
           </h2>
           <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             <span className="text-text-mute">[</span>
-            TIER TOTAL · {formatCents(data.tierTotalCents)} · PAID {formatCents(totalPaid)}
+            {totalLabel(data)} · PAID {formatCents(totalPaid)}
             <span className="text-text-mute">]</span>
           </span>
         </div>
@@ -89,11 +90,40 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
 
       <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
         <span className="text-text-mute">[</span>
-        P1 FIRES AUTOMATICALLY VIA STRIPE WEBHOOK · P2/P3/P4 FIRE MANUALLY ONCE THE PREREQUISITE ACCEPTANCE EVENT EXISTS
+        {scheduleNote(data)}
         <span className="text-text-mute">]</span>
       </p>
     </div>
   );
+}
+
+/**
+ * Summary label for the tier total (10_TIER_MODEL_V2 § 2): fixed-total tiers
+ * read TIER TOTAL; SPEC-03 reads FLOOR until scope sign-off locks the real
+ * figure, then LOCKED TOTAL.
+ */
+function totalLabel(data: SpecMilestonesTab): string {
+  if (data.totalIsFloor) return `FLOOR · FROM ${formatCents(data.totalCents)}`;
+  if (SPEC_TIER_MILESTONE_SHAPE[data.tier] === "floor_quarters") {
+    return `LOCKED TOTAL · ${formatCents(data.totalCents)}`;
+  }
+  return `TIER TOTAL · ${formatCents(data.totalCents)}`;
+}
+
+/** Footer note — what fires by itself, what the operator fires, and what gates it. */
+function scheduleNote(data: SpecMilestonesTab): string {
+  const auto = "P1 FIRES AUTOMATICALLY VIA STRIPE WEBHOOK";
+  switch (SPEC_TIER_MILESTONE_SHAPE[data.tier]) {
+    case "half_half":
+      return `${auto} · P4 FIRES MANUALLY ONCE DELIVERY IS ACCEPTED · SCOPE SIGN-OFF CARRIES NO INVOICE`;
+    case "floor_quarters":
+      if (!data.totalLocked) {
+        return `${auto} · P2/P3/P4 UNLOCK WHEN THE TOTAL IS LOCKED AT SCOPE SIGN-OFF`;
+      }
+      return `${auto} · P2/P3/P4 FIRE MANUALLY ONCE THE PREREQUISITE ACCEPTANCE EVENT EXISTS`;
+    case "quarters":
+      return `${auto} · P2/P3/P4 FIRE MANUALLY ONCE THE PREREQUISITE ACCEPTANCE EVENT EXISTS`;
+  }
 }
 
 function MilestoneRow({ row, projectId }: { row: SpecMilestoneRow; projectId: string }) {

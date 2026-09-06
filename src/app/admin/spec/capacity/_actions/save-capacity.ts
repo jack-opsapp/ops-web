@@ -10,7 +10,7 @@ import {
   OPS_OPERATIONS_COMPANY_ID,
   SPEC_CAPACITY_RECORD_IDS,
 } from "@/lib/admin/spec-constants";
-import type { SpecTier } from "@/lib/admin/spec-types";
+import { SPEC_TIERS, type SpecTier } from "@/lib/admin/spec-tiers";
 import {
   LEGACY_SESSION_COOKIE_NAME,
   OPS_AUTH_COOKIE_NAME,
@@ -48,7 +48,7 @@ export type SaveCapacityFormState =
   | { status: "success"; refreshedAt: string }
   | { status: "error"; formError?: string; errors?: Record<string, string> };
 
-const ALLOWED_TIERS: ReadonlyArray<SpecTier> = ["setup", "build", "enterprise"];
+const ALLOWED_TIERS: ReadonlyArray<SpecTier> = SPEC_TIERS;
 
 async function requireOperator(): Promise<{ userId: string } | null> {
   const cookieStore = await cookies();
@@ -306,7 +306,7 @@ export async function saveCapacityAction(
   // 5. Audit row — operator-scope (company_id = OPS_OPERATIONS_COMPANY_ID,
   // record_id = stable per-tier uuid). audit_log RLS is company-scoped; the
   // service-role client bypasses it on write. Stable record_id lets future
-  // queries pull "all changes to setup tier" by record_id without joining
+  // queries pull "all changes to the SPEC-01 tier" by record_id without joining
   // through new_data.
   const { error: auditErr } = await db.from("audit_log").insert({
     table_name: "spec_capacity",

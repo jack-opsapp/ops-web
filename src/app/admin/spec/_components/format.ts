@@ -5,6 +5,8 @@
  * the design tokens). These helpers only normalize the digit string.
  */
 
+import { formatSpecTier } from "@/lib/admin/spec-tiers";
+
 const CAD = new Intl.NumberFormat("en-CA", {
   style: "currency",
   currency: "CAD",
@@ -43,8 +45,9 @@ export function formatDays(n: number | null | undefined): string {
   return `${n}d`;
 }
 
+/** Tier designation short form (SPEC-01 / SPEC-02 / SPEC-03) — board cells, chips, rows. */
 export function formatTier(tier: string): string {
-  return tier.toUpperCase();
+  return formatSpecTier(tier);
 }
 
 export function formatStatusLabel(status: string): string {

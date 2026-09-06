@@ -9,7 +9,7 @@ import type {
   SpecFunnelStep,
   SpecSearchTermRow,
 } from "@/lib/admin/spec-analytics-types";
-import { formatCents, formatCentsCompact, formatCount } from "../../_components/format";
+import { formatCents, formatCentsCompact, formatCount, formatTier } from "../../_components/format";
 
 interface SpecAnalyticsContentProps {
   initialPayload: SpecAnalyticsPayload;
@@ -512,7 +512,7 @@ function EventLedgerSection({ rows }: { rows: SpecEventLedgerRow[] }) {
                   <td className="px-5 py-3 text-text">{row.eventName}</td>
                   <td className="px-3 py-3 text-text-3">{row.source ?? "—"}</td>
                   <td className="max-w-[180px] truncate px-3 py-3 text-text-3">{row.campaign ?? "—"}</td>
-                  <td className="px-3 py-3 text-text-3">{row.tier ?? "—"}</td>
+                  <td className="px-3 py-3 text-text-3">{row.tier ? formatTier(row.tier) : "—"}</td>
                   <td className="px-3 py-3 text-right tabular-nums text-tan">{formatCents(row.valueCents)}</td>
                   <td className="px-5 py-3 text-right tabular-nums text-text-mute">{formatTimestamp(row.createdAt)}</td>
                 </tr>

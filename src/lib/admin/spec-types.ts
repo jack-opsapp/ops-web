@@ -6,7 +6,10 @@
 
 // ─── Domain enums ────────────────────────────────────────────────────────────
 
-export type SpecTier = "setup" | "build" | "enterprise";
+// Tier identity (slugs, designations, pricing shape) lives in ./spec-tiers —
+// re-exported here so existing type-only importers keep working.
+import type { SpecTier } from "./spec-tiers";
+export type { SpecTier };
 
 export type SpecProjectStatus =
   | "awaiting_owner_approval"
@@ -446,7 +449,7 @@ export interface SpecMilestoneRow {
   milestone: SpecPaymentMilestone;
   label: string;                 // "P1" | "P2" | "P3" | "P4"
   status: SpecPaymentStatus | "not_yet_fired";
-  amountCents: number;           // canonical tier-derived amount (25% of total)
+  amountCents: number | null;    // tier-schedule amount; null until a SPEC-03 total is locked
   invoicedAt: string | null;
   paidAt: string | null;
   dueDate: string | null;
@@ -456,7 +459,14 @@ export interface SpecMilestoneRow {
 }
 
 export interface SpecMilestonesTab {
-  tierTotalCents: number;
+  tier: SpecTier;
+  /** Locked total when known, otherwise the tier's published total / floor. */
+  totalCents: number;
+  /** true when `totalCents` is the SPEC-03 floor rather than a locked figure. */
+  totalIsFloor: boolean;
+  /** false only for SPEC-03 before scope sign-off locks the total. */
+  totalLocked: boolean;
+  /** Only the checkpoints that carry a payment for this tier (plus any off-schedule payment). */
   rows: SpecMilestoneRow[];
 }
 
@@ -640,13 +650,8 @@ export interface SpecProjectDetailSnapshot {
   notes: SpecNotesTab;
 }
 
-// ─── Tier pricing (locked 25 / 25 / 25 / 25 across all tiers) ───────────────
-
-export const SPEC_TIER_TOTAL_CENTS: Record<SpecTier, number> = {
-  setup: 300_000,
-  build: 850_000,
-  enterprise: 1_800_000,
-};
+// ─── Milestones ──────────────────────────────────────────────────────────────
+// Tier totals + per-tier payment shapes live in ./spec-tiers (Tier Model v2).
 
 export const SPEC_MILESTONE_LABELS: Record<SpecPaymentMilestone, string> = {
   deposit: "P1",

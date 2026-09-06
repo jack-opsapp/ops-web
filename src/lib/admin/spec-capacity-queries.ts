@@ -15,23 +15,13 @@
  */
 
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
-import type { CapacityEditRow, SpecTier } from "./spec-types";
+import { SPEC_TIERS, coerceSpecTier } from "./spec-tiers";
+import type { CapacityEditRow } from "./spec-types";
 
 const db = () => getAdminSupabase();
 
-const TIER_ORDER: Record<SpecTier, number> = {
-  setup: 1,
-  build: 2,
-  enterprise: 3,
-};
-
-function ofTier(tier: string | null | undefined): SpecTier {
-  if (tier === "build" || tier === "enterprise") return tier;
-  return "setup";
-}
-
 /**
- * Load every spec_capacity row in tier-order (setup → build → enterprise). The
+ * Load every spec_capacity row in tier-order (SPEC-01 → SPEC-02 → SPEC-03). The
  * editor surface always renders all three; if any row is missing the page
  * surfaces a stub with "—" markers so the operator can see Stage A drift.
  */
@@ -63,7 +53,7 @@ export async function getCapacityEditRows(): Promise<CapacityEditRow[]> {
   }
 
   const rows: CapacityEditRow[] = (data ?? []).map((r) => ({
-    tier: ofTier(r.tier as string),
+    tier: coerceSpecTier(r.tier as string),
     slotCeiling: Number(r.slot_ceiling ?? 0),
     discoveryDaysMin: Number(r.discovery_days_min ?? 0),
     discoveryDaysMax: Number(r.discovery_days_max ?? 0),
@@ -80,5 +70,5 @@ export async function getCapacityEditRows(): Promise<CapacityEditRow[]> {
     updatedAt: (r.updated_at as string | null) ?? null,
   }));
 
-  return rows.sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
+  return rows.sort((a, b) => SPEC_TIERS.indexOf(a.tier) - SPEC_TIERS.indexOf(b.tier));
 }

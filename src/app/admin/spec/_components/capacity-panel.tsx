@@ -1,4 +1,5 @@
 import type { CapacityRow } from "@/lib/admin/spec-types";
+import { formatSpecTierLockup } from "@/lib/admin/spec-tiers";
 
 interface CapacityPanelProps {
   rows: CapacityRow[];
@@ -48,7 +49,7 @@ function CapacityCard({ row }: { row: CapacityRow }) {
     <div className="glass-surface p-5">
       <div className="flex items-baseline justify-between">
         <span className="font-cakemono text-[15px] font-light uppercase tracking-[0.04em] text-text">
-          {row.tier}
+          {formatSpecTierLockup(row.tier)}
         </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
           {isClosed ? "CLOSED" : isFull ? "FULL" : "OPEN"}
