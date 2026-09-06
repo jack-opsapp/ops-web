@@ -183,3 +183,50 @@ describe("durable editorial worker", () => {
     expect(r.calls).toEqual([]);
   });
 });
+
+describe("explicit manual preparation", () => {
+  it("prepares today's weekend draft without falsifying the date or submitting", async () => {
+    const r = rig();
+    r.deps.now = () => new Date("2026-09-06T01:00:00Z");
+    r.stored.slot_date = "2026-09-05";
+    let claimed: unknown;
+    r.deps.repository.claim = async (...args) => {
+      claimed = args;
+      return r.stored;
+    };
+    expect(await runEditorial(r.deps, { prepareDate: "2026-09-05" })).toEqual({
+      state: "prepared",
+      date: "2026-09-05",
+    });
+    expect(claimed).toEqual(["2026-09-05", "blog", "token"]);
+    expect(r.calls).toContain("generate");
+    expect(r.calls).not.toContain("submit");
+  });
+  it("rejects a manual date other than today's Vancouver date before claiming", async () => {
+    const r = rig();
+    r.deps.now = () => new Date("2026-09-06T01:00:00Z");
+    r.deps.repository.claim = async () => {
+      throw Error("must not claim");
+    };
+    expect(await runEditorial(r.deps, { prepareDate: "2026-09-06" })).toEqual({
+      state: "invalid_manual_date",
+    });
+  });
+  it("cannot publish if mode changes to publish between the settings check and claim", async () => {
+    const r = rig("publish");
+    await runEditorial(r.deps, { prepareDate: "2026-09-07" });
+    expect(r.stored.state).toBe("skipped");
+    expect(r.calls).not.toContain("generate");
+    expect(r.calls).not.toContain("submit");
+  });
+  it("respects the durable claim's exhausted, active or completed outcome", async () => {
+    const r = rig();
+    r.deps.now = () => new Date("2026-09-06T01:00:00Z");
+    r.deps.repository.claim = async () => null;
+    expect(await runEditorial(r.deps, { prepareDate: "2026-09-05" })).toEqual({
+      state: "idle",
+      date: "2026-09-05",
+    });
+    expect(r.calls).toEqual([]);
+  });
+});

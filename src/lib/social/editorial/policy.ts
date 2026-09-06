@@ -29,6 +29,12 @@ const localDate = new Intl.DateTimeFormat("en-CA", {
   hourCycle: "h23",
   weekday: "short",
 });
+export function getEditorialDate(now: Date): string {
+  const p = Object.fromEntries(
+    localDate.formatToParts(now).map((x) => [x.type, x.value])
+  );
+  return `${p.year}-${p.month}-${p.day}`;
+}
 export function getEditorialSlot(now: Date): EditorialSlot | null {
   const p = Object.fromEntries(
     localDate.formatToParts(now).map((x) => [x.type, x.value])

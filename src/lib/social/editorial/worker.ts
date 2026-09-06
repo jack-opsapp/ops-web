@@ -1,6 +1,7 @@
 import type { SocialSubmission } from "../contract";
 import {
   chooseSource,
+  getEditorialDate,
   getEditorialSlot,
   type EditorialSource,
   type EditorialKind,
@@ -82,9 +83,18 @@ export interface EditorialDependencies {
   }) => Promise<{ post: { id: string; status: string } }>;
 }
 export async function runEditorial(
-  d: EditorialDependencies
+  d: EditorialDependencies,
+  options: { prepareDate?: string } = {}
 ): Promise<{ state: string; date?: string }> {
-  const slot = getEditorialSlot(d.now());
+  const now = d.now();
+  if (options.prepareDate && options.prepareDate !== getEditorialDate(now))
+    return { state: "invalid_manual_date" };
+  const slot = options.prepareDate
+    ? {
+        date: options.prepareDate,
+        kind: getEditorialSlot(now)?.kind ?? ("blog" as const),
+      }
+    : getEditorialSlot(now);
   if (!slot) return { state: "outside_window" };
   const run = await d.repository.claim(slot.date, slot.kind, d.token());
   if (!run) return { state: "idle", date: slot.date };
@@ -99,6 +109,9 @@ export async function runEditorial(
   });
   const key = `cloud-editorial-v1:${run.slot_date}`;
   try {
+    // A concurrent mode change must never turn an explicit draft request into publication.
+    if (options.prepareDate && run.mode !== "prepare")
+      return finish("skipped", "PREPARATION_ONLY");
     const existing = await d.repository.findPost(key);
     if (existing) {
       if (["review", "publishing", "published"].includes(existing.status))

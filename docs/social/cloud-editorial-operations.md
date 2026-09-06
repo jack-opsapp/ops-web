@@ -13,6 +13,8 @@ Vercel starts `GET /api/cron/social-editorial` every 15 minutes. The server sele
 | Wednesday | A supported OPS product behavior, otherwise a practical protocol |
 | Friday | Supported roast, dispatch, proof, or release; otherwise a practical protocol |
 
+An explicitly requested immediate draft uses authenticated `POST /api/cron/social-editorial` with exactly `{"action":"prepare_now","date":"YYYY-MM-DD"}`. The date must be today in Vancouver. This requires current mode `prepare`, rechecks the claimed originating mode, and cannot publish. It shares the same daily ledger, leases, reservations and duplicate protection as scheduled work. Weekend or out-of-window requests default to a fresh blog adaptation; an in-window request follows that weekday's preference. A completed or already-owned day stays idle, and retry delays/budget limits still apply. GET never interprets a manual action from query parameters. No scheduler change or database migration is needed for a one-time run.
+
 This is five opportunities per week, not a promise to fill every slot. An unavailable source or rejected draft is skipped. The starting cadence follows the [Buffer posting-frequency study](https://buffer.com/resources/how-often-to-post-on-instagram/); it is a starting hypothesis, not a growth guarantee. Assess saves, shares, profile visits and follows against the actual account's baseline after a meaningful sample.
 
 Vancouver is pinned to `Etc/GMT+7`: BC adopted permanent UTC−7 in March 2026. This avoids the obsolete November fallback in older runtime timezone data. [BC announcement](https://news.gov.bc.ca/releases/2026AG0013-000209).

@@ -11,29 +11,43 @@ import { renderSocialPost } from "../render/render-social-post";
 import { selectSocialTemplate } from "../template-selector";
 import { createSubmissionSocialRepository } from "../repository";
 import { submitSocialPost } from "../submission-service";
-export async function runCloudEditorial() {
+export async function runCloudEditorial(
+  options: { prepareDate?: string } = {}
+) {
   const { path, sha256 } = loadCopywritingReference();
   const db = getServiceRoleClient();
+  if (options.prepareDate) {
+    const { data, error } = await db
+      .from("social_editorial_settings")
+      .select("mode")
+      .eq("id", true)
+      .single();
+    if (error) throw error;
+    if (data.mode !== "prepare") return { state: "preparation_disabled" };
+  }
   const recovery = await db.rpc("recover_social_editorial");
   if (recovery.error) throw recovery.error;
-  const result = await runEditorial({
-    now: () => new Date(),
-    token: randomUUID,
-    repository: createEditorialRepository(),
-    generate: generateEditorial,
-    submit: submitSocialPost,
-    preview: async (pack, date) =>
-      renderSocialPost({
-        postId: editorialPreviewId(date),
-        submission: pack.submission,
-        selection: selectSocialTemplate({
+  const result = await runEditorial(
+    {
+      now: () => new Date(),
+      token: randomUUID,
+      repository: createEditorialRepository(),
+      generate: generateEditorial,
+      submit: submitSocialPost,
+      preview: async (pack, date) =>
+        renderSocialPost({
+          postId: editorialPreviewId(date),
           submission: pack.submission,
-          idempotencyKey: `cloud-editorial-v1:${date}`,
-          recentPosts:
-            await createSubmissionSocialRepository().listRecentPosts(12),
+          selection: selectSocialTemplate({
+            submission: pack.submission,
+            idempotencyKey: `cloud-editorial-v1:${date}`,
+            recentPosts:
+              await createSubmissionSocialRepository().listRecentPosts(12),
+          }),
         }),
-      }),
-  });
+    },
+    options
+  );
   const operator = getEditorialOperator(process.env);
   if (operator) {
     const { error } = await db.rpc("notify_social_editorial", {
