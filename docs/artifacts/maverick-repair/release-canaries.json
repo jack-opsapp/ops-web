@@ -1,0 +1,131 @@
+{
+  "release": {
+    "web_commit": "2a349d8182e449af8891332f5b9636f3121df652",
+    "deployment": "dpl_8sC7eyrxAyJSEZ7wF5Kwk2x7J8x6",
+    "ready": true,
+    "alias": "app.opsapp.co",
+    "ledger": "20260905191357_agent_maverick_read_repairs",
+    "migration_sha256": "4c4022d54ba0278ca4d0d33705ce10c358242a00d4dfdb3bbb3a54aace40838d"
+  },
+  "canaries": [
+    {
+      "case": "conversation",
+      "outcome": "NOT_FOUND",
+      "request_id": "63115915-7af8-4b90-a80f-3aca2fbd89e9",
+      "retryable": false
+    },
+    {
+      "case": "task_unsorted",
+      "outcome": "success",
+      "request_id": null,
+      "retryable": null,
+      "schedule": {
+        "state": "scheduled",
+        "starts_at": "2026-03-15T07:00:00.000Z",
+        "ends_at": "2026-03-17T07:00:00.000Z",
+        "all_day": true,
+        "schedule_version": 0,
+        "confirmation": "unconfirmed",
+        "confirmed_schedule_version": null,
+        "confirmed_at": null
+      }
+    },
+    {
+      "case": "project_schedule",
+      "outcome": "success",
+      "request_id": "76a7000d-b5b7-4b41-a0bf-1abba64f4c59",
+      "retryable": null
+    },
+    {
+      "case": "integrations_unsorted",
+      "outcome": "success",
+      "request_id": null,
+      "retryable": null,
+      "item_count": 4
+    },
+    {
+      "case": "site_visit_seconds",
+      "outcome": "success",
+      "request_id": null,
+      "retryable": null,
+      "item_count": 1,
+      "terminal_page": true
+    },
+    {
+      "case": "site_visit_unsorted",
+      "outcome": "success",
+      "request_id": null,
+      "retryable": null
+    },
+    {
+      "case": "customer_job_kinds",
+      "outcome": "success",
+      "request_id": null,
+      "retryable": null
+    },
+    {
+      "case": "lead_identity_financials",
+      "outcome": "success",
+      "request_id": "bdf2804b-730e-4d1a-b6f1-2bb66e2badb1",
+      "retryable": null
+    },
+    {
+      "case": "task_final_day",
+      "outcome": "success",
+      "request_id": null,
+      "retryable": null,
+      "item_count": 5,
+      "terminal_page": true,
+      "includes_paving": true
+    },
+    {
+      "case": "task_after_end",
+      "outcome": "success",
+      "request_id": null,
+      "retryable": null,
+      "item_count": 3,
+      "terminal_page": true,
+      "includes_paving": false
+    },
+    {
+      "case": "unchanged_title_guard",
+      "outcome": "invalid ISO input rejected before RPC",
+      "note": "Diagnostic input used SQL timestamp syntax; corrected in following probes."
+    },
+    {
+      "case": "unchanged_title_guard_iso",
+      "outcome": "TEMPORARILY_UNAVAILABLE",
+      "request_id": "f037702b-b2c9-4e97-9dc1-8bb5662e5ded",
+      "retryable": true
+    },
+    {
+      "case": "unchanged_title_precise_source",
+      "outcome": "TEMPORARILY_UNAVAILABLE",
+      "request_id": "cfcf3ae4-5f46-4755-ad69-52134c7aa6e1",
+      "retryable": true
+    }
+  ],
+  "no_change_diagnosis": {
+    "rounded_source_database_guard": "AGENT_CUSTOMER_UPDATE_SOURCE_STALE",
+    "precise_source_database_guard": "AGENT_CUSTOMER_UPDATE_NO_CHANGE",
+    "both_outward": "TEMPORARILY_UNAVAILABLE",
+    "production_business_change": false
+  },
+  "readback": {
+    "at": "2026-09-05T23:32:17.521363+00:00",
+    "task_unchanged": true,
+    "grant_unchanged": true,
+    "opportunity_row_md5_before_and_after": "9cb4042b9a24099d8588ed0f8aec633b",
+    "customer_update_proposals": 0
+  },
+  "ci": {
+    "url": "https://github.com/jack-opsapp/ops-web/actions/runs/33986578832",
+    "result": "pre-existing delivery-source fixture failure",
+    "error": "agent_provider_delivery_source_idempotency_conflict"
+  },
+  "limits": [
+    "Maverick has no conversation source data; live NOT_FOUND is expected. Populated behavior is covered locally.",
+    "No real customer update proposal, approval, business commit or provider message was attempted.",
+    "Additional timestamp and no-change transport repair is local and requires a separate release approval."
+  ]
+}

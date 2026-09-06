@@ -13,6 +13,7 @@ import {
   currentMemoryHistoryEvent,
   customerJobsSnapshot,
   deliveredHistoryEvent,
+  identitySummarySectionRaw,
   jobHistorySnapshot,
   jobSummarySnapshot,
   linkedOpportunityNotReturnedProjectJob,
@@ -505,6 +506,24 @@ describe("Task 13 job-summary repository", () => {
         repositoryRead({ kind: "job_summary", repository, authorization })
       ).rejects.toMatchObject({ code: "JOB_SUMMARY_INVALID" });
     }
+  });
+
+  it("preserves every fractional digit of a proof-bound identity record version", async () => {
+    const authorization = await task13Authorization("job_summary");
+    const identity = identitySummarySectionRaw();
+    identity.value.dates.updated_at = "2026-08-14T11:00:00.000086Z";
+    const snapshot = jobSummarySnapshot(authorization, [identity]);
+    const result = (await repositoryRead({
+      kind: "job_summary",
+      repository: await repositoryFor(
+        "job_summary",
+        new StubTask13RpcClient([{ data: snapshot, error: null }])
+      ),
+      authorization,
+    })) as typeof snapshot;
+    expect(result.section_claims[0]!.raw).toMatchObject({
+      value: { dates: { updated_at: "2026-08-14T11:00:00.000086Z" } },
+    });
   });
 
   it("accepts only proof-bound private readiness sources for TypeScript rule evaluation", async () => {

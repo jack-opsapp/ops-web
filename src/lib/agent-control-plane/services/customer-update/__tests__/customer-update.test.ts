@@ -25,6 +25,38 @@ import {
 } from "./fixtures";
 
 describe("customer update domain boundary", () => {
+  it("reports the database no-change guard as a non-retryable input result", async () => {
+    const { actor, authorityClient } = await actorFixture();
+    const preciseRequest = {
+      ...REQUEST,
+      expected_updated_at: "2026-09-04T12:00:00.000086Z",
+    };
+    const rpc = vi.fn<CustomerUpdateRpcClient["rpc"]>((_name, args) => {
+      expect(args.p_request).toMatchObject({
+        expected_updated_at: preciseRequest.expected_updated_at,
+      });
+      return Promise.resolve({
+        data: null,
+        error: { code: "22023", message: "AGENT_CUSTOMER_UPDATE_NO_CHANGE" },
+      });
+    });
+    const service = createCustomerUpdateService({
+      repository: createCustomerUpdateRepository({ rpc }),
+      authorityRepository: authorityClient.repository,
+    });
+    const response = await service
+      .prepareCustomerUpdate(actor, preciseRequest)
+      .catch((error: CustomerUpdatePrepareError) => error.toAgentError());
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(response).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      retryable: false,
+      message:
+        "The requested values already match this record. No proposal was created.",
+      details: { field_issues: [{ code: "CUSTOMER_UPDATE_NO_CHANGE" }] },
+    });
+  });
+
   it("preserves the full consented 21-scope grant through principal, actor, service and RPC", async () => {
     const scopes = [...MCP_EXPOSURE_V14.grantableScopes].sort();
     expect(scopes).toHaveLength(21);

@@ -40,6 +40,7 @@ export class CustomerUpdatePrepareError extends Error {
   readonly code:
     | "CONFLICT"
     | "INVALID_ARGUMENT"
+    | "NO_CHANGE"
     | "POLICY_UNAVAILABLE"
     | "STALE_CONTEXT"
     | "TEMPORARILY_UNAVAILABLE";
@@ -52,6 +53,8 @@ export class CustomerUpdatePrepareError extends Error {
     const messages = {
       CONFLICT: "That request key is already bound to different evidence.",
       INVALID_ARGUMENT: "The customer update request is invalid.",
+      NO_CHANGE:
+        "The requested values already match this record. No proposal was created.",
       POLICY_UNAVAILABLE:
         "The exact company customer update policy is not available.",
       STALE_CONTEXT:
@@ -66,7 +69,11 @@ export class CustomerUpdatePrepareError extends Error {
   }
 
   toAgentError() {
-    if (this.code === "INVALID_ARGUMENT" || this.code === "CONFLICT") {
+    if (
+      this.code === "INVALID_ARGUMENT" ||
+      this.code === "CONFLICT" ||
+      this.code === "NO_CHANGE"
+    ) {
       return AgentErrorSchema.parse({
         contract_version: CONTRACT_VERSION,
         code: "INVALID_ARGUMENT",
@@ -80,7 +87,9 @@ export class CustomerUpdatePrepareError extends Error {
               code:
                 this.code === "CONFLICT"
                   ? "CUSTOMER_UPDATE_IDEMPOTENCY_CONFLICT"
-                  : "CUSTOMER_UPDATE_INPUT_INVALID",
+                  : this.code === "NO_CHANGE"
+                    ? "CUSTOMER_UPDATE_NO_CHANGE"
+                    : "CUSTOMER_UPDATE_INPUT_INVALID",
               message: this.message,
             },
           ],
@@ -187,8 +196,8 @@ export function createCustomerUpdateService(input: {
           throw error;
         if (error instanceof CustomerUpdateRepositoryError) {
           const code =
-            error.code === "CONFLICT"
-              ? "CONFLICT"
+            error.code === "CONFLICT" || error.code === "NO_CHANGE"
+              ? error.code
               : error.code === "POLICY"
                 ? "POLICY_UNAVAILABLE"
                 : error.code === "STALE"
