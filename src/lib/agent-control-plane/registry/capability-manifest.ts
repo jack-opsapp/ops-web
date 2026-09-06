@@ -2,6 +2,10 @@ import {
   PREPARE_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
   COMMIT_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
 } from "./customer-update-capability";
+import {
+  COMMIT_CUSTOMER_MESSAGE_CAPABILITY_DEFINITION,
+  PREPARE_CUSTOMER_MESSAGE_CAPABILITY_DEFINITION,
+} from "./customer-message-capability";
 import "server-only";
 
 import {
@@ -77,6 +81,8 @@ export const DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION =
 
 export const CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION =
   "2026-09-04.capability-manifest.v20" as const;
+export const CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-06.capability-manifest.v21" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -583,6 +589,46 @@ export function resolveCustomerUpdateCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getCustomerUpdateCapabilityManifestEntry(name),
+    input
+  );
+}
+
+const customerMessageEntries = [
+  ...CUSTOMER_UPDATE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_CUSTOMER_MESSAGE_CAPABILITY_DEFINITION,
+    CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION
+  ),
+  mintImplementationEntry(
+    COMMIT_CUSTOMER_MESSAGE_CAPABILITY_DEFINITION,
+    CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  customerMessageEntries,
+  CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(customerMessageEntries);
+export const CUSTOMER_MESSAGE_CAPABILITY_MANIFEST = Object.freeze(
+  customerMessageEntries
+);
+export function getCustomerMessageCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = CUSTOMER_MESSAGE_CAPABILITY_MANIFEST.find(
+    (candidate) => candidate.name === name
+  );
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+export function resolveCustomerMessageCapabilityAuthorization(
+  name: string,
+  input: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getCustomerMessageCapabilityManifestEntry(name),
     input
   );
 }

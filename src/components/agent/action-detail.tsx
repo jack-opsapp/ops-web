@@ -1,7 +1,9 @@
 "use client";
 
 import { CustomerUpdatePreview } from "./customer-update-preview";
+import { CustomerMessagePreview } from "./customer-message-preview";
 import { CustomerUpdatePreviewSchema } from "@/lib/agent-control-plane/contracts/customer-update";
+import { CustomerMessagePreviewSchema } from "@/lib/agent-control-plane/contracts/customer-message";
 import { useState, useEffect, memo, useCallback } from "react";
 import {
   BellPlus,
@@ -505,6 +507,15 @@ export const ActionDetail = memo(function ActionDetail({
     customerPreview !== null &&
     (!customerPreview.success ||
       new Date(customerPreview.data.expires_at).getTime() <= Date.now());
+  const customerMessagePreview =
+    action.actionType === "send_customer_follow_up"
+      ? CustomerMessagePreviewSchema.safeParse(action.actionData.proposal)
+      : null;
+  const customerMessagePreviewInvalid =
+    customerMessagePreview !== null &&
+    (!customerMessagePreview.success ||
+      new Date(customerMessagePreview.data.approval.expires_at).getTime() <=
+        Date.now());
   const handleApproveWithEdits = useCallback(() => {
     if (action.actionType === "approve_customer_update") {
       const preview = CustomerUpdatePreviewSchema.safeParse(
@@ -513,6 +524,21 @@ export const ActionDetail = memo(function ActionDetail({
       if (
         !preview.success ||
         new Date(preview.data.expires_at).getTime() <= Date.now()
+      )
+        return;
+      onApprove(action.id, {
+        preview_sha256: action.actionData.preview_sha256,
+        change_set_id: action.actionData.change_set_id,
+      });
+      return;
+    }
+    if (action.actionType === "send_customer_follow_up") {
+      const preview = CustomerMessagePreviewSchema.safeParse(
+        action.actionData.proposal
+      );
+      if (
+        !preview.success ||
+        new Date(preview.data.approval.expires_at).getTime() <= Date.now()
       )
         return;
       onApprove(action.id, {
@@ -1055,6 +1081,9 @@ export const ActionDetail = memo(function ActionDetail({
 
         {action.actionType === "approve_customer_update" && (
           <CustomerUpdatePreview proposal={action.actionData.proposal} />
+        )}
+        {action.actionType === "send_customer_follow_up" && (
+          <CustomerMessagePreview proposal={action.actionData.proposal} />
         )}
 
         {/* ── Task-specific editable details ── */}
@@ -3024,19 +3053,21 @@ export const ActionDetail = memo(function ActionDetail({
               variant="primary"
               size="sm"
               onClick={handleApproveWithEdits}
-              disabled={customerPreviewInvalid}
+              disabled={customerPreviewInvalid || customerMessagePreviewInvalid}
             >
               {action.actionType === "approve_customer_update"
                 ? t("customerUpdate.save")
-                : isDayCloseout
-                  ? t("dayCloseout.action.file")
-                  : isCollectionsDraft
-                    ? t("collections.action.approve")
-                    : isDispatchConfirmation
-                      ? t("dispatch.action.create")
-                      : isFinancialInsight
-                        ? t("financial.action.acknowledge")
-                        : t("action.approve")}
+                : action.actionType === "send_customer_follow_up"
+                  ? t("customerMessage.send")
+                  : isDayCloseout
+                    ? t("dayCloseout.action.file")
+                    : isCollectionsDraft
+                      ? t("collections.action.approve")
+                      : isDispatchConfirmation
+                        ? t("dispatch.action.create")
+                        : isFinancialInsight
+                          ? t("financial.action.acknowledge")
+                          : t("action.approve")}
             </Button>
             <Button
               variant="ghost"

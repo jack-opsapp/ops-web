@@ -374,6 +374,7 @@
   "dashboard.unchangedRate": "Sent unchanged",
   "dashboard.rejections": "Rejections (30d)",
   "type.approve_customer_update": "Lead update",
+  "type.send_customer_follow_up": "Customer reply",
   "customerUpdate.heading": "Review lead update",
   "customerUpdate.invalid": "This preview is unavailable. Prepare a new update.",
   "customerUpdate.title": "Lead title",
@@ -389,5 +390,15 @@
   "customerUpdate.effects": "Updates only the fields shown. No messages, provider drafts, schedule or accounting changes.",
   "customerUpdate.assignmentEffects": "Records assignment history, resolves pending assignment suggestions and refreshes internal views. Assignment notifications stay silent.",
   "customerUpdate.expires": "Approval expires",
-  "customerUpdate.save": "SAVE CHANGES"
+  "customerUpdate.save": "SAVE CHANGES",
+  "customerMessage.heading": "Review customer reply",
+  "customerMessage.invalid": "This reply is no longer current. Prepare a new one.",
+  "customerMessage.from": "From",
+  "customerMessage.to": "To",
+  "customerMessage.subject": "Subject",
+  "customerMessage.message": "Message",
+  "customerMessage.replyingTo": "Replying to",
+  "customerMessage.effects": "Sends this text-only reply to one customer from your mailbox. No CC, BCC, attachments, schedule changes or record edits.",
+  "customerMessage.expires": "Approval expires",
+  "customerMessage.send": "APPROVE & SEND"
 }

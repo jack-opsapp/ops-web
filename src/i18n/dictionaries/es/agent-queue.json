@@ -374,6 +374,7 @@
   "dashboard.unchangedRate": "Enviados sin cambios",
   "dashboard.rejections": "Rechazos (30d)",
   "type.approve_customer_update": "Cambio del prospecto",
+  "type.send_customer_follow_up": "Respuesta al cliente",
   "customerUpdate.heading": "Revisar cambio del prospecto",
   "customerUpdate.invalid": "La vista previa no está disponible. Prepara un cambio nuevo.",
   "customerUpdate.title": "Título del prospecto",
@@ -389,5 +390,15 @@
   "customerUpdate.effects": "Actualiza solo los campos mostrados. No envía mensajes, crea borradores externos ni cambia horarios o contabilidad.",
   "customerUpdate.assignmentEffects": "Registra la asignación, resuelve sugerencias pendientes y actualiza las vistas internas. No envía avisos de asignación.",
   "customerUpdate.expires": "La aprobación vence",
-  "customerUpdate.save": "GUARDAR CAMBIOS"
+  "customerUpdate.save": "GUARDAR CAMBIOS",
+  "customerMessage.heading": "Revisar respuesta al cliente",
+  "customerMessage.invalid": "Esta respuesta ya no está vigente. Prepara una nueva.",
+  "customerMessage.from": "De",
+  "customerMessage.to": "Para",
+  "customerMessage.subject": "Asunto",
+  "customerMessage.message": "Mensaje",
+  "customerMessage.replyingTo": "En respuesta a",
+  "customerMessage.effects": "Envía esta respuesta de texto a un cliente desde tu buzón. Sin CC, CCO, adjuntos, cambios de horario ni cambios de registros.",
+  "customerMessage.expires": "La aprobación vence",
+  "customerMessage.send": "APROBAR Y ENVIAR"
 }

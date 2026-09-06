@@ -3,6 +3,11 @@ import {
   type CustomerUpdateService,
 } from "../services/customer-update/customer-update-service";
 import { createCustomerUpdateRepository } from "../services/customer-update/customer-update-repository";
+import {
+  createCustomerMessageService,
+  type CustomerMessageService,
+} from "../services/customer-message/customer-message-service";
+import { createCustomerMessageRepository } from "../services/customer-message/customer-message-repository";
 import "server-only";
 
 import { createSupabaseActorAuthorityRepository } from "@/lib/agent-control-plane/actor/authority-repository";
@@ -126,6 +131,7 @@ export interface McpServerRuntime {
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly customerUpdate: CustomerUpdateService;
+  readonly customerMessage: CustomerMessageService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
@@ -344,6 +350,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const customerMessage = createCustomerMessageService({
+    repository: createCustomerMessageRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
   const dispatchConfirmationTask = createDispatchConfirmationTaskService({
     repository: createDispatchConfirmationTaskRepository({
       rpc: rpcClient.rpc.bind(rpcClient),
@@ -367,6 +379,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       crewCalloutRecovery,
       dispatchConfirmationTask,
       customerUpdate,
+      customerMessage,
     }),
     dayCloseout,
     collections,
@@ -380,6 +393,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     crewCalloutRecovery,
     dispatchConfirmationTask,
     customerUpdate,
+    customerMessage,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),
