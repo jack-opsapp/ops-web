@@ -167,6 +167,22 @@ export function readScopeDocTotalCents(contentJson: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 }
 
+// ─── Current scope doc ───────────────────────────────────────────────────────
+
+/**
+ * The current scope doc — the highest version with no `superseded_at`, falling
+ * back to the highest version if every row is somehow marked superseded. The
+ * Scope Doc tab and the lock-total action both pick through here, so they can
+ * never disagree on which doc carries the figure. Never mutates its input.
+ */
+export function pickCurrentScopeDocument<T extends { version: number; superseded_at: string | null }>(
+  scopeDocs: readonly T[],
+): T | null {
+  if (scopeDocs.length === 0) return null;
+  const byVersionDesc = [...scopeDocs].sort((a, b) => b.version - a.version);
+  return byVersionDesc.find((d) => !d.superseded_at) ?? byVersionDesc[0];
+}
+
 // ─── Tab 4 projection ────────────────────────────────────────────────────────
 
 export interface ScopeLockedTotalParams {

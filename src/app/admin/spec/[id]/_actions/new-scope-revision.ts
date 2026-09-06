@@ -1,8 +1,8 @@
 "use server";
 
-import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import { scopeContentHash } from "@/lib/admin/spec-locked-total";
 import { denyNonOperator, requireSpecOperatorUserId } from "./_require-operator";
 
 /**
@@ -58,7 +58,7 @@ export async function newScopeRevision(formData: FormData): Promise<void> {
   const nextVersion = latest ? (latest.version as number) + 1 : 1;
   const nextContent =
     (latest?.content_json as Record<string, unknown> | null) ?? {};
-  const contentHash = sha256(JSON.stringify(nextContent));
+  const contentHash = scopeContentHash(nextContent);
 
   if (latest) {
     const { error: supersedeError } = await supabase
@@ -123,8 +123,4 @@ export async function newScopeRevision(formData: FormData): Promise<void> {
   });
 
   revalidatePath(`/admin/spec/${projectId}`);
-}
-
-function sha256(input: string): string {
-  return createHash("sha256").update(input).digest("hex");
 }

@@ -87,6 +87,7 @@ import {
 } from "./spec-types";
 import { SPEC_TIERS, coerceSpecTier, formatSpecTier } from "./spec-tiers";
 import { composeMilestonesTab, milestoneFireability, readLockedTotalCents } from "./spec-milestones";
+import { composeScopeLockedTotal, pickCurrentScopeDocument } from "./spec-locked-total";
 
 const db = () => getAdminSupabase();
 
@@ -1734,17 +1735,27 @@ function buildIntakeTab(row: ProjectDetailRow): SpecIntakeTab {
   };
 }
 
-async function buildScopeTab(
-  projectId: string,
-  scopeDocs: ScopeDocumentDetailRow[],
-): Promise<SpecScopeTab> {
-  if (scopeDocs.length === 0) {
-    return { versions: [], current: null };
+async function buildScopeTab(params: {
+  row: ProjectDetailRow;
+  scopeDocs: ScopeDocumentDetailRow[];
+  acceptanceEvents: AcceptanceDetailRow[];
+  payments: PaymentDetailRow[];
+}): Promise<SpecScopeTab> {
+  const { row, scopeDocs, acceptanceEvents, payments } = params;
+  const current = pickCurrentScopeDocument(scopeDocs);
+  const lockedTotal = composeScopeLockedTotal({
+    tier: coerceSpecTier(row.tier),
+    status: row.status,
+    lockedTotalRaw: row.locked_total_cents,
+    currentDoc: current
+      ? { version: current.version, sentAt: current.sent_at, contentJson: current.content_json }
+      : null,
+    acceptanceEvents,
+    payments,
+  });
+  if (!current) {
+    return { versions: [], current: null, lockedTotal };
   }
-  // `loadScopeDocumentsForProject` returns desc by version, so [0] is the latest
-  // version. Current is the latest version with no `superseded_at`; fall back to
-  // the highest version if every row is somehow marked superseded.
-  const current = scopeDocs.find((d) => !d.superseded_at) ?? scopeDocs[0];
 
   const versions: SpecScopeDocumentRow[] = scopeDocs.map((d) => ({
     id: d.id,
@@ -1756,9 +1767,6 @@ async function buildScopeTab(
     supersededAt: d.superseded_at,
     isCurrent: d.id === current.id,
   }));
-
-  // Suppress no-await lint by referencing the projectId in a comment-like way.
-  void projectId;
 
   const features = await loadFeatureAcceptanceForScope(current.id);
   return {
@@ -1777,6 +1785,7 @@ async function buildScopeTab(
         failureNotes: f.failure_notes,
       })),
     },
+    lockedTotal,
   };
 }
 
@@ -2101,7 +2110,7 @@ export async function getProjectDetail(
 
   const overview = buildOverviewTab(row, payments, buyerLink, accountHolderLink, company);
   const intake = buildIntakeTab(row);
-  const scopeTab = await buildScopeTab(projectId, scope);
+  const scopeTab = await buildScopeTab({ row, scopeDocs: scope, acceptanceEvents: acceptance, payments });
   const milestones = buildMilestonesTab(row, payments, acceptance);
   const timeline = buildTimelineEvents({
     row,

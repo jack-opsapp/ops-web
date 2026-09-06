@@ -7,6 +7,7 @@ import {
   lockBlockedLabel,
   lockedTotalGate,
   parseLockedTotalInput,
+  pickCurrentScopeDocument,
   readScopeDocTotalCents,
   scopeContentHash,
   withLockedTotal,
@@ -313,5 +314,40 @@ describe("composeScopeLockedTotal", () => {
         currentDoc: { version: 2, sentAt: "2026-09-05T12:00:00Z", contentJson: {} },
       }),
     ).toMatchObject({ blockedReason: "doc_sent" });
+  });
+});
+
+// ─── pickCurrentScopeDocument ────────────────────────────────────────────────
+
+describe("pickCurrentScopeDocument", () => {
+  it("returns null when the engagement has no scope docs", () => {
+    expect(pickCurrentScopeDocument([])).toBeNull();
+  });
+
+  it("prefers the highest unsuperseded version regardless of input order", () => {
+    const docs = [
+      { id: "v1", version: 1, superseded_at: "2026-09-01T00:00:00Z" },
+      { id: "v3", version: 3, superseded_at: null },
+      { id: "v2", version: 2, superseded_at: "2026-09-03T00:00:00Z" },
+    ];
+    expect(pickCurrentScopeDocument(docs)?.id).toBe("v3");
+    expect(pickCurrentScopeDocument([...docs].reverse())?.id).toBe("v3");
+  });
+
+  it("falls back to the highest version when every row is marked superseded", () => {
+    const docs = [
+      { id: "v1", version: 1, superseded_at: "2026-09-01T00:00:00Z" },
+      { id: "v2", version: 2, superseded_at: "2026-09-03T00:00:00Z" },
+    ];
+    expect(pickCurrentScopeDocument(docs)?.id).toBe("v2");
+  });
+
+  it("does not mutate the caller's array", () => {
+    const docs = [
+      { id: "v1", version: 1, superseded_at: null },
+      { id: "v2", version: 2, superseded_at: null },
+    ];
+    pickCurrentScopeDocument(docs);
+    expect(docs.map((d) => d.id)).toEqual(["v1", "v2"]);
   });
 });
