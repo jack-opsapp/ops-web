@@ -28,16 +28,18 @@ export interface CustomerUpdateRpcClient {
 const TRUSTED_REPOSITORIES = new WeakSet<object>();
 
 export class CustomerUpdateRepositoryError extends Error {
-  readonly code: "CONFLICT" | "POLICY" | "STALE" | "UNAVAILABLE";
+  readonly code: "CONFLICT" | "NO_CHANGE" | "POLICY" | "STALE" | "UNAVAILABLE";
   constructor(code: CustomerUpdateRepositoryError["code"], cause?: unknown) {
     super(
       code === "CONFLICT"
         ? "The idempotency key belongs to different input"
-        : code === "POLICY"
-          ? "The customer update policy is missing, conflicting, or invalid"
-          : code === "STALE"
-            ? "The update evidence or authority changed"
-            : "The customer update proposal is unavailable",
+        : code === "NO_CHANGE"
+          ? "The requested values already match this record"
+          : code === "POLICY"
+            ? "The customer update policy is missing, conflicting, or invalid"
+            : code === "STALE"
+              ? "The update evidence or authority changed"
+              : "The customer update proposal is unavailable",
       { cause }
     );
     this.name = "CustomerUpdateRepositoryError";
@@ -50,6 +52,8 @@ function normalizedError(error: unknown): CustomerUpdateRepositoryError {
     typeof error === "object" && error !== null && "message" in error
       ? String((error as { message?: unknown }).message ?? "")
       : "";
+  if (message === "AGENT_CUSTOMER_UPDATE_NO_CHANGE")
+    return new CustomerUpdateRepositoryError("NO_CHANGE", error);
   if (message.startsWith("AGENT_CUSTOMER_UPDATE_IDEMPOTENCY_CONFLICT"))
     return new CustomerUpdateRepositoryError("CONFLICT", error);
   if (message.startsWith("AGENT_CUSTOMER_UPDATE_POLICY_"))

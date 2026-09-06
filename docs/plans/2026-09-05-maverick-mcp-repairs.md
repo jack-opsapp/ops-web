@@ -37,4 +37,14 @@
 
 ## Completion evidence
 
-Steps 1–4 are implemented and locally verified. Step 5 verification is complete: 892 application tests, 60 SQL assertions, two reproduced SQL failures, replay/drift checks, full type-check and focused lint. Bible updates and atomic local commits accompany the repair. Production migration/push and authenticated post-release replay remain approval-gated. The verification report records the separate existing B.C. timezone-data mismatch without claiming this repair updates platform timezone data.
+Steps 1–4 are implemented and locally verified. Step 5 verification is complete: 892 application tests, 60 SQL assertions, two reproduced SQL failures, replay/drift checks, full type-check and focused lint. Bible updates and atomic local commits accompany the repair. The original migration/push is now live and authenticated read replay is verified; step 6 records the additional defects found by the no-change replay. The verification report records the separate existing B.C. timezone-data mismatch without claiming this repair updates platform timezone data.
+
+## 6. Additional defects discovered by the approved live canary
+
+The first release is live. The unchanged-title canary reached exact source-version validation, where the job summary's millisecond formatter lost PostgreSQL microseconds. Supplying the exact source version reached `AGENT_CUSTOMER_UPDATE_NO_CHANGE`, which the service incorrectly reported as retryable unavailability.
+
+- Reproduce the no-change transport failure, then map only that exact database guard to a non-retryable input outcome.
+- Freeze the live job-summary core and execute its exact identity timestamp projection through the real customer-update preparation RPC in disposable PostgreSQL. Prove the millisecond failure before repairing it.
+- Preserve six fractional digits only for identity `dates.updated_at`; leave shared formatters and mutation equality guards intact. Guard source drift and preserve function security/ACL.
+- Prove a same-millisecond concurrent edit remains stale, unchanged requests create no records, and replay is safe. Run repository transport, customer-update security, contract, type and lint checks.
+- Commit this separate repair locally, publish the already approved first-release Bible evidence, and request explicit approval before applying the additional migration or deploying the added code.

@@ -1,0 +1,9 @@
+{
+  "assertions": 12,
+  "red_projection": "reproduced",
+  "real_preparation_source_stale": "reproduced",
+  "replay": "passed",
+  "source_drift": "rejected",
+  "migration_sha256": "73d4218ee05f74c2230295790e69581ebe8ad1dcb33abbf0defc2b256afe927d",
+  "limits": "Exact frozen live identity expression plus real preparation RPC, authority and mutation guards on disposable fixtures. Does not execute the complete job summary RPC or production writes."
+}
