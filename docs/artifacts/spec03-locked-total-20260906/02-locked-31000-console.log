@@ -1,0 +1,31 @@
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[warning] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+[log] [AuthProvider] Calling authStateReady()...
+[log] [AuthProvider] onIdTokenChanged fired: false
+[warning] ./src/lib/supabase/helpers.ts
+Module not found: Can't resolve 'async_hooks' in '/Users/jacksonsweet/Projects/OPS/ops-web-spec-admin-tier-v2/src/lib/supabase'
+[warning] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/
+[log] [AuthProvider] onIdTokenChanged fired: true
+[log] [AuthProvider] Calling authStateReady()...
+[log] [AuthProvider] authStateReady resolved, currentUser: true
+[log] [AuthProvider] onIdTokenChanged fired: true
+[log] [dev-bypass] Signed in as j4ckson.sweet@gmail.com via custom token
+[log] [AuthProvider] Syncing user: j4ckson.sweet@gmail.com
+[warning] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+[warning] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/
+[log] [AuthProvider] syncUser result: {userId: 1746a0c1-be43-45d6-ab4d-584e82594b1b, userRole: operator, companyName: Canpro Deck and Rail}
+[warning] Detected `scroll-behavior: smooth` on the `<html>` element. In a future version, Next.js will no longer automatically disable smooth scrolling during route transitions. To prepare for this change, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+[log] [AuthProvider] Calling authStateReady()...
+[log] [AuthProvider] Calling authStateReady()...
+[log] [AuthProvider] authStateReady resolved, currentUser: true
+[log] [AuthProvider] onIdTokenChanged fired: true
+[log] [AuthProvider] User already in store, using cached data. 1746a0c1-be43-45d6-ab4d-584e82594b1b
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[warning] ./src/lib/supabase/helpers.ts
+Module not found: Can't resolve 'async_hooks' in '/Users/jacksonsweet/Projects/OPS/ops-web-spec-admin-tier-v2/src/lib/supabase'
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[warning] ./src/lib/supabase/helpers.ts
+Module not found: Can't resolve 'async_hooks' in '/Users/jacksonsweet/Projects/OPS/ops-web-spec-admin-tier-v2/src/lib/supabase'
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[warning] ./src/lib/supabase/helpers.ts
+Module not found: Can't resolve 'async_hooks' in '/Users/jacksonsweet/Projects/OPS/ops-web-spec-admin-tier-v2/src/lib/supabase'
