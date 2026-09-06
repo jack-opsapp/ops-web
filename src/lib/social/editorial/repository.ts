@@ -138,10 +138,12 @@ export function createEditorialRepository(): EditorialRepository {
         .eq("id", snapshot.id)
         .maybeSingle();
       if (error) throw error;
+      const current = data ? source(data) : null;
       return (
-        !!data &&
-        JSON.stringify(source(data)) === JSON.stringify(snapshot) &&
-        data.is_live === true
+        current?.is_live === true &&
+        (Object.keys(current) as Array<keyof EditorialSource>).every(
+          (key) => current[key] === snapshot[key]
+        )
       );
     },
     async recordAttempt(run, detail) {
