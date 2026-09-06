@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { fireMilestone } from "@/app/admin/spec/[id]/_actions/fire-milestone";
 import type {
   SpecMilestoneRow,
@@ -58,11 +59,21 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
             </span>
             MILESTONES
           </h2>
-          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
-            <span className="text-text-mute">[</span>
-            {totalLabel(data)} · PAID {formatCents(totalPaid)}
-            <span className="text-text-mute">]</span>
-          </span>
+          <div className="flex flex-wrap items-baseline gap-4">
+            <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
+              <span className="text-text-mute">[</span>
+              {totalLabel(data)} · PAID {formatCents(totalPaid)}
+              <span className="text-text-mute">]</span>
+            </span>
+            {!data.totalLocked && (
+              <Link
+                href={`/admin/spec/${projectId}?tab=scope`}
+                className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-2 underline-offset-4 transition-colors duration-150 ease-smooth hover:text-text hover:underline hover:decoration-text-3"
+              >
+                LOCK TOTAL ON SCOPE DOC →
+              </Link>
+            )}
+          </div>
         </div>
       </section>
 
@@ -99,8 +110,8 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
 
 /**
  * Summary label for the tier total (10_TIER_MODEL_V2 § 2): fixed-total tiers
- * read TIER TOTAL; SPEC-03 reads FLOOR until scope sign-off locks the real
- * figure, then LOCKED TOTAL.
+ * read TIER TOTAL; SPEC-03 reads FLOOR until the operator locks the real
+ * figure on the scope doc, then LOCKED TOTAL.
  */
 function totalLabel(data: SpecMilestonesTab): string {
   if (data.totalIsFloor) return `FLOOR · FROM ${formatCents(data.totalCents)}`;
@@ -118,7 +129,7 @@ function scheduleNote(data: SpecMilestonesTab): string {
       return `${auto} · P4 FIRES MANUALLY ONCE DELIVERY IS ACCEPTED · SCOPE SIGN-OFF CARRIES NO INVOICE`;
     case "floor_quarters":
       if (!data.totalLocked) {
-        return `${auto} · P2/P3/P4 UNLOCK WHEN THE TOTAL IS LOCKED AT SCOPE SIGN-OFF`;
+        return `${auto} · P2/P3/P4 UNLOCK WHEN THE TOTAL IS LOCKED ON THE SCOPE DOC`;
       }
       return `${auto} · P2/P3/P4 FIRE MANUALLY ONCE THE PREREQUISITE ACCEPTANCE EVENT EXISTS`;
     case "quarters":

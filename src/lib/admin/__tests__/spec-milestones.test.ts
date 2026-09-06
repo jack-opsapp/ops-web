@@ -126,7 +126,7 @@ describe("composeMilestonesTab — SPEC-03 (floor, locked at scope sign-off)", (
       ["P3", null, false],
       ["P4", null, false],
     ]);
-    expect(tab.rows[1].fireBlockedReason).toBe("Total not locked — lock it at scope sign-off");
+    expect(tab.rows[1].fireBlockedReason).toBe("Total not locked — lock it on the scope doc");
   });
 
   it("prices P2–P4 from the locked remainder once locked", () => {
@@ -194,7 +194,7 @@ describe("milestoneFireability", () => {
     });
     expect(r).toEqual({
       fireable: false,
-      reason: "Total not locked — lock it at scope sign-off",
+      reason: "Total not locked — lock it on the scope doc",
       amountCents: null,
     });
   });

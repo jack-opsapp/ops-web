@@ -69,9 +69,9 @@ describe("MilestonesTab — SPEC-03 before the total is locked", () => {
     totalLocked: false,
     rows: [
       row("P1", "deposit", 625_000, { id: "pay-p1", status: "paid" }),
-      row("P2", "scope_signoff", null, { fireBlockedReason: "Total not locked — lock it at scope sign-off" }),
-      row("P3", "midpoint", null, { fireBlockedReason: "Total not locked — lock it at scope sign-off" }),
-      row("P4", "delivery", null, { fireBlockedReason: "Total not locked — lock it at scope sign-off" }),
+      row("P2", "scope_signoff", null, { fireBlockedReason: "Total not locked — lock it on the scope doc" }),
+      row("P3", "midpoint", null, { fireBlockedReason: "Total not locked — lock it on the scope doc" }),
+      row("P4", "delivery", null, { fireBlockedReason: "Total not locked — lock it on the scope doc" }),
     ],
   };
 
@@ -79,12 +79,18 @@ describe("MilestonesTab — SPEC-03 before the total is locked", () => {
     render(<MilestonesTab data={data} projectId={projectId} />);
     expect(screen.getByText(/FLOOR · FROM \$25,000 · PAID \$6,250/)).toBeTruthy();
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
-    expect(screen.getAllByText("TOTAL NOT LOCKED — LOCK IT AT SCOPE SIGN-OFF")).toHaveLength(3);
+    expect(screen.getAllByText("TOTAL NOT LOCKED — LOCK IT ON THE SCOPE DOC")).toHaveLength(3);
   });
 
   it("tells the operator what unlocks P2–P4", () => {
     render(<MilestonesTab data={data} projectId={projectId} />);
-    expect(screen.getByText(/P2\/P3\/P4 UNLOCK WHEN THE TOTAL IS LOCKED AT SCOPE SIGN-OFF/)).toBeTruthy();
+    expect(screen.getByText(/P2\/P3\/P4 UNLOCK WHEN THE TOTAL IS LOCKED ON THE SCOPE DOC/)).toBeTruthy();
+  });
+
+  it("links straight to the locked-total control on the scope doc tab", () => {
+    render(<MilestonesTab data={data} projectId={projectId} />);
+    const link = screen.getByRole("link", { name: /LOCK TOTAL ON SCOPE DOC/ });
+    expect(link.getAttribute("href")).toBe(`/admin/spec/${projectId}?tab=scope`);
   });
 });
 
@@ -99,5 +105,6 @@ describe("MilestonesTab — SPEC-03 once locked", () => {
     };
     render(<MilestonesTab data={data} projectId={projectId} />);
     expect(screen.getByText(/LOCKED TOTAL · \$31,000 · PAID \$6,250/)).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /LOCK TOTAL ON SCOPE DOC/ })).toBeNull();
   });
 });

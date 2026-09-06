@@ -80,6 +80,6 @@ describe("getMilestoneFireability (live wiring)", () => {
     const r = await getMilestoneFireability("5c0b1d2e-3f4a-4b5c-8d6e-7f8091a2b3c4", "scope_signoff");
 
     expect(r.fireable).toBe(false);
-    expect(r.reason).toBe("Total not locked — lock it at scope sign-off");
+    expect(r.reason).toBe("Total not locked — lock it on the scope doc");
   });
 });

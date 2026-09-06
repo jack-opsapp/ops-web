@@ -118,7 +118,7 @@ export function milestoneFireability(
   }
 
   if (entry.amountCents == null) {
-    return { fireable: false, reason: "Total not locked — lock it at scope sign-off", amountCents: null };
+    return { fireable: false, reason: "Total not locked — lock it on the scope doc", amountCents: null };
   }
   return { fireable: true, reason: null, amountCents: entry.amountCents };
 }
