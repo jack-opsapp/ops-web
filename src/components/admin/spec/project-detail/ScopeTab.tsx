@@ -31,7 +31,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                     </span>
                     <span
                       className={[
-                        "rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em]",
+                        "rounded-chip border px-1.5 py-px font-mono text-[11px] uppercase tracking-[0.16em]",
                         v.isCurrent
                           ? "border-olive/40 text-olive"
                           : "border-white/[0.08] text-text-mute",
@@ -40,19 +40,19 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                       {v.isCurrent ? "CURRENT" : v.supersededAt ? "SUPERSEDED" : "DRAFT"}
                     </span>
                   </div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+                  <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
                     DRAFTED · {formatDate(v.draftedAt)}
                   </div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+                  <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
                     SENT · {v.sentAt ? formatDate(v.sentAt) : "—"}
                   </div>
                   {v.supersededAt && (
-                    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+                    <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
                       SUPERSEDED · {formatDate(v.supersededAt)}
                     </div>
                   )}
                   <div
-                    className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute"
+                    className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute"
                     title={v.contentHash}
                   >
                     HASH · {truncateHash(v.contentHash, 10)}
@@ -62,7 +62,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                       href={v.externalUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-2 transition-colors duration-150 ease-smooth hover:text-text"
+                      className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-2 transition-colors duration-150 ease-smooth hover:text-text"
                     >
                       OPEN EXTERNAL ↗
                     </a>
@@ -79,7 +79,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
             >
               {data.current ? "NEW SCOPE REVISION" : "CREATE V1 DRAFT"}
             </button>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
               <span className="text-text-mute">[</span>
               {data.current
                 ? `INCREMENTS VERSION · MARKS V${data.current.version} SUPERSEDED`
@@ -127,7 +127,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                         </p>
                       )}
                       {f.verifiedAt && (
-                        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+                        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
                           VERIFIED · {formatDateTime(f.verifiedAt)}
                         </p>
                       )}
@@ -193,17 +193,17 @@ function LockedTotalPanel({ data, projectId }: { data: SpecScopeLockedTotal; pro
         <div className="flex items-baseline gap-2">
           <span
             className={[
-              "rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em]",
-              locked ? "border-olive/40 text-olive" : "border-white/[0.10] text-text-mute",
+              "rounded-chip border px-1.5 py-px font-mono text-[11px] uppercase tracking-[0.16em]",
+              locked ? "border-olive/40 text-olive" : "border-line text-text-mute",
             ].join(" ")}
           >
             {locked ? "LOCKED" : "NOT LOCKED"}
           </span>
-          <span className="font-mono text-[20px] tabular-nums leading-none text-text">
+          <span className="font-mono text-[20px] font-semibold tabular-nums leading-none text-text">
             {formatCents(data.lockedTotalCents)}
           </span>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
           <span className="text-text-mute">[</span>
           {formatSpecTier(data.tier)} · FLOOR · {formatCents(data.floorCents)}
           <span className="text-text-mute">]</span>
@@ -211,7 +211,7 @@ function LockedTotalPanel({ data, projectId }: { data: SpecScopeLockedTotal; pro
       </div>
 
       {split && (
-        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-text-3">
+        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
           <span className="text-text-mute">[</span>
           {split.entries.map((e) => `${e.label} ${formatCents(e.amountCents)}`).join(" · ")}
           <span className="text-text-mute">]</span>
@@ -219,7 +219,7 @@ function LockedTotalPanel({ data, projectId }: { data: SpecScopeLockedTotal; pro
       )}
 
       {docCarriesOtherFigure && (
-        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-tan">
+        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.16em] text-tan">
           <span className="text-text-mute">[</span>
           V{version} CARRIES {formatCents(data.currentDocTotalCents)} — RE-LOCK TO SYNC
           <span className="text-text-mute">]</span>
@@ -231,7 +231,7 @@ function LockedTotalPanel({ data, projectId }: { data: SpecScopeLockedTotal; pro
           <div className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="project_id" value={projectId} />
             <label className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
                 <span className="text-text-mute">[</span>TOTAL · CAD
                 <span className="text-text-mute">]</span>
               </span>
@@ -258,7 +258,7 @@ function LockedTotalPanel({ data, projectId }: { data: SpecScopeLockedTotal; pro
               {locked ? "RE-LOCK" : "LOCK TOTAL"}
             </button>
           </div>
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             <span className="text-text-mute">[</span>
             {locked
               ? `OPEN UNTIL V${version} IS SENT — AFTER SIGN-OFF, CHANGES GO THROUGH A CHANGE ORDER`
@@ -267,7 +267,7 @@ function LockedTotalPanel({ data, projectId }: { data: SpecScopeLockedTotal; pro
           </p>
         </form>
       ) : (
-        <p className="mt-4 border-t border-white/[0.06] pt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        <p className="mt-4 border-t border-white/[0.06] pt-4 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
           <span className="text-text-mute">[</span>
           {lockBlockedLabel(data.blockedReason as NonNullable<typeof data.blockedReason>, {
             version,
@@ -286,10 +286,10 @@ function FeatureBadge({ status }: { status: "pending" | "passing" | "failing" })
       ? "text-olive border-olive/40"
       : status === "failing"
         ? "text-rose border-rose/40"
-        : "text-text-3 border-white/[0.10]";
+        : "text-text-3 border-line";
   return (
     <span
-      className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}
+      className={`rounded-chip border px-1.5 py-px font-mono text-[11px] uppercase tracking-[0.16em] ${tone}`}
     >
       {statusLabel(status)}
     </span>
@@ -312,13 +312,13 @@ function FeatureControl({
   disabled: boolean;
 }) {
   const base =
-    "rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-smooth disabled:cursor-not-allowed disabled:opacity-40";
+    "rounded-chip border px-2 py-1 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors duration-150 ease-smooth disabled:cursor-not-allowed disabled:opacity-40";
   const toneCls =
     tone === "olive"
       ? "border-olive/40 text-olive hover:bg-olive hover:text-black"
       : tone === "brick"
         ? "border-rose/40 text-rose hover:bg-rose hover:text-black"
-        : "border-white/[0.10] text-text-3 hover:text-text";
+        : "border-line text-text-3 hover:text-text";
   return (
     <form action={markFeature} className="inline-flex">
       <input type="hidden" name="project_id" value={projectId} />

@@ -15,15 +15,15 @@ interface MilestonesTabProps {
 }
 
 const STATUS_TONE: Record<SpecPaymentStatus | "not_yet_fired", string> = {
-  not_yet_fired: "text-text-mute border-white/[0.10]",
-  pending: "text-text-mute border-white/[0.10]",
+  not_yet_fired: "text-text-mute border-line",
+  pending: "text-text-mute border-line",
   invoiced: "text-tan border-tan/40",
   paid: "text-olive border-olive/40",
   overdue: "text-rose border-rose/40",
   disputed: "text-rose border-rose/40",
   refunded: "text-rose border-rose/40",
   partially_refunded: "text-rose border-rose/40",
-  voided: "text-text-3 border-white/[0.10]",
+  voided: "text-text-3 border-line",
   uncollectible: "text-rose border-rose/40",
 };
 
@@ -99,7 +99,7 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
         </table>
       </div>
 
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
         <span className="text-text-mute">[</span>
         {scheduleNote(data)}
         <span className="text-text-mute">]</span>
@@ -148,7 +148,7 @@ function MilestoneRow({ row, projectId }: { row: SpecMilestoneRow; projectId: st
       </Td>
       <Td>
         <span
-          className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${STATUS_TONE[row.status]}`}
+          className={`rounded-chip border px-1.5 py-px font-mono text-[11px] uppercase tracking-[0.16em] ${STATUS_TONE[row.status]}`}
         >
           {row.status === "not_yet_fired" ? "NOT FIRED" : statusLabel(row.status)}
         </span>
@@ -202,7 +202,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
   if (row.milestone === "deposit") {
     return (
       <span
-        className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute"
+        className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute"
         title="P1 fires automatically via Stripe webhook on checkout.session.completed"
       >
         AUTO
@@ -212,7 +212,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
   if (!row.fireable) {
     return (
       <span
-        className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute"
+        className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute"
         title={row.fireBlockedReason ?? "Not fireable"}
       >
         {row.fireBlockedReason ? row.fireBlockedReason.toUpperCase() : "—"}
@@ -225,7 +225,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
       <input type="hidden" name="milestone" value={row.milestone} />
       <button
         type="submit"
-        className="rounded border border-ops-accent px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black"
+        className="rounded border border-ops-accent px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black"
       >
         FIRE {row.label} INVOICE
       </button>
@@ -236,7 +236,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
 function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
   return (
     <th
-      className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute ${
+      className={`px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute ${
         align === "right" ? "text-right" : ""
       }`}
     >
