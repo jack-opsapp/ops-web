@@ -44,8 +44,11 @@ function fetchPinnedAddress(
       {
         method: init.method ?? "GET",
         headers: Object.fromEntries(new Headers(init.headers).entries()),
-        lookup(_hostname, _options, callback) {
-          callback(null, pinnedAddress.address, pinnedAddress.family);
+        lookup(_hostname, options, callback) {
+          // Newer Node versions request all addresses for family selection. Return
+          // only the validated address in either shape; never resolve DNS again.
+          if (options.all) callback(null, [pinnedAddress]);
+          else callback(null, pinnedAddress.address, pinnedAddress.family);
         },
       },
       (incoming) => {
