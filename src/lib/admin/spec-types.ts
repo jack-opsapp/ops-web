@@ -430,6 +430,34 @@ export interface SpecScopeFeatureRow {
   failureNotes: string | null;
 }
 
+/**
+ * Why the SPEC-03 locked-total control is read-only. Ordered by decisiveness —
+ * `lockedTotalGate` reports the first that applies.
+ */
+export type LockBlockedReason =
+  | "not_variable_tier"
+  | "engagement_closed"
+  | "signed"
+  | "p2_invoiced"
+  | "no_scope_doc"
+  | "doc_sent";
+
+/** Tab 4 projection of the SPEC-03 lock state (null for fixed-total tiers). */
+export interface SpecScopeLockedTotal {
+  /** The tier floor — P1 is a quarter of it. */
+  floorCents: number;
+  /** `spec_projects.locked_total_cents`, validated; null = not locked. */
+  lockedTotalCents: number | null;
+  /** Version of the current scope doc, the figure's home; null when none exists. */
+  currentDocVersion: number | null;
+  /** The figure the current doc's content carries, if any — may drift from the project. */
+  currentDocTotalCents: number | null;
+  /** `accepted_at` of the customer's scope_signoff, once it exists. */
+  signedAt: string | null;
+  /** null = the operator may lock / re-lock right now. */
+  blockedReason: LockBlockedReason | null;
+}
+
 export interface SpecScopeTab {
   versions: SpecScopeDocumentRow[];
   current: {
@@ -439,6 +467,8 @@ export interface SpecScopeTab {
     externalUrl: string | null;
     features: SpecScopeFeatureRow[];
   } | null;
+  /** SPEC-03 only; fixed-total tiers never render the control. */
+  lockedTotal: SpecScopeLockedTotal | null;
 }
 
 // ─── Tab 5: Milestones ───────────────────────────────────────────────────────
