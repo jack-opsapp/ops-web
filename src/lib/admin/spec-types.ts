@@ -444,6 +444,8 @@ export type LockBlockedReason =
 
 /** Tab 4 projection of the SPEC-03 lock state (null for fixed-total tiers). */
 export interface SpecScopeLockedTotal {
+  /** Always the variable-total tier; carried so the panel can price the split without guessing. */
+  tier: SpecTier;
   /** The tier floor — P1 is a quarter of it. */
   floorCents: number;
   /** `spec_projects.locked_total_cents`, validated; null = not locked. */

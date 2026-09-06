@@ -4,6 +4,7 @@ import {
   SPEC03_LOCKED_TOTAL_MAX_CENTS,
   SCOPE_DOC_LOCKED_TOTAL_KEY,
   composeScopeLockedTotal,
+  formatCadCents,
   lockBlockedLabel,
   lockedTotalGate,
   parseLockedTotalInput,
@@ -247,6 +248,7 @@ describe("composeScopeLockedTotal", () => {
 
   it("projects an unlocked, lockable SPEC-03 engagement", () => {
     expect(composeScopeLockedTotal(baseParams)).toEqual({
+      tier: "spec03",
       floorCents: 2_500_000,
       lockedTotalCents: null,
       currentDocVersion: 2,
@@ -264,6 +266,7 @@ describe("composeScopeLockedTotal", () => {
         currentDoc: { version: 3, sentAt: null, contentJson: { locked_total_cents: 3_000_000 } },
       }),
     ).toEqual({
+      tier: "spec03",
       floorCents: 2_500_000,
       lockedTotalCents: 3_100_000,
       currentDocVersion: 3,
@@ -349,5 +352,17 @@ describe("pickCurrentScopeDocument", () => {
     ];
     pickCurrentScopeDocument(docs);
     expect(docs.map((d) => d.id)).toEqual(["v1", "v2"]);
+  });
+});
+
+// ─── formatCadCents ──────────────────────────────────────────────────────────
+
+describe("formatCadCents", () => {
+  it("prints whole dollars without decimals and cents with exactly two", () => {
+    expect(formatCadCents(2_500_000)).toBe("$25,000");
+    expect(formatCadCents(3_250_050)).toBe("$32,500.50");
+    expect(formatCadCents(825_001)).toBe("$8,250.01");
+    expect(formatCadCents(2_147_483_647)).toBe("$21,474,836.47");
+    expect(formatCadCents(5)).toBe("$0.05");
   });
 });

@@ -144,6 +144,20 @@ function formatSignedAt(iso: string | null | undefined): string | null {
   return SIGNED_DATE.format(d).toUpperCase();
 }
 
+// ─── Money ───────────────────────────────────────────────────────────────────
+
+/**
+ * `$31,000` / `$32,500.50` — CAD from integer cents, decimals only when there
+ * are any. Integer arithmetic throughout; shared by the action's audit rows
+ * and the control's input value so both print the figure the same way.
+ */
+export function formatCadCents(cents: number): string {
+  const whole = Math.trunc(cents / 100);
+  const remainder = Math.abs(cents % 100);
+  const dollars = whole.toLocaleString("en-CA");
+  return remainder === 0 ? `$${dollars}` : `$${dollars}.${String(remainder).padStart(2, "0")}`;
+}
+
 // ─── Scope-doc content ───────────────────────────────────────────────────────
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -210,6 +224,7 @@ export function composeScopeLockedTotal(params: ScopeLockedTotalParams): SpecSco
   });
 
   return {
+    tier,
     floorCents: SPEC_TIER_TOTAL_CENTS[tier],
     lockedTotalCents: readLockedTotalCents(tier, lockedTotalRaw),
     currentDocVersion: currentDoc?.version ?? null,
