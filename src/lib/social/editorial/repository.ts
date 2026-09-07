@@ -11,14 +11,15 @@ import type {
 } from "./worker";
 const fields = "id,title,slug,content,published_at,is_live,thumbnail_url";
 const assignmentFields =
-  "id,identity,kind,mode,state,attempts,submissions,claim_token,lease_until,blog_id,slot_date,source_snapshot,package";
+  "id,identity,kind,mode,state,attempts,submissions,claim_token,lease_until,blog_id,slot_date,source_snapshot,package,attempt_log";
 
 // Sources an assignment, a legacy run or a queued post already used stay out of
 // rotation; their hooks stay in it, because near-duplicate hooks are the
 // failure a writer working from one article cannot see.
-function historyOf(
-  rows: Array<{ id?: unknown; hook?: unknown }>
-): { ids: string[]; hooks: string[] } {
+function historyOf(rows: Array<{ id?: unknown; hook?: unknown }>): {
+  ids: string[];
+  hooks: string[];
+} {
   return {
     ids: rows
       .map((row) => row.id)
@@ -238,10 +239,13 @@ export function createEditorialRepository(): EditorialWorkerRepository &
           .lte("published_at", new Date(now).toISOString())
           .order("published_at", { ascending: false })
           .limit(100),
+        // A blocked assignment never produced a post, so its article stays
+        // available to a later protocol or rotation instead of being burned.
         db
           .from("social_editorial_assignments")
           .select("source_id,blog_id,package")
           .gte("created_at", sixtyDays.toISOString())
+          .neq("state", "blocked")
           .order("created_at", { ascending: false })
           .limit(100),
         db

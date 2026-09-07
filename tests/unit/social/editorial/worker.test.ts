@@ -74,6 +74,7 @@ function row(
     attempts: 1,
     source_snapshot: source,
     package: pack(),
+    attempt_log: [],
     ...overrides,
   };
 }
@@ -299,7 +300,9 @@ describe("editorial tick", () => {
     expect(submission.content.slides[0].image_url).toBe(
       "https://cdn.opsapp.co/handoff-v2.jpg"
     );
-    expect(submission.media[0].url).toBe("https://cdn.opsapp.co/handoff-v2.jpg");
+    expect(submission.media[0].url).toBe(
+      "https://cdn.opsapp.co/handoff-v2.jpg"
+    );
     expect(r.promotions).toMatchObject([{ state: "submitted" }]);
   });
 
@@ -385,6 +388,45 @@ describe("editorial tick", () => {
     expect(r.promotions).toMatchObject([{ state: "prepared" }]);
     expect(result.promoted).toBe(1);
     expect(r.calls).toContain("notify");
+  });
+
+  it("blocks an assignment on its third failed promotion instead of retrying forever", async () => {
+    const failing = () => {
+      throw new Error("RENDER_FAILED");
+    };
+    const twice = rig({
+      mode: "prepare",
+      drafted: [
+        row({
+          attempt_log: [{ event: "promotion_failed", code: "RENDER_FAILED" }],
+        }),
+      ],
+    });
+    twice.deps.preview = failing;
+    await runEditorialTick(twice.deps);
+    expect(twice.promotions).toEqual([]);
+    expect(twice.notes).toMatchObject([
+      { detail: { event: "promotion_failed", code: "RENDER_FAILED" } },
+    ]);
+
+    const third = rig({
+      mode: "prepare",
+      drafted: [
+        row({
+          attempt_log: [
+            { event: "promotion_failed", code: "RENDER_FAILED" },
+            { event: "source_refreshed" },
+            { event: "promotion_failed", code: "RENDER_FAILED" },
+          ],
+        }),
+      ],
+    });
+    third.deps.preview = failing;
+    const result = await runEditorialTick(third.deps);
+    expect(third.promotions).toMatchObject([
+      { state: "blocked", code: "RENDER_FAILED" },
+    ]);
+    expect(result.promoted).toBe(0);
   });
 
   it("stops an assignment whose package went missing instead of rendering nothing", async () => {

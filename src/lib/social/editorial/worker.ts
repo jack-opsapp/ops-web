@@ -21,6 +21,7 @@ export interface EditorialAssignmentRow {
   attempts: number;
   source_snapshot: EditorialSource | null;
   package: EditorialPackage | null;
+  attempt_log: unknown[];
 }
 
 export interface EditorialOperator {
@@ -201,6 +202,17 @@ function codeOf(error: unknown): string {
   return /^[A-Z_]{1,80}$/.test(message) ? message : "PROMOTION_FAILED";
 }
 
+const MAX_PROMOTION_FAILURES = 3;
+
+function promotionFailures(assignment: EditorialAssignmentRow): number {
+  return (assignment.attempt_log ?? []).filter(
+    (entry) =>
+      typeof entry === "object" &&
+      entry !== null &&
+      (entry as { event?: unknown }).event === "promotion_failed"
+  ).length;
+}
+
 async function promoteAssignment(
   d: EditorialTickDependencies,
   assignment: EditorialAssignmentRow,
@@ -359,19 +371,28 @@ export async function runEditorialTick(d: EditorialTickDependencies): Promise<{
   if (settings.mode !== "off") {
     for (const assignment of await d.repository.listDrafted(PROMOTION_LIMIT)) {
       try {
-        if (await promoteAssignment(d, assignment, settings, now)) promoted += 1;
+        if (await promoteAssignment(d, assignment, settings, now))
+          promoted += 1;
       } catch (error) {
-        // One article's failure never stops the rest of the queue.
+        // One article's failure never stops the rest of the queue, and a
+        // permanently broken render stops itself after three tries instead of
+        // retrying every tick forever.
+        const code = codeOf(error);
         await d.repository.annotateAssignment(
           assignment.id,
-          {
-            event: "promotion_failed",
-            code: codeOf(error),
-            at: now.toISOString(),
-          },
+          { event: "promotion_failed", code, at: now.toISOString() },
           null,
           null
         );
+        if (promotionFailures(assignment) + 1 >= MAX_PROMOTION_FAILURES)
+          await d.repository.promote(
+            assignment.id,
+            "blocked",
+            code,
+            null,
+            null,
+            null
+          );
       }
     }
   }
