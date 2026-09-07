@@ -1,0 +1,12 @@
+{
+  "approved": false,
+  "grounded": true,
+  "current": true,
+  "distinct": true,
+  "useful": true,
+  "format_supported": true,
+  "identifies_subject": false,
+  "clear_without_caption": false,
+  "reason": "off_subject",
+  "notes": "Every claim checks out against the source and all 12 quotes are verbatim, but no slide ever names the news. The five slides read as evergreen flood-dispatch advice: slide 1 opens with \"Officials are asking...\" (which officials?) and slide 4 says \"when access returns\" without ever establishing that access is gone. Fix: make slide 1 a cover that identifies the article - Richmond, Inverness and Victoria Counties are under a declared State of Local Emergency after severe flooding in Cape Breton, closures and washouts active - then run the four protocol steps. Keeps the count at five or six."
+}

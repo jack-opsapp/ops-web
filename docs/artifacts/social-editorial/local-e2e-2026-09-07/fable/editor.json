@@ -1,0 +1,12 @@
+{
+  "approved": true,
+  "grounded": true,
+  "current": true,
+  "distinct": true,
+  "useful": true,
+  "format_supported": true,
+  "identifies_subject": true,
+  "clear_without_caption": true,
+  "reason": "approved",
+  "notes": "Verified every slide, caption and CTA line against the source independently; all 12 evidence quotes are verbatim and all fields are inside their limits. Nothing is presented as newer than the Sept 1 release, and the draft correctly leaves out the dated GPT-5.7/Astra rumour section. Biggest improvement, not a blocker: the price slide states the shape of the change but never the numbers. Adding the actual figures from the source (US$10/US$50 per million unchanged; cached reads US$0.25, down from US$1) would make the strongest slide concrete instead of directional."
+}
