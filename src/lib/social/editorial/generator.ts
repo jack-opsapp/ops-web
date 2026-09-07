@@ -116,7 +116,7 @@ export async function generateEditorial(
   const candidate = candidateSchema.parse(
     await call("writer", writer, facts, candidateSchema)
   );
-  const submission = prepareSubmission(candidate, source, recentHooks);
+  const submission = prepareSubmission(candidate, source, recentHooks, kind);
   const review = reviewSchema.parse(
     await call("editor", editor, { ...facts, candidate }, reviewSchema)
   );

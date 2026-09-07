@@ -128,12 +128,51 @@ export function isDuplicate(hook: string, recent: string[]): boolean {
     return intersection / Math.max(words.size, other.size) >= 0.8;
   });
 }
+/**
+ * A blog adaptation is a cover plus at least three takeaways. Fewer than that
+ * and the carousel restates the headline instead of teaching anything.
+ */
+export const BLOG_SLIDE_RANGE = { min: 4, max: 6 } as const;
+
+/**
+ * The closing slide is server-owned: the writer never sees a URL, so the link
+ * on the artwork can never be invented.
+ */
+export const BLOG_CLOSING_SLIDE = {
+  eyebrow: "FULL ARTICLE",
+  headline: "KEEP READING",
+} as const;
+
+const editorialDateFormat = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Etc/GMT+7",
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+});
+
+/** `SEP 01 · 2026` — mono-friendly, unambiguous, no ordinal suffixes. */
+export function formatEditorialDate(published: string): string {
+  const parts = Object.fromEntries(
+    editorialDateFormat
+      .formatToParts(new Date(published))
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.month} ${parts.day} \u00b7 ${parts.year}`.toUpperCase();
+}
+
 export function prepareSubmission(
   raw: unknown,
   source: EditorialSource,
-  recentHooks: string[]
+  recentHooks: string[],
+  kind: EditorialKind = "blog"
 ): SocialSubmission {
   const c = candidateSchema.parse(raw);
+  if (
+    kind === "blog" &&
+    (c.slides.length < BLOG_SLIDE_RANGE.min ||
+      c.slides.length > BLOG_SLIDE_RANGE.max)
+  )
+    throw new Error("SLIDE_COUNT");
   const normalizeQuote = (s: string) => s.replace(/\s+/g, " ").trim();
   if (
     c.evidence.some(
@@ -158,6 +197,24 @@ export function prepareSubmission(
   )
     throw new Error("VOICE_REJECTED");
   const url = `https://opsapp.co/journal/${source.slug}`;
+  const bareUrl = `opsapp.co/journal/${source.slug}`;
+  const isBlog = kind === "blog";
+  const slides = c.slides.map((s, i) => ({
+    ...s,
+    ...(i === 0 && source.thumbnail_url
+      ? { image_url: source.thumbnail_url }
+      : {}),
+    ...(isBlog && i > 0
+      ? { eyebrow: `TAKEAWAY ${String(i).padStart(2, "0")}` }
+      : {}),
+    alt_text: s.headline,
+  }));
+  if (isBlog)
+    slides.push({
+      ...BLOG_CLOSING_SLIDE,
+      body: bareUrl,
+      alt_text: `Read the full article at ${bareUrl}`,
+    });
   return socialSubmissionSchema.parse({
     contract_version: "2026-09-01",
     source: {
@@ -168,14 +225,16 @@ export function prepareSubmission(
     },
     content: {
       ...content,
-      caption: `${c.caption}\n\nSource: ${url}`,
-      slides: c.slides.map((s, i) => ({
-        ...s,
-        ...(i === 0 && source.thumbnail_url
-          ? { image_url: source.thumbnail_url }
-          : {}),
-        alt_text: s.headline,
-      })),
+      ...(isBlog
+        ? {
+            subtitle: source.title.trim().slice(0, 160),
+            date: formatEditorialDate(source.published_at),
+          }
+        : {}),
+      caption: isBlog
+        ? `${c.caption}\n\nFull article: ${url}`
+        : `${c.caption}\n\nSource: ${url}`,
+      slides,
     },
     ...(source.thumbnail_url
       ? { media: [{ url: source.thumbnail_url, alt_text: c.alt_text }] }
