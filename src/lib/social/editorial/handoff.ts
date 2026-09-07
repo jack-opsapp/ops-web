@@ -133,7 +133,11 @@ function issuesOf(error: z.ZodError) {
 
 function schemaInvalid(error: z.ZodError) {
   return json(
-    { error: "DRAFT_REJECTED", code: "SCHEMA_INVALID", issues: issuesOf(error) },
+    {
+      error: "DRAFT_REJECTED",
+      code: "SCHEMA_INVALID",
+      issues: issuesOf(error),
+    },
     422
   );
 }
@@ -295,11 +299,10 @@ export function createEditorialHandoffHandlers(
     id: string,
     body: unknown,
     now: Date
-  ):
-    | Promise<
-        | { assignment: EditorialAssignmentRecord; token: string }
-        | { response: NextResponse }
-      > {
+  ): Promise<
+    | { assignment: EditorialAssignmentRecord; token: string }
+    | { response: NextResponse }
+  > {
     if (!uuidSchema.safeParse(id).success)
       return { response: json({ code: "ASSIGNMENT_NOT_FOUND" }, 404) };
     const assignment = await repository.findAssignment(id);

@@ -220,7 +220,11 @@ describe("authoring handoff authentication", () => {
     vi.stubEnv("SOCIAL_AUTHORING_TOKEN", "too-short");
     const r = rig();
     const response = await r.handlers.claim(
-      post("/api/internal/social/editorial/claim", { worker: "routine" }, "too-short")
+      post(
+        "/api/internal/social/editorial/claim",
+        { worker: "routine" },
+        "too-short"
+      )
     );
     expect(response.status).toBe(503);
   });
@@ -430,7 +434,10 @@ describe("draft", () => {
   it("refuses a draft after the lease expired", async () => {
     const r = rig();
     r.set({ lease_until: new Date(NOW.getTime() - 1000).toISOString() });
-    const response = await r.handlers.draft(post("/draft", body()), ASSIGNMENT_ID);
+    const response = await r.handlers.draft(
+      post("/draft", body()),
+      ASSIGNMENT_ID
+    );
     expect(response.status).toBe(409);
   });
 
@@ -507,7 +514,10 @@ describe("draft", () => {
   it("spends a submission on every attempt and stops the fourth", async () => {
     const r = rig();
     r.set({ submissions: 3 });
-    const response = await r.handlers.draft(post("/draft", body()), ASSIGNMENT_ID);
+    const response = await r.handlers.draft(
+      post("/draft", body()),
+      ASSIGNMENT_ID
+    );
     expect(response.status).toBe(429);
     await expect(response.json()).resolves.toEqual({
       code: "SUBMISSIONS_EXHAUSTED",
@@ -548,7 +558,9 @@ describe("draft", () => {
     const response = await r.handlers.draft(
       post(
         "/draft",
-        body({ editor: review({ identifies_subject: false, reason: "approved" }) })
+        body({
+          editor: review({ identifies_subject: false, reason: "approved" }),
+        })
       ),
       ASSIGNMENT_ID
     );
@@ -559,7 +571,10 @@ describe("draft", () => {
     const r = rig();
     r.set({ attempts: 3 });
     const response = await r.handlers.draft(
-      post("/draft", body({ editor: review({ approved: false, reason: "stale" }) })),
+      post(
+        "/draft",
+        body({ editor: review({ approved: false, reason: "stale" }) })
+      ),
       ASSIGNMENT_ID
     );
     await expect(response.json()).resolves.toEqual({
@@ -570,7 +585,10 @@ describe("draft", () => {
 
   it("stores the approved package with its provenance and holds it there", async () => {
     const r = rig();
-    const response = await r.handlers.draft(post("/draft", body()), ASSIGNMENT_ID);
+    const response = await r.handlers.draft(
+      post("/draft", body()),
+      ASSIGNMENT_ID
+    );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       state: "drafted",
@@ -597,7 +615,10 @@ describe("draft", () => {
   it("returns the same answer when the routine retries a call it already won", async () => {
     const r = rig();
     await r.handlers.draft(post("/draft", body()), ASSIGNMENT_ID);
-    const replay = await r.handlers.draft(post("/draft", body()), ASSIGNMENT_ID);
+    const replay = await r.handlers.draft(
+      post("/draft", body()),
+      ASSIGNMENT_ID
+    );
     expect(replay.status).toBe(200);
     await expect(replay.json()).resolves.toEqual({
       state: "drafted",

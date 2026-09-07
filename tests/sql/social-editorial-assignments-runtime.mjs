@@ -56,10 +56,10 @@ try {
       "CREATE TABLE public.social_posts(id uuid primary key default gen_random_uuid(),idempotency_key text,status text,updated_by text,source_id text,publish_after timestamptz,created_by text,instagram_permalink text,created_at timestamptz not null default now());" +
       "CREATE TABLE public.blog_posts(id uuid primary key default gen_random_uuid(),title text,slug text,content text,published_at timestamptz,is_live boolean,thumbnail_url text,updated_at timestamptz not null default now());" +
       "CREATE TABLE public.notifications(id uuid default gen_random_uuid(),user_id text,company_id text,type text,title text,body text,is_read boolean,persistent boolean,action_url text,action_label text,dedupe_key text,resolved_at timestamptz,created_at timestamptz not null default now());" +
-        // Production's open-notification dedupe indexes, copied so the outbox
-        // is proved against the same uniqueness rules the live table enforces.
-        "CREATE UNIQUE INDEX idx_notifications_unread_dedup ON public.notifications (user_id, company_id, type, coalesce(dedupe_key, title)) WHERE is_read = false AND resolved_at IS NULL;" +
-        "CREATE UNIQUE INDEX notifications_open_dedupe_key ON public.notifications (user_id, company_id, type, dedupe_key) WHERE is_read = false AND resolved_at IS NULL AND dedupe_key IS NOT NULL;"
+      // Production's open-notification dedupe indexes, copied so the outbox
+      // is proved against the same uniqueness rules the live table enforces.
+      "CREATE UNIQUE INDEX idx_notifications_unread_dedup ON public.notifications (user_id, company_id, type, coalesce(dedupe_key, title)) WHERE is_read = false AND resolved_at IS NULL;" +
+      "CREATE UNIQUE INDEX notifications_open_dedupe_key ON public.notifications (user_id, company_id, type, dedupe_key) WHERE is_read = false AND resolved_at IS NULL AND dedupe_key IS NOT NULL;"
   );
   sql(migration("_create_social_editorial.sql"));
   sql(migration("_create_social_editorial_assignments.sql"));
@@ -85,7 +85,9 @@ try {
     "update social_editorial_settings set discovery_since=now()-interval '5 days'"
   );
   assert.equal(
-    sql(`select discover_social_editorial_assignments(${localExpression},'Mon')`),
+    sql(
+      `select discover_social_editorial_assignments(${localExpression},'Mon')`
+    ),
     '{"blogs": 2, "recurring": 0}',
     "only live blogs published after the boundary, inside the 30-day window and not in the future are assigned"
   );
@@ -97,17 +99,23 @@ try {
     "each newly published blog gets exactly one durable identity"
   );
   assert.equal(
-    sql(`select discover_social_editorial_assignments(${localExpression},'Mon')`),
+    sql(
+      `select discover_social_editorial_assignments(${localExpression},'Mon')`
+    ),
     '{"blogs": 0, "recurring": 0}',
     "repeat discovery never duplicates a blog assignment"
   );
   assert.equal(
-    sql(`select discover_social_editorial_assignments(${localExpression},'Tue')`),
+    sql(
+      `select discover_social_editorial_assignments(${localExpression},'Tue')`
+    ),
     '{"blogs": 0, "recurring": 1}',
     "Tuesday opens a protocol assignment"
   );
   assert.equal(
-    sql(`select discover_social_editorial_assignments(${localExpression},'Tue')`),
+    sql(
+      `select discover_social_editorial_assignments(${localExpression},'Tue')`
+    ),
     '{"blogs": 0, "recurring": 0}',
     "the same Tuesday never opens a second protocol assignment"
   );
@@ -730,7 +738,9 @@ try {
   for (const signature of functions) {
     for (const role of ["public", "anon", "authenticated"])
       assert.equal(
-        sql(`select has_function_privilege('${role}','${signature}','EXECUTE')`),
+        sql(
+          `select has_function_privilege('${role}','${signature}','EXECUTE')`
+        ),
         "f",
         `${role} must not execute ${signature}`
       );
@@ -742,7 +752,9 @@ try {
       `service_role must execute ${signature}`
     );
     assert.equal(
-      sql(`select prosecdef from pg_proc where oid='${signature}'::regprocedure`),
+      sql(
+        `select prosecdef from pg_proc where oid='${signature}'::regprocedure`
+      ),
       "f",
       `${signature} must run as the invoker`
     );
