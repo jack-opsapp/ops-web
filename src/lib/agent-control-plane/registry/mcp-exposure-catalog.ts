@@ -367,6 +367,19 @@ export const MCP_EXPOSURE_V14 = Object.freeze({
   ),
 } as const satisfies McpExposure);
 
+/** Dormant Phase 13 candidate. It is deliberately absent from the active
+ * exposure catalogue and cannot be selected by registration or deployment. */
+export const MCP_EXPOSURE_V15 = Object.freeze({
+  revision: "2026-09-06.mcp-exposure.v15",
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V14.toolIds,
+    "prepare_customer_message",
+  ] as const),
+  grantableScopes: Object.freeze(
+    [...MCP_EXPOSURE_V14.grantableScopes, "ops.communications.prepare"].sort()
+  ),
+} as const satisfies McpExposure);
+
 export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V14.revision;
 
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =

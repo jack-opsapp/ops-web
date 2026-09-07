@@ -1,4 +1,3 @@
-import { CustomerUpdateReceiptSchema } from "@/lib/agent-control-plane/contracts/customer-update";
 /**
  * OPS Web — Approval Queue Service
  *
@@ -12,6 +11,8 @@ import "server-only";
 import { z } from "zod-v4";
 
 import { CollectionsApprovalReceiptSchema } from "@/lib/agent-control-plane/contracts/collections";
+import { CustomerMessageReceiptSchema } from "@/lib/agent-control-plane/contracts/customer-message";
+import { CustomerUpdateReceiptSchema } from "@/lib/agent-control-plane/contracts/customer-update";
 import {
   DispatchConfirmationTaskCommitReceiptSchema,
   DispatchConfirmationTaskRejectionReceiptSchema,
@@ -34,7 +35,6 @@ import type {
   SendInvoiceEmailActionData,
   CreateInvoiceActionData,
   ReassignTaskActionData,
-  ClientHealthAlertActionData,
   FinancialInsightActionData,
   OptimizeScheduleActionData,
   RescheduleTasksActionData,
@@ -103,6 +103,7 @@ const EXPIRY_DAYS: Record<string, number> = {
   approve_collections_draft: 3,
   approve_dispatch_confirmation_task: 1,
   approve_customer_update: 1,
+  send_customer_follow_up: 1,
 };
 
 const DayCloseoutCommitResultSchema = z
@@ -168,6 +169,7 @@ const APPROVAL_QUEUE_EMAIL_ACTION_TYPES = new Set<AgentAction["actionType"]>([
   "send_schedule_changed",
   "send_subcontractor_coordination",
   "process_reschedule_request",
+  "send_customer_follow_up",
 ]);
 
 const CANONICAL_UUID_PATTERN =
@@ -954,8 +956,11 @@ export const ApprovalQueueService = {
    */
   async proposeAction(params: ProposeActionParams): Promise<string | null> {
     const supabase = requireSupabase();
-    if (params.actionType === "approve_customer_update")
-      throw new Error("Customer updates require a sealed domain proposal");
+    if (
+      params.actionType === "approve_customer_update" ||
+      params.actionType === "send_customer_follow_up"
+    )
+      throw new Error("This action requires a sealed domain proposal");
     const expiresAt = params.expiresAt ?? defaultExpiry(params.actionType);
     let actionId: string;
     let created = true;
@@ -1205,13 +1210,17 @@ export const ApprovalQueueService = {
 
     if (error) throw new Error(`Failed to fetch queue: ${error.message}`);
 
-    const rows = (data ?? []).filter(
-      (row) =>
-        row.action_type !== "approve_customer_update" ||
-        (actorUserId && row.user_id === actorUserId)
-    );
+    const rows = (data ?? []).filter((row) => {
+      const privateAction =
+        row.action_type === "approve_customer_update" ||
+        row.action_type === "send_customer_follow_up";
+      return !privateAction || (actorUserId && row.user_id === actorUserId);
+    });
     const customerUpdates = rows.filter(
       (row) => row.action_type === "approve_customer_update"
+    );
+    const customerMessages = rows.filter(
+      (row) => row.action_type === "send_customer_follow_up"
     );
     let readableIds = new Set<string>();
     if (customerUpdates.length && actorUserId) {
@@ -1228,15 +1237,32 @@ export const ApprovalQueueService = {
         if (parsed.success) readableIds = new Set(parsed.data);
       }
     }
+    let readableMessageIds = new Set<string>();
+    if (customerMessages.length && actorUserId) {
+      const visibility = await supabase.rpc(
+        "filter_agent_customer_message_actions_as_actor" as never,
+        {
+          p_actor: actorUserId,
+          p_company: companyId,
+          p_actions: customerMessages.map((row) => row.id),
+        } as never
+      );
+      if (!visibility.error) {
+        const parsed = z.array(z.uuid()).max(200).safeParse(visibility.data);
+        if (parsed.success) readableMessageIds = new Set(parsed.data);
+      }
+    }
     const actions = rows.map((row) =>
       mapFromDb(
-        row.action_type === "approve_customer_update" &&
-          !readableIds.has(String(row.id))
+        (row.action_type === "approve_customer_update" &&
+          !readableIds.has(String(row.id))) ||
+          (row.action_type === "send_customer_follow_up" &&
+            !readableMessageIds.has(String(row.id)))
           ? {
               ...row,
               action_data: {},
               context_summary:
-                "Update details are unavailable. Reject this request to clear it.",
+                "Details are unavailable. Reject this request to clear it.",
               execution_result: null,
               error: null,
               review_notes: null,
@@ -1551,6 +1577,96 @@ export const ApprovalQueueService = {
       return mapFromDb(final);
     }
 
+    if (actionIdentity.action_type === "send_customer_follow_up") {
+      if (learningAuthority !== "operator_approved")
+        throw new Error("Customer replies require operator approval");
+      const confirmation = z
+        .object({
+          preview_sha256: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+          change_set_id: z.uuid(),
+        })
+        .strict()
+        .safeParse(editedActionData);
+      const actionData = actionIdentity.action_data as Record<string, unknown>;
+      if (
+        !confirmation.success ||
+        confirmation.data.preview_sha256 !== actionData.preview_sha256 ||
+        confirmation.data.change_set_id !== actionData.change_set_id
+      ) {
+        throw new Error("Review the exact customer reply before approving");
+      }
+      const args = {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: confirmation.data.change_set_id,
+        p_preview_sha256: confirmation.data.preview_sha256,
+        p_idempotency_key: `approve-customer-message:${actionId}`,
+      };
+      let approval = await supabase.rpc(
+        "approve_agent_customer_message_as_actor" as never,
+        args as never
+      );
+      if (approval.error || !approval.data) {
+        approval = await supabase.rpc(
+          "approve_agent_customer_message_as_actor" as never,
+          args as never
+        );
+      }
+      if (approval.error || !approval.data) {
+        throw new Error(
+          "Customer reply approval could not be reconciled. Reload before retrying."
+        );
+      }
+      const approvalReceipt = CustomerMessageReceiptSchema.parse(approval.data);
+      if (
+        approvalReceipt.action_id !== actionId ||
+        approvalReceipt.change_set_id !== args.p_change_set_id ||
+        approvalReceipt.preview_sha256 !== args.p_preview_sha256
+      ) {
+        throw new Error("Customer reply approval receipt is invalid");
+      }
+
+      try {
+        await ApprovedActionEmailTransportService.executeManual(actionId);
+      } catch (error) {
+        const boundary =
+          await ApprovedActionEmailTransportService.inspectDeliveryBoundary(
+            actionId
+          );
+        if (boundary !== "pre_provider_retryable") {
+          throw new Error(
+            "The customer reply provider outcome is being reconciled. Reload for its durable status."
+          );
+        }
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        throw new Error(`Customer reply could not start: ${message}`);
+      }
+
+      const { data: final, error } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .single();
+      if (error || !final || !final.execution_result) {
+        throw new Error("Customer reply status readback is unavailable");
+      }
+      const receipt = CustomerMessageReceiptSchema.parse(
+        final.execution_result
+      );
+      if (
+        receipt.action_id !== actionId ||
+        receipt.change_set_id !== args.p_change_set_id ||
+        receipt.preview_sha256 !== args.p_preview_sha256
+      ) {
+        throw new Error("Customer reply status receipt is invalid");
+      }
+      return mapFromDb(final);
+    }
+
     if (actionIdentity.action_type === "approve_dispatch_confirmation_task") {
       if (learningAuthority !== "operator_approved") {
         throw new Error(
@@ -1825,6 +1941,8 @@ export const ApprovalQueueService = {
     }
     if (actionIdentity.action_type === "approve_customer_update")
       throw new Error("Customer updates require operator approval");
+    if (actionIdentity.action_type === "send_customer_follow_up")
+      throw new Error("Customer replies require operator approval");
     if (actionIdentity.action_type === "approve_dispatch_confirmation_task") {
       throw new Error("Dispatch confirmation tasks require operator approval");
     }
@@ -2033,6 +2151,39 @@ export const ApprovalQueueService = {
         throw new Error("Customer update rejection readback failed");
       return mapFromDb(final);
     }
+    if (actionIdentity.action_type === "send_customer_follow_up") {
+      const decision = await supabase.rpc(
+        "reject_agent_customer_message_as_actor" as never,
+        {
+          p_actor_user_id: userId,
+          p_company_id: companyId,
+          p_action_id: actionId,
+          p_review_notes: notes?.trim() || null,
+        } as never
+      );
+      if (decision.error || !decision.data) {
+        throw new Error("Customer reply cancellation could not be recorded");
+      }
+      const receipt = CustomerMessageReceiptSchema.parse(decision.data);
+      if (
+        receipt.action_id !== actionId ||
+        receipt.state !== "cancelled_before_send"
+      ) {
+        throw new Error("Customer reply cancellation receipt is invalid");
+      }
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .single();
+      if (finalError || !final || final.status !== "rejected") {
+        throw new Error("Customer reply cancellation readback failed");
+      }
+      CustomerMessageReceiptSchema.parse(final.execution_result);
+      return mapFromDb(final);
+    }
     if (actionIdentity.action_type === "approve_dispatch_confirmation_task") {
       const decision = await supabase.rpc(
         "reject_agent_dispatch_confirmation_task_as_actor" as never,
@@ -2111,11 +2262,14 @@ export const ApprovalQueueService = {
         "approve_collections_draft",
         "approve_dispatch_confirmation_task",
         "approve_customer_update",
+        "send_customer_follow_up",
       ])
       .in("id", actionIds)
       .limit(1);
     if (lookupError) throw new Error("Bulk approval could not be validated");
     if (exactConfirmations && exactConfirmations.length > 0) {
+      if (exactConfirmations[0]?.action_type === "send_customer_follow_up")
+        throw new Error("Customer replies must be approved one at a time");
       if (exactConfirmations[0]?.action_type === "approve_customer_update")
         throw new Error("Customer updates must be approved one at a time");
       if (exactConfirmations[0]?.action_type === "approve_collections_draft") {
@@ -2185,6 +2339,7 @@ export const ApprovalQueueService = {
       .from("agent_actions")
       .update({ status: "cancelled" })
       .neq("action_type", "approve_customer_update")
+      .neq("action_type", "send_customer_follow_up")
       .eq("id", actionId)
       .eq("company_id", companyId)
       .eq("status", "pending")
