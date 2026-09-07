@@ -8,6 +8,7 @@ import type {
   SocialVisualTreatment,
 } from "@/lib/social/types";
 import { SocialFrame } from "@/lib/social/render/frame";
+import { treatmentElement } from "@/lib/social/render/render-social-post";
 import {
   SOCIAL_RENDER_VERSION,
   renderSocialPost,
@@ -120,12 +121,7 @@ async function dependencies(): Promise<{
 describe("OPS social renderer", () => {
   it("uses OPS JOURNAL as the social masthead", () => {
     const markup = renderToStaticMarkup(
-      <SocialFrame
-        treatmentLabel="EDITORIAL COVER"
-        index={0}
-        total={1}
-        date="SEP 02 · 2026"
-      >
+      <SocialFrame index={0} total={1} date="SEP 02 · 2026">
         <div>Preview</div>
       </SocialFrame>
     );
@@ -133,6 +129,68 @@ describe("OPS social renderer", () => {
     expect(markup).toContain("// OPS JOURNAL");
     expect(markup).not.toContain("OPS FIELD INTELLIGENCE");
   });
+
+  it("prints only the page counter and the date in the frame furniture", () => {
+    const markup = renderToStaticMarkup(
+      <SocialFrame index={0} total={5} date="SEP 02 · 2026">
+        <div>Preview</div>
+      </SocialFrame>
+    );
+
+    expect(markup).toContain("01 / 05");
+    expect(markup).toContain("SEP 02 · 2026");
+    expect(markup).not.toContain("OPS // SOCIAL");
+  });
+
+  it.each(TREATMENTS)("renders the body of every %s slide", (treatment) => {
+    const post = submission(5);
+    const body = "Rebuild the original record before you score anything.";
+    post.content.slides[3].body = body;
+
+    const markup = renderToStaticMarkup(
+      treatmentElement(treatment, {
+        content: post.content,
+        slide: post.content.slides[3],
+        imageDataUrl: "data:image/jpeg;base64,AAAA",
+        index: 3,
+        total: 5,
+      })
+    );
+
+    expect(markup).toContain(body);
+    expect(markup).toContain(post.content.slides[3].headline);
+    expect(markup).not.toContain("EDITORIAL COVER");
+    expect(markup).toContain("04 / 05");
+  });
+
+  it.each(TREATMENTS)(
+    "prints a closing article URL in the mono face on %s",
+    (treatment) => {
+      const post = submission(5);
+      const closing = {
+        eyebrow: "FULL ARTICLE",
+        headline: "KEEP READING",
+        body: "opsapp.co/journal/fable-5-1-is-out",
+      };
+      post.content.slides[4] = closing;
+
+      const markup = renderToStaticMarkup(
+        treatmentElement(treatment, {
+          content: post.content,
+          slide: closing,
+          imageDataUrl: "data:image/jpeg;base64,AAAA",
+          index: 4,
+          total: 5,
+        })
+      );
+
+      // Zero-width break opportunities are presentation only.
+      expect(markup.replace(/\u200b/g, "")).toContain(
+        "opsapp.co/journal/fable-5-1-is-out"
+      );
+      expect(markup).toContain("JetBrains Mono");
+    }
+  );
 
   it("fades editorial artwork smoothly into the headline area", async () => {
     const deps = await dependencies();
@@ -256,4 +314,63 @@ describe("OPS social renderer", () => {
 
     expect(metadata).toMatchObject({ width: 1080, height: 1350 });
   }, 30_000);
+
+  it("keeps the longest contract copy inside the frame on every treatment", async () => {
+    for (const treatment of TREATMENTS) {
+      const deps = await dependencies();
+      const max = submission(2);
+      max.content.subtitle = "S".repeat(160);
+      max.content.slides[0].headline = "H".repeat(100);
+      max.content.slides[0].body = "B".repeat(350);
+      max.content.slides[1].eyebrow = "TAKEAWAY 01";
+      max.content.slides[1].headline =
+        "Rebuild the original record before you score the answer against what the crew already knows";
+      max.content.slides[1].body = "B".repeat(350);
+
+      await renderSocialPost(
+        {
+          postId: POST_ID,
+          submission: max,
+          selection: selection(treatment, "carousel"),
+        },
+        deps.value
+      );
+
+      for (const slide of [0, 1]) {
+        const { data, info } = await sharp(deps.captured[slide])
+          .greyscale()
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        const inkOutsideFrame = (
+          x0: number,
+          y0: number,
+          x1: number,
+          y1: number
+        ) => {
+          for (let y = y0; y < y1; y += 1) {
+            for (let x = x0; x < x1; x += 1) {
+              if (data[y * info.width + x] > 90) return true;
+            }
+          }
+          return false;
+        };
+
+        // Nothing may print in the outer safe margin of the 1080x1350 canvas.
+        const margins = {
+          top: inkOutsideFrame(0, 0, 1080, 24),
+          bottom: inkOutsideFrame(0, 1326, 1080, 1350),
+          left: inkOutsideFrame(0, 0, 30, 1350),
+          right: inkOutsideFrame(1050, 0, 1080, 1350),
+        };
+        expect({ treatment, slide, ...margins }).toEqual({
+          treatment,
+          slide,
+          top: false,
+          bottom: false,
+          left: false,
+          right: false,
+        });
+      }
+    }
+  }, 180_000);
 });

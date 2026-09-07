@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { storeSocialAsset } from "@/lib/social/asset-store";
+import {
+  resolveSocialStorageBackend,
+  storeSocialAsset,
+} from "@/lib/social/asset-store";
 
 const input = {
   postId: "9d5fd8b8-83bc-44bf-b846-63c5a1bb9c30",
@@ -77,5 +80,26 @@ describe("social rendered asset storage", () => {
     await expect(
       storeSocialAsset({ ...input, order: 11 }, dependencies)
     ).rejects.toThrow(/slide order/i);
+  });
+
+  it("pins social artwork to its own backend without moving the global one", () => {
+    expect(
+      resolveSocialStorageBackend({ SOCIAL_STORAGE_BACKEND: "supabase" })
+    ).toBe("supabase");
+    expect(
+      resolveSocialStorageBackend({
+        SOCIAL_STORAGE_BACKEND: " Supabase ",
+        STORAGE_BACKEND: "s3",
+      })
+    ).toBe("supabase");
+    expect(resolveSocialStorageBackend({ SOCIAL_STORAGE_BACKEND: "s3" })).toBe(
+      "s3"
+    );
+    vi.stubEnv("STORAGE_BACKEND", "s3");
+    expect(
+      resolveSocialStorageBackend({ SOCIAL_STORAGE_BACKEND: "disk" })
+    ).toBe("s3");
+    expect(resolveSocialStorageBackend({})).toBe("s3");
+    vi.unstubAllEnvs();
   });
 });

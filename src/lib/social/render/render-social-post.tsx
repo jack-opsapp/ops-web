@@ -32,7 +32,10 @@ const defaultDependencies: RenderSocialDependencies = {
   storeAsset: storeSocialAsset,
 };
 
-function treatmentElement(treatment: SocialVisualTreatment, props: TreatmentProps) {
+export function treatmentElement(
+  treatment: SocialVisualTreatment,
+  props: TreatmentProps
+) {
   switch (treatment) {
     case "editorial_cover":
       return <EditorialCover {...props} />;
@@ -69,7 +72,10 @@ export async function renderSocialPost(
   if (selection.postFormat === "single" && slides.length !== 1) {
     throw new Error("Single social format requires exactly one slide");
   }
-  if (selection.postFormat === "carousel" && (slides.length < 2 || slides.length > 10)) {
+  if (
+    selection.postFormat === "carousel" &&
+    (slides.length < 2 || slides.length > 10)
+  ) {
     throw new Error("Carousel social format requires two to ten slides");
   }
 
@@ -81,15 +87,20 @@ export async function renderSocialPost(
   for (let index = 0; index < slides.length; index += 1) {
     const slide = slides[index];
     const sourceImageUrl =
-      slide.image_url ?? submission.media?.[index]?.url ?? submission.media?.[0]?.url;
+      slide.image_url ??
+      submission.media?.[index]?.url ??
+      submission.media?.[0]?.url;
     let imageDataUrl: string | undefined;
 
     if (template.imageLed && sourceImageUrl) {
       let cached = imageCache.get(sourceImageUrl);
       if (!cached) {
-        cached = dependencies.downloadImage(sourceImageUrl).then(
-          (image) => `data:${image.contentType};base64,${image.buffer.toString("base64")}`
-        );
+        cached = dependencies
+          .downloadImage(sourceImageUrl)
+          .then(
+            (image) =>
+              `data:${image.contentType};base64,${image.buffer.toString("base64")}`
+          );
         imageCache.set(sourceImageUrl, cached);
       }
       imageDataUrl = await cached;
