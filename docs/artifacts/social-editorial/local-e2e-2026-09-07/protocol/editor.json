@@ -1,0 +1,12 @@
+{
+  "approved": true,
+  "grounded": true,
+  "current": true,
+  "distinct": true,
+  "useful": true,
+  "format_supported": true,
+  "identifies_subject": true,
+  "clear_without_caption": true,
+  "reason": "approved",
+  "notes": "Re-checked every claim independently: all 12 quotes are verbatim and every line of caption, slides, alt text and CTA traces to the source. The cover now names the news (three counties, declared State of Local Emergency, flooding in Cape Breton), which fixes the earlier off-subject fault and gives slide 4's \"when access returns\" an antecedent. Volatile figures (200mm, 40,000 outages, the Sunday support-line hours) are correctly left out. Best remaining improvement: slide 1 has no time anchor, so add \"declared Saturday\" so the card cannot read evergreen once it ages in the feed."
+}

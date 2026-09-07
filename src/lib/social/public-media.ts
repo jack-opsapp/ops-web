@@ -24,10 +24,13 @@ export interface PublicMediaDependencies {
   fetcher: PinnedFetcher;
 }
 
-function responseHeaders(headers: import("node:http").IncomingHttpHeaders): Headers {
+function responseHeaders(
+  headers: import("node:http").IncomingHttpHeaders
+): Headers {
   const result = new Headers();
   for (const [name, value] of Object.entries(headers)) {
-    if (Array.isArray(value)) value.forEach((item) => result.append(name, item));
+    if (Array.isArray(value))
+      value.forEach((item) => result.append(name, item));
     else if (value !== undefined) result.set(name, value);
   }
   return result;
@@ -44,22 +47,33 @@ function fetchPinnedAddress(
       {
         method: init.method ?? "GET",
         headers: Object.fromEntries(new Headers(init.headers).entries()),
-        lookup(_hostname, _options, callback) {
-          callback(null, pinnedAddress.address, pinnedAddress.family);
+        lookup(_hostname, options, callback) {
+          // Newer Node versions request all addresses for family selection. Return
+          // only the validated address in either shape; never resolve DNS again.
+          if (options.all) callback(null, [pinnedAddress]);
+          else callback(null, pinnedAddress.address, pinnedAddress.family);
         },
       },
       (incoming) => {
         const status = incoming.statusCode ?? 500;
         const body = Readable.toWeb(incoming) as ReadableStream<Uint8Array>;
-        resolve(new Response(body, { status, headers: responseHeaders(incoming.headers) }));
+        resolve(
+          new Response(body, {
+            status,
+            headers: responseHeaders(incoming.headers),
+          })
+        );
       }
     );
 
-    const abort = () => request.destroy(init.signal?.reason as Error | undefined);
+    const abort = () =>
+      request.destroy(init.signal?.reason as Error | undefined);
     if (init.signal?.aborted) abort();
     else init.signal?.addEventListener("abort", abort, { once: true });
     request.once("error", reject);
-    request.once("close", () => init.signal?.removeEventListener("abort", abort));
+    request.once("close", () =>
+      init.signal?.removeEventListener("abort", abort)
+    );
     request.end();
   });
 }
@@ -121,7 +135,10 @@ function isPrivateIpv4(address: string): boolean {
 }
 
 function parseIpv6(address: string): number[] | null {
-  let normalized = address.toLowerCase().replace(/^\[|\]$/g, "").split("%")[0];
+  let normalized = address
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .split("%")[0];
   if (normalized.includes(".")) {
     const separator = normalized.lastIndexOf(":");
     const ipv4 = parseIpv4(normalized.slice(separator + 1));
@@ -136,9 +153,17 @@ function parseIpv6(address: string): number[] | null {
   const head = halves[0] ? halves[0].split(":") : [];
   const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
   const missing = 8 - head.length - tail.length;
-  if ((halves.length === 1 && missing !== 0) || (halves.length === 2 && missing < 1)) return null;
-  const parts = halves.length === 2 ? [...head, ...Array(missing).fill("0"), ...tail] : head;
-  if (parts.length !== 8 || parts.some((part) => !/^[0-9a-f]{1,4}$/.test(part))) return null;
+  if (
+    (halves.length === 1 && missing !== 0) ||
+    (halves.length === 2 && missing < 1)
+  )
+    return null;
+  const parts =
+    halves.length === 2
+      ? [...head, ...Array(missing).fill("0"), ...tail]
+      : head;
+  if (parts.length !== 8 || parts.some((part) => !/^[0-9a-f]{1,4}$/.test(part)))
+    return null;
   return parts.map((part) => Number.parseInt(part, 16));
 }
 
@@ -146,11 +171,13 @@ function isPrivateIpv6(address: string): boolean {
   const parts = parseIpv6(address);
   if (parts === null) return true;
   const allZero = parts.every((part) => part === 0);
-  const loopback = parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1;
+  const loopback =
+    parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1;
   if (allZero || loopback) return true;
 
   const upper96IsZero = parts.slice(0, 6).every((part) => part === 0);
-  const mappedIpv4 = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
+  const mappedIpv4 =
+    parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
   if (mappedIpv4) {
     const ipv4 = parts[6] * 65536 + parts[7];
     return isPrivateIpv4(
@@ -194,12 +221,18 @@ function validatePublicMediaUrlSyntax(rawUrl: string): URL {
 
   const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
   if (hostname === "localhost" || hostname.endsWith(".localhost")) {
-    throw new PublicMediaError("PRIVATE_ADDRESS", "Media URL cannot target a private address");
+    throw new PublicMediaError(
+      "PRIVATE_ADDRESS",
+      "Media URL cannot target a private address"
+    );
   }
 
   if (isIP(hostname)) {
     if (isPrivateAddress(hostname)) {
-      throw new PublicMediaError("PRIVATE_ADDRESS", "Media URL cannot target a private address");
+      throw new PublicMediaError(
+        "PRIVATE_ADDRESS",
+        "Media URL cannot target a private address"
+      );
     }
     return url;
   }
@@ -219,11 +252,20 @@ export async function validatePublicMediaUrl(
   try {
     addresses = await dependencies.lookup(hostname);
   } catch {
-    throw new PublicMediaError("DNS_FAILED", "Media host could not be resolved");
+    throw new PublicMediaError(
+      "DNS_FAILED",
+      "Media host could not be resolved"
+    );
   }
 
-  if (addresses.length === 0 || addresses.some(({ address }) => isPrivateAddress(address))) {
-    throw new PublicMediaError("PRIVATE_ADDRESS", "Media host resolves to a private address");
+  if (
+    addresses.length === 0 ||
+    addresses.some(({ address }) => isPrivateAddress(address))
+  ) {
+    throw new PublicMediaError(
+      "PRIVATE_ADDRESS",
+      "Media host resolves to a private address"
+    );
   }
 
   return url;
@@ -236,17 +278,29 @@ async function resolvePublicMediaUrl(
   const url = validatePublicMediaUrlSyntax(rawUrl);
   const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
   if (isIP(hostname)) {
-    return { url, pinnedAddress: { address: hostname, family: isIP(hostname) } };
+    return {
+      url,
+      pinnedAddress: { address: hostname, family: isIP(hostname) },
+    };
   }
 
   let addresses: LookupAddress[];
   try {
     addresses = await dependencies.lookup(hostname);
   } catch {
-    throw new PublicMediaError("DNS_FAILED", "Media host could not be resolved");
+    throw new PublicMediaError(
+      "DNS_FAILED",
+      "Media host could not be resolved"
+    );
   }
-  if (addresses.length === 0 || addresses.some(({ address }) => isPrivateAddress(address))) {
-    throw new PublicMediaError("PRIVATE_ADDRESS", "Media host resolves to a private address");
+  if (
+    addresses.length === 0 ||
+    addresses.some(({ address }) => isPrivateAddress(address))
+  ) {
+    throw new PublicMediaError(
+      "PRIVATE_ADDRESS",
+      "Media host resolves to a private address"
+    );
   }
   return { url, pinnedAddress: addresses[0] };
 }
@@ -263,7 +317,10 @@ async function readBoundedBody(response: Response): Promise<Buffer> {
       total += value.byteLength;
       if (total > MAX_SOURCE_BYTES) {
         await reader.cancel("source image exceeds limit");
-        throw new PublicMediaError("IMAGE_TOO_LARGE", "Source image exceeds the 12 MB limit");
+        throw new PublicMediaError(
+          "IMAGE_TOO_LARGE",
+          "Source image exceeds the 12 MB limit"
+        );
       }
       chunks.push(Buffer.from(value));
     }
@@ -276,38 +333,66 @@ async function readBoundedBody(response: Response): Promise<Buffer> {
 export async function downloadPublicImage(
   rawUrl: string,
   dependencyOverrides: Partial<PublicMediaDependencies> = {}
-): Promise<{ buffer: Buffer; contentType: "image/jpeg"; width: number; height: number }> {
+): Promise<{
+  buffer: Buffer;
+  contentType: "image/jpeg";
+  width: number;
+  height: number;
+}> {
   const dependencies = { ...defaultDependencies, ...dependencyOverrides };
   let currentUrl = rawUrl;
 
-  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-    const { url: safeUrl, pinnedAddress } = await resolvePublicMediaUrl(currentUrl, dependencies);
+  for (
+    let redirectCount = 0;
+    redirectCount <= MAX_REDIRECTS;
+    redirectCount += 1
+  ) {
+    const { url: safeUrl, pinnedAddress } = await resolvePublicMediaUrl(
+      currentUrl,
+      dependencies
+    );
     let response: Response;
 
     try {
-      response = await dependencies.fetcher(safeUrl, {
-        method: "GET",
-        redirect: "manual",
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        headers: { Accept: "image/avif,image/webp,image/png,image/jpeg" },
-      }, pinnedAddress);
+      response = await dependencies.fetcher(
+        safeUrl,
+        {
+          method: "GET",
+          redirect: "manual",
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+          headers: { Accept: "image/avif,image/webp,image/png,image/jpeg" },
+        },
+        pinnedAddress
+      );
     } catch (error) {
       if (
         error instanceof DOMException &&
         (error.name === "AbortError" || error.name === "TimeoutError")
       ) {
-        throw new PublicMediaError("FETCH_TIMEOUT", "Source image download timed out");
+        throw new PublicMediaError(
+          "FETCH_TIMEOUT",
+          "Source image download timed out"
+        );
       }
-      throw new PublicMediaError("FETCH_FAILED", "Source image could not be downloaded");
+      throw new PublicMediaError(
+        "FETCH_FAILED",
+        "Source image could not be downloaded"
+      );
     }
 
     if (REDIRECT_STATUSES.has(response.status)) {
       const location = response.headers.get("location");
       if (!location) {
-        throw new PublicMediaError("FETCH_FAILED", "Source image redirect was incomplete");
+        throw new PublicMediaError(
+          "FETCH_FAILED",
+          "Source image redirect was incomplete"
+        );
       }
       if (redirectCount === MAX_REDIRECTS) {
-        throw new PublicMediaError("TOO_MANY_REDIRECTS", "Source image redirected too many times");
+        throw new PublicMediaError(
+          "TOO_MANY_REDIRECTS",
+          "Source image redirected too many times"
+        );
       }
       currentUrl = new URL(location, safeUrl).toString();
       await response.body?.cancel();
@@ -315,17 +400,27 @@ export async function downloadPublicImage(
     }
 
     if (!response.ok) {
-      throw new PublicMediaError("FETCH_FAILED", `Source image returned HTTP ${response.status}`);
+      throw new PublicMediaError(
+        "FETCH_FAILED",
+        `Source image returned HTTP ${response.status}`
+      );
     }
 
-    const sourceContentType = response.headers.get("content-type")?.split(";")[0].trim() ?? "";
+    const sourceContentType =
+      response.headers.get("content-type")?.split(";")[0].trim() ?? "";
     if (!sourceContentType.startsWith("image/")) {
-      throw new PublicMediaError("INVALID_CONTENT_TYPE", "Source URL did not return an image");
+      throw new PublicMediaError(
+        "INVALID_CONTENT_TYPE",
+        "Source URL did not return an image"
+      );
     }
 
     const declaredBytes = Number(response.headers.get("content-length") ?? "0");
     if (Number.isFinite(declaredBytes) && declaredBytes > MAX_SOURCE_BYTES) {
-      throw new PublicMediaError("IMAGE_TOO_LARGE", "Source image exceeds the 12 MB limit");
+      throw new PublicMediaError(
+        "IMAGE_TOO_LARGE",
+        "Source image exceeds the 12 MB limit"
+      );
     }
 
     const sourceBuffer = await readBoundedBody(response);
@@ -338,7 +433,10 @@ export async function downloadPublicImage(
       const width = sourceMetadata.width ?? 0;
       const height = sourceMetadata.height ?? 0;
       if (width < 1 || height < 1 || width * height > MAX_INPUT_PIXELS) {
-        throw new PublicMediaError("INVALID_IMAGE", "Source image dimensions are not supported");
+        throw new PublicMediaError(
+          "INVALID_IMAGE",
+          "Source image dimensions are not supported"
+        );
       }
 
       const normalized = await sharp(sourceBuffer, {
@@ -357,9 +455,15 @@ export async function downloadPublicImage(
       };
     } catch (error) {
       if (error instanceof PublicMediaError) throw error;
-      throw new PublicMediaError("INVALID_IMAGE", "Source image could not be decoded safely");
+      throw new PublicMediaError(
+        "INVALID_IMAGE",
+        "Source image could not be decoded safely"
+      );
     }
   }
 
-  throw new PublicMediaError("TOO_MANY_REDIRECTS", "Source image redirected too many times");
+  throw new PublicMediaError(
+    "TOO_MANY_REDIRECTS",
+    "Source image redirected too many times"
+  );
 }

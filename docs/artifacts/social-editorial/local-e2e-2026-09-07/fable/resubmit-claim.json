@@ -1,0 +1,56 @@
+{
+  "assignment": {
+    "id": "ec50630c-aeea-42e2-8e9f-439a410bd3fd",
+    "identity": "blog:e0d5ff01-97cd-4168-bcc3-70b2cd094d2b",
+    "kind": "blog",
+    "mode": "prepare",
+    "attempt": 1,
+    "attempts_remaining": 2,
+    "claim_token": "fb7c54e1-bd8a-4c26-8e1f-5461ec93fbb1",
+    "lease_until": "2026-09-06T20:01:19.557087-07:00",
+    "brief_version": "ops-editorial-2026-09-07-v3",
+    "current_time": "2026-09-07T02:21:19.551Z",
+    "source": {
+      "id": "e0d5ff01-97cd-4168-bcc3-70b2cd094d2b",
+      "title": "FABLE 5.1 IS OUT. HERE’S WHAT IT MEANS FOR YOUR SHOP.",
+      "slug": "claude-fable-5-1-first-test-gpt-5-7-astra",
+      "url": "https://opsapp.co/journal/claude-fable-5-1-first-test-gpt-5-7-astra",
+      "published_at": "2026-09-01T11:32:46.742788-07:00",
+      "text": "Claude Fable 5.1 is out today. For a trades business, the release comes down to one question: can it keep a whole changing job straight long enough to help you make a better call? It is 9:12 a.m. The …",
+      "thumbnail_url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788291077233-416743a3.jpg"
+    },
+    "recent_hooks": [],
+    "format": {
+      "story_types": [
+        "blog_signal"
+      ],
+      "slides": {
+        "min": 4,
+        "max": 6
+      },
+      "closing_slide": "server"
+    },
+    "limits": {
+      "title": 100,
+      "hook": 90,
+      "angle": 220,
+      "caption": 1800,
+      "cta": 120,
+      "alt_text": 500,
+      "slide_headline": 100,
+      "slide_body": 350,
+      "evidence_quote": [
+        20,
+        700
+      ],
+      "evidence": [
+        1,
+        12
+      ]
+    },
+    "guide": {
+      "path": "docs/social/voice/sam-parr-field-guide.md",
+      "sha256": "33eb69c729c46c56995cedcb87955b732eeba763b0d6a93401e3e6c404ab086e"
+    }
+  }
+}

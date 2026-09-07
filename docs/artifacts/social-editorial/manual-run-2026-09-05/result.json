@@ -1,0 +1,189 @@
+{
+  "slot_date": "2026-09-05",
+  "kind": "blog",
+  "mode": "prepare",
+  "state": "prepared",
+  "attempts": 3,
+  "reserved_usd": 2.25,
+  "source_snapshot": {
+    "id": "e0d5ff01-97cd-4168-bcc3-70b2cd094d2b",
+    "slug": "claude-fable-5-1-first-test-gpt-5-7-astra",
+    "text": "Claude Fable 5.1 is out today. For a trades business, the release comes down to one question: can it keep a whole changing job straight long enough to help you make a better call? It is 9:12 a.m. The customer wants a number by lunch. The estimate says 82 feet of material. Friday's site photos show an extra return. A supplier email says the old price expires today. The foreman's voice note says the install point is blocked. The crew calendar says Tuesday is already gone. None of those facts is hard on its own. The hard part is holding them together long enough to answer three questions: what changed, what will it cost, and can we still hit the date? Anthropic says its newest model is better at long, multi-step work across documents, research, spreadsheets, and other files. For a shop, that means reading more of the job, following the connections, and losing less of the thread while work unfolds. It has been live for hours, not months. There is no honest field score yet. So this is not a victory lap. It is the cleanest way to understand what shipped, where it may help your shop, and how to test it without putting a live customer in the middle. WHAT SHIPPED Anthropic released Claude Fable 5.1 on September 1, 2026. It is available now through Anthropic's API and major cloud services. Claude Mythos 5.1 has the same listed capabilities, but it remains limited to approved Project Glasswing customers. Fable 5.1 can keep up to one million tokens in context and produce up to 128,000 tokens in one response. Those limits are the same as Fable 5. The new claim is that Fable 5.1 does a better job connecting details during long work. A one-million-token window is not a smarter opinion. It is more of the job file staying on the table when the next question lands. That file might hold the estimate, drawings, supplier quote, site photos, change orders, and crew schedule. A good test is whether a workflow can ask one question across the full record: what changed, which source supports it, and what still needs a decision? The limit matters. Fable 5.1 does not know whether the foreman's voice note is newer than the photo unless the dates are clear. It does not know whether the supplier price still stands unless the file says so. More context helps it see more evidence. It does not turn missing evidence into truth. THE REAL WIN IS THE MISSED CONNECTION Most expensive mistakes do not begin with one impossible question. They begin when two ordinary facts never meet. The signed change adds 12 feet of material. The supplier quote still covers the old amount. A site photo shows blocked access. The schedule already has the crew somewhere else on the promised day. A useful answer would connect those facts before the reply goes out. It would show that the quantity changed, the price needs a fresh check, access may add time, and the promised date conflicts with the calendar. Then it would point back to the change order, quote, photo, and schedule entry that support each flag. That is useful because it gives the owner a tighter decision. It is not useful if the model invents the new supplier price, assumes the blocked access will take four hours, or promises the customer a date. If the file cannot prove something, the answer should say so. WHY THE FULL RUN MATTERS Picture a punch list that keeps growing. A late change can alter the material count, crew day, and customer promise at once. The value is carrying each knock-on effect to the end. Anthropic says Fable 5.1 improved at long-running coding, multi-step research, and work across documents, spreadsheets, and slides. For a shop: read the estimate, check the site record and supplier quote, find the calendar conflict, then carry that into one clean change summary. Anthropic's capability claims are a test stand, not the job site. They show direction under controlled conditions. They do not prove the model can catch a buried exclusion in your estimate, understand a rough field note, or tell whether a photo shows a real scope change. We found no published independent trades test as of September 1. Treat the claims as a reason to run a pilot, not a reason to let the model approve the work. THE PRICE DID NOT DROP. ONE REPEAT COST DID. Fable 5.1 keeps Fable 5's base API price: US$10 per million input tokens and US$50 per million output tokens. This is the expensive version. Do not use it to rewrite a routine customer email. Anthropic says most work should start on the cheaper Opus 5 model and move to Fable 5.1 only when the harder job earns the added cost. The change is cached context. Reading information that is already cached now costs US$0.25 per million tokens, down from US$1 on Fable 5. Only the reread got cheaper. If the same job record comes back for scope review, purchasing, billing, customer updates, and closeout, the repeat review can cost less. That is not a 75% cheaper model. A first-time review does not get that cut. The savings depend on the software reusing the same eligible starting material, and Claude's consumer plans bill differently. THE MODEL ONLY SEES THE FILE YOU KEEP If the site photos stay on one phone, the scope change lives in a text, and the supplier warning sits in an unread email, no model can connect what never reaches it. A bigger context window can still read a bigger mess. The practical setup is boring and valuable: one job record, clear dates, named versions, signed changes, and the original source attached. Good software should keep that record together so the model can work from clean facts. The model can find connections. It cannot create a record you never kept. PUT A PERSON AT THE APPROVAL STEP Fable 5.1 can prepare a decision. It should not own the decision. Stop the workflow before anything changes money, scope, schedule, safety, compliance, field direction, or a promise to the customer. Let the system gather the evidence, flag the conflict, and draft the next move. Then a person checks the source and approves what happens. It can flag that the material count changed. A person approves the price. It can find a calendar conflict. A person promises the date. It can draft a change-order note. A person confirms the scope and sends it. It can summarize a safety or permit document. A qualified person directs the work. If a software vendor says its model acts on its own, ask where the approval step sits. If the answer is vague, the risk still belongs to your shop. FABLE 5.1 IS HERE. GPT-5.7 IS STILL A RUMOUR. Fable 5.1 matters for one more reason: it gives your shop a real test case before the next model lands. OpenAI's current flagship is GPT-5.6 Sol . It has not announced GPT-5.7, a release date, or a price. OpenAI has named Astra as an upcoming model and reported preliminary internal gains in coding and cybersecurity. It has not called Astra GPT-5.7 or said Astra will be the next public launch. Our prediction: the next OpenAI model will compete on the same ground as Fable 5.1: longer work, more tool use, and fewer dropped details. That is not a reason to wait. It is a reason to keep one test every model has to pass. Test Fable 5.1 against your current tool on one finished job. Save the job file, instructions, scorecard, and result. If OpenAI ships something stronger, run the same test again. Buy the result, not the rumour. RUN THE CLOSED-JOB TEST Do not make a live customer the experiment. Pick one completed job where you already know what changed, what was missed, and how the job ended. Load the original estimate, drawings, revisions, supplier messages, site photos, inspection notes, change orders, schedule record, and closeout file. Then give Fable 5.1 one narrow assignment: Build a change log for this job. For every material change, cite the source and date. State the effect on scope, price, or schedule. List what the file cannot prove. Do not fill gaps. Compare the answer with reality. Count useful catches, missed facts, false alarms, minutes saved, and total cost. Run the same test with the model or process you use today. If Fable 5.1 catches two links you missed and saves 45 minutes, keep testing. If it writes a beautiful report around an invented supplier price, stop. Good writing does not rescue bad judgment. ASK YOUR SOFTWARE VENDOR FOUR QUESTIONS Which work gets the expensive model? Routine notes should not cost the same as a full job review. Can every important claim point back to the source? A confident answer without evidence is a liability. What still works if the model changes or disappears? Keep the records, saved instructions, and a workable fallback. Who approves price, schedule, and customer promises? The answer should be a person. Our first Fable 5 story was about capability. The next one covered what happens when access to a major model changes without warning . Both lessons still stand. Use the stronger tool. Keep control of the work. Own the job file. Rent the model. SOURCES Anthropic: Claude Fable 5.1 model overview Anthropic: What's new in Claude Fable 5.1 Anthropic: Claude API pricing OpenAI: API model catalogue OpenAI: Responding to the next frontier of critical cyber capabilities OpenAI: Pacing model development in an era of cyber-critical capabilities",
+    "title": "FABLE 5.1 IS OUT. HERE’S WHAT IT MEANS FOR YOUR SHOP.",
+    "is_live": true,
+    "published_at": "2026-09-01T18:32:46.742788+00:00",
+    "thumbnail_url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788291077233-416743a3.jpg"
+  },
+  "package": {
+    "usage": [
+      {
+        "input": 9336,
+        "model": "gpt-5.6-sol",
+        "stage": "writer",
+        "output": 1619,
+        "estimated_usd": 0.069724,
+        "prompt_version": "ops-editorial-2026-09-05-v2"
+      },
+      {
+        "input": 9925,
+        "model": "gpt-5.6-sol",
+        "stage": "editor",
+        "output": 162,
+        "estimated_usd": 0.04294,
+        "prompt_version": "ops-editorial-2026-09-05-v2"
+      }
+    ],
+    "review": {
+      "reason": "approved",
+      "useful": true,
+      "current": true,
+      "approved": true,
+      "distinct": true,
+      "grounded": true,
+      "format_supported": true
+    },
+    "preview": [
+      {
+        "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-01.jpg",
+        "bytes": 135358,
+        "order": 1,
+        "width": 1080,
+        "height": 1350,
+        "sha256": "bd85f22bd1eacbe0608d27ba221dde44f0a61b3bc8cd3674f08838afa662b09a",
+        "alt_text": "A clean report can still be wrong",
+        "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-01.jpg",
+        "content_type": "image/jpeg"
+      },
+      {
+        "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-02.jpg",
+        "bytes": 131392,
+        "order": 2,
+        "width": 1080,
+        "height": 1350,
+        "sha256": "833e4b6246363c1c943ecbedb3d072b4cfadb43cf5d5f73c1cd426e6441d989d",
+        "alt_text": "Pick a job you know cold",
+        "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-02.jpg",
+        "content_type": "image/jpeg"
+      },
+      {
+        "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-03.jpg",
+        "bytes": 133744,
+        "order": 3,
+        "width": 1080,
+        "height": 1350,
+        "sha256": "6ff5d2848daf2e82e55f4de9a0ae03663cc71a1a219b563a12c07b1f9fc450d5",
+        "alt_text": "Rebuild the original record",
+        "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-03.jpg",
+        "content_type": "image/jpeg"
+      },
+      {
+        "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-04.jpg",
+        "bytes": 135769,
+        "order": 4,
+        "width": 1080,
+        "height": 1350,
+        "sha256": "bf6af44ff4dac423f48ee632b7b554cfa1ff5070cd8da684b3564587e3d9306d",
+        "alt_text": "Give it one narrow assignment",
+        "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-04.jpg",
+        "content_type": "image/jpeg"
+      },
+      {
+        "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-05.jpg",
+        "bytes": 131885,
+        "order": 5,
+        "width": 1080,
+        "height": 1350,
+        "sha256": "60a705cdd106d420d6dd86f9d7b9dec09b1fe22e3be500ed7918913dbb0f7390",
+        "alt_text": "Score it against reality",
+        "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-05.jpg",
+        "content_type": "image/jpeg"
+      }
+    ],
+    "evidence": [
+      {
+        "claim": "A polished report is not useful if it relies on invented details.",
+        "quote": "It is not useful if the model invents the new supplier price, assumes the blocked access will take four hours, or promises the customer a date. If the file cannot prove something, the answer should say so."
+      },
+      {
+        "claim": "The source recommends testing on a completed job rather than a live customer job.",
+        "quote": "Do not make a live customer the experiment. Pick one completed job where you already know what changed, what was missed, and how the job ended."
+      },
+      {
+        "claim": "The closed-job test uses the original job record.",
+        "quote": "Load the original estimate, drawings, revisions, supplier messages, site photos, inspection notes, change orders, schedule record, and closeout file."
+      },
+      {
+        "claim": "The suggested assignment is a source-backed change log that does not fill gaps.",
+        "quote": "Then give Fable 5.1 one narrow assignment: Build a change log for this job. For every material change, cite the source and date. State the effect on scope, price, or schedule. List what the file cannot prove. Do not fill gaps."
+      },
+      {
+        "claim": "The result can be scored against reality and compared with the current process.",
+        "quote": "Compare the answer with reality. Count useful catches, missed facts, false alarms, minutes saved, and total cost. Run the same test with the model or process you use today."
+      }
+    ],
+    "references": [
+      {
+        "path": "docs/social/voice/sam-parr-field-guide.md",
+        "sha256": "33eb69c729c46c56995cedcb87955b732eeba763b0d6a93401e3e6c404ab086e"
+      }
+    ],
+    "submission": {
+      "media": [
+        {
+          "url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788291077233-416743a3.jpg",
+          "alt_text": "Text carousel explaining how a trade crew can test a job-file review process using one completed job, a source-backed change log, and a simple scorecard."
+        }
+      ],
+      "source": {
+        "id": "e0d5ff01-97cd-4168-bcc3-70b2cd094d2b",
+        "url": "https://opsapp.co/journal/claude-fable-5-1-first-test-gpt-5-7-astra",
+        "type": "blog",
+        "published_at": "2026-09-01T18:32:46.742Z"
+      },
+      "content": {
+        "cta": "Save one closed job as your shop’s repeat test.",
+        "hook": "A clean report can still be wrong.",
+        "angle": "Before trusting any job-file review process, test it against a completed job where the crew already knows what happened.",
+        "title": "Run the closed-job test",
+        "slides": [
+          {
+            "body": "Test the process on a job you already finished. Not one that is still moving.",
+            "alt_text": "A clean report can still be wrong",
+            "headline": "A clean report can still be wrong",
+            "image_url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788291077233-416743a3.jpg"
+          },
+          {
+            "body": "Use a completed job where something changed and you already know how it ended.",
+            "alt_text": "Pick a job you know cold",
+            "headline": "Pick a job you know cold"
+          },
+          {
+            "body": "Gather the estimate, drawings, revisions, supplier messages, site photos, inspection notes, change orders, schedule, and closeout file.",
+            "alt_text": "Rebuild the original record",
+            "headline": "Rebuild the original record"
+          },
+          {
+            "body": "Build a change log. For every material change, show the source and date, the effect on scope, price, or schedule, and what the file cannot prove. Do not fill gaps.",
+            "alt_text": "Give it one narrow assignment",
+            "headline": "Give it one narrow assignment"
+          },
+          {
+            "body": "Count useful catches, missed facts, false alarms, minutes saved, and total cost. Then compare it with your current process.",
+            "alt_text": "Score it against reality",
+            "headline": "Score it against reality"
+          }
+        ],
+        "caption": "The dangerous answer is not always messy.\n\nSometimes it is polished, complete, and built around one detail the file never proved.\n\nSo do not make a live job the test.\n\nPick a closed job you know cold. Give the tool the original record. Ask for a change log with a source behind every flag and a plain list of what the file cannot prove.\n\nThen compare the answer with what really happened.\n\nThe tool does the digging. You make the call.\n\nSource: https://opsapp.co/journal/claude-fable-5-1-first-test-gpt-5-7-astra",
+        "alt_text": "Text carousel explaining how a trade crew can test a job-file review process using one completed job, a source-backed change log, and a simple scorecard."
+      },
+      "preferences": {
+        "format": "carousel",
+        "story_type": "blog_signal"
+      },
+      "contract_version": "2026-09-01"
+    }
+  },
+  "last_code": null,
+  "notified_at": "2026-09-06T00:12:29.32119+00:00",
+  "post_id": null
+}

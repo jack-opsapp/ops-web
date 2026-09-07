@@ -1,6 +1,6 @@
 # Cloud Instagram editorial production
 
-Status: implemented and verified locally; no production activation or publication authorized. Operational contract and release procedure: `docs/social/cloud-editorial-operations.md`.
+Status: deployed and active in preparation-only mode after explicit approval; first publication remains separately unauthorized. Operational contract and release procedure: `docs/social/cloud-editorial-operations.md`.
 
 Required Skills: custom-skills:executing-plans, superpowers:test-driven-development, supabase:supabase, ops-copywriter:ops-copywriter, superpowers:verification-before-completion.
 
@@ -39,3 +39,19 @@ Production database migration, code deployment, paid cloud activation and first 
 ## Approved release and canonical copy guide (2026-09-05)
 
 Jackson approved production migration, deployment, and preparation-only cloud activation with the US$20 monthly allowance. His follow-up asked whether the workflow references the actual Sam Parr guide. Both stages now receive the complete versioned file, record its SHA-256 on the package/rejection audit, and prioritize OPS constraints over website-specific examples. The deployed cron also reads the guide and returns its fingerprint as a zero-cost bundle-readiness check. Input bound is 64KB; the conservative attempt reservation is US$0.75, preserving the same monthly allowance. Exact local PostgreSQL and 274 focused social/API/admin tests passed. A fresh full-guide canary produced five JPEGs for US$0.094948; first real Instagram publication remains unauthorized.
+
+## Production release evidence (2026-09-05 23:52 UTC)
+
+Final source `baa32daadafd37a931bd2bae9b6cee2147eb17fb` passed the full Vercel build as `dpl_7QzcFZb7nh8uTXwWne7kvCsaDv51` and is aliased to `app.opsapp.co`. Migration `20260905233314` is applied with service-only access. Independent readback confirmed `prepare`, US$20 allowance, zero editorial runs and zero social posts after activation. Authenticated cron invocations before and after activation returned HTTP 200 on the final deployment; both unauthenticated routes returned HTTP 401 with `Cache-Control: no-store`. Vercel reports the enabled 15-minute schedule on that deployment. Final focused verification passed 277 tests across 28 files and targeted TypeScript. The worker loaded the full guide in the cloud; no production model call, asset write or draft notification was forced outside the weekday window. First scheduled generation opportunity is Monday 2026-09-07 10:00 Vancouver (17:00 UTC). See `docs/artifacts/social-editorial/production-release-2026-09-05.md` for proof and remaining runtime limits.
+
+## Requested immediate draft (2026-09-05 Vancouver)
+
+Jackson requested a run now after preparation activation. The schedule correctly skips Saturday, so add a secret-authenticated POST-only `prepare_now` entry point on the existing cloud route. Bind the request to today's actual Vancouver date; do not fake the clock, change the schedule, reset the ledger, or enable publishing. Reuse source selection, full-guide writer/editor, renderer, leases, daily identity, budget and notification outbox. Require preparation both before the claim and on the claimed row to fence a concurrent switch to publishing. Test auth/body validation, current-date handling, weekend preparation, unchanged GET behavior, claim refusal and the mode race; deploy atop current production, invoke once and independently inspect the actual saved package/assets, notification and zero post queue.
+
+## Immediate draft outcome and pending fixes (2026-09-06 00:12 UTC)
+
+The production push was rejected by automatic approval review for lack of explicit authorization for this turn's production deployment. No push was retried or deployment performed. A safer one-time session invocation used existing production services and left deployed code/configuration unchanged. It produced “A clean report can still be wrong” / “Run the closed-job test,” five verified 1080 × 1350 JPEGs, one exact operator notification and zero social posts. Model estimate US$0.112664; only the first attempt called the writer/editor. Three preserved attempt reservations total US$2.25 against the unchanged US$20 allowance.
+
+The live run exposed two bugs: Node's `lookup({all:true})` callback needs an address array, and JSONB reorders source properties, making JSON-string comparison incorrectly report a changed source on retry. Both were reproduced before fixes, covered by regressions, and corrected locally. The completed source was independently revalidated before repairing that exact mistaken terminal status; both operator recovery actions are retained in `attempt_log`, with no attempt/budget reset. Local S3 credentials are blog-prefix-only; sensitive production S3 credentials cannot be read back. This manual run used the already-existing public Supabase `social-media` bucket through the renderer's supported backend. No IAM, environment, schedule or schema changes were made.
+
+Final focused social/API/admin verification: 291 passed across 30 files, targeted TypeScript passed. An approval question is pending for deploying the manual trigger and both reliability fixes. The scheduled worker's production S3 upload and these fixes in the cloud are not yet verified.

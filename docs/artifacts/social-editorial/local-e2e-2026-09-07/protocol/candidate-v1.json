@@ -1,0 +1,81 @@
+{
+  "title": "Hold the dispatch until someone proves the route",
+  "hook": "A road can look wet from the cab. The pavement can be gone underneath it.",
+  "angle": "A flood emergency is an access problem before it is a weather problem, so hold non-essential dispatch, verify the route twice, give the driver turn-around authority and build the record.",
+  "caption": "A road can look wet from the cab. The pavement can be gone underneath it.\n\nRichmond, Inverness and Victoria Counties declared a State of Local Emergency after severe flooding hit parts of Cape Breton. Evacuations, closures, washouts and damage to roads and bridges are active. Officials are asking people to avoid every non-essential trip. That applies to the work truck too.\n\nThe closure list moves. The emergency declaration is the stable fact. The rule is simple. If the route, site and power status are not verified, the crew does not roll.\n\nCheck official road status right before departure. Check again before the crew leaves the last safe junction. A customer saying the road looks fine is not route verification. Neither is yesterday's screenshot.\n\nGive the driver turn-around authority. Water on the road, a barrier, a washed shoulder or uncertain depth ends the trip, with no call to the office. Never drive through floodwater or around a closure.\n\nKeep emergency lanes clear. Road and utility crews need room. A commercial appointment does not outrank response work.\n\nWhen access returns, the property is the next hazard. Treat every wire as live and stay clear. If water is near an electrical panel, do not enter the area or reach for the disconnect. Floodwater can move soil and undermine foundations in ways nobody can see from the doorway.\n\nThen build the record. Timestamp the warning, the closures and the outage status. Save the original schedule, the crew assignment and the customer message. Track standby time and abandoned travel. Keep facts separate from conclusions.\n\nSend customers one clean update. What is closed, what you verified, what is paused, when you will check again. No drama. No false arrival time. If there is no verified route, there is no job today.",
+  "cta": "Hold non-essential trips into the affected counties until someone verifies the route.",
+  "alt_text": "Carousel of five operating steps for a flood access emergency: park non-essential trips, verify the route right before departure and again at the last safe junction, give the driver authority to turn around, treat a flooded site as live until it is cleared, and set the next check time while logging the record.",
+  "story_type": "operator_protocol",
+  "slides": [
+    {
+      "headline": "Park every non-essential trip",
+      "body": "Officials are asking people to avoid every non-essential trip, and that instruction applies to the work truck too. If the route, site and power status are not verified, the crew does not roll. A commercial appointment does not outrank response work."
+    },
+    {
+      "headline": "Verify the route twice, not once",
+      "body": "A line on a map can be open at dawn and washed out an hour later. Check official road status right before departure, then check again before the crew leaves the last safe junction. A customer saying the road looks fine is not route verification. Neither is yesterday's screenshot."
+    },
+    {
+      "headline": "Give the driver turn-around authority",
+      "body": "Water on the road, a barrier, a washed shoulder or uncertain depth ends the trip. No call to the office is required. Never drive through floodwater or around a closure. Water can hide a missing shoulder, a failed culvert or a washed-out road bed."
+    },
+    {
+      "headline": "Treat the site as live until it is cleared",
+      "body": "When access returns, the property is the next hazard. Treat every wire as live and stay clear. If water is near an electrical panel, do not enter the area or reach for the disconnect. Floodwater can move soil and undermine foundations in ways that are not visible from the doorway."
+    },
+    {
+      "headline": "Set the next check time and log the record",
+      "body": "Delayed is not a plan. Put the route owner, the customer update and the next official review on the schedule. Track standby time, travel abandoned before the hazard and protected materials. Keep facts separate from conclusions, and keep one dispatcher responsible for official updates."
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "A road can look wet from the cab while the pavement underneath is gone.",
+      "quote": "The road can look wet from the cab. The pavement may be gone underneath it."
+    },
+    {
+      "claim": "Richmond, Inverness and Victoria Counties declared a State of Local Emergency after severe flooding hit parts of Cape Breton; evacuations, road closures, washouts and damage to roads and bridges are active, officials are asking people to avoid every non-essential trip including the work truck, and an unverified route, site or power status means the crew does not roll.",
+      "quote": "Richmond, Inverness and Victoria Counties declared a State of Local Emergency at 4:54 p.m. ADT Saturday after severe flooding hit parts of Cape Breton. Municipal officials say evacuations, road closures, washouts and damage to roads, bridges and other critical infrastructure are already active. They are asking people to avoid every non-essential trip. That instruction applies to the work truck too. If the route, site and power status are not verified, the crew does not roll."
+    },
+    {
+      "claim": "The closure list moves while the emergency declaration is the stable fact.",
+      "quote": "Both the road list and outage count will move. The emergency declaration is the stable fact."
+    },
+    {
+      "claim": "A route can be open early and washed out soon after, and neither a customer saying the road looks fine nor yesterday's screenshot is route verification.",
+      "quote": "A line on a map can be open at 6 a.m. and washed out by 7. A customer saying “the road looks fine” is not route verification. Neither is yesterday's screenshot."
+    },
+    {
+      "claim": "Park non-essential dispatch, check official road status immediately before departure and again before the crew leaves the last safe junction.",
+      "quote": "Park every non-essential dispatch into the affected area. Do not make a crew discover the closure from the windshield. Check 511 Nova Scotia immediately before departure. Then check again before the crew leaves the last safe junction. Conditions can change faster than the morning board."
+    },
+    {
+      "claim": "The driver has turn-around authority with no call to the office, emergency lanes stay clear, a commercial appointment does not outrank response work, and the next check time, route owner and customer update go on the schedule.",
+      "quote": "Give the driver turn-around authority. Water on the road, a barrier, a washed shoulder or uncertain depth ends the trip. No call to the office is required. Keep emergency lanes clear. Road, utility and assessment crews need room. A commercial appointment does not outrank response work. Set the next check time. “Delayed” is not a plan. Put the route owner, customer update and next official review on the schedule."
+    },
+    {
+      "claim": "Never drive through floodwater or around a closure, because water hides a missing shoulder, failed culvert or washed-out road bed, and without a verified route there is no job today.",
+      "quote": "Never drive through floodwater or around a closure. Water can hide a missing shoulder, failed culvert or washed-out road bed. If there is no verified route, there is no job today."
+    },
+    {
+      "claim": "When access returns the property is the next hazard: treat every wire as live, and do not enter the area or reach for the disconnect when water is near an electrical panel.",
+      "quote": "When access returns, the next hazard is the property itself. Water and electricity do not leave room for improvisation. Nova Scotia Power says to treat every wire as live and stay clear. If water is near an electrical panel, do not enter the area or reach for the disconnect."
+    },
+    {
+      "claim": "Floodwater can move soil and undermine foundations in ways that are not visible from the doorway.",
+      "quote": "Floodwater can move soil, undermine foundations and load materials in ways that are not visible from the doorway."
+    },
+    {
+      "claim": "Record the official warning, closures and outage status with a timestamp, save the original schedule, crew assignment and customer message, track standby time and abandoned travel, then separate facts from conclusions.",
+      "quote": "Record the official warning, route closure and outage status with a timestamp. Save the original schedule, crew assignment, equipment booking and customer message. Photograph damage only from a safe location. Track standby time, travel abandoned before the hazard, protected materials, cancelled deliveries and any emergency work the customer authorizes. Then separate facts from conclusions."
+    },
+    {
+      "claim": "Send customers one clean update covering what is closed, what you verified, what is paused and when you will check again, with no drama and no false arrival time.",
+      "quote": "Send customers one clean update: what is closed, what you verified, what work is paused, when you will check again and what could change the schedule. No drama. No false arrival time."
+    },
+    {
+      "claim": "Keep one dispatcher responsible for official updates.",
+      "quote": "Keep one dispatcher responsible for official updates."
+    }
+  ]
+}

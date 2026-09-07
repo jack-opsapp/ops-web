@@ -1,0 +1,174 @@
+{
+  "ok": true,
+  "selection": {
+    "selectorVersion": "feed-cycle-2026-09-01",
+    "storyType": "blog_signal",
+    "visualTreatment": "editorial_cover",
+    "postFormat": "carousel",
+    "preferenceDisposition": "not_provided",
+    "preferenceReasons": [],
+    "scoreBreakdown": {
+      "story": 100,
+      "fit": 50,
+      "cadence": 0,
+      "preference": 0,
+      "tieBreak": 0.13703421483212946
+    },
+    "considered": [
+      {
+        "treatment": "editorial_cover",
+        "compatible": true,
+        "reasons": [],
+        "score": 150.13703421483214,
+        "scoreBreakdown": {
+          "story": 100,
+          "fit": 50,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.13703421483212946
+        }
+      },
+      {
+        "treatment": "split_signal",
+        "compatible": true,
+        "reasons": [],
+        "score": 134.50914367509753,
+        "scoreBreakdown": {
+          "story": 100,
+          "fit": 34,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.5091436750975307
+        }
+      },
+      {
+        "treatment": "operator_brief",
+        "compatible": true,
+        "reasons": [],
+        "score": 108.86234530197977,
+        "scoreBreakdown": {
+          "story": 100,
+          "fit": 8,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.8623453019797674
+        }
+      },
+      {
+        "treatment": "field_frame",
+        "compatible": false,
+        "reasons": [
+          "not available for blog_signal"
+        ],
+        "score": 0.007867372829436179,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.007867372829436179
+        }
+      },
+      {
+        "treatment": "proof_board",
+        "compatible": false,
+        "reasons": [
+          "not available for blog_signal"
+        ],
+        "score": 0.3563369625146354,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.3563369625146354
+        }
+      },
+      {
+        "treatment": "signal_grid",
+        "compatible": true,
+        "reasons": [],
+        "score": 114.8953430594167,
+        "scoreBreakdown": {
+          "story": 100,
+          "fit": 14,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.8953430594167073
+        }
+      },
+      {
+        "treatment": "roast_file",
+        "compatible": false,
+        "reasons": [
+          "not available for blog_signal"
+        ],
+        "score": 0.9844939578288453,
+        "scoreBreakdown": {
+          "story": 0,
+          "fit": 0,
+          "cadence": 0,
+          "preference": 0,
+          "tieBreak": 0.9844939578288453
+        }
+      }
+    ]
+  },
+  "assets": [
+    {
+      "order": 1,
+      "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-01.jpg",
+      "alt_text": "A clean report can still be wrong",
+      "sha256": "bd85f22bd1eacbe0608d27ba221dde44f0a61b3bc8cd3674f08838afa662b09a",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 135358,
+      "content_type": "image/jpeg",
+      "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-01.jpg"
+    },
+    {
+      "order": 2,
+      "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-02.jpg",
+      "alt_text": "Pick a job you know cold",
+      "sha256": "833e4b6246363c1c943ecbedb3d072b4cfadb43cf5d5f73c1cd426e6441d989d",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 131392,
+      "content_type": "image/jpeg",
+      "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-02.jpg"
+    },
+    {
+      "order": 3,
+      "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-03.jpg",
+      "alt_text": "Rebuild the original record",
+      "sha256": "6ff5d2848daf2e82e55f4de9a0ae03663cc71a1a219b563a12c07b1f9fc450d5",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 133744,
+      "content_type": "image/jpeg",
+      "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-03.jpg"
+    },
+    {
+      "order": 4,
+      "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-04.jpg",
+      "alt_text": "Give it one narrow assignment",
+      "sha256": "bf6af44ff4dac423f48ee632b7b554cfa1ff5070cd8da684b3564587e3d9306d",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 135769,
+      "content_type": "image/jpeg",
+      "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-04.jpg"
+    },
+    {
+      "order": 5,
+      "url": "https://ijeekuhbatykdomumfjx.supabase.co/storage/v1/object/public/social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-05.jpg",
+      "alt_text": "Score it against reality",
+      "sha256": "60a705cdd106d420d6dd86f9d7b9dec09b1fe22e3be500ed7918913dbb0f7390",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 131885,
+      "content_type": "image/jpeg",
+      "storage_key": "social-media/bafc4b9a-23ec-56a7-8fae-bf0c16f24a49/social-render-2026-09-01-v1/slide-05.jpg"
+    }
+  ]
+}

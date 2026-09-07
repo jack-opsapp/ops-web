@@ -1,0 +1,59 @@
+{
+  "assignment": {
+    "id": "e70d1582-3163-4d7d-ac59-6b95cbc671f7",
+    "identity": "protocol:2026-09-08",
+    "kind": "protocol",
+    "mode": "prepare",
+    "attempt": 1,
+    "attempts_remaining": 2,
+    "claim_token": "6f3dbb46-ae8f-455d-89af-e5ede1f46d71",
+    "lease_until": "2026-09-06T19:57:27.221007-07:00",
+    "brief_version": "ops-editorial-2026-09-07-v3",
+    "current_time": "2026-09-07T02:17:27.207Z",
+    "source": {
+      "id": "85c62b33-8349-473b-bf9b-e6f75fd46c50",
+      "title": "WESTERN CAPE BRETON IS UNDER EMERGENCY. HOLD NON-ESSENTIAL DISPATCH.",
+      "slug": "western-cape-breton-flood-emergency-trades-dispatch-september-6-2026",
+      "url": "https://opsapp.co/journal/western-cape-breton-flood-emergency-trades-dispatch-september-6-2026",
+      "published_at": "2026-09-06T00:44:49.779452-07:00",
+      "text": "The road can look wet from the cab. The pavement may be gone underneath it. Richmond, Inverness and Victoria Counties declared a State of Local Emergency at 4:54 p.m. ADT Saturday after severe flooding hit parts of Cape Breton. Municipal officials say evacuations, road closures, washouts and damage …",
+      "thumbnail_url": "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788680600617-2f2cc037.png"
+    },
+    "recent_hooks": [
+      "Most expensive mistakes start when two ordinary facts never meet."
+    ],
+    "format": {
+      "story_types": [
+        "operator_protocol"
+      ],
+      "slides": {
+        "min": 1,
+        "max": 6
+      },
+      "closing_slide": "none"
+    },
+    "limits": {
+      "title": 100,
+      "hook": 90,
+      "angle": 220,
+      "caption": 1800,
+      "cta": 120,
+      "alt_text": 500,
+      "slide_headline": 100,
+      "slide_body": 350,
+      "evidence_quote": [
+        20,
+        700
+      ],
+      "evidence": [
+        1,
+        12
+      ]
+    },
+    "guide": {
+      "path": "docs/social/voice/sam-parr-field-guide.md",
+      "sha256": "33eb69c729c46c56995cedcb87955b732eeba763b0d6a93401e3e6c404ab086e",
+      "content_bytes": 25649
+    }
+  }
+}

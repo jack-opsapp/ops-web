@@ -250,7 +250,7 @@
     },
     {
       "path": "/api/cron/social-editorial",
-      "schedule": "*/15 * * * *"
+      "schedule": "8-59/15 * * * *"
     }
   ]
 }

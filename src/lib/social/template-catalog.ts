@@ -15,11 +15,18 @@ export const SOCIAL_TEMPLATE_CATALOG: readonly SocialTemplateDefinition[] = [
     storyTypes: ["blog_signal", "release_note"],
     requiresImage: true,
     imageLed: true,
-    maximumTitleLength: 52,
+    // The cover renders the hook and the article title, never the package
+    // title, so the title length no longer constrains the layout.
+    maximumTitleLength: 100,
   },
   {
     treatment: "split_signal",
-    storyTypes: ["blog_signal", "field_dispatch", "performance_proof", "release_note"],
+    storyTypes: [
+      "blog_signal",
+      "field_dispatch",
+      "performance_proof",
+      "release_note",
+    ],
     requiresImage: true,
     imageLed: true,
     minimumTitleLength: 33,
@@ -62,8 +69,12 @@ export const SOCIAL_TEMPLATE_CATALOG: readonly SocialTemplateDefinition[] = [
   },
 ] as const;
 
-export function getSocialTemplate(treatment: SocialVisualTreatment): SocialTemplateDefinition {
-  const template = SOCIAL_TEMPLATE_CATALOG.find((candidate) => candidate.treatment === treatment);
+export function getSocialTemplate(
+  treatment: SocialVisualTreatment
+): SocialTemplateDefinition {
+  const template = SOCIAL_TEMPLATE_CATALOG.find(
+    (candidate) => candidate.treatment === treatment
+  );
   if (!template) throw new Error(`Unknown social treatment: ${treatment}`);
   return template;
 }

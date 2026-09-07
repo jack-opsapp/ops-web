@@ -92,6 +92,13 @@ const guardedProductionRoutes = new Map<string, string>([
   // grid left is a 15-minute one. Cadence is not appointment-critical: due
   // work is claimed by whichever run comes next, and PUBLISH NOW bypasses cron.
   ["/api/cron/social-publish", "13-59/15 * * * *"],
+  // Full-day on purpose: the editorial ledger admits one weekday slot from
+  // 10:00 Vancouver with recovery until 20:00, so a 15-minute offset is
+  // immaterial. The bare */15 grid (:00 :15 :30 :45) sits on the */5 grid
+  // that already carries three lanes, and 13-59/15 belongs to social-publish,
+  // so this is the last full-day 15-minute grid inside the three-lane budget:
+  // :08 :23 :38 :53.
+  ["/api/cron/social-editorial", "8-59/15 * * * *"],
 ]);
 
 const migrationDirectory = join(process.cwd(), "supabase/migrations");

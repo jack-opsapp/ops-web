@@ -1,0 +1,85 @@
+{
+  "title": "Claude Fable 5.1 still only sees the job file you keep",
+  "hook": "Most expensive mistakes start when two ordinary facts never meet.",
+  "angle": "A model release only matters to a shop if it connects facts a job already scattered, and the article's real point is that the record you keep and the person who approves still decide the outcome.",
+  "caption": "Claude Fable 5.1 shipped. For a shop the question is narrow. Can it hold a changing job together long enough to help you make a better call.\n\nMost expensive mistakes do not begin with one impossible question. They begin when two ordinary facts never meet. The signed change adds material. The supplier quote still covers the old amount. A photo shows blocked access. The crew is already booked on the promised day.\n\nThe article walks through what actually changed. More of the job file can stay on the table when the next question lands. That is not the same as proof. More context helps it see more evidence. It does not turn missing evidence into truth.\n\nThe base price did not drop. Only the reread got cheaper, so a job record that comes back for scope review, purchasing, billing and closeout can cost less on the repeat.\n\nThen the part nobody sells you. It only sees the file you keep. Site photos on one phone, a scope change buried in a text, a supplier warning in an unread email. None of that ever reaches it.\n\nA person stays at the approval step. It can flag that the material count changed. You approve the price. It can find a calendar conflict. You promise the date.\n\nRead the full breakdown, then run it against one job you already closed.",
+  "cta": "Read the breakdown, then run the closed job test on one job you already finished.",
+  "alt_text": "Six dark carousel slides in the OPS style. The cover reads that most expensive mistakes start when two ordinary facts never meet, and names the Claude Fable 5.1 release. The next slides cover connecting the change order, quote, photo and schedule entry; why more context is not more proof; a base price that did not drop while cached rereads got cheaper; keeping one job record with clear dates and signed changes; and leaving money, scope, schedule and customer promises to a person.",
+  "story_type": "blog_signal",
+  "slides": [
+    {
+      "headline": "Most expensive mistakes start when two ordinary facts never meet.",
+      "body": "Claude Fable 5.1 shipped. What the release changes for a shop, and what it still cannot do."
+    },
+    {
+      "headline": "The win is the connection, not the answer",
+      "body": "The signed change adds material. The supplier quote still covers the old amount. A site photo shows blocked access. The schedule already has the crew somewhere else on the promised day. Each fact is easy alone. A useful answer links them, then points back to the change order, quote, photo and schedule entry behind each flag."
+    },
+    {
+      "headline": "More context is not more proof",
+      "body": "A bigger window is not a smarter opinion. It is more of the job file staying on the table when the next question lands. It still cannot tell that the foreman's voice note is newer than the photo unless the dates are clear. More context helps it see more evidence. It does not turn missing evidence into truth."
+    },
+    {
+      "headline": "The price did not drop. The reread did.",
+      "body": "This is the expensive one, so do not point it at a routine customer email. What changed is cached reading. When the same job record comes back for scope review, purchasing, billing, customer updates and closeout, the repeat review can cost less. A first pass does not get that cut."
+    },
+    {
+      "headline": "It only sees the file you keep",
+      "body": "Site photos on one phone. The scope change living in a text. The supplier warning sitting in an unread email. No model can connect what never reaches it. The setup that works is boring: one job record, clear dates, named versions, signed changes, and the original source attached."
+    },
+    {
+      "headline": "A person owns the approval",
+      "body": "It can prepare a decision. It should not own one. Stop the workflow before anything changes money, scope, schedule, safety, compliance, field direction, or a promise to the customer. It flags that the material count changed. You approve the price. If a vendor says its model acts on its own, ask where the approval step sits."
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "The article is about a new model release and what it means for a trades business.",
+      "quote": "Claude Fable 5.1 is out today. For a trades business, the release comes down to one question: can it keep a whole changing job straight long enough to help you make a better call?"
+    },
+    {
+      "claim": "Expensive mistakes begin when two ordinary facts never meet: a signed change, a quote covering the old amount, a photo showing blocked access, and a crew already booked on the promised day.",
+      "quote": "Most expensive mistakes do not begin with one impossible question. They begin when two ordinary facts never meet. The signed change adds 12 feet of material. The supplier quote still covers the old amount. A site photo shows blocked access. The schedule already has the crew somewhere else on the promised day."
+    },
+    {
+      "claim": "A useful answer connects those facts and points back to the change order, quote, photo and schedule entry that support each flag.",
+      "quote": "A useful answer would connect those facts before the reply goes out. It would show that the quantity changed, the price needs a fresh check, access may add time, and the promised date conflicts with the calendar. Then it would point back to the change order, quote, photo, and schedule entry that support each flag."
+    },
+    {
+      "claim": "A bigger window is not a smarter opinion; it is more of the job file staying available when the next question lands.",
+      "quote": "A one-million-token window is not a smarter opinion. It is more of the job file staying on the table when the next question lands. That file might hold the estimate, drawings, supplier quote, site photos, change orders, and crew schedule."
+    },
+    {
+      "claim": "It cannot tell that the foreman's voice note is newer than the photo unless the dates are clear, and more context does not turn missing evidence into truth.",
+      "quote": "Fable 5.1 does not know whether the foreman's voice note is newer than the photo unless the dates are clear. It does not know whether the supplier price still stands unless the file says so. More context helps it see more evidence. It does not turn missing evidence into truth."
+    },
+    {
+      "claim": "The base price did not drop, and this is the expensive version, so it should not be used to rewrite a routine customer email.",
+      "quote": "THE PRICE DID NOT DROP. ONE REPEAT COST DID. Fable 5.1 keeps Fable 5's base API price: US$10 per million input tokens and US$50 per million output tokens. This is the expensive version. Do not use it to rewrite a routine customer email."
+    },
+    {
+      "claim": "Only rereading already cached material got cheaper, so a repeat review of the same job record can cost less while a first-time review does not.",
+      "quote": "The change is cached context. Reading information that is already cached now costs US$0.25 per million tokens, down from US$1 on Fable 5. Only the reread got cheaper. If the same job record comes back for scope review, purchasing, billing, customer updates, and closeout, the repeat review can cost less. That is not a 75% cheaper model. A first-time review does not get that cut."
+    },
+    {
+      "claim": "If site photos stay on one phone, the scope change lives in a text and the supplier warning sits in an unread email, no model can connect what never reaches it; the setup that works is one job record with clear dates, named versions, signed changes and the original source attached.",
+      "quote": "If the site photos stay on one phone, the scope change lives in a text, and the supplier warning sits in an unread email, no model can connect what never reaches it. A bigger context window can still read a bigger mess. The practical setup is boring and valuable: one job record, clear dates, named versions, signed changes, and the original source attached."
+    },
+    {
+      "claim": "It can prepare a decision but should not own one, and the workflow should stop before anything changes money, scope, schedule, safety, compliance, field direction or a promise to the customer.",
+      "quote": "Fable 5.1 can prepare a decision. It should not own the decision. Stop the workflow before anything changes money, scope, schedule, safety, compliance, field direction, or a promise to the customer."
+    },
+    {
+      "claim": "It flags that the material count changed and a person approves the price; it finds a calendar conflict and a person promises the date.",
+      "quote": "It can flag that the material count changed. A person approves the price. It can find a calendar conflict. A person promises the date. It can draft a change-order note. A person confirms the scope and sends it."
+    },
+    {
+      "claim": "If a software vendor says its model acts on its own, ask where the approval step sits.",
+      "quote": "If a software vendor says its model acts on its own, ask where the approval step sits. If the answer is vague, the risk still belongs to your shop."
+    },
+    {
+      "claim": "Run the test on a completed job: load the estimate, revisions, supplier messages, site photos, change orders and schedule record, and ask for a change log that cites the source and date for every material change.",
+      "quote": "Do not make a live customer the experiment. Pick one completed job where you already know what changed, what was missed, and how the job ended. Load the original estimate, drawings, revisions, supplier messages, site photos, inspection notes, change orders, schedule record, and closeout file. Then give Fable 5.1 one narrow assignment: Build a change log for this job. For every material change, cite the source and date."
+    }
+  ]
+}
