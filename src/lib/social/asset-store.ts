@@ -12,7 +12,8 @@ import {
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { RenderedSocialAsset } from "./types";
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_VERSION_PATTERN = /^[A-Za-z0-9._-]{1,80}$/;
 
 export interface StoreSocialAssetInput {
@@ -33,10 +34,24 @@ export interface SocialAssetStoreDependencies {
   publicSupabaseUrl: (key: string) => string;
 }
 
+/**
+ * Social artwork can be pinned to one backend without moving every other
+ * upload in the product: the Supabase `social-media` bucket path is the one
+ * proven in production, while the S3 social prefix is not. An unrecognised
+ * value falls through to the global selector so a typo cannot strand uploads.
+ */
+export function resolveSocialStorageBackend(
+  env: Record<string, string | undefined> = process.env
+): StorageBackend {
+  const override = env.SOCIAL_STORAGE_BACKEND?.trim().toLowerCase();
+  if (override === "s3" || override === "supabase") return override;
+  return getStorageBackend();
+}
+
 function defaultDependencies(): SocialAssetStoreDependencies {
   const supabase = getServiceRoleClient();
   return {
-    backend: getStorageBackend(),
+    backend: resolveSocialStorageBackend(),
     putS3: async (key, buffer) => {
       await getS3Client().send(
         new PutObjectCommand({
@@ -49,12 +64,15 @@ function defaultDependencies(): SocialAssetStoreDependencies {
       );
     },
     putSupabase: async (key, buffer) => {
-      const { error } = await supabase.storage.from("social-media").upload(key, buffer, {
-        contentType: "image/jpeg",
-        cacheControl: "31536000",
-        upsert: true,
-      });
-      if (error) throw new Error(`Social asset upload failed: ${error.message}`);
+      const { error } = await supabase.storage
+        .from("social-media")
+        .upload(key, buffer, {
+          contentType: "image/jpeg",
+          cacheControl: "31536000",
+          upsert: true,
+        });
+      if (error)
+        throw new Error(`Social asset upload failed: ${error.message}`);
     },
     publicS3Url: buildPublicS3Url,
     publicSupabaseUrl: (key) =>
@@ -66,12 +84,15 @@ export async function storeSocialAsset(
   input: StoreSocialAssetInput,
   dependencies: SocialAssetStoreDependencies = defaultDependencies()
 ): Promise<RenderedSocialAsset> {
-  if (!UUID_PATTERN.test(input.postId)) throw new Error("Invalid social post ID");
-  if (!SAFE_VERSION_PATTERN.test(input.renderVersion)) throw new Error("Invalid render version");
+  if (!UUID_PATTERN.test(input.postId))
+    throw new Error("Invalid social post ID");
+  if (!SAFE_VERSION_PATTERN.test(input.renderVersion))
+    throw new Error("Invalid render version");
   if (!Number.isInteger(input.order) || input.order < 1 || input.order > 10) {
     throw new Error("Invalid slide order");
   }
-  if (input.width < 1 || input.height < 1) throw new Error("Invalid asset dimensions");
+  if (input.width < 1 || input.height < 1)
+    throw new Error("Invalid asset dimensions");
 
   const slide = String(input.order).padStart(2, "0");
   const relativeKey = `${input.postId}/${input.renderVersion}/slide-${slide}.jpg`;
