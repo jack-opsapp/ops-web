@@ -4,33 +4,84 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { SocialPostRecord } from "./types";
 
 function recipients(): { userId: string; companyId: string } | null {
-  const userId = process.env.SOCIAL_OPERATOR_USER_ID ?? process.env.PMF_OPERATOR_USER_ID;
-  const companyId = process.env.SOCIAL_OPERATOR_COMPANY_ID ?? process.env.PMF_OPERATOR_COMPANY_ID;
+  const userId =
+    process.env.SOCIAL_OPERATOR_USER_ID ?? process.env.PMF_OPERATOR_USER_ID;
+  const companyId =
+    process.env.SOCIAL_OPERATOR_COMPANY_ID ??
+    process.env.PMF_OPERATOR_COMPANY_ID;
   return userId && companyId ? { userId, companyId } : null;
 }
 
-export async function createSocialReviewNotification(post: SocialPostRecord): Promise<void> {
+const launchTimeFormat = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Etc/GMT+7",
+  month: "short",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** `Sep 08 · 10:00` — Vancouver local, the only clock the operator reads. */
+export function formatSocialLaunchTime(publishAfter: string): string {
+  const parts = Object.fromEntries(
+    launchTimeFormat
+      .formatToParts(new Date(publishAfter))
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.month} ${parts.day} · ${parts.hour}:${parts.minute}`;
+}
+
+/**
+ * The operator is told when the post goes out and where to stop it. A queued
+ * post with no launch time falls back to the fixed ten-minute veto window.
+ */
+export function socialReviewNotification(post: SocialPostRecord): {
+  title: string;
+  body: string;
+} {
+  const launchAt =
+    post.publish_after && !Number.isNaN(Date.parse(post.publish_after))
+      ? formatSocialLaunchTime(post.publish_after)
+      : null;
+  return {
+    title: `INSTAGRAM POST QUEUED · ${post.id.slice(0, 8).toUpperCase()}`,
+    body: launchAt
+      ? `Publishes ${launchAt} unless stopped. Edit or stop from Social.`
+      : "Publishing starts in 10 minutes unless stopped. Edit or stop from Social.",
+  };
+}
+
+export async function createSocialReviewNotification(
+  post: SocialPostRecord
+): Promise<void> {
   const recipient = recipients();
   if (!recipient) {
-    console.warn("[social] Review notification skipped: operator recipient is not configured");
+    console.warn(
+      "[social] Review notification skipped: operator recipient is not configured"
+    );
     return;
   }
 
-  const { error } = await getServiceRoleClient().from("notifications").insert({
-    user_id: recipient.userId,
-    company_id: recipient.companyId,
-    type: "social_post_review",
-    title: `SOCIAL POST READY · ${post.id.slice(0, 8).toUpperCase()}`,
-    body: "Instagram post enters the publishing queue in 10 minutes unless stopped.",
-    is_read: false,
-    persistent: true,
-    action_url: `/admin/social?post=${post.id}`,
-    action_label: "REVIEW POST",
-  });
+  const { title, body } = socialReviewNotification(post);
+  const { error } = await getServiceRoleClient()
+    .from("notifications")
+    .insert({
+      user_id: recipient.userId,
+      company_id: recipient.companyId,
+      type: "social_post_review",
+      title,
+      body,
+      is_read: false,
+      persistent: true,
+      action_url: `/admin/social?post=${post.id}`,
+      action_label: "REVIEW POST",
+    });
   if (error) throw new Error(`Review notification failed: ${error.message}`);
 }
 
-export async function resolveSocialReviewNotification(postId: string): Promise<void> {
+export async function resolveSocialReviewNotification(
+  postId: string
+): Promise<void> {
   const recipient = recipients();
   if (!recipient) return;
   const { error } = await getServiceRoleClient()
@@ -41,7 +92,8 @@ export async function resolveSocialReviewNotification(postId: string): Promise<v
     .eq("type", "social_post_review")
     .eq("action_url", `/admin/social?post=${postId}`)
     .eq("is_read", false);
-  if (error) throw new Error(`Review notification resolution failed: ${error.message}`);
+  if (error)
+    throw new Error(`Review notification resolution failed: ${error.message}`);
 }
 
 export async function createSocialPublishedNotification(
@@ -50,17 +102,19 @@ export async function createSocialPublishedNotification(
 ): Promise<void> {
   const recipient = recipients();
   if (!recipient) return;
-  const { error } = await getServiceRoleClient().from("notifications").insert({
-    user_id: recipient.userId,
-    company_id: recipient.companyId,
-    type: "social_post_published",
-    title: `INSTAGRAM POST LIVE · ${post.id.slice(0, 8).toUpperCase()}`,
-    body: "The queued Instagram post is published.",
-    is_read: false,
-    persistent: false,
-    action_url: `/admin/social?post=${post.id}`,
-    action_label: "VIEW POST",
-  });
+  const { error } = await getServiceRoleClient()
+    .from("notifications")
+    .insert({
+      user_id: recipient.userId,
+      company_id: recipient.companyId,
+      type: "social_post_published",
+      title: `INSTAGRAM POST LIVE · ${post.id.slice(0, 8).toUpperCase()}`,
+      body: "The queued Instagram post is published.",
+      is_read: false,
+      persistent: false,
+      action_url: `/admin/social?post=${post.id}`,
+      action_label: "VIEW POST",
+    });
   if (error) throw new Error(`Published notification failed: ${error.message}`);
 }
 
@@ -91,5 +145,6 @@ export async function createSocialRecoveryNotification(
     }
   );
   if (error) throw new Error(`Recovery notification failed: ${error.message}`);
-  if (data !== true) throw new Error("Recovery notification claim is no longer owned");
+  if (data !== true)
+    throw new Error("Recovery notification claim is no longer owned");
 }
