@@ -55,7 +55,11 @@ try {
     "DO $$ BEGIN IF NOT EXISTS(select from pg_roles where rolname='anon') THEN CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; END IF; END $$;" +
       "CREATE TABLE public.social_posts(id uuid primary key default gen_random_uuid(),idempotency_key text,status text,updated_by text,source_id text,publish_after timestamptz,created_by text,instagram_permalink text,created_at timestamptz not null default now());" +
       "CREATE TABLE public.blog_posts(id uuid primary key default gen_random_uuid(),title text,slug text,content text,published_at timestamptz,is_live boolean,thumbnail_url text,updated_at timestamptz not null default now());" +
-      "CREATE TABLE public.notifications(id uuid default gen_random_uuid(),user_id text,company_id text,type text,title text,body text,is_read boolean,persistent boolean,action_url text,action_label text,dedupe_key text,created_at timestamptz not null default now());"
+      "CREATE TABLE public.notifications(id uuid default gen_random_uuid(),user_id text,company_id text,type text,title text,body text,is_read boolean,persistent boolean,action_url text,action_label text,dedupe_key text,resolved_at timestamptz,created_at timestamptz not null default now());" +
+        // Production's open-notification dedupe indexes, copied so the outbox
+        // is proved against the same uniqueness rules the live table enforces.
+        "CREATE UNIQUE INDEX idx_notifications_unread_dedup ON public.notifications (user_id, company_id, type, coalesce(dedupe_key, title)) WHERE is_read = false AND resolved_at IS NULL;" +
+        "CREATE UNIQUE INDEX notifications_open_dedupe_key ON public.notifications (user_id, company_id, type, dedupe_key) WHERE is_read = false AND resolved_at IS NULL AND dedupe_key IS NOT NULL;"
   );
   sql(migration("_create_social_editorial.sql"));
   sql(migration("_create_social_editorial_assignments.sql"));
@@ -625,6 +629,29 @@ try {
     sql("select notify_social_editorial('operator','company')"),
     "1",
     "the replaced function still drains the legacy run outbox"
+  );
+  // A draft re-prepared after a source refresh must not crash the tick on the
+  // unread-notification dedupe index; it is acknowledged without a duplicate.
+  sql(
+    `update social_editorial_assignments set notified_at=null where identity='blog:${blogA}'`
+  );
+  assert.equal(
+    sql("select notify_social_editorial('operator','company')"),
+    "1",
+    "a re-prepared draft is acknowledged even while its first alert is unread"
+  );
+  assert.equal(
+    sql(
+      `select count(*) from notifications where dedupe_key='editorial:blog:${blogA}'`
+    ),
+    "1",
+    "no duplicate alert is inserted"
+  );
+  assert.equal(
+    sql(
+      `select notified_at is not null from social_editorial_assignments where identity='blog:${blogA}'`
+    ),
+    "t"
   );
 
   // --- authoring stall ----------------------------------------------------

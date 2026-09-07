@@ -242,7 +242,8 @@ begin
  insert into public.notifications(user_id,company_id,type,title,body,is_read,persistent,action_url,action_label,dedupe_key)
  values(p_user_id,p_company_id,'social_editorial','INSTAGRAM AUTHORING STALLED',
  'Posts are queued and the writer has not checked in for a day.',
- false,true,'/admin/social#cloud-production','VIEW SOCIAL','editorial:authoring-stalled:'||v_today::text);
+ false,true,'/admin/social#cloud-production','VIEW SOCIAL','editorial:authoring-stalled:'||v_today::text)
+ on conflict do nothing;
  update public.social_editorial_settings set authoring_stall_notified_on=v_today where id;
  return true;
 end $$;
@@ -276,7 +277,8 @@ begin
   insert into public.notifications(user_id,company_id,type,title,body,is_read,persistent,action_url,action_label,dedupe_key)
   values(p_user_id,p_company_id,'social_editorial',case when r.state='prepared' then 'INSTAGRAM DRAFT READY' else 'INSTAGRAM PREPARATION STOPPED' end,
   case when r.state='prepared' then 'A draft is ready to inspect. It will not publish automatically.' else 'A scheduled post could not be prepared. Open Social to inspect the run.' end,
-  false,r.state='failed','/admin/social#cloud-production','VIEW SOCIAL','editorial:'||r.slot_date::text);
+  false,r.state='failed','/admin/social#cloud-production','VIEW SOCIAL','editorial:'||r.slot_date::text)
+  on conflict do nothing;
   update public.social_editorial_runs set notified_at=now() where slot_date=r.slot_date;
   delivered:=delivered+1;
  end loop;
@@ -284,7 +286,8 @@ begin
   insert into public.notifications(user_id,company_id,type,title,body,is_read,persistent,action_url,action_label,dedupe_key)
   values(p_user_id,p_company_id,'social_editorial',case when a.state='prepared' then 'INSTAGRAM DRAFT READY' else 'INSTAGRAM POST BLOCKED' end,
   case when a.state='prepared' then 'A carousel is ready to inspect. Nothing publishes until you release it.' else 'A post stopped before it was queued. Open Social for the reason.' end,
-  false,a.state='blocked','/admin/social#cloud-production','VIEW SOCIAL','editorial:'||a.identity);
+  false,a.state='blocked','/admin/social#cloud-production','VIEW SOCIAL','editorial:'||a.identity)
+  on conflict do nothing;
   update public.social_editorial_assignments set notified_at=now() where id=a.id;
   delivered:=delivered+1;
  end loop;
