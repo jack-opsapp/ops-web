@@ -242,6 +242,10 @@ export function prepareSubmission(
     preferences: {
       story_type,
       format: c.slides.length === 1 ? "single" : "carousel",
+      // A takeaway carousel is one cover that names the article, then text
+      // slides. Only the editorial cover renders that shape; the selector may
+      // still fall back when the article has no usable image.
+      ...(isBlog ? { visual_treatment: "editorial_cover" as const } : {}),
     },
   });
 }

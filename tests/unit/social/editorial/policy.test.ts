@@ -1,4 +1,5 @@
 import { storeSocialAsset } from "@/lib/social/asset-store";
+import { selectSocialTemplate } from "@/lib/social/template-selector";
 import { describe, expect, it } from "vitest";
 import {
   getEditorialSlot,
@@ -244,6 +245,26 @@ describe("blog adaptation policy", () => {
     const result = prepareSubmission(blogCandidate, blogSource, [], "blog");
     expect(result.content.subtitle).toBe(blogSource.title);
     expect(result.content.date).toBe("SEP 01 · 2026");
+  });
+
+  it("asks for the cover-plus-text treatment whatever the title length", () => {
+    const longTitle =
+      "The new model still only sees the job file you actually keep";
+    expect(longTitle.length).toBeGreaterThan(52);
+    const result = prepareSubmission(
+      { ...blogCandidate, title: longTitle },
+      blogSource,
+      [],
+      "blog"
+    );
+    expect(result.preferences?.visual_treatment).toBe("editorial_cover");
+    const selection = selectSocialTemplate({
+      submission: result,
+      recentPosts: [],
+      idempotencyKey: "cloud-editorial-v2:blog:test",
+    });
+    expect(selection.visualTreatment).toBe("editorial_cover");
+    expect(selection.preferenceDisposition).toBe("honored");
   });
 
   it("closes the carousel with a server-owned bare article URL", () => {

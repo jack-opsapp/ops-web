@@ -3,7 +3,10 @@ import { describe, it, expect, vi } from "vitest";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import sharp from "sharp";
-const wire = vi.hoisted(() => ({ all: true, image: Buffer.alloc(0) }));
+const wire = vi.hoisted(() => ({
+  all: true,
+  image: Buffer.alloc(0) as Buffer,
+}));
 vi.mock("node:https", () => ({
   request: (url: URL, options: any, response: (stream: any) => void) => {
     const request = new EventEmitter() as any;
