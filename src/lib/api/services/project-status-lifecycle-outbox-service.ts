@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runWithSupabase } from "@/lib/supabase/helpers";
+import { NotificationPushUnavailableError } from "@/lib/notifications/notification-push-unavailable-error";
 import {
   CronDatabaseOperationError,
   isDatabasePressureError,
@@ -199,7 +200,9 @@ export const ProjectStatusLifecycleOutboxService = {
             p_event_id: claim.event_id,
             p_lease_token: claim.lease_token,
             p_error: failure,
-            p_retryable: true,
+            // Keep the terminal push failure visible without re-running the
+            // lifecycle for a recipient who cannot receive this notification.
+            p_retryable: !(error instanceof NotificationPushUnavailableError),
           }
         );
         if (persistError) {

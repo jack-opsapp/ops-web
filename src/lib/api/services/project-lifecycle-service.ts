@@ -14,6 +14,7 @@
 import "server-only";
 
 import { dispatchNotificationEvent } from "@/lib/notifications/dispatch-notification-event";
+import { NotificationPushUnavailableError } from "@/lib/notifications/notification-push-unavailable-error";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { parseStringArray } from "@/lib/utils/parse";
 import { getCompanyManagerUserIds } from "./company-managers";
@@ -456,7 +457,9 @@ export const ProjectLifecycleService = {
             "[project-lifecycle] Status notification was rejected:",
             result.reason
           );
-          throw new Error(result.reason);
+          throw result.code === "push_no_subscribed_recipients"
+            ? new NotificationPushUnavailableError()
+            : new Error(result.reason);
         }
       } catch (err) {
         console.error(
