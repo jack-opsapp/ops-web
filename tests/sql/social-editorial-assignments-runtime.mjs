@@ -447,6 +447,48 @@ try {
   sql(
     `update social_editorial_assignments set state='drafted' where id='${promoted}'`
   );
+  assert.equal(
+    sql(
+      `select annotate_social_editorial_assignment('${promoted}','{"event":"source_refreshed"}','{"id":"${blogA}","title":"Alpha"}','{"submission":{"content":{"title":"Refreshed"}}}')`
+    ),
+    "t",
+    "the worker can record a refreshed source and package on a drafted row"
+  );
+  assert.equal(
+    sql(
+      `select source_id::text||'/'||(package->'submission'->'content'->>'title')||'/'||(attempt_log->-1->>'event') from social_editorial_assignments where id='${promoted}'`
+    ),
+    `${blogA}/Refreshed/source_refreshed`
+  );
+  assert.equal(
+    sql(
+      `select annotate_social_editorial_assignment('${promoted}','{"event":"promotion_failed"}',null,null)`
+    ),
+    "t"
+  );
+  assert.equal(
+    sql(
+      `select (source_id='${blogA}')::text||'/'||(package->'submission'->'content'->>'title') from social_editorial_assignments where id='${promoted}'`
+    ),
+    "true/Refreshed",
+    "an annotation without a refresh leaves the snapshot and package alone"
+  );
+  sql(
+    `update social_editorial_assignments set state='prepared' where id='${promoted}'`
+  );
+  assert.equal(
+    sql(
+      `select annotate_social_editorial_assignment('${promoted}','{"event":"late"}',null,null)`
+    ),
+    "f",
+    "only a drafted row accepts a worker annotation"
+  );
+  sql(
+    `update social_editorial_assignments set state='drafted' where id='${promoted}'`
+  );
+  sql(
+    `update social_editorial_assignments set state='drafted' where id='${promoted}'`
+  );
   const postId = "99999999-9999-4999-8999-999999999999";
   sql(
     `insert into social_posts(id,idempotency_key,status,updated_by,created_by) values('${postId}','manual','review','operator','operator')`
@@ -654,6 +696,7 @@ try {
     "finish_social_editorial_assignment(uuid,uuid,text,text,jsonb)",
     "recover_social_editorial_assignments()",
     "promote_social_editorial_assignment(uuid,text,text,jsonb,uuid,jsonb)",
+    "annotate_social_editorial_assignment(uuid,jsonb,jsonb,jsonb)",
     "notify_social_editorial(text,text)",
     "check_social_editorial_authoring(text,text,integer)",
   ];

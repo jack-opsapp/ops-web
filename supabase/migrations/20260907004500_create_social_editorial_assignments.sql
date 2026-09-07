@@ -208,6 +208,23 @@ begin
  return final_state;
 end $$;
 
+-- Worker-scoped: a drafted row holds no lease, so the cron worker records what
+-- it observed, and any source or package it refreshed, by row state instead of
+-- by claim token. Only drafted rows are writable this way.
+create function public.annotate_social_editorial_assignment(p_id uuid,p_detail jsonb,p_source jsonb,p_package jsonb)
+returns boolean language plpgsql security invoker set search_path='' as $$
+begin
+ if p_detail is not null and octet_length(p_detail::text)>100000 then raise exception 'Annotation too large'; end if;
+ update public.social_editorial_assignments set
+  attempt_log=case when p_detail is not null and jsonb_array_length(attempt_log)<9 then attempt_log||jsonb_build_array(p_detail) else attempt_log end,
+  source_snapshot=coalesce(p_source,source_snapshot),
+  source_id=coalesce((p_source->>'id')::uuid,source_id),
+  package=coalesce(p_package,package),
+  updated_at=now()
+ where id=p_id and state='drafted';
+ return found;
+end $$;
+
 -- One persistent notification per Vancouver day when work is queued and the
 -- authoring routine has gone quiet. Silence is the failure mode that looks
 -- exactly like success, so it gets its own alarm.
@@ -237,6 +254,7 @@ revoke all on function public.discover_social_editorial_assignments(date,text),
  public.record_social_editorial_assignment_attempt(uuid,uuid,jsonb),
  public.finish_social_editorial_assignment(uuid,uuid,text,text,jsonb),
  public.promote_social_editorial_assignment(uuid,text,text,jsonb,uuid,jsonb),
+ public.annotate_social_editorial_assignment(uuid,jsonb,jsonb,jsonb),
  public.check_social_editorial_authoring(text,text,integer) from public,anon,authenticated;
 grant execute on function public.discover_social_editorial_assignments(date,text),
  public.recover_social_editorial_assignments(),
@@ -245,6 +263,7 @@ grant execute on function public.discover_social_editorial_assignments(date,text
  public.record_social_editorial_assignment_attempt(uuid,uuid,jsonb),
  public.finish_social_editorial_assignment(uuid,uuid,text,text,jsonb),
  public.promote_social_editorial_assignment(uuid,text,text,jsonb,uuid,jsonb),
+ public.annotate_social_editorial_assignment(uuid,jsonb,jsonb,jsonb),
  public.check_social_editorial_authoring(text,text,integer) to service_role;
 
 -- Superset of the previous outbox: legacy runs still drain, then assignments.
