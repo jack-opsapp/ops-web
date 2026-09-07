@@ -21,6 +21,7 @@ export interface EditorialPackage {
   review: Record<string, unknown>;
   usage: unknown[];
   references?: Array<{ path: string; sha256: string }>;
+  brief_version?: string;
   preview?: import("../types").RenderedSocialAsset[];
 }
 export interface EditorialRun {

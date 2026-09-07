@@ -131,8 +131,12 @@ export function isDuplicate(hook: string, recent: string[]): boolean {
 export function prepareSubmission(
   raw: unknown,
   source: EditorialSource,
-  recentHooks: string[]
+  recentHooks: string[],
+  // The kind decides the blog-specific shaping added in the renderer work; the
+  // deterministic validation below is identical for every kind.
+  kind: EditorialKind = "blog"
 ): SocialSubmission {
+  void kind;
   const c = candidateSchema.parse(raw);
   const normalizeQuote = (s: string) => s.replace(/\s+/g, " ").trim();
   if (
