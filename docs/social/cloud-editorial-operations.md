@@ -1,87 +1,85 @@
 # Cloud Instagram editorial operations
 
-Status: preparation mode remains active. The requested immediate draft for 2026-09-05 was completed from the operator session using production services at 2026-09-06 00:12:29 UTC. It has five public JPEGs and one in-app notification, with zero social posts. The run exposed two reliability bugs; their tested fixes and the manual POST trigger are local only, awaiting explicit deployment permission after automatic approval review blocked the push. Scheduled execution remains at its prior deployed version. First publication is separately unauthorized. See `../artifacts/social-editorial/manual-run-2026-09-05/README.md`.
+Status (2026-09-07): the assignment ledger, the subscription-authoring handoff, the paced worker, the renderer repair and the admin read model are **built and tested locally** on `feat/instagram-cloud-editorial`. They are **not deployed**. Production still runs the retired date-keyed worker in `prepare` mode with the OpenAI generator, and holds one legacy draft (2026-09-05, Fable). The cloud routine `OPS Instagram authoring` exists on Jackson's account but is **disabled**. Nothing has been published to Instagram. Every proof boundary below says which of prepared / tested / deployed / verified-live it has reached.
 
-## Purpose and schedule
+## What runs where
 
-Vercel starts `GET /api/cron/social-editorial` every 15 minutes at :08, :23, :38 and :53 (`8-59/15 * * * *`). That is the last full-day 15-minute grid inside the platform's three-lane-per-minute cron budget: the bare `*/15` grid lands on the `*/5` minutes that already carry three lanes, and `13-59/15` belongs to the publish worker. Each run first takes the shared durable cron workload lease (`social-editorial`, 360 seconds): while another run holds it the call returns `200 already_running`, and while the database pressure circuit is open or workload control is unreachable it fails closed with `503` without touching the ledger. An `off` or outside-window tick resolves as an idle result and completes the lease as a success. The server selects one weekday slot beginning at 10:00 Vancouver time, with recovery until 20:00, so the offset only moves the first eligible tick of a window to 10:08. There is no dependency on Claude Desktop, Codex Desktop, a browser session, or a running Mac. Unfinished previous dates become failed; they do not accumulate into a publishing burst.
+| Piece | Runs on | State |
+|---|---|---|
+| Discovery, leases, promotion, pacing, notifications, stall alarm | Vercel cron `GET /api/cron/social-editorial` every 15 minutes at :08 :23 :38 :53 under the durable `social-editorial` workload lease | built + tested locally; deploy pending |
+| Writing and editing | Claude Cloud Routine `OPS Instagram authoring` on Jackson's subscription (`0 15,21 * * *` UTC = 08:00 and 14:00 Vancouver, daily), model `claude-opus-5`, no repositories, no connectors, tools Bash/Read/Write/Edit/Agent | created, disabled; enable after deploy + credential |
+| Handoff API | `POST /api/internal/social/editorial/claim`, `…/assignments/{id}/draft`, `…/assignments/{id}/release`, bearer `SOCIAL_AUTHORING_TOKEN` | built + tested locally |
+| Rendering, storage, veto queue, Meta publishing | existing OPS renderer, `social-media` storage, `submitSocialPost`, `social-publish` cron | unchanged; social artwork can be pinned with `SOCIAL_STORAGE_BACKEND` |
+| Legacy | `social_editorial_runs`, OpenAI generator, `scripts/social-generators/`, edge function `social-publish-instagram` | generator removed from source in this release; data table kept for audit; edge function deletion needs approval |
 
-| Day | Editorial preference |
-| --- | --- |
-| Monday, Thursday | Adapt one idea from a recent live OPS blog |
-| Tuesday | A practical operator protocol |
-| Wednesday | A supported OPS product behavior, otherwise a practical protocol |
-| Friday | Supported roast, dispatch, proof, or release; otherwise a practical protocol |
+Nothing depends on a running Mac.
 
-The local, not-yet-deployed immediate-draft trigger uses authenticated `POST /api/cron/social-editorial` with exactly `{"action":"prepare_now","date":"YYYY-MM-DD"}`. The date must be today in Vancouver. This requires current mode `prepare`, rechecks the claimed originating mode, and cannot publish. It shares the same daily ledger, leases, reservations and duplicate protection as scheduled work. Weekend or out-of-window requests default to a fresh blog adaptation; an in-window request follows that weekday's preference. A completed or already-owned day stays idle, and retry delays/budget limits still apply. GET never interprets a manual action from query parameters. No scheduler change or database migration is needed for a one-time run.
+## Assignments
 
-This is five opportunities per week, not a promise to fill every slot. An unavailable source or rejected draft is skipped. The starting cadence follows the [Buffer posting-frequency study](https://buffer.com/resources/how-often-to-post-on-instagram/); it is a starting hypothesis, not a growth guarantee. Assess saves, shares, profile visits and follows against the actual account's baseline after a meaningful sample.
+`social_editorial_assignments` holds one row per unit of work, keyed by a durable `identity`:
 
-Vancouver is pinned to `Etc/GMT+7`: BC adopted permanent UTC−7 in March 2026. This avoids the obsolete November fallback in older runtime timezone data. [BC announcement](https://news.gov.bc.ca/releases/2026AG0013-000209).
+- `blog:<blog_id>` — one per newly published article. Discovery scans live `blog_posts` published after `settings.discovery_since` (set to the migration time, so the 78 existing articles are not backfilled) and within the last 30 days; duplicates are impossible (`identity` is unique, inserts are `on conflict do nothing`). Discovery runs every tick in every mode, including `off`.
+- `protocol:<date>` (Tuesday), `product:<date>` (Wednesday), `rotation:<date>` (Friday) — created on the first tick of that Vancouver date. Monday/Thursday blog sampling is retired: blog publication drives blog posts.
 
-## Source and creative controls
+States: `queued` → `authoring` (claimed by the routine, 40-minute lease) → `drafted` (held draft saved; nothing rendered) → `prepared` (preview rendered, held) or `submitted` (in the publishing queue with a paced `publish_at`) → `blocked` (terminal, with `last_code`). Attempts are capped at 3; a rejected or failed attempt retries after 2 hours (editor rejection: 6 hours); an expired lease requeues with the attempt spent. Codes: `NO_FRESH_SOURCE`, `SOURCE_WITHDRAWN`, `SOURCE_CHANGED`, `EDITOR_REJECTED`, `SUBMISSIONS_EXHAUSTED`, `ATTEMPTS_EXHAUSTED`, `UNSUPPORTED_FORMAT`, `AUTHORING_ERROR`, `LEASE_EXPIRED`, `PACKAGE_MISSING`, `RENDER_FAILED`, `DELIVERY_NEEDS_REVIEW`.
 
-The worker reads only published `public.blog_posts` fields: `id`, `title`, `slug`, `content`, `published_at`, `is_live`, and `thumbnail_url`. It removes scripts/styles/HTML and clips text to 12,000 characters. Blog slots use sources at most 30 days old; other slots allow 180 days. Future, unpublished, malformed, empty, or recently used sources are excluded. A saved source snapshot is revalidated before generation and after generation. A retry reuses that exact snapshot and any completed package.
+`mode` is stamped on the assignment at claim time from `settings.mode`. Promotion uses the stricter of the two: if either the account or the assignment says `prepare`, the draft is rendered as a held preview. Flipping the account to `publish` therefore never releases drafts written under a preview promise; only new claims publish.
 
-Other formats use a distinct practical angle supported by those public sources. The worker does not inspect private customer records, infer shipped features from code, or invent testimonials and results. Product/proof/release/dispatch formats require source support; dispatch also needs an authentic image. Both prompts treat source text and previous hooks as untrusted data. Neither model can invoke tools or publish.
+## The routine
 
-Both writer and editor receive the complete versioned `docs/social/voice/sam-parr-field-guide.md` as a creative reference. Its SHA-256 is recorded on approved packages and rejected editor audits. OPS evidence and voice rules override its website-specific advice; its example claims are never evidence about OPS. The file is explicitly included in the cloud function bundle.
+Defined in `cloud-authoring-routine.md` (prompt version `routine-prompt-2026-09-07-v1`). Each run claims up to four assignments. For each: writes the draft from the claim response (source text, brief, limits, recent hooks and the complete Sam Parr guide with its SHA-256), runs an **independent editor subagent** that only sees the guide, brief, source and draft, revises once on rejection, then posts the draft. OPS validates deterministically (`prepareSubmission`: exact evidence quotes, numbers present in the source, no links, voice rules, blog slide count 4–6), returns `422` with a code the routine can fix (max three submissions per claim), records rejections, and stores the accepted package as `drafted`. The draft endpoint has no path into rendering, notifications or the queue; that is proven by a test that injects spies.
 
-The writer returns a strict structured package. Deterministic checks enforce OPS voice, field lengths, exact evidence excerpts, numeric support, URL ownership, compatible imagery, and near-duplicate hooks. An independent editor checks every claim, freshness, usefulness, repetition, and format support. Model review is fallible; it supplements these constraints and the operator's inspection, rather than proving every semantic claim.
+Authentication: the routine sends no token itself. The cloud environment carries an **API credential** (host `app.opsapp.co`, `Authorization: Bearer <SOCIAL_AUTHORING_TOKEN>`) that Anthropic's agent proxy injects after the request leaves the sandbox; the same credential is what makes the host reachable at all under the Trusted network policy. Instagram credentials never leave OPS.
 
-OPS owns the source URL, source identity, visual treatment, images, and publication lifecycle. Approved packages reuse the existing seven-template renderer. Prepare mode also renders real 1080 × 1350 JPEGs into the existing asset store.
+Usage: runs draw the subscription and count against the account's daily routine allowance. When a run is refused, nothing happens on the OPS side except that `authoring_heartbeat_at` stops advancing; queued work waits. No paid API fallback exists in the code.
 
-## Durable state and release controls
+## Blog carousel contract
 
-Migration: `supabase/migrations/20260905185527_create_social_editorial.sql`.
+Cover: article image, hook headline, the article title as the subtitle, the article date. Slides 2–5: `TAKEAWAY 01…` eyebrow, takeaway headline, body with context. Closing slide (server-owned): `FULL ARTICLE` / `KEEP READING` / `opsapp.co/journal/<slug>`. Caption ends with `Full article: https://opsapp.co/journal/<slug>`. Footer shows only `OPS` and the page counter. Render proof: `../artifacts/social-editorial/render-proof-2026-09-07/`.
 
-`social_editorial_settings` is a service-only singleton. Its mode defaults to `off`:
+## Pacing and publication
 
-- `off`: no new editorial claims or automatic queue handoffs.
-- `prepare`: generate, review, render and save a held preview. No `social_posts` row is submitted.
-- `publish`: eligible new runs may enter the existing renderer and ten-minute veto queue. Publication requires separate explicit approval before selecting this mode.
+In `publish` mode the worker submits a drafted assignment to the existing queue with `publish_at = clamp(max(now + 11 min, last scheduled agent post + delivery_gap_minutes))`, clamped into 10:00–20:00 Vancouver (`Etc/GMT+7`), FIFO by draft time. `delivery_gap_minutes` defaults to 1200 (20 hours): several blogs published on one day publish on consecutive days. The existing review notification names the launch time (`Publishes Sep 08 · 10:00 unless stopped`), and the existing EDIT / STOP / PUBLISH NOW actions apply until then. Publication itself is unchanged: atomic claims, bounded retries, Meta reconciliation, published notification.
 
-Each `social_editorial_runs.slot_date` is unique. The row records originating mode, source snapshot, attempts, reserved allowance, lease, package, review, usage, optional rejection audit, preview assets and linked social post. A terminal prepared row stays held when mode changes; old previews never become automatic publications.
+## Notifications
 
-Claims lock the settings row and run, use a six-minute lease, and allow at most three attempts. This ledger lease is separate from the cron workload lease above: the workload lease keeps two Vercel invocations from running at once, while the ledger lease owns one slot date across attempts. Retries wait 15 minutes. Every date uses `cloud-editorial-v1:YYYY-MM-DD` for the downstream idempotency key. If the downstream row already exists, the worker reconciles it rather than creating another. Rendering waits for recovery; failed/cancelled or uncertain downstream delivery requires inspection. The existing publisher retains ownership of Meta uncertainty and reconciliation.
+- `INSTAGRAM DRAFT READY` (standard) — a held preview exists (`prepared`).
+- `INSTAGRAM POST QUEUED · <ID>` (persistent, existing) — a paced post entered the queue.
+- `INSTAGRAM POST BLOCKED` (persistent) — an assignment stopped; the reason is on `/admin/social#cloud-production`.
+- `INSTAGRAM AUTHORING STALLED` (persistent, at most once per Vancouver day) — work has been queued for 26 hours and the routine has not contacted OPS in 26 hours. This is the quota-exhausted / routine-disabled / credential-broken alarm.
 
-The database handoff trigger serializes new automatic rendering/review transitions with the mode control. Turning off during rendering prevents promotion into automatic review. **Turning off does not cancel a post that already entered the review queue.** Use the existing STOP action for those rows.
+Recipients: `SOCIAL_OPERATOR_*`, falling back to `PMF_OPERATOR_*`.
 
-Tables have RLS, no browser grants or policies, and explicit service-role privileges. New RPCs use `SECURITY INVOKER`, a fixed empty search path and revoked public execution. The authenticated admin read route exposes the last 20 runs; it does not expose credentials or provide an activation button.
+## Inspection
 
-## Cost limits
+`/admin/social` → cloud production lists every assignment by article title (or `PROTOCOL · TUE SEP 08`), state, block reason, preview slides, caption, source link and queued-post status/permalink. The legacy 2026-09-05 draft is listed under its own label. The read route stays admin-only and exposes no credentials.
 
-Two `gpt-5.6-sol` calls are allowed per attempt: writer and editor. Each has a 65-second timeout, no SDK retries, a 64KB serialized input limit including schema, and at most 4,000 completion tokens. No tools or external research calls are available to the models.
+## Environment contract (production)
 
-Each claim reserves US$0.75 against a configurable monthly allowance capped at US$20. Reservations are retained after crashes and retries, so the ledger intentionally overestimates usage. At the reviewed [OpenAI standard prices](https://developers.openai.com/api/docs/pricing), input is US$4/M tokens and output US$20/M. Recheck prices before changing the model or bounds. This is an application estimate allowance, not a provider-enforced billing limit.
+| Variable | Purpose | State |
+|---|---|---|
+| `SOCIAL_AUTHORING_TOKEN` | ≥32 chars; bearer for the three handoff routes | **new, Jackson adds** |
+| `SOCIAL_STORAGE_BACKEND` | `supabase` pins social artwork to the proven `social-media` bucket; unset = global backend (S3) | **new, recommended `supabase`** |
+| `CRON_SECRET` | existing | unchanged |
+| `SOCIAL_AUTOMATION_SECRET` | existing `/api/internal/social/posts` | unchanged |
+| `OPENAI_API_KEY*` | other OPS features | unchanged; the social workload no longer uses it |
+| `PMF_OPERATOR_*` | notification recipient | unchanged |
 
-The full-guide local canary used 17,257 input and 1,296 output tokens across both stages: estimated **US$0.094948**, producing five slides. The earlier condensed-guide canary cost US$0.052068 and is preserved under `prior-condensed-guide/`. One preceding attempt failed with incomplete usage, so neither number is the total testing bill. Vercel function execution and asset storage are additional usage. [Vercel cron pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) states that cron is included but function usage is billed normally; this schedule requires a plan supporting subdaily cron.
+## Release procedure (no step grants approval)
 
-## Notifications and inspection
+1. Jackson approves the code release and the additive migration `20260907004500_create_social_editorial_assignments.sql`. Integrate onto current `main`; rerun focused tests, both SQL harnesses, `tsc`, production build.
+2. Apply the migration with settings still `prepare`. Verify the new table, RLS, grants, function execution restrictions and that `discovery_since` equals the apply time.
+3. Deploy. Verify the customer domain targets the release; verify `SOCIAL_AUTHORING_TOKEN` and `SOCIAL_STORAGE_BACKEND` are set; call the claim route without a token (401, no-store).
+4. Jackson adds the API credential to the cloud environment and reads the daily routine allowance from claude.ai/code/routines.
+5. Enable the routine and **Run now** once. Verify in OPS: an assignment moved `queued → authoring → drafted`, its `guide_sha256` equals the bundled guide, the next cron tick rendered a held preview, the JPEGs return 200, `INSTAGRAM DRAFT READY` arrived, `social_posts` is still empty. Verify on claude.ai that the run consumed subscription usage and made no model API call from OPS.
+6. Let one scheduled run fire (08:00 or 14:00 Vancouver) without the Mac; verify the heartbeat advanced and no duplicate assignment, draft, preview or notification exists.
+7. Jackson reviews the finished draft and approves (a) its publication and (b) the recurring policy. Set `settings.mode = 'publish'`. New claims publish through the queue with the paced launch time; STOP remains available until then. Verify the Instagram media ID, permalink, account, caption, complete carousel and exactly one `published` row.
+8. Retire the legacy path: the OpenAI generator is already gone from source; delete the deployed edge function `social-publish-instagram` and the repo's `scripts/social-generators/` and `supabase/functions/social-publish-instagram/` with approval. Blog writing and newsletter workflows are untouched.
 
-Prepared and failed rows form a durable notification outbox through `notified_at`. `notify_social_editorial` inserts the notification and acknowledges the row in one transaction; a replay inserts zero duplicates. Notification type is `social_editorial`; prepared notifications are standard and failed notifications persistent. Both link to `/admin/social#cloud-production`.
-
-Recipients use a complete `SOCIAL_OPERATOR_USER_ID` / `SOCIAL_OPERATOR_COMPANY_ID` pair, otherwise a complete `PMF_OPERATOR_*` pair. IDs are trimmed; incomplete social overrides fail closed instead of mixing recipients. Before activation, the fallback was independently verified as active Jackson Sweet with a matching active company. Missing configuration leaves the outbox unacknowledged. Notification failure does not discard a completed draft.
-
-Open `/admin/social`, expand cloud production, and inspect the rendered slides, full caption, source link and status. The admin API also retains source snapshots, review results, usage and rejected editor output for investigation. Skipped unsupported ideas remain visible in history without a failure alert.
-
-## Approved release procedure
-
-No step in this section grants approval by itself.
-
-1. Obtain explicit approval for this production code release, new migration and paid preparation-only activation. Integrate onto current production source while preserving concurrent work, and rerun focused verification.
-2. Verify current production schemas and migration history; apply the exact additive migration with settings still `off`. Independently verify the default, RLS, grants and RPC execution restrictions.
-3. Deploy the code. Verify `OPENAI_API_KEY`, `CRON_SECRET` of at least 32 characters, existing storage settings and the exact operator recipient. Do not print secrets. Confirm the cron schedule (`8-59/15 * * * *`) and expected authentication failures.
-4. Set only the exact singleton to `prepare`, preserving the US$20 allowance or an explicitly approved lower limit. Read it back independently. During a weekday 10:00–20:00 window, allow or invoke one authenticated cron run. Outside that window, wait for the next scheduled opportunity rather than bypassing the schedule in production.
-5. Verify one durable date row, source snapshot, approved package, actual JPEG URLs and held-preview UI. Verify no new `social_posts` row for that date's key and no Instagram publication. Repeat the cron invocation and confirm no extra generation or duplicate notification.
-6. Leave preparation active only within the approved scope. Obtain separate explicit permission before enabling `publish` or manually submitting a held draft. A first real post requires exact queue and Meta permalink readback after the veto window.
-
-Rollback control is the singleton's `off` mode. Independently inspect and STOP any already-reviewable posts that must not publish. Do not delete ledger rows to retry a terminal date; preserving the audit and date identity is the duplicate-prevention boundary.
+Rollback: `settings.mode = 'off'` stops claims and promotions; STOP any post already in review; disable the routine at claude.ai/code/routines. Never delete ledger rows to retry; requeue by resetting `state`, `attempts` and `next_attempt_at` on the exact row and record why in `attempt_log`.
 
 ## Local verification
 
-Behavioral tests live under `tests/unit/social/editorial/`. They cover schedule boundaries, source freshness, voice/evidence, retry snapshots and packages, prepare/off controls, downstream reconciliation, admin auth, safe errors, shared thumbnail rendering and the inspection UI. `tests/integration/social-editorial-cron.test.ts` covers the cron boundary: authentication before the lease, the leased run, idle ticks completing the lease, `already_running`, the fail-closed `503` responses and concealed errors. `tests/unit/api/heavy-cron-schedule-isolation.test.ts` pins the schedule and proves the three-lane budget across all 1,440 minutes of the day.
-
-`tests/sql/social-editorial-runtime.mjs` applies the exact migration to a disposable local PostgreSQL database. It proves concurrent claims, stale owners, attempt exhaustion, monthly reservations, mode changes during rendering, source withdrawal, terminal preview behavior, recovery, RLS/grants and notification replay. Its fixed local socket intentionally cannot target a production database.
-
-`tests/integration/social-editorial-canary.test.ts` is skipped unless `OPS_RUN_EDITORIAL_CANARY=1`. It runs real bounded model calls and the production renderer, but injects local asset writes and bypasses application notifications and all database writes. `docs/artifacts/social-editorial/` contains the approved canary, five actual JPEGs and a browser-inspected static rendering of the real admin component. This proves the local generation/render path. The production schedule, guide bundle, authenticated invocation, auth rejections and preparation activation are now verified; a session-started run has now verified real generation, the supported Supabase social-media storage path and one draft notification. The deployed scheduled worker's S3 upload path and first publication remain unobserved. Publication remains separately unauthorized.
+- `tests/unit/social/editorial/handoff.test.ts`, `worker.test.ts`, `policy.test.ts`, `carousel-render.test.tsx`, `cloud-production.test.tsx`, `tests/unit/social/render-social-post.test.tsx`, `tests/integration/social-editorial-cron.test.ts`.
+- `node tests/sql/social-editorial-assignments-runtime.mjs` and `node tests/sql/social-editorial-runtime.mjs` against the disposable PostgreSQL 17 harness (`/private/tmp/ops-editorial-pg`, start with `LC_ALL=C`).
+- Rehearsal stack: a disposable database with the real migrations behind PostgREST and a storage shim, the worktree dev server on port 3120, and the exact routine prompt driven by a local session. Results: `../artifacts/social-editorial/local-e2e-2026-09-07/`.
