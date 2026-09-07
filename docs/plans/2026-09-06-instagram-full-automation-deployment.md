@@ -4,9 +4,9 @@
 
 **Goal:** Prepare one clear takeaway post for every newly published OPS blog, alongside a recurring mix of other Instagram formats, and operate the approved publishing workflow entirely in the cloud.
 
-**Architecture:** Preserve the existing cloud scheduler, writer/editor, rendering, OAuth connection, publication queue, and notification infrastructure. Add durable identity and discovery for individual blog posts instead of treating two weekday slots as complete blog coverage. Keep content creation separate from timed delivery so retries, budget pauses, and busy publishing days cannot silently discard an article.
+**Architecture:** Move writing and editing to native Claude Cloud Routines using Jackson's subscription, subject to account-access and end-to-end proof. Preserve OPS cloud discovery, rendering, OAuth connection, publication queue, and notifications. Add durable identity for individual blog posts instead of treating two weekday slots as complete blog coverage. Keep creation separate from delivery so retries, subscription-limit pauses, and busy publishing days cannot silently discard an article. Do not use subscription credentials as an API-key replacement inside the Vercel generator.
 
-**Tech stack:** Existing Next.js/TypeScript application, Vercel cron/functions, Supabase ledger and storage integration, existing S3 integration, OpenAI writer/editor, Meta Instagram publishing client.
+**Tech stack:** Existing Next.js/TypeScript application, Vercel cron/functions, Supabase ledger and storage integration, existing S3 integration, native Claude Cloud Routines for subscription-funded authoring, Meta Instagram publishing client. The existing OpenAI API generator remains the currently deployed implementation until an approved cutover.
 
 **Design system:** `/Users/jacksonsweet/Projects/OPS/ops-design-system/project/DESIGN.md`; local `.interface-design/system.md` for existing admin patterns. The current root design system overrides stale font guidance in older files. Raster styling uses the centralized social theme because ImageResponse cannot resolve product CSS variables.
 
@@ -35,6 +35,21 @@ Checked 2026-09-06 23:58 UTC:
 6. Every source is accounted for: queued, in progress, held, ready, published, or explicitly blocked. Failure, quality rejection, and budget exhaustion never masquerade as successful coverage.
 7. Posting is paced through the delivery queue. A burst of blogs creates tracked work rather than simultaneous Instagram publications.
 8. The approved recurring policy is preview, edit/stop opportunity, then automatic publication after the veto window. A human approval is not required for every routine future post once that policy is explicitly activated.
+9. Jackson prefers included account usage and accepts whichever provider supports reliable cloud runs. Use native subscription-funded cloud authoring with no automatic paid API fallback or purchase of additional usage. Keep queued work during quota exhaustion and report the delay.
+
+## Task 0: Prove subscription-funded cloud authoring
+
+**Decision, 2026-09-06:** Prefer Claude Code Cloud Routines because the official service supports both scheduled runs and authenticated external triggers, allowing OPS to trigger an exact blog job. Routines consume subscription usage and run without the Mac. They remain a research-preview service, so documentation establishes capability rather than this account's access or production reliability. [Official routines documentation](https://code.claude.com/docs/en/routines).
+
+OpenAI also documents cloud scheduled tasks using uploaded context, skills and connected tools, and ChatGPT Work shares Codex usage. It is a supported alternative if Claude account access or the integration cannot be proved; do not start two authoring systems. [Scheduled tasks](https://learn.chatgpt.com/docs/automations), [usage model](https://learn.chatgpt.com/docs/pricing).
+
+1. Verify Cloud Routines availability, actual remaining subscription/routine limits, connected account, network access and usage-credit behavior in Jackson's account. Do not infer access from the presence of the local Claude application. Do not enable paid overage or change account-wide billing settings without authorization.
+2. Place the complete Sam Parr guide, OPS editorial rules, format requirements and bounded writer/editor instructions in cloud-accessible versioned files. Do not depend on Mac paths. Native Claude performs the writing and editorial review; a cloud script must not call the existing OpenAI generator and silently create API charges.
+3. Build a narrowly scoped authoring bridge: claim one durable OPS assignment, fetch that assignment's public sources, and return a validated draft package. Authenticate each operation, bind completion to the claimed job/source snapshot, reject stale/duplicate/foreign assignments, and keep Instagram credentials in OPS. Prefer OAuth for a connector; if using routine/API credentials, keep them in supported secret storage and scope them to the required actions. Never expose provider subscription session credentials.
+4. The existing `/api/internal/social/posts` handler proceeds into rendering and the publication-review queue; it is not an appropriate prepare-only canary endpoint. Add or adapt a separate held-draft completion path with server-enforced mode and ownership checks before a routine is given write access.
+5. Use the documented routine trigger for an exact blog job plus scheduled recovery that reconciles OPS pending assignments. Batch due non-blog work when practical. Preserve delivery records when a trigger fails or its acknowledgement is uncertain; do not fan out duplicate sessions blindly. Native routine schedules have a documented minimum interval of one hour; OPS's lightweight scheduler can retain its own cadence without starting a model session on every tick.
+6. Routines share normal account usage and have a daily run cap. Extra runs can be rejected until reset; usage credits may permit paid overage if enabled. Inspect this account's behavior, pace dispatch, retain deferred jobs and avoid implying uninterrupted or unlimited execution. [Usage and limits](https://code.claude.com/docs/en/routines#usage-and-limits).
+7. Test one held draft through a real native cloud session before switching off the old generator. Prove the run's account-based usage and absence of OpenAI/Anthropic model API calls in the bridge. Cut over only after the approved deployment and account scheduling configuration; retire the old API authoring path and duplicate local routines together. Do not remove a shared API key used by unrelated OPS features.
 
 ## Task 1: Make the blog carousel understandable
 
@@ -87,7 +102,7 @@ Checked 2026-09-06 23:58 UTC:
 1. Integrate only this feature's changes onto current production source, preserving sibling work. Check the final diff and re-run affected checks.
 2. Apply the approved additive migration with publication disabled; verify actual schema, access rules, preserved audit rows, and preparation mode independently.
 3. Deploy the approved code and verify the customer-facing domain targets that version with its intended schedules and workload controls.
-4. Run one blog adaptation and one supported non-blog format through the cloud, using paid-generation scope and the existing allowance. Verify saved source, writer/editor references, render output, public image retrieval, notification, and held state.
+4. Run one blog adaptation and one supported non-blog format through native subscription-funded cloud authoring. Verify the exact account/run, saved source, writer/editor references, render output, public image retrieval, notification, held state, and absence of model API calls in OPS for those jobs.
 5. Verify at least one genuine scheduled execution from provider logs and durable output. Repeat discovery/invocation and confirm no duplicate job, generation, notification, or social publication. No step depends on a running Mac.
 6. Inventory the older local Instagram generators/publishers and their pending outputs. Before cloud publication is activated, disable the exact duplicate schedules with authorized, reversible changes and reconcile any pending posts. Preserve unrelated blog-writing and newsletter workflows.
 
@@ -103,7 +118,7 @@ Checked 2026-09-06 23:58 UTC:
 
 ## Cost and completion evidence
 
-- Keep the currently approved US$20 monthly estimated generation allowance. Do not promise unlimited blog coverage at that price: the existing conservative US$0.75 reservation admits at most 26 attempts within US$20, and retries share that allowance. New per-blog coverage increases demand; report projected capacity from actual blog volume before activation.
-- The prior two-model draft was estimated at US$0.112664. That historical result is not a quote for future runs. Hosting, storage, and any new visual-review model usage are additional; quantify newly proposed costs before approval and do not increase the allowance implicitly.
+- Subscription-funded runs consume Jackson's shared Claude allowance and routine limits. Keep pending work when limits are reached; do not automatically buy credits or fall back to paid model API calls. Verify plan eligibility and account billing controls before claiming there will be no overage. Hosting and storage remain separate existing OPS costs.
+- The currently deployed API generator still has its US$20 estimated monthly allowance until cutover. Its prior draft was estimated at US$0.112664. Neither amount describes native subscription pricing. This plan amendment changes the preferred architecture only; it has not changed production settings or account billing. Prove the replacement before an approved cutover disables this generator, and quantify any newly proposed hosting or external-service cost.
 - Full deployment is complete only when every eligible new blog is durably accounted for, other formats run on their own cadence, artwork is readable and faithful to its source, scheduled cloud execution is proven, one approved post is verified on Instagram, the recurring policy is active, duplicate local publishers are retired, and cloud failure/renewal monitoring is operational.
 - Test output alone, a READY deployment, an HTTP 200 cron tick, or a saved draft does not satisfy that completion standard.
