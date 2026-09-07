@@ -1,36 +1,35 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import {
-  handleSocialPublishCron,
-  type SocialPublishCronDependencies,
-} from "@/app/api/cron/social-publish/handler";
+  handleSocialEditorialCron,
+  type SocialEditorialCronDependencies,
+} from "@/app/api/cron/social-editorial/handler";
 import type {
   CronWorkloadControlResult,
   RunWithCronWorkloadControlOptions,
 } from "@/lib/api/services/cron-workload-control-service";
-import { InstagramConnectionError } from "@/lib/social/instagram-connection-service";
 
 const CRON_SECRET = "cron-secret-with-at-least-32-characters";
 
-const IDLE_SUMMARY = {
-  claimToken: "claim-1",
-  claimed: 0,
-  recoveryNotifications: 0,
-  published: 0,
-  retryScheduled: 0,
-  failed: 0,
-  persistenceFailed: 0,
-  results: [],
+const COPYWRITING_REFERENCE = {
+  path: "docs/social/voice/ops-copywriting-guide.md",
+  sha256: "a".repeat(64),
+};
+
+const PREPARED_RESULT = {
+  state: "prepared",
+  date: "2026-09-07",
+  copywriting_reference: COPYWRITING_REFERENCE,
 };
 
 function request(secret?: string): NextRequest {
-  return new NextRequest("http://localhost/api/cron/social-publish", {
+  return new NextRequest("http://localhost/api/cron/social-editorial", {
     method: "GET",
     headers: secret ? { authorization: `Bearer ${secret}` } : undefined,
   });
 }
 
-type RunWithControl = SocialPublishCronDependencies["runWithControl"];
+type RunWithControl = SocialEditorialCronDependencies["runWithControl"];
 
 /**
  * The durable guard runs the leased work immediately, exactly like the real
@@ -61,113 +60,114 @@ function skippedLease(
 const supabase = { rpc: vi.fn() };
 
 function dependencies(
-  overrides: Partial<SocialPublishCronDependencies> = {}
-): SocialPublishCronDependencies {
+  overrides: Partial<SocialEditorialCronDependencies> = {}
+): SocialEditorialCronDependencies {
   return {
-    runBatch: vi.fn().mockResolvedValue(IDLE_SUMMARY),
+    run: vi.fn().mockResolvedValue(PREPARED_RESULT),
     loadRuntime: () => ({ supabase }),
     runWithControl: acquiredLease(),
     ...overrides,
   };
 }
 
-describe("social publish cron", () => {
+describe("social editorial cron", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it("fails closed when CRON_SECRET is absent", async () => {
     vi.stubEnv("CRON_SECRET", "");
     const deps = dependencies();
-    const response = await handleSocialPublishCron(request(), deps);
+    const response = await handleSocialEditorialCron(request(), deps);
 
     expect(response.status).toBe(503);
-    expect(deps.runBatch).not.toHaveBeenCalled();
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({
+      code: "CRON_AUTH_NOT_CONFIGURED",
+    });
+    expect(deps.run).not.toHaveBeenCalled();
     expect(deps.runWithControl).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid bearer token before touching the lease", async () => {
     vi.stubEnv("CRON_SECRET", CRON_SECRET);
     const deps = dependencies();
-    const response = await handleSocialPublishCron(request("wrong"), deps);
+    const response = await handleSocialEditorialCron(request("wrong"), deps);
 
     expect(response.status).toBe(401);
-    expect(deps.runBatch).not.toHaveBeenCalled();
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({ code: "UNAUTHORIZED" });
+    expect(deps.run).not.toHaveBeenCalled();
     expect(deps.runWithControl).not.toHaveBeenCalled();
   });
 
-  it("runs the batch inside the shared durable lease", async () => {
+  it("runs the editorial worker inside the shared durable lease", async () => {
     vi.stubEnv("CRON_SECRET", CRON_SECRET);
     const deps = dependencies();
-    const response = await handleSocialPublishCron(request(CRON_SECRET), deps);
+    const response = await handleSocialEditorialCron(
+      request(CRON_SECRET),
+      deps
+    );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      ok: true,
-      claimed: 0,
-      recovery_notifications: 0,
-      published: 0,
-      retry_scheduled: 0,
-      failed: 0,
-      persistence_failed: 0,
-      results: [],
-    });
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual(PREPARED_RESULT);
     expect(deps.runWithControl).toHaveBeenCalledTimes(1);
     expect(deps.runWithControl).toHaveBeenCalledWith(
       expect.objectContaining({
         supabase,
-        workloadKey: "social-publish",
+        workloadKey: "social-editorial",
         leaseSeconds: 360,
         work: expect.any(Function),
       })
     );
-    expect(deps.runBatch).toHaveBeenCalledWith({ limit: 2 });
+    expect(deps.run).toHaveBeenCalledTimes(1);
   });
 
-  it("treats an unconnected Instagram account as a successful idle run", async () => {
-    vi.stubEnv("CRON_SECRET", CRON_SECRET);
-    const deps = dependencies({
-      runBatch: vi
-        .fn()
-        .mockRejectedValue(
-          new InstagramConnectionError(
-            "INSTAGRAM_NOT_CONNECTED",
-            "Instagram is not connected",
-            false
-          )
-        ),
-    });
-    const response = await handleSocialPublishCron(request(CRON_SECRET), deps);
+  it.each([
+    { state: "outside_window", copywriting_reference: COPYWRITING_REFERENCE },
+    {
+      state: "idle",
+      date: "2026-09-07",
+      copywriting_reference: COPYWRITING_REFERENCE,
+    },
+  ])(
+    "completes the lease as a successful idle run for $state",
+    async (idleResult) => {
+      vi.stubEnv("CRON_SECRET", CRON_SECRET);
+      const deps = dependencies({
+        run: vi.fn().mockResolvedValue(idleResult),
+      });
+      const response = await handleSocialEditorialCron(
+        request(CRON_SECRET),
+        deps
+      );
 
-    // The acquired-lease double only reports "completed" when the leased work
-    // resolves, so a 200 here proves the idle state completes the lease as a
-    // success instead of surfacing as a workload failure.
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      ok: true,
-      skipped: "instagram_not_connected",
-      claimed: 0,
-      recovery_notifications: 0,
-      published: 0,
-      retry_scheduled: 0,
-      failed: 0,
-      persistence_failed: 0,
-      results: [],
-    });
-  });
+      // The acquired-lease double only reports "completed" when the leased
+      // work resolves, so a 200 here proves an off-mode or no-slot tick
+      // completes the lease as a success instead of a workload failure.
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual(idleResult);
+      expect(deps.runWithControl).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it("skips with 200 already_running while another run holds the lease", async () => {
     vi.stubEnv("CRON_SECRET", CRON_SECRET);
     const deps = dependencies({
       runWithControl: skippedLease({ status: "skipped", reason: "lease_held" }),
     });
-    const response = await handleSocialPublishCron(request(CRON_SECRET), deps);
+    const response = await handleSocialEditorialCron(
+      request(CRON_SECRET),
+      deps
+    );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
     await expect(response.json()).resolves.toEqual({
       ok: true,
       ran: false,
       reason: "already_running",
     });
-    expect(deps.runBatch).not.toHaveBeenCalled();
+    expect(deps.run).not.toHaveBeenCalled();
   });
 
   it("fails closed with 503 while the database pressure circuit is open", async () => {
@@ -178,7 +178,10 @@ describe("social publish cron", () => {
         reason: "circuit_open",
       }),
     });
-    const response = await handleSocialPublishCron(request(CRON_SECRET), deps);
+    const response = await handleSocialEditorialCron(
+      request(CRON_SECRET),
+      deps
+    );
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
@@ -186,7 +189,7 @@ describe("social publish cron", () => {
       ran: false,
       reason: "circuit_open",
     });
-    expect(deps.runBatch).not.toHaveBeenCalled();
+    expect(deps.run).not.toHaveBeenCalled();
   });
 
   it("fails closed with 503 when workload control is unreachable", async () => {
@@ -198,32 +201,37 @@ describe("social publish cron", () => {
         error: new Error("database password was visible here"),
       }),
     });
-    const response = await handleSocialPublishCron(request(CRON_SECRET), deps);
+    const response = await handleSocialEditorialCron(
+      request(CRON_SECRET),
+      deps
+    );
 
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({
+    const body = await response.text();
+    expect(JSON.parse(body)).toEqual({
       ok: false,
       ran: false,
       reason: "control_unavailable",
     });
-    expect(deps.runBatch).not.toHaveBeenCalled();
+    expect(body).not.toContain("database password");
+    expect(deps.run).not.toHaveBeenCalled();
   });
 
   it("returns 500 without exposing an internal worker error", async () => {
     vi.stubEnv("CRON_SECRET", CRON_SECRET);
     const deps = dependencies({
-      runBatch: vi
-        .fn()
-        .mockRejectedValue(new Error("database password was visible here")),
+      run: vi.fn().mockRejectedValue(new Error("SECRET_PROVIDER_PAYLOAD")),
     });
-    const response = await handleSocialPublishCron(request(CRON_SECRET), deps);
+    const response = await handleSocialEditorialCron(
+      request(CRON_SECRET),
+      deps
+    );
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      ok: false,
-      code: "SOCIAL_PUBLISH_WORKER_FAILED",
-      error: "Social publish worker failed",
-    });
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = await response.text();
+    expect(JSON.parse(body)).toEqual({ code: "EDITORIAL_WORKER_FAILED" });
+    expect(body).not.toContain("SECRET_PROVIDER");
   });
 
   it("returns 500 without exposing a runtime configuration error", async () => {
@@ -235,15 +243,16 @@ describe("social publish cron", () => {
         );
       },
     });
-    const response = await handleSocialPublishCron(request(CRON_SECRET), deps);
+    const response = await handleSocialEditorialCron(
+      request(CRON_SECRET),
+      deps
+    );
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      ok: false,
-      code: "SOCIAL_PUBLISH_WORKER_FAILED",
-      error: "Social publish worker failed",
-    });
+    const body = await response.text();
+    expect(JSON.parse(body)).toEqual({ code: "EDITORIAL_WORKER_FAILED" });
+    expect(body).not.toContain("SUPABASE");
     expect(deps.runWithControl).not.toHaveBeenCalled();
-    expect(deps.runBatch).not.toHaveBeenCalled();
+    expect(deps.run).not.toHaveBeenCalled();
   });
 });

@@ -246,11 +246,11 @@
     },
     {
       "path": "/api/cron/social-publish",
-      "schedule": "*/2 * * * *"
+      "schedule": "13-59/15 * * * *"
     },
     {
       "path": "/api/cron/social-editorial",
-      "schedule": "*/15 * * * *"
+      "schedule": "8-59/15 * * * *"
     }
   ]
 }

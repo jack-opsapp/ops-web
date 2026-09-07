@@ -107,12 +107,14 @@ const projectLifecycleResult = {
 const taskAutomationResult = {
   claimed: 1,
   completed: 1,
+  degraded: 0,
   superseded: 0,
   skipped: 0,
   requeued: 0,
   failed: 0,
   terminalFailed: 0,
   errors: [],
+  warnings: [],
 };
 const conversionNotificationResult = {
   claimed: 1,
@@ -423,6 +425,32 @@ describe("lead assignment deliveries cron", () => {
     expect(await response.json()).toMatchObject({
       ok: false,
       taskAutomation: { terminalFailed: 1 },
+    });
+  });
+
+  it("returns 503 while preserving a completed degraded push outcome", async () => {
+    processTaskAutomation.mockResolvedValue({
+      ...taskAutomationResult,
+      degraded: 1,
+      warnings: [
+        {
+          eventId: "event-1",
+          message: "Task notification push failed after in-app persistence",
+        },
+      ],
+    });
+
+    const response = await GET(request("cron-secret"));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      taskAutomation: {
+        completed: 1,
+        degraded: 1,
+        requeued: 0,
+        warnings: [{ eventId: "event-1" }],
+      },
     });
   });
 

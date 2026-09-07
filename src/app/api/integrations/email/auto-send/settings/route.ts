@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { AutoSendService } from "@/lib/api/services/auto-send-service";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 import { resolvePhaseCCategorySettingsAccess } from "@/lib/email/phase-c-category-settings-access";
@@ -20,8 +20,15 @@ export const maxDuration = 15;
 
 export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
+  return runWithSupabase(supabase, () =>
+    getAutoSendSettings(request, supabase)
+  );
+}
 
+async function getAutoSendSettings(
+  request: NextRequest,
+  supabase: ReturnType<typeof getServiceRoleClient>
+) {
   try {
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get("companyId");
@@ -137,15 +144,20 @@ export async function GET(request: NextRequest) {
       { error: "Failed to fetch settings" },
       { status: 500 }
     );
-  } finally {
-    setSupabaseOverride(null);
   }
 }
 
 export async function PUT(request: NextRequest) {
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
+  return runWithSupabase(supabase, () =>
+    putAutoSendSettings(request, supabase)
+  );
+}
 
+async function putAutoSendSettings(
+  request: NextRequest,
+  supabase: ReturnType<typeof getServiceRoleClient>
+) {
   try {
     const body = await request.json();
     const { companyId, connectionId, settings } = body;
@@ -280,7 +292,5 @@ export async function PUT(request: NextRequest) {
       { error: "Failed to update settings" },
       { status: 500 }
     );
-  } finally {
-    setSupabaseOverride(null);
   }
 }

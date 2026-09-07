@@ -93,6 +93,7 @@ function database(options: {
   claimError?: { message: string; code?: string; status?: number };
   claimRejection?: unknown;
   taskError?: unknown;
+  completionError?: { message: string; code?: string; status?: number };
   notificationProof?: Record<string, unknown>;
   /** `notification_preferences` rows backing the quiet-hours gate. */
   quietHoursPreferences?: Array<Record<string, unknown>>;
@@ -149,7 +150,10 @@ function database(options: {
     }
     if (name === "complete_task_schedule_automation_event") {
       leaseOrder.push(`complete:${String(args?.p_event_id)}`);
-      return { data: true, error: null };
+      return {
+        data: options.completionError ? null : true,
+        error: options.completionError ?? null,
+      };
     }
     if (name === "fail_task_schedule_automation_event") {
       return { data: "pending", error: null };
@@ -677,8 +681,15 @@ describe("TaskMutationAutomationOutboxService", () => {
     }
   );
 
-  it("retries a task notification when idempotent push delivery fails", async () => {
-    effects.push.mockResolvedValueOnce({ ok: false, error: "unavailable" });
+  it("completes with durable degraded evidence when optional push delivery fails", async () => {
+    effects.push.mockResolvedValueOnce({
+      ok: false,
+      status: 200,
+      error: {
+        id: "",
+        errors: ["All included players are not subscribed"],
+      },
+    });
     const fake = database({
       claims: [{ ...claim, kind: "task_assigned" }],
     });
@@ -688,15 +699,82 @@ describe("TaskMutationAutomationOutboxService", () => {
       { limit: 1 }
     );
 
+    expect(fake.rpc).not.toHaveBeenCalledWith(
+      "fail_task_schedule_automation_event",
+      expect.anything()
+    );
+    expect(fake.rpc).toHaveBeenCalledWith(
+      "complete_task_schedule_automation_event",
+      expect.objectContaining({
+        p_event_id: "event-1",
+        p_lease_token: "lease-1",
+        p_disposition: "processed",
+        p_result: {
+          deliveryState: "degraded",
+          notificationType: "task_assigned",
+          inAppDelivery: "persisted",
+          pushDelivery: "failed",
+          pushRecipients: 1,
+          pushFailure: {
+            status: 200,
+            detail:
+              '{"id":"","errors":["All included players are not subscribed"]}',
+          },
+        },
+      })
+    );
+    expect(result).toMatchObject({
+      requeued: 0,
+      completed: 1,
+      degraded: 1,
+      warnings: [
+        {
+          eventId: "event-1",
+          message:
+            'Task notification push failed after in-app persistence: {"id":"","errors":["All included players are not subscribed"]}',
+        },
+      ],
+    });
+  });
+
+  it("requeues when degraded completion fails while the lease remains current", async () => {
+    effects.push.mockResolvedValueOnce({
+      ok: false,
+      status: 200,
+      error: { errors: ["All included players are not subscribed"] },
+    });
+    const fake = database({
+      claims: [{ ...claim, kind: "task_assigned" }],
+      completionError: { message: "database temporarily unavailable" },
+    });
+
+    const result = await TaskMutationAutomationOutboxService.processBatch(
+      fake.client as never,
+      { limit: 1 }
+    );
+
+    expect(fake.rpc).toHaveBeenCalledWith(
+      "complete_task_schedule_automation_event",
+      expect.objectContaining({
+        p_event_id: "event-1",
+        p_disposition: "processed",
+      })
+    );
     expect(fake.rpc).toHaveBeenCalledWith(
       "fail_task_schedule_automation_event",
       expect.objectContaining({
         p_event_id: "event-1",
-        p_error: "Task notification push failed",
+        p_lease_token: "lease-1",
+        p_error:
+          "Task automation completion failed: database temporarily unavailable",
         p_retryable: true,
       })
     );
-    expect(result).toMatchObject({ requeued: 1, completed: 0 });
+    expect(result).toMatchObject({
+      completed: 0,
+      degraded: 0,
+      requeued: 1,
+    });
   });
 
   it("completes stale notification proof without writing or pushing", async () => {

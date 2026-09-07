@@ -70,6 +70,10 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/lead-lifecycle", "14 11 * * *"],
   ["/api/cron/lead-summary-refresh", "18-59/15 13-23,0-4 * * *"],
   ["/api/cron/accounting/quickbooks/push-queue", "14-59/20 13-23,0-4 * * *"],
+  // Sage shares the :34/:54 minutes with the QuickBooks push lane; reconcile
+  // adds a third lane at :54 only — exactly at the 3-lane budget there.
+  ["/api/cron/accounting/sage/push-queue", "34-59/20 13-23,0-4 * * *"],
+  ["/api/cron/accounting/sage/reconcile", "54-59/20 13-23,0-4 * * *"],
   // Full-day on purpose: booked-visit prompts are appointment-time-critical
   // and cannot live in the overnight email window. Shares the */5 grid with
   // the fire_due_task_reminders DB lane only — inside the 3-lane budget.
@@ -82,6 +86,19 @@ const guardedProductionRoutes = new Map<string, string>([
   // Full-day on purpose, but offset from the three existing minute-zero
   // lanes. Runtime activation remains independently server-gated.
   ["/api/cron/day-closeout-routines", "2-59/5 * * * *"],
+  // Full-day on purpose: posts leave their 10-minute veto window at any hour.
+  // Every */5 and 2-59/5 slot already carries three lanes, and every
+  // ":x4" / ":x6" / ":59" minute belongs to a once-a-day lane, so the densest
+  // grid left is a 15-minute one. Cadence is not appointment-critical: due
+  // work is claimed by whichever run comes next, and PUBLISH NOW bypasses cron.
+  ["/api/cron/social-publish", "13-59/15 * * * *"],
+  // Full-day on purpose: the editorial ledger admits one weekday slot from
+  // 10:00 Vancouver with recovery until 20:00, so a 15-minute offset is
+  // immaterial. The bare */15 grid (:00 :15 :30 :45) sits on the */5 grid
+  // that already carries three lanes, and 13-59/15 belongs to social-publish,
+  // so this is the last full-day 15-minute grid inside the three-lane budget:
+  // :08 :23 :38 :53.
+  ["/api/cron/social-editorial", "8-59/15 * * * *"],
 ]);
 
 const migrationDirectory = join(process.cwd(), "supabase/migrations");
