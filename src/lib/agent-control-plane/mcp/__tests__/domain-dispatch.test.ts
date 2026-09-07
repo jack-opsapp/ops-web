@@ -59,6 +59,7 @@ const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
   ["prepare_dispatch_confirmation_task", "prepareDispatchConfirmationTask"],
   ["prepare_customer_update", "prepareCustomerUpdate"],
   ["prepare_customer_message", "prepareCustomerMessage"],
+  ["prepare_schedule_change", "prepareScheduleChange"],
 ] as const;
 
 describe("typed MCP domain dispatch", () => {
@@ -78,6 +79,7 @@ describe("typed MCP domain dispatch", () => {
       | "prepare_crew_callout_recovery"
       | "prepare_dispatch_confirmation_task"
       | "prepare_customer_update"
+      | "prepare_schedule_change"
       | "prepare_customer_message"
     >();
     expect(Object.entries(DOMAIN_METHOD_BY_CAPABILITY)).toEqual(

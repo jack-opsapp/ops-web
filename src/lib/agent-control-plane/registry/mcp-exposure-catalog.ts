@@ -380,6 +380,13 @@ export const MCP_EXPOSURE_V15 = Object.freeze({
   ),
 } as const satisfies McpExposure);
 
+/** Dormant Phase 14 candidate: no selectable catalogue entry or consent. */
+export const MCP_EXPOSURE_V16 = Object.freeze({
+  revision: "2026-09-06.mcp-exposure.v16",
+  toolIds: Object.freeze([...MCP_EXPOSURE_V14.toolIds, "prepare_schedule_change"] as const),
+  grantableScopes: Object.freeze([...MCP_EXPOSURE_V14.grantableScopes, "ops.schedule.prepare"].sort()),
+} as const satisfies McpExposure);
+
 export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V14.revision;
 
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =

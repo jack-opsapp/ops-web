@@ -1,5 +1,7 @@
 "use client";
 
+import { ScheduleChangePreview } from "./schedule-change-preview";
+import { ScheduleChangePreviewSchema } from "@/lib/agent-control-plane/contracts/schedule-change";
 import { CustomerUpdatePreview } from "./customer-update-preview";
 import { CustomerMessagePreview } from "./customer-message-preview";
 import { CustomerUpdatePreviewSchema } from "@/lib/agent-control-plane/contracts/customer-update";
@@ -499,6 +501,14 @@ export const ActionDetail = memo(function ActionDetail({
   }, [action.id]); // eslint-disable-line react-hooks/exhaustive-deps -- data is derived from action, so action.id is sufficient
 
   // ── Build edited action_data for approval ──
+  const schedulePreview =
+    action.actionType === "approve_schedule_change"
+      ? ScheduleChangePreviewSchema.safeParse(action.actionData.proposal)
+      : null;
+  const schedulePreviewInvalid =
+    schedulePreview !== null &&
+    (!schedulePreview.success ||
+      new Date(schedulePreview.data.expires_at).getTime() <= Date.now());
   const customerPreview =
     action.actionType === "approve_customer_update"
       ? CustomerUpdatePreviewSchema.safeParse(action.actionData.proposal)
@@ -517,6 +527,21 @@ export const ActionDetail = memo(function ActionDetail({
       new Date(customerMessagePreview.data.approval.expires_at).getTime() <=
         Date.now());
   const handleApproveWithEdits = useCallback(() => {
+    if (action.actionType === "approve_schedule_change") {
+      const preview = ScheduleChangePreviewSchema.safeParse(
+        action.actionData.proposal
+      );
+      if (
+        !preview.success ||
+        new Date(preview.data.expires_at).getTime() <= Date.now()
+      )
+        return;
+      onApprove(action.id, {
+        preview_sha256: action.actionData.preview_sha256,
+        change_set_id: action.actionData.change_set_id,
+      });
+      return;
+    }
     if (action.actionType === "approve_customer_update") {
       const preview = CustomerUpdatePreviewSchema.safeParse(
         action.actionData.proposal
@@ -1079,6 +1104,9 @@ export const ActionDetail = memo(function ActionDetail({
           </div>
         )}
 
+        {action.actionType === "approve_schedule_change" && (
+          <ScheduleChangePreview proposal={action.actionData.proposal} />
+        )}
         {action.actionType === "approve_customer_update" && (
           <CustomerUpdatePreview proposal={action.actionData.proposal} />
         )}
@@ -3053,9 +3081,11 @@ export const ActionDetail = memo(function ActionDetail({
               variant="primary"
               size="sm"
               onClick={handleApproveWithEdits}
-              disabled={customerPreviewInvalid || customerMessagePreviewInvalid}
+              disabled={schedulePreviewInvalid || customerPreviewInvalid || customerMessagePreviewInvalid}
             >
-              {action.actionType === "approve_customer_update"
+              {action.actionType === "approve_schedule_change"
+                ? t("scheduleChange.approve")
+                : action.actionType === "approve_customer_update"
                 ? t("customerUpdate.save")
                 : action.actionType === "send_customer_follow_up"
                   ? t("customerMessage.send")

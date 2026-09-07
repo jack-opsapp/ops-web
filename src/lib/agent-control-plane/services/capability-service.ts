@@ -1,3 +1,5 @@
+import { isTrustedScheduleChangeService, type ScheduleChangeService } from "./schedule-change/schedule-change-service";
+import { SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION } from "../registry/capability-manifest";
 import type { ActorAuthorityRepository } from "../actor/authority-repository";
 import {
   isActorContext,
@@ -83,6 +85,7 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   CrewCalloutRecoveryService &
   DispatchConfirmationTaskService &
   CustomerUpdateService &
+  ScheduleChangeService &
   CustomerMessageService;
 
 export function createOpsAgentCapabilityService(input: {
@@ -99,6 +102,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly customerUpdate: CustomerUpdateService;
+  readonly scheduleChange: ScheduleChangeService;
   readonly customerMessage: CustomerMessageService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
 }): OpsAgentCapabilityService {
@@ -148,6 +152,7 @@ export function createOpsAgentCapabilityService(input: {
       "A trusted dispatch confirmation task service is required"
     );
   }
+  if (!isTrustedScheduleChangeService(input.scheduleChange)) throw new TypeError("A trusted schedule change service is required");
   if (!isTrustedCustomerUpdateService(input.customerUpdate))
     throw new TypeError("A trusted customer update service is required");
   if (!isTrustedCustomerMessageService(input.customerMessage))
@@ -191,6 +196,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.crewCalloutRecovery,
     ...input.dispatchConfirmationTask,
     ...input.customerUpdate,
+    ...input.scheduleChange,
     ...input.customerMessage,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
@@ -215,7 +221,8 @@ export async function reauthorizeCustomerUpdateReadActor(
   if (
     !isActorContext(actor) ||
     actor.capabilityManifestRevision !== CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
-    actor.capabilityManifestRevision !== CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION
+    actor.capabilityManifestRevision !== CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION &&
+    actor.capabilityManifestRevision !== SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION
   )
     return actor;
   return reauthorizeResolvedMcpActor({

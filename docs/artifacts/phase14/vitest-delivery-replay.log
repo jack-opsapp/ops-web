@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14
+
+stderr | tests/unit/email/provider-delivery-source-service.test.ts > provider delivery source capture > captures unsafe delivered content with a fixed prompt-safe projection
+[provider-delivery-source] correspondence normalization rejected {"companyId":"00000000-0000-4000-8000-000000000001","connectionId":"00000000-0000-4000-8000-000000000002","providerMessageId":"provider-message-1","mediaType":"text/plain","contentBytes":16,"reason":"content contains unsafe Unicode controls"}
+
+ ✓ tests/unit/email/provider-delivery-source-service.test.ts (20 tests) 80ms
+ ✓ tests/unit/email/delivery-source-reprojection-migration.test.ts (23 tests) 13ms
+
+ Test Files  2 passed (2)
+      Tests  43 passed (43)
+   Start at  17:52:01
+   Duration  2.55s (transform 417ms, setup 714ms, collect 323ms, tests 93ms, environment 740ms, prepare 101ms)

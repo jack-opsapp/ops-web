@@ -1,0 +1,23 @@
+SET
+SET
+UPDATE 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:25: NOTICE:  PASS: new crew requires recorded experience
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:25: NOTICE:  PASS: approved crew reassignment uses canonical task mutation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:25: NOTICE:  PASS: crew and schedule change preserves complete included scope
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:25: NOTICE:  PASS: all-day Vancouver reminder stays on the approved civil day
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:25: NOTICE:  PASS: crew assignment notification remains queued
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:25: NOTICE:  PASS: project crew rollup agrees with approved current assignments
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:49: NOTICE:  PASS: one approval atomically updates two exact tasks
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:49: NOTICE:  PASS: protected task dates swap without an intermediate conflict or partial write
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:49: NOTICE:  PASS: another company admin cannot approve or replay the named actor proposal
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:49: NOTICE:  PASS: disabled client cannot replay a successful receipt
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:49: NOTICE:  PASS: browser roles cannot invoke commit and service role cannot mint private write tokens
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:64: NOTICE:  PASS: already-claimed customer email blocks schedule approval
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:64: NOTICE:  PASS: unknown provider delivery cannot be treated as unsent
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:64: NOTICE:  PASS: pending automatic confirmation blocks independent schedule approval
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:77: NOTICE:  PASS: nonconflicting timed writer across UTC date rollover: America/Vancouver
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-positive.sql:77: NOTICE:  PASS: nonconflicting timed writer across UTC date rollover: Asia/Tokyo
+DO

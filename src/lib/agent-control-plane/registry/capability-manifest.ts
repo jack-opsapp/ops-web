@@ -1,3 +1,4 @@
+import { PREPARE_SCHEDULE_CHANGE_CAPABILITY_DEFINITION, COMMIT_SCHEDULE_CHANGE_CAPABILITY_DEFINITION } from "./schedule-change-capability";
 import {
   PREPARE_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
   COMMIT_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
@@ -629,6 +630,47 @@ export function resolveCustomerMessageCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getCustomerMessageCapabilityManifestEntry(name),
+    input
+  );
+}
+
+export const SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION = "2026-09-06.capability-manifest.v22";
+const scheduleChangeEntries = [
+  ...CUSTOMER_MESSAGE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_SCHEDULE_CHANGE_CAPABILITY_DEFINITION,
+    SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION
+  ),
+  mintImplementationEntry(
+    COMMIT_SCHEDULE_CHANGE_CAPABILITY_DEFINITION,
+    SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  scheduleChangeEntries,
+  SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(scheduleChangeEntries);
+export const SCHEDULE_CHANGE_CAPABILITY_MANIFEST = Object.freeze(
+  scheduleChangeEntries
+);
+export function getScheduleChangeCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = SCHEDULE_CHANGE_CAPABILITY_MANIFEST.find(
+    (candidate) => candidate.name === name
+  );
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+export function resolveScheduleChangeCapabilityAuthorization(
+  name: string,
+  input: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getScheduleChangeCapabilityManifestEntry(name),
     input
   );
 }

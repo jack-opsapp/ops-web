@@ -1,3 +1,5 @@
+import { createScheduleChangeService, type ScheduleChangeService } from "../services/schedule-change/schedule-change-service";
+import { createScheduleChangeRepository } from "../services/schedule-change/schedule-change-repository";
 import {
   createCustomerUpdateService,
   type CustomerUpdateService,
@@ -131,6 +133,7 @@ export interface McpServerRuntime {
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly customerUpdate: CustomerUpdateService;
+  readonly scheduleChange: ScheduleChangeService;
   readonly customerMessage: CustomerMessageService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
   readonly authorityRepository: ActorAuthorityRepository;
@@ -350,6 +353,10 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const scheduleChange = createScheduleChangeService({
+    repository: createScheduleChangeRepository({ rpc: rpcClient.rpc.bind(rpcClient) }),
+    authorityRepository,
+  });
   const customerMessage = createCustomerMessageService({
     repository: createCustomerMessageRepository({
       rpc: rpcClient.rpc.bind(rpcClient),
@@ -379,6 +386,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       crewCalloutRecovery,
       dispatchConfirmationTask,
       customerUpdate,
+      scheduleChange,
       customerMessage,
     }),
     dayCloseout,
@@ -393,6 +401,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     crewCalloutRecovery,
     dispatchConfirmationTask,
     customerUpdate,
+    scheduleChange,
     customerMessage,
     authorityRepository,
     rpcClient,
