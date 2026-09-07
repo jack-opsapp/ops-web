@@ -1,6 +1,6 @@
 # Phase 14 verification — 2026-09-06
 
-Scope: dormant exact task schedule/crew preparation and OPS approval. No production migration or activation has occurred as part of this verification. No real customer task mutation, provider send or grant change was performed.
+Scope: dormant exact task schedule/crew preparation and OPS approval. Jackson approved release after the local verification below. Both reviewed migrations were applied on 2026-09-07 and their stored SQL hashes independently matched these artifacts. No activation, real customer task mutation, provider send or grant change was performed.
 
 ## Verified local outcome
 
@@ -19,8 +19,8 @@ Local PostgreSQL uses live-captured canonical functions and representative task,
 
 | Source | SHA-256 | State |
 |---|---|---|
-| `20260906234703_task_mutation_time_validation.sql` | `6b2455ec97e4aa06a4e051e37b00f8691405e30a162de7ac8e460d81fc08e158` | Awaiting exact production approval |
-| `20260906235016_agent_schedule_crew_approval.sql` | `477d0d54baf5f6d8566a763c30cae9dc2c2d091b5d754c71dbff2c27a49d5520` | Awaiting exact production approval |
+| `20260906234703_task_mutation_time_validation.sql` | `6b2455ec97e4aa06a4e051e37b00f8691405e30a162de7ac8e460d81fc08e158` | Production-applied `20260907055324` |
+| `20260906235016_agent_schedule_crew_approval.sql` | `477d0d54baf5f6d8566a763c30cae9dc2c2d091b5d754c71dbff2c27a49d5520` | Production-applied `20260907055344` |
 
 Fresh production read-only preflight at **2026-09-07 00:57:34 UTC** matched all required original definitions:
 
@@ -35,3 +35,7 @@ Fresh production read-only preflight at **2026-09-07 00:57:34 UTC** matched all 
 Use Node v24.19.0 (the bundled runtime here), installed project dependencies and PostgreSQL 17 binaries. `tests/sql/agent-schedule-change-run-runtime.sh` owns a disposable private-socket database, executes all local SQL/races, and removes its cluster on exit. It requires macOS shared-memory permission, not production access. Vitest commands and complete results are in the retained logs. The Next build requires syntactically present Supabase URL/keys; this proof uses `https://phase14-build.invalid` and nonsecret placeholder keys.
 
 The separate Bible contract is `specs/2026-09-06-ops-mcp-schedule-crew-approval.md`. Its release record distinguishes code deployment, pending SQL, inactive consent/exposure and unproven business acceptance.
+
+## Approved release verification — 2026-09-07
+
+Fresh upstream integration `9ed43bd5543134025799940d5d8b10033aa4fa96` preserves the intervening social-editorial release. All 127 focused tests passed again across 17 files. Production migration readback at 05:54 UTC proved both ledger entries and byte-exact hashes, four force-RLS private tables with no service-role direct table access, service-only empty-search-path public entry points, matching effect policy, and zero change sets, capacity fences, write tokens, approval actions, v16 clients or grants. The canonical time and all-day reminder repairs are installed. Public OAuth discovery before web deployment has exactly 21 scopes and no `ops.schedule.prepare`. Vancouver November midnight remains 08:00Z: platform timezone maintenance and activation remain separate gates. The Bible records final deployment evidence.
