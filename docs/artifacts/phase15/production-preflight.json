@@ -1,0 +1,583 @@
+{
+  "lines": {
+    "hash": "571303a12f1b10b15bac1774975b5295",
+    "count": 169
+  },
+  "grants": {
+    "hash": "f4e05f0e5776e2d7b2a8d2967f812502",
+    "count": 5
+  },
+  "clients": {
+    "hash": "aaba2782b1c68056c714e4b0a26a6859",
+    "count": 13
+  },
+  "columns": [
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "id",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "company_id",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "opportunity_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "client_id",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "estimate_number",
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "estimates",
+      "column": "version",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "parent_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "title",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "client_message",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "internal_notes",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "terms",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "estimates",
+      "column": "subtotal",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "discount_type",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "estimates",
+      "column": "discount_value",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "estimates",
+      "column": "discount_amount",
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "estimates",
+      "column": "tax_rate",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "estimates",
+      "column": "tax_amount",
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "estimates",
+      "column": "total",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "deposit_type",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "estimates",
+      "column": "deposit_value",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "estimates",
+      "column": "deposit_amount",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "status",
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "estimates",
+      "column": "issue_date",
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "estimates",
+      "column": "expiration_date",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "estimates",
+      "column": "sent_at",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "estimates",
+      "column": "viewed_at",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "estimates",
+      "column": "approved_at",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "pdf_storage_path",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "created_by",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "estimates",
+      "column": "created_at",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "estimates",
+      "column": "updated_at",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "estimates",
+      "column": "deleted_at",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "project_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "client_ref",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "project_ref",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "qb_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "estimates",
+      "column": "template_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "sage_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "notes",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "estimates",
+      "column": "sage_document_kind",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "id",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "company_id",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "estimate_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "invoice_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "product_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "line_items",
+      "column": "name",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "line_items",
+      "column": "description",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "line_items",
+      "column": "quantity",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "line_items",
+      "column": "unit",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "line_items",
+      "column": "unit_price",
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "line_items",
+      "column": "unit_cost",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "line_items",
+      "column": "discount_percent",
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "line_items",
+      "column": "is_taxable",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "tax_rate_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "line_items",
+      "column": "is_optional",
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "line_items",
+      "column": "is_selected",
+      "nullable": "YES"
+    },
+    {
+      "type": "integer",
+      "table": "line_items",
+      "column": "sort_order",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "line_items",
+      "column": "category",
+      "nullable": "YES"
+    },
+    {
+      "type": "date",
+      "table": "line_items",
+      "column": "service_date",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "line_items",
+      "column": "created_at",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "line_items",
+      "column": "type",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "line_items",
+      "column": "task_type_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "line_items",
+      "column": "estimated_hours",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "task_type_ref",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "parent_line_item_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "line_items",
+      "column": "unit_id",
+      "nullable": "YES"
+    },
+    {
+      "type": "jsonb",
+      "table": "line_items",
+      "column": "configured_options",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "line_items",
+      "column": "resolved_unit_price",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "line_items",
+      "column": "resolved_options_label",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "line_items",
+      "column": "minimum_charge_snapshot",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "line_items",
+      "column": "line_total",
+      "nullable": "YES"
+    }
+  ],
+  "estimates": {
+    "hash": "5e13dd4a59c35607a29730a148fef2d6",
+    "count": 27
+  },
+  "v17_grants": 0,
+  "observed_at": "2026-09-07T17:33:36.939517+00:00",
+  "v17_clients": 0,
+  "recent_migrations": [
+    {
+      "name": "agent_schedule_crew_approval",
+      "version": "20260907055344"
+    },
+    {
+      "name": "task_mutation_time_validation",
+      "version": "20260907055324"
+    },
+    {
+      "name": "create_social_editorial_assignments",
+      "version": "20260907055055"
+    },
+    {
+      "name": "site_visit_stage_commands",
+      "version": "20260907001000"
+    },
+    {
+      "name": "agent_customer_message_follow_up",
+      "version": "20260906230457"
+    },
+    {
+      "name": "delivery_source_reprojection_replay",
+      "version": "20260906230408"
+    },
+    {
+      "name": "agent_customer_update_source_precision",
+      "version": "20260905235844"
+    },
+    {
+      "name": "create_social_editorial",
+      "version": "20260905233314"
+    }
+  ],
+  "trigger_functions": [
+    {
+      "hash": "84002606698b19df6fc4eef1046cf925",
+      "table": "agent_actions",
+      "trigger": "agent_customer_message_action_receipt",
+      "function": "agent_customer_message_action_receipt_trigger",
+      "definition": "CREATE TRIGGER agent_customer_message_action_receipt AFTER UPDATE OF status, execution_result, error ON public.agent_actions FOR EACH ROW EXECUTE FUNCTION private.agent_customer_message_action_receipt_trigger()"
+    },
+    {
+      "hash": "21c2c72a6eb15cddd49bfe1ae52f5f28",
+      "table": "agent_actions",
+      "trigger": "guard_purpose_schedule_email_action_update",
+      "function": "guard_purpose_schedule_email_action_update",
+      "definition": "CREATE TRIGGER guard_purpose_schedule_email_action_update BEFORE UPDATE OF id, company_id, user_id, action_type, action_data, context_summary, context_source, source_id, confidence, priority, expires_at, auto_execute_at, created_at, status, reviewed_by, reviewed_at ON public.agent_actions FOR EACH ROW EXECUTE FUNCTION private.guard_purpose_schedule_email_action_update()"
+    },
+    {
+      "hash": "6bf1536f91dfb7f016278918da5db0d0",
+      "table": "agent_actions",
+      "trigger": "trg_agent_actions_updated_at",
+      "function": "update_agent_actions_updated_at",
+      "definition": "CREATE TRIGGER trg_agent_actions_updated_at BEFORE UPDATE ON public.agent_actions FOR EACH ROW EXECUTE FUNCTION update_agent_actions_updated_at()"
+    },
+    {
+      "hash": "2e889740c8c50758286d2e9315c7af56",
+      "table": "estimates",
+      "trigger": "audit_estimates",
+      "function": "audit_trigger_fn",
+      "definition": "CREATE TRIGGER audit_estimates AFTER INSERT OR DELETE OR UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION audit_trigger_fn()"
+    },
+    {
+      "hash": "5a32a1da0b91d3e8e0b5c55a9ca3d52d",
+      "table": "estimates",
+      "trigger": "estimates_bump_agent_artifact_revision",
+      "function": "bump_agent_read_domain_revision",
+      "definition": "CREATE TRIGGER estimates_bump_agent_artifact_revision AFTER INSERT OR DELETE OR UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION private.bump_agent_read_domain_revision('artifacts', 'company_id')"
+    },
+    {
+      "hash": "c357e09398118d5b2a94c031de046eaa",
+      "table": "estimates",
+      "trigger": "estimates_bump_agent_job_history_revision",
+      "function": "bump_agent_job_history_revision",
+      "definition": "CREATE TRIGGER estimates_bump_agent_job_history_revision AFTER INSERT OR DELETE OR UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION private.bump_agent_job_history_revision()"
+    },
+    {
+      "hash": "13068da4ffa66d2836c8aa92832c0e8a",
+      "table": "estimates",
+      "trigger": "estimates_bump_agent_operational_read_revision",
+      "function": "bump_agent_operational_read_revision",
+      "definition": "CREATE TRIGGER estimates_bump_agent_operational_read_revision AFTER INSERT OR DELETE OR UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION private.bump_agent_operational_read_revision()"
+    },
+    {
+      "hash": "ceba5c4f06afdbdd5cc10fc5a028e2b0",
+      "table": "estimates",
+      "trigger": "estimates_bump_agent_sales_document_revision",
+      "function": "bump_agent_sales_document_source_revision",
+      "definition": "CREATE TRIGGER estimates_bump_agent_sales_document_revision AFTER INSERT OR DELETE OR UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION private.bump_agent_sales_document_source_revision()"
+    },
+    {
+      "hash": "5a32a1da0b91d3e8e0b5c55a9ca3d52d",
+      "table": "estimates",
+      "trigger": "estimates_bump_agent_task_revision",
+      "function": "bump_agent_read_domain_revision",
+      "definition": "CREATE TRIGGER estimates_bump_agent_task_revision AFTER INSERT OR DELETE OR UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION private.bump_agent_read_domain_revision('tasks', 'company_id')"
+    },
+    {
+      "hash": "0e7d6dea240b3732010fcedbfc77f7fa",
+      "table": "estimates",
+      "trigger": "trg_accounting_sync_queue_estimates",
+      "function": "enqueue_accounting_sync",
+      "definition": "CREATE TRIGGER trg_accounting_sync_queue_estimates AFTER INSERT OR UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION enqueue_accounting_sync()"
+    },
+    {
+      "hash": "93ab639fada1299eae91e1456a216b6d",
+      "table": "estimates",
+      "trigger": "trg_estimate_timestamp",
+      "function": "update_timestamp",
+      "definition": "CREATE TRIGGER trg_estimate_timestamp BEFORE UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION update_timestamp()"
+    },
+    {
+      "hash": "ceba5c4f06afdbdd5cc10fc5a028e2b0",
+      "table": "line_items",
+      "trigger": "line_items_bump_agent_sales_document_revision",
+      "function": "bump_agent_sales_document_source_revision",
+      "definition": "CREATE TRIGGER line_items_bump_agent_sales_document_revision AFTER INSERT OR DELETE OR UPDATE ON public.line_items FOR EACH ROW EXECUTE FUNCTION private.bump_agent_sales_document_source_revision()"
+    },
+    {
+      "hash": "5a32a1da0b91d3e8e0b5c55a9ca3d52d",
+      "table": "line_items",
+      "trigger": "line_items_bump_agent_task_revision",
+      "function": "bump_agent_read_domain_revision",
+      "definition": "CREATE TRIGGER line_items_bump_agent_task_revision AFTER INSERT OR DELETE OR UPDATE ON public.line_items FOR EACH ROW EXECUTE FUNCTION private.bump_agent_read_domain_revision('tasks', 'company_id')"
+    },
+    {
+      "hash": "0e7d6dea240b3732010fcedbfc77f7fa",
+      "table": "line_items",
+      "trigger": "trg_accounting_sync_queue_line_items",
+      "function": "enqueue_accounting_sync",
+      "definition": "CREATE TRIGGER trg_accounting_sync_queue_line_items AFTER INSERT OR DELETE OR UPDATE ON public.line_items FOR EACH ROW EXECUTE FUNCTION enqueue_accounting_sync()"
+    }
+  ]
+}
