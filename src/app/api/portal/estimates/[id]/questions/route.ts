@@ -14,6 +14,8 @@ import {
 } from "@/lib/api/portal-api-helpers";
 import { LineItemQuestionService } from "@/lib/api/services/line-item-question-service";
 
+import { PortalService } from "@/lib/api/services/portal-service";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,6 +31,7 @@ export async function GET(
       return NextResponse.json({ questions: [], answers: [] });
     }
 
+    await PortalService.getEstimateForPortal(estimateId, session.clientId);
     const [questions, answers] = await Promise.all([
       LineItemQuestionService.getQuestionsForEstimate(estimateId),
       LineItemQuestionService.getAnswersForEstimate(estimateId),
@@ -59,6 +62,12 @@ export async function POST(
       return NextResponse.json({ success: true, answers: [] });
     }
 
+    await PortalService.getEstimateForPortal(estimateId, session.clientId);
+    const questions =
+      await LineItemQuestionService.getQuestionsForEstimate(estimateId);
+    const allowedQuestionIds = new Set(
+      questions.map((question) => question.id)
+    );
     const body = await req.json();
 
     if (!Array.isArray(body.answers) || body.answers.length === 0) {
@@ -70,7 +79,11 @@ export async function POST(
 
     // Validate each answer object
     for (const answer of body.answers) {
-      if (!answer.questionId || typeof answer.answerValue !== "string") {
+      if (
+        typeof answer.questionId !== "string" ||
+        !allowedQuestionIds.has(answer.questionId) ||
+        typeof answer.answerValue !== "string"
+      ) {
         return NextResponse.json(
           {
             error:
@@ -83,13 +96,12 @@ export async function POST(
 
     // Submit all answers
     const submitted = await Promise.all(
-      body.answers.map(
-        (answer: { questionId: string; answerValue: string }) =>
-          LineItemQuestionService.submitAnswer({
-            questionId: answer.questionId,
-            clientId: session.clientId,
-            answerValue: answer.answerValue,
-          })
+      body.answers.map((answer: { questionId: string; answerValue: string }) =>
+        LineItemQuestionService.submitAnswer({
+          questionId: answer.questionId,
+          clientId: session.clientId,
+          answerValue: answer.answerValue,
+        })
       )
     );
 

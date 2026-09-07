@@ -375,3 +375,32 @@ describe("Sage queue repository", () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe("private financial draft accounting custody", () => {
+  it.each(["create", "delete"] as const)(
+    "blocks a held estimate before Sage %s mapping",
+    async (operation) => {
+      const state = baseState();
+      state.estimates = [
+        {
+          id: "41000000-0000-4000-8000-000000000001",
+          company_id: "20000000-0000-4000-8000-000000000001",
+          distribution_hold: true,
+          sage_id: null,
+        },
+      ];
+      const db = database(state);
+      const repository = new SageQueueRepository(db.client as never);
+      const row = queueRow({
+        operation,
+        entityType: "estimate",
+        entityId: "41000000-0000-4000-8000-000000000001",
+        sourceTable: "estimates",
+      });
+      await expect(
+        repository.prepare(row, (await repository.loadConnection(row))!)
+      ).rejects.toMatchObject({ code: "sage_estimate_private_draft" });
+      expect(db.state.estimates[0].sage_id).toBeNull();
+    }
+  );
+});

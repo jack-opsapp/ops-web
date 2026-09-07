@@ -1,0 +1,13 @@
+SET
+NOTICE:  PASS: same key reconciles to winner after concurrent commit
+ assert 
+--------
+ 
+(1 row)
+
+NOTICE:  PASS: concurrent requests allocate exactly one document and number
+ assert 
+--------
+ 
+(1 row)
+

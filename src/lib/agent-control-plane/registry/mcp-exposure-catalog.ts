@@ -383,8 +383,29 @@ export const MCP_EXPOSURE_V15 = Object.freeze({
 /** Dormant Phase 14 candidate: no selectable catalogue entry or consent. */
 export const MCP_EXPOSURE_V16 = Object.freeze({
   revision: "2026-09-06.mcp-exposure.v16",
-  toolIds: Object.freeze([...MCP_EXPOSURE_V14.toolIds, "prepare_schedule_change"] as const),
-  grantableScopes: Object.freeze([...MCP_EXPOSURE_V14.grantableScopes, "ops.schedule.prepare"].sort()),
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V14.toolIds,
+    "prepare_schedule_change",
+  ] as const),
+  grantableScopes: Object.freeze(
+    [...MCP_EXPOSURE_V14.grantableScopes, "ops.schedule.prepare"].sort()
+  ),
+} as const satisfies McpExposure);
+
+/** Dormant Phase 15. Not selectable; prospective consent v12 is absent. */
+export const MCP_EXPOSURE_V17 = Object.freeze({
+  revision: "2026-09-07.mcp-exposure.v17",
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V14.toolIds,
+    "inspect_financial_document",
+    "prepare_financial_document",
+  ] as const),
+  grantableScopes: Object.freeze(
+    [
+      ...MCP_EXPOSURE_V14.grantableScopes,
+      "ops.financial_documents.prepare",
+    ].sort()
+  ),
 } as const satisfies McpExposure);
 
 export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V14.revision;

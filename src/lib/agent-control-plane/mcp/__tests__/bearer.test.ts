@@ -50,6 +50,7 @@ function runtime(
       {} as McpServerRuntime["dispatchConfirmationTask"],
     customerUpdate: {} as McpServerRuntime["customerUpdate"],
     scheduleChange: {} as McpServerRuntime["scheduleChange"],
+    financialDocument: {} as McpServerRuntime["financialDocument"],
     customerMessage: {} as McpServerRuntime["customerMessage"],
     authorityRepository: authorityClient.repository,
     rpcClient: {

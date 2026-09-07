@@ -1,4 +1,12 @@
-import { isTrustedScheduleChangeService, type ScheduleChangeService } from "./schedule-change/schedule-change-service";
+import {
+  isTrustedFinancialDocumentService,
+  type FinancialDocumentService,
+} from "./financial-document/financial-document-service";
+import { FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION } from "../registry/capability-manifest";
+import {
+  isTrustedScheduleChangeService,
+  type ScheduleChangeService,
+} from "./schedule-change/schedule-change-service";
 import { SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION } from "../registry/capability-manifest";
 import type { ActorAuthorityRepository } from "../actor/authority-repository";
 import {
@@ -86,6 +94,7 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   DispatchConfirmationTaskService &
   CustomerUpdateService &
   ScheduleChangeService &
+  FinancialDocumentService &
   CustomerMessageService;
 
 export function createOpsAgentCapabilityService(input: {
@@ -103,6 +112,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly customerUpdate: CustomerUpdateService;
   readonly scheduleChange: ScheduleChangeService;
+  readonly financialDocument: FinancialDocumentService;
   readonly customerMessage: CustomerMessageService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
 }): OpsAgentCapabilityService {
@@ -152,7 +162,10 @@ export function createOpsAgentCapabilityService(input: {
       "A trusted dispatch confirmation task service is required"
     );
   }
-  if (!isTrustedScheduleChangeService(input.scheduleChange)) throw new TypeError("A trusted schedule change service is required");
+  if (!isTrustedFinancialDocumentService(input.financialDocument))
+    throw new TypeError("A trusted financial document service is required");
+  if (!isTrustedScheduleChangeService(input.scheduleChange))
+    throw new TypeError("A trusted schedule change service is required");
   if (!isTrustedCustomerUpdateService(input.customerUpdate))
     throw new TypeError("A trusted customer update service is required");
   if (!isTrustedCustomerMessageService(input.customerMessage))
@@ -197,6 +210,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.dispatchConfirmationTask,
     ...input.customerUpdate,
     ...input.scheduleChange,
+    ...input.financialDocument,
     ...input.customerMessage,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
@@ -220,9 +234,14 @@ export async function reauthorizeCustomerUpdateReadActor(
 ): Promise<ActorContext> {
   if (
     !isActorContext(actor) ||
-    actor.capabilityManifestRevision !== CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
-    actor.capabilityManifestRevision !== CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION &&
-    actor.capabilityManifestRevision !== SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION
+    (actor.capabilityManifestRevision !==
+      CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
+      actor.capabilityManifestRevision !==
+        CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION &&
+      actor.capabilityManifestRevision !==
+        SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION &&
+      actor.capabilityManifestRevision !==
+        FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION)
   )
     return actor;
   return reauthorizeResolvedMcpActor({

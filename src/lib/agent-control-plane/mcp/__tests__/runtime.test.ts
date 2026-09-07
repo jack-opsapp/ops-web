@@ -120,6 +120,8 @@ describe("MCP production runtime", () => {
       "prepareDispatchConfirmationTask",
       "prepareCustomerUpdate",
       "prepareScheduleChange",
+      "inspectFinancialDocument",
+      "prepareFinancialDocument",
       "prepareCustomerMessage",
     ]);
     expect(runtime.hiringWhatIf).toBeDefined();

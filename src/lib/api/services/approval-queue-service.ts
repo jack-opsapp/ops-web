@@ -1,3 +1,4 @@
+import { FinancialDocumentReceiptSchema } from "@/lib/agent-control-plane/contracts/financial-document";
 import { ScheduleChangeReceiptSchema } from "@/lib/agent-control-plane/contracts/schedule-change";
 /**
  * OPS Web — Approval Queue Service
@@ -104,6 +105,7 @@ const EXPIRY_DAYS: Record<string, number> = {
   approve_collections_draft: 3,
   approve_dispatch_confirmation_task: 1,
   approve_schedule_change: 1,
+  approve_financial_document: 1,
   approve_customer_update: 1,
   send_customer_follow_up: 1,
 };
@@ -960,6 +962,7 @@ export const ApprovalQueueService = {
     const supabase = requireSupabase();
     if (
       params.actionType === "approve_schedule_change" ||
+      params.actionType === "approve_financial_document" ||
       params.actionType === "approve_customer_update" ||
       params.actionType === "send_customer_follow_up"
     )
@@ -1216,6 +1219,7 @@ export const ApprovalQueueService = {
     const rows = (data ?? []).filter((row) => {
       const privateAction =
         row.action_type === "approve_schedule_change" ||
+        row.action_type === "approve_financial_document" ||
         row.action_type === "approve_customer_update" ||
         row.action_type === "send_customer_follow_up";
       return !privateAction || (actorUserId && row.user_id === actorUserId);
@@ -1241,12 +1245,37 @@ export const ApprovalQueueService = {
         if (parsed.success) readableIds = new Set(parsed.data);
       }
     }
+    let readableFinancialIds = new Set<string>();
+    const financialDocuments = rows.filter(
+      (row) => row.action_type === "approve_financial_document"
+    );
+    if (financialDocuments.length && actorUserId) {
+      const visibility = await supabase.rpc(
+        "filter_financial_document_actions_as_actor" as never,
+        {
+          p_actor: actorUserId,
+          p_company: companyId,
+          p_actions: financialDocuments.map((row) => row.id),
+        } as never
+      );
+      if (!visibility.error) {
+        const parsed = z.array(z.uuid()).max(200).safeParse(visibility.data);
+        if (parsed.success) readableFinancialIds = new Set(parsed.data);
+      }
+    }
     let readableScheduleIds = new Set<string>();
-    const scheduleChanges = rows.filter(row => row.action_type === "approve_schedule_change");
+    const scheduleChanges = rows.filter(
+      (row) => row.action_type === "approve_schedule_change"
+    );
     if (scheduleChanges.length && actorUserId) {
-      const visibility = await supabase.rpc("filter_agent_schedule_change_actions_as_actor" as never, {
-        p_actor: actorUserId, p_company: companyId, p_actions: scheduleChanges.map(row => row.id),
-      } as never);
+      const visibility = await supabase.rpc(
+        "filter_agent_schedule_change_actions_as_actor" as never,
+        {
+          p_actor: actorUserId,
+          p_company: companyId,
+          p_actions: scheduleChanges.map((row) => row.id),
+        } as never
+      );
       if (!visibility.error) {
         const parsed = z.array(z.uuid()).max(200).safeParse(visibility.data);
         if (parsed.success) readableScheduleIds = new Set(parsed.data);
@@ -1269,9 +1298,12 @@ export const ApprovalQueueService = {
     }
     const actions = rows.map((row) =>
       mapFromDb(
-        (row.action_type === "approve_schedule_change" && !readableScheduleIds.has(String(row.id))) ||
-        (row.action_type === "approve_customer_update" &&
-          !readableIds.has(String(row.id))) ||
+        (row.action_type === "approve_schedule_change" &&
+          !readableScheduleIds.has(String(row.id))) ||
+          (row.action_type === "approve_financial_document" &&
+            !readableFinancialIds.has(String(row.id))) ||
+          (row.action_type === "approve_customer_update" &&
+            !readableIds.has(String(row.id))) ||
           (row.action_type === "send_customer_follow_up" &&
             !readableMessageIds.has(String(row.id)))
           ? {
@@ -1523,6 +1555,73 @@ export const ApprovalQueueService = {
       if (finalError || !final) {
         throw new Error("Action not found after collection draft approval");
       }
+      return mapFromDb(final);
+    }
+
+    if (actionIdentity.action_type === "approve_financial_document") {
+      if (learningAuthority !== "operator_approved")
+        throw new Error("Financial drafts require operator approval");
+      const confirmation = z
+        .object({
+          preview_sha256: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+          change_set_id: z.uuid(),
+        })
+        .strict()
+        .safeParse(editedActionData);
+      const actionData = actionIdentity.action_data as Record<string, unknown>;
+      if (
+        !confirmation.success ||
+        confirmation.data.preview_sha256 !== actionData.preview_sha256 ||
+        confirmation.data.change_set_id !== actionData.change_set_id
+      )
+        throw new Error(
+          "Review the current financial draft preview before approving"
+        );
+      const args = {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: confirmation.data.change_set_id,
+        p_preview_sha256: confirmation.data.preview_sha256,
+        p_idempotency_key: "approve-financial-document:" + actionId,
+      };
+      let execution = await supabase.rpc(
+        "commit_financial_document_as_actor" as never,
+        args as never
+      );
+      if (execution.error || !execution.data)
+        execution = await supabase.rpc(
+          "commit_financial_document_as_actor" as never,
+          args as never
+        );
+      if (execution.error || !execution.data)
+        throw new Error(
+          "Financial draft could not be reconciled. Reload the preview before retrying."
+        );
+      const receipt = FinancialDocumentReceiptSchema.parse(execution.data);
+      if (
+        receipt.action_id !== actionId ||
+        receipt.change_set_id !== args.p_change_set_id ||
+        receipt.preview_sha256 !== args.p_preview_sha256
+      )
+        throw new Error("Financial draft receipt is invalid");
+      const { data: final, error } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .single();
+      if (error || !final || final.status !== "executed")
+        throw new Error("Financial draft readback is unavailable");
+      const persisted = FinancialDocumentReceiptSchema.parse(
+        final.execution_result
+      );
+      if (
+        JSON.stringify({ ...persisted, replayed: false }) !==
+        JSON.stringify({ ...receipt, replayed: false })
+      )
+        throw new Error("Financial draft readback does not match the receipt");
       return mapFromDb(final);
     }
 
@@ -2022,6 +2121,8 @@ export const ApprovalQueueService = {
     if (actionIdentity.action_type === "approve_collections_draft") {
       throw new Error("Collection drafts require operator approval");
     }
+    if (actionIdentity.action_type === "approve_financial_document")
+      throw new Error("Financial drafts require operator approval");
     if (actionIdentity.action_type === "approve_schedule_change")
       throw new Error("Schedule changes require operator approval");
     if (actionIdentity.action_type === "approve_customer_update")
@@ -2204,6 +2305,38 @@ export const ApprovalQueueService = {
       }
       return mapFromDb(final);
     }
+    if (actionIdentity.action_type === "approve_financial_document") {
+      const { data, error } = await supabase.rpc(
+        "reject_financial_document_as_actor" as never,
+        {
+          p_actor_user_id: userId,
+          p_company_id: companyId,
+          p_action_id: actionId,
+          p_review_notes: notes ?? null,
+        } as never
+      );
+      const receipt = z
+        .object({
+          ok: z.literal(true),
+          effect: z.literal("left_unchanged_inside_ops"),
+          action_id: z.uuid(),
+          change_set_id: z.uuid(),
+        })
+        .strict()
+        .parse(data);
+      if (error || receipt.action_id !== actionId)
+        throw new Error("Financial draft rejection could not be verified");
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .single();
+      if (finalError || !final || final.status !== "rejected")
+        throw new Error("Financial draft rejection readback failed");
+      return mapFromDb(final);
+    }
     if (actionIdentity.action_type === "approve_schedule_change") {
       const { data, error } = await supabase.rpc(
         "reject_agent_schedule_change_as_actor" as never,
@@ -2379,6 +2512,7 @@ export const ApprovalQueueService = {
         "approve_collections_draft",
         "approve_dispatch_confirmation_task",
         "approve_schedule_change",
+        "approve_financial_document",
         "approve_customer_update",
         "send_customer_follow_up",
       ])
@@ -2388,8 +2522,14 @@ export const ApprovalQueueService = {
     if (exactConfirmations && exactConfirmations.length > 0) {
       if (exactConfirmations[0]?.action_type === "send_customer_follow_up")
         throw new Error("Customer replies must be approved one at a time");
+      if (exactConfirmations[0]?.action_type === "approve_financial_document")
+        throw new Error(
+          "Financial drafts must be approved one proposal at a time"
+        );
       if (exactConfirmations[0]?.action_type === "approve_schedule_change")
-        throw new Error("Schedule changes must be approved one proposal at a time");
+        throw new Error(
+          "Schedule changes must be approved one proposal at a time"
+        );
       if (exactConfirmations[0]?.action_type === "approve_customer_update")
         throw new Error("Customer updates must be approved one at a time");
       if (exactConfirmations[0]?.action_type === "approve_collections_draft") {
@@ -2459,6 +2599,7 @@ export const ApprovalQueueService = {
       .from("agent_actions")
       .update({ status: "cancelled" })
       .neq("action_type", "approve_schedule_change")
+      .neq("action_type", "approve_financial_document")
       .neq("action_type", "approve_customer_update")
       .neq("action_type", "send_customer_follow_up")
       .eq("id", actionId)

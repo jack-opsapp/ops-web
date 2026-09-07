@@ -322,6 +322,12 @@ export class SageQueueRepository {
     );
     const snapshot = sourceSnapshot(row);
     const source = estimate ?? snapshot;
+    if (source.distribution_hold === true) {
+      throw new SageMappingError(
+        "sage_estimate_private_draft",
+        "OPS private draft is held from accounting export."
+      );
+    }
     const resource = salesResource(source);
     const externalId = nullable(estimate?.sage_id) ?? row.externalId;
     if (row.operation === "delete") {

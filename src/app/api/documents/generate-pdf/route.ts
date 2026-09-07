@@ -23,8 +23,15 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { checkPermission } from "@/lib/supabase/check-permission";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { renderDocumentHtml } from "@/lib/pdf/render-document-html";
-import type { InvoiceRenderData, EstimateRenderData } from "@/lib/pdf/render-document-html";
-import type { PortalBranding, PortalTemplate, PortalThemeMode } from "@/lib/types/portal";
+import type {
+  InvoiceRenderData,
+  EstimateRenderData,
+} from "@/lib/pdf/render-document-html";
+import type {
+  PortalBranding,
+  PortalTemplate,
+  PortalThemeMode,
+} from "@/lib/types/portal";
 import type { DocumentTemplate } from "@/lib/types/document-template";
 import { DiscountType } from "@/lib/types/pipeline";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -54,9 +61,14 @@ function mapTemplateFromDb(row: Record<string, unknown>): DocumentTemplate {
     showToSection: (row.show_to_section as boolean) ?? true,
     overrideLogoUrl: (row.override_logo_url as string) ?? null,
     overrideAccentColor: (row.override_accent_color as string) ?? null,
-    overrideTemplate: (row.override_template as DocumentTemplate["overrideTemplate"]) ?? null,
-    overrideThemeMode: (row.override_theme_mode as DocumentTemplate["overrideThemeMode"]) ?? null,
-    overrideFontCombo: (row.override_font_combo as DocumentTemplate["overrideFontCombo"]) ?? null,
+    overrideTemplate:
+      (row.override_template as DocumentTemplate["overrideTemplate"]) ?? null,
+    overrideThemeMode:
+      (row.override_theme_mode as DocumentTemplate["overrideThemeMode"]) ??
+      null,
+    overrideFontCombo:
+      (row.override_font_combo as DocumentTemplate["overrideFontCombo"]) ??
+      null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -72,12 +84,15 @@ function mapBrandingFromDb(row: Record<string, unknown>): PortalBranding {
     themeMode: (row.theme_mode as PortalThemeMode) ?? "dark",
     fontCombo: (row.font_combo as PortalTemplate) ?? "modern",
     welcomeMessage: (row.welcome_message as string) ?? null,
-    showQuantities: row.show_quantities != null ? !!(row.show_quantities) : null,
-    showUnitPrices: row.show_unit_prices != null ? !!(row.show_unit_prices) : null,
-    showLineTotals: row.show_line_totals != null ? !!(row.show_line_totals) : null,
-    showDescriptions: row.show_descriptions != null ? !!(row.show_descriptions) : null,
-    showTax: row.show_tax != null ? !!(row.show_tax) : null,
-    showDiscount: row.show_discount != null ? !!(row.show_discount) : null,
+    showQuantities: row.show_quantities != null ? !!row.show_quantities : null,
+    showUnitPrices:
+      row.show_unit_prices != null ? !!row.show_unit_prices : null,
+    showLineTotals:
+      row.show_line_totals != null ? !!row.show_line_totals : null,
+    showDescriptions:
+      row.show_descriptions != null ? !!row.show_descriptions : null,
+    showTax: row.show_tax != null ? !!row.show_tax : null,
+    showDiscount: row.show_discount != null ? !!row.show_discount : null,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
   };
@@ -120,7 +135,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Check permission based on document type
-    const requiredPerm = documentType === "invoice" ? "invoices.view" : "estimates.view";
+    const requiredPerm =
+      documentType === "invoice" ? "invoices.view" : "estimates.view";
     const allowed = await checkPermission(user.uid, requiredPerm, user.email);
     if (!allowed) {
       return NextResponse.json(
@@ -139,22 +155,40 @@ export async function POST(req: NextRequest) {
     if (documentType === "invoice") {
       const [invoiceRes, liRes, payRes] = await Promise.all([
         supabase.from("invoices").select("*").eq("id", documentId).single(),
-        supabase.from("line_items").select("*").eq("invoice_id", documentId).order("sort_order"),
-        supabase.from("payments").select("*").eq("invoice_id", documentId).is("voided_at", null).order("payment_date", { ascending: false }),
+        supabase
+          .from("line_items")
+          .select("*")
+          .eq("invoice_id", documentId)
+          .order("sort_order"),
+        supabase
+          .from("payments")
+          .select("*")
+          .eq("invoice_id", documentId)
+          .is("voided_at", null)
+          .order("payment_date", { ascending: false }),
       ]);
-      if (invoiceRes.error) throw new Error(`Invoice not found: ${invoiceRes.error.message}`);
-      if (liRes.error) throw new Error(`Line items error: ${liRes.error.message}`);
-      if (payRes.error) throw new Error(`Payments error: ${payRes.error.message}`);
+      if (invoiceRes.error)
+        throw new Error(`Invoice not found: ${invoiceRes.error.message}`);
+      if (liRes.error)
+        throw new Error(`Line items error: ${liRes.error.message}`);
+      if (payRes.error)
+        throw new Error(`Payments error: ${payRes.error.message}`);
       docData = invoiceRes.data;
       lineItems = liRes.data ?? [];
       payments = payRes.data ?? [];
     } else {
       const [estimateRes, liRes] = await Promise.all([
         supabase.from("estimates").select("*").eq("id", documentId).single(),
-        supabase.from("line_items").select("*").eq("estimate_id", documentId).order("sort_order"),
+        supabase
+          .from("line_items")
+          .select("*")
+          .eq("estimate_id", documentId)
+          .order("sort_order"),
       ]);
-      if (estimateRes.error) throw new Error(`Estimate not found: ${estimateRes.error.message}`);
-      if (liRes.error) throw new Error(`Line items error: ${liRes.error.message}`);
+      if (estimateRes.error)
+        throw new Error(`Estimate not found: ${estimateRes.error.message}`);
+      if (liRes.error)
+        throw new Error(`Line items error: ${liRes.error.message}`);
       docData = estimateRes.data;
       lineItems = liRes.data ?? [];
     }
@@ -166,18 +200,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
+    if (documentType === "estimate" && docData.distribution_hold === true) {
+      return NextResponse.json(
+        { error: "This private draft is held from document export." },
+        { status: 409 }
+      );
+    }
+
     // ── Fetch related data ─────────────────────────────────────────────────
     const templateId = docData.template_id as string | null;
     const clientId = docData.client_id as string;
 
-    const [brandingRes, clientRes, companyRes, templateRes] = await Promise.all([
-      supabase.from("portal_branding").select("*").eq("company_id", companyId).maybeSingle(),
-      supabase.from("clients").select("*").eq("id", clientId).single(),
-      supabase.from("companies").select("*").eq("id", companyId).single(),
-      templateId
-        ? supabase.from("document_templates").select("*").eq("id", templateId).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-    ]);
+    const [brandingRes, clientRes, companyRes, templateRes] = await Promise.all(
+      [
+        supabase
+          .from("portal_branding")
+          .select("*")
+          .eq("company_id", companyId)
+          .maybeSingle(),
+        supabase.from("clients").select("*").eq("id", clientId).single(),
+        supabase.from("companies").select("*").eq("id", companyId).single(),
+        templateId
+          ? supabase
+              .from("document_templates")
+              .select("*")
+              .eq("id", templateId)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]
+    );
 
     // Default branding if none exists
     const branding: PortalBranding = brandingRes.data
@@ -270,11 +321,17 @@ export async function POST(req: NextRequest) {
         subtotal: Number(docData.subtotal ?? 0),
         discountAmount: Number(docData.discount_amount ?? 0),
         discountType: (docData.discount_type as string) ?? null,
-        discountValue: docData.discount_value != null ? Number(docData.discount_value) : null,
+        discountValue:
+          docData.discount_value != null
+            ? Number(docData.discount_value)
+            : null,
         taxAmount: Number(docData.tax_amount ?? 0),
         taxRate: docData.tax_rate != null ? Number(docData.tax_rate) : null,
         total: Number(docData.total ?? 0),
-        depositAmount: docData.deposit_amount != null ? Number(docData.deposit_amount) : null,
+        depositAmount:
+          docData.deposit_amount != null
+            ? Number(docData.deposit_amount)
+            : null,
         clientMessage: (docData.client_message as string) ?? null,
         terms: (docData.terms as string) ?? null,
         lineItems: mappedLineItems,
@@ -354,7 +411,9 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("[generate-pdf] Error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "PDF generation failed" },
+      {
+        error: error instanceof Error ? error.message : "PDF generation failed",
+      },
       { status: 500 }
     );
   }
