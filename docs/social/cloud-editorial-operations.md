@@ -83,3 +83,13 @@ Rollback: `settings.mode = 'off'` stops claims and promotions; STOP any post alr
 - `tests/unit/social/editorial/handoff.test.ts`, `worker.test.ts`, `policy.test.ts`, `carousel-render.test.tsx`, `cloud-production.test.tsx`, `tests/unit/social/render-social-post.test.tsx`, `tests/integration/social-editorial-cron.test.ts`.
 - `node tests/sql/social-editorial-assignments-runtime.mjs` and `node tests/sql/social-editorial-runtime.mjs` against the disposable PostgreSQL 17 harness (`/private/tmp/ops-editorial-pg`, start with `LC_ALL=C`).
 - Rehearsal stack: a disposable database with the real migrations behind PostgREST and a storage shim, the worktree dev server on port 3120, and the exact routine prompt driven by a local session. Results: `../artifacts/social-editorial/local-e2e-2026-09-07/`.
+
+## Release candidate 2026-09-07
+
+- Code: branch `feat/instagram-cloud-editorial`, commit `30e49f0c1` (36 commits ahead of `origin/main` `4907dc649`; includes the sibling leased-cron branch and the three earlier reliability fixes). Verification at that commit: 322 focused tests, `tests/sql/social-editorial-assignments-runtime.mjs` and `tests/sql/social-editorial-runtime.mjs` PASS, `tsc --noEmit` clean, `next build` clean with all six social routes.
+- Migration: `supabase/migrations/20260907004500_create_social_editorial_assignments.sql` (additive; two `create or replace` supersets). Apply with settings still `prepare`.
+- Vercel (Production): add `SOCIAL_AUTHORING_TOKEN` (≥32 chars); add `SOCIAL_STORAGE_BACKEND=supabase` (social artwork only).
+- Claude cloud environment `Default`: API credential, allowed website `app.opsapp.co`, header `Authorization`, prefix `Bearer`, value = the same token.
+- Routine `trig_011aQJD1UqqmG2DVkzHAQTS1` stays disabled until the deploy and the credential are verified; then **Run now** once, then let the 08:00 / 14:00 Vancouver schedule prove itself.
+- Legacy: the deployed Supabase edge function `social-publish-instagram` (v3, no callers) is deleted only with approval.
+- Rollback: `settings.mode='off'`, STOP any reviewable post, disable the routine.
