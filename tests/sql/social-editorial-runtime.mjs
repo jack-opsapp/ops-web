@@ -16,15 +16,20 @@ try {
   sql(
     "DO $$ BEGIN IF NOT EXISTS(select from pg_roles where rolname='anon') THEN CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; END IF; END $$; CREATE TABLE public.social_posts(id uuid primary key,idempotency_key text,status text,updated_by text,source_id text); CREATE TABLE public.blog_posts(id uuid primary key,is_live boolean); CREATE TABLE public.notifications(id uuid default gen_random_uuid(),user_id text,company_id text,type text,title text,body text,is_read boolean,persistent boolean,action_url text,action_label text,dedupe_key text);"
   );
-  sql(
-    readFileSync(
-      "supabase/migrations/" +
-        readdirSync("supabase/migrations").find((x) =>
-          x.endsWith("_create_social_editorial.sql")
-        ),
-      "utf8"
-    )
-  );
+  // Both files are applied because production runs both: the assignment
+  // migration replaces notify_social_editorial and guard_cloud_editorial_handoff,
+  // so the legacy slot behaviour below has to survive that replacement.
+  for (const suffix of [
+    "_create_social_editorial.sql",
+    "_create_social_editorial_assignments.sql",
+  ])
+    sql(
+      readFileSync(
+        "supabase/migrations/" +
+          readdirSync("supabase/migrations").find((x) => x.endsWith(suffix)),
+        "utf8"
+      )
+    );
   assert.equal(sql("select mode from social_editorial_settings"), "off");
   const token = "11111111-1111-4111-8111-111111111111";
   const date = "(now() at time zone 'Etc/GMT+7')::date";
@@ -112,23 +117,19 @@ try {
     sql("select jsonb_array_length(attempt_log) from social_editorial_runs"),
     "1"
   );
-  sql(
-    `insert into social_posts values('${sourceId}','cloud-editorial-v1:'||${date}::text,'rendering','agent:social','${sourceId}')`
-  );
+  // The v1 date-keyed handoff is retired by the assignment migration. It used
+  // to be conditionally allowed when every control lined up; it is now refused
+  // outright under every setting, so an unmigrated caller fails loudly instead
+  // of publishing from a model this codebase no longer runs. The live delivery
+  // path is the cloud-editorial-v2 key, proved in
+  // tests/sql/social-editorial-assignments-runtime.mjs.
+  const v1Handoff = `insert into social_posts values('${sourceId}','cloud-editorial-v1:'||${date}::text,'rendering','agent:social','${sourceId}')`;
+  assert.throws(() => sql(v1Handoff), /handoff is disabled/);
   sql("update social_editorial_settings set mode='off'");
-  assert.throws(
-    () => sql("update social_posts set status='review'"),
-    /handoff is disabled/
-  );
-  sql(
-    "update social_editorial_settings set mode='publish'; update blog_posts set is_live=false"
-  );
-  assert.throws(
-    () => sql("update social_posts set status='review'"),
-    /handoff is disabled/
-  );
-  sql("update blog_posts set is_live=true");
-  sql("update social_posts set status='review'");
+  assert.throws(() => sql(v1Handoff), /handoff is disabled/);
+  sql("update social_editorial_settings set mode='publish'");
+  assert.throws(() => sql(v1Handoff), /handoff is disabled/);
+  assert.equal(sql("select count(*) from social_posts"), "0");
   sql("update social_editorial_runs set attempts=3");
   assert.equal(
     sql(
@@ -137,7 +138,7 @@ try {
     "failed"
   );
   sql(
-    "delete from social_posts; delete from social_editorial_runs; update social_editorial_settings set mode='prepare'"
+    "delete from social_editorial_runs; update social_editorial_settings set mode='prepare'"
   );
   assert.equal(sql(claim), "1");
   sql(
@@ -150,7 +151,7 @@ try {
   sql("update social_editorial_settings set mode='publish'");
   assert.equal(sql(claim), "0");
   console.log(
-    "PASS: concurrent claims, checkpoints, off-during-render, source withdrawal, terminal outcomes, prepare isolation, budget, notifications, stale owner and grants"
+    "PASS: concurrent claims, checkpoints, retired v1 handoff, terminal outcomes, prepare isolation, budget, notifications, stale owner and grants"
   );
 } finally {
   execFileSync(bin + "dropdb", [...args, db]);
