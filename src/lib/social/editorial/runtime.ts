@@ -2,7 +2,10 @@ import "server-only";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { createEditorialRepository } from "./repository";
 import { editorialPreviewId } from "./policy";
-import { loadCopywritingReference } from "./copywriting-reference";
+import {
+  loadCopywritingReference,
+  loadOpsCopywriterBrief,
+} from "./copywriting-reference";
 import { getEditorialOperator } from "./operator";
 import { EDITORIAL_IDEMPOTENCY_PREFIX, runEditorialTick } from "./worker";
 import { renderSocialPost } from "../render/render-social-post";
@@ -12,6 +15,7 @@ import { submitSocialPost } from "../submission-service";
 
 export async function runCloudEditorial() {
   const { path, sha256 } = loadCopywritingReference();
+  const voice = loadOpsCopywriterBrief();
   const result = await runEditorialTick({
     now: () => new Date(),
     operator: getEditorialOperator(process.env),
@@ -29,7 +33,13 @@ export async function runCloudEditorial() {
       }),
     submit: submitSocialPost,
   });
-  return { ...result, copywriting_reference: { path, sha256 } };
+  // Both bundled references are readable on this deployment; a zero-cost
+  // readiness check outside authoring hours.
+  return {
+    ...result,
+    copywriting_reference: { path, sha256 },
+    voice_reference: { path: voice.path, sha256: voice.sha256 },
+  };
 }
 
 const settingsFields =

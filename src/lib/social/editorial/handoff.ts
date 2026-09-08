@@ -91,7 +91,10 @@ export interface EditorialHandoffDependencies {
   repository: EditorialHandoffRepository;
   now: () => Date;
   loadBrief: (kind: EditorialKind) => EditorialBrief;
+  /** The Sam Parr field guide (pacing layer). */
   loadGuide: () => { path: string; sha256: string; content: string };
+  /** The OPS copywriter brief (governing voice). */
+  loadVoice: () => { path: string; sha256: string; content: string };
 }
 
 const json = (body: unknown, status = 200) =>
@@ -251,6 +254,7 @@ export function createEditorialHandoffHandlers(
 
       const brief = d.loadBrief(assignment.kind);
       const guide = d.loadGuide();
+      const voice = d.loadVoice();
       // The stored snapshot is the whole source, including is_live, because the
       // worker later compares it field by field before anything is published.
       if (
@@ -288,6 +292,7 @@ export function createEditorialHandoffHandlers(
           recent_hooks: context.recentHooks.slice(0, RECENT_HOOKS_LIMIT),
           format: brief.format,
           limits: brief.limits,
+          voice,
           guide,
         },
       });
@@ -430,6 +435,7 @@ export function createEditorialHandoffHandlers(
 
     const brief = d.loadBrief(assignment.kind);
     const guide = d.loadGuide();
+    const voice = d.loadVoice();
     const candidate = envelope.candidate as { evidence: unknown[] };
     const finalState = await repository.finishAssignment(
       assignment.id,
@@ -441,7 +447,10 @@ export function createEditorialHandoffHandlers(
         evidence: candidate.evidence,
         review: editor.data,
         usage: usage.data,
-        references: [{ path: guide.path, sha256: guide.sha256 }],
+        references: [
+          { path: voice.path, sha256: voice.sha256 },
+          { path: guide.path, sha256: guide.sha256 },
+        ],
         brief_version: brief.version,
       }
     );
