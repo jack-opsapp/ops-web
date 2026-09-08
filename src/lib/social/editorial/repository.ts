@@ -100,13 +100,17 @@ export function createEditorialRepository(): EditorialWorkerRepository &
     async readSettings() {
       const { data, error } = await db
         .from("social_editorial_settings")
-        .select("mode,delivery_gap_minutes")
+        .select("mode,delivery_gap_minutes,authoring_heartbeat_at")
         .eq("id", true)
         .single();
       if (error) throw error;
       return {
         mode: data.mode as "off" | "prepare" | "publish",
         delivery_gap_minutes: Number(data.delivery_gap_minutes),
+        authoring_heartbeat_at:
+          typeof data.authoring_heartbeat_at === "string"
+            ? data.authoring_heartbeat_at
+            : null,
       };
     },
 
@@ -183,6 +187,20 @@ export function createEditorialRepository(): EditorialWorkerRepository &
       });
       if (error) throw error;
       return data === true;
+    },
+
+    async clearAuthoringStall(operator) {
+      const { data, error } = await db
+        .from("notifications")
+        .update({ is_read: true, resolved_at: new Date().toISOString() })
+        .eq("user_id", operator.userId)
+        .eq("company_id", operator.companyId)
+        .eq("type", "social_editorial")
+        .like("dedupe_key", "editorial:authoring-stalled:%")
+        .eq("is_read", false)
+        .select("id");
+      if (error) throw error;
+      return data?.length ?? 0;
     },
 
     async claimAssignment(token, worker) {
