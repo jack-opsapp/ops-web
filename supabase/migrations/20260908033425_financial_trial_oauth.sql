@@ -48,6 +48,7 @@ CREATE OR REPLACE FUNCTION private.mcp_oauth_canary_is_current(p_oauth_client_id
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'
+ SET "TimeZone" TO 'UTC'
 AS $function$
   select exists (
     select 1

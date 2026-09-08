@@ -60,6 +60,7 @@ const EXPOSURE = MCP_FINANCIAL_TRIAL_EXPOSURE.revision;
 const CONSENT = "2026-09-07.mcp-consent-catalog.v12";
 const scopes = [...MCP_FINANCIAL_TRIAL_EXPOSURE.grantableScopes];
 const run = promisify(execFile);
+let sessionTimezone = "UTC";
 const literal = (value: unknown): string => {
   if (value === null || value === undefined) return "null";
   if (Array.isArray(value))
@@ -85,7 +86,9 @@ async function sql(statement: string, signal?: AbortSignal): Promise<any> {
       "-v",
       "ON_ERROR_STOP=1",
       "-c",
-      "set request.jwt.claim.role='service_role';set timezone='UTC';" +
+      "set request.jwt.claim.role='service_role';set timezone=" +
+        literal(sessionTimezone) +
+        ";" +
         statement,
     ],
     { maxBuffer: 4 * 1024 * 1024, signal }
@@ -521,6 +524,118 @@ describe.skipIf(!database)(
           .response.status
       ).toBe(400);
       await disable(client);
+    }, 60000);
+    it("preserves v3 binding resolution, subject refusal, expiry and revocation in both session timezones", async () => {
+      const exposure = "2026-08-30.mcp-exposure.v3",
+        consent = "2026-08-30.mcp-consent-catalog.v2";
+      const v3Scopes = [
+        "ops.correspondence.read",
+        "ops.financial_documents.read",
+        "ops.jobs.read",
+        "ops.operations.prepare",
+        "ops.operations.read",
+        "ops.schedule.read",
+        "ops.tasks.read",
+      ];
+      const [client] = await mustRpc("register_mcp_oauth_client_as_system", {
+        p_client_name: "Fictional local v3 timezone regression",
+        p_redirect_uris: [origin + "/callback/v3-timezone"],
+        p_scope: v3Scopes.join(" "),
+        p_scope_ceiling: v3Scopes,
+        p_consent_catalog_revision: consent,
+        p_exposure_revision: exposure,
+        p_software_id: null,
+        p_software_version: null,
+      });
+      const expires = new Date(Date.now() + 3600000).toISOString();
+      // Local fixture setup only: exercise the unchanged v3 resolver with a real bounded binding.
+      await sql(
+        "insert into private.mcp_oauth_canary_bindings(oauth_client_id,user_id,company_id,exposure_revision,consent_catalog_revision,expires_at) values(" +
+          [client.client_id, USER, COMPANY, exposure, consent, expires]
+            .map(literal)
+            .join(",") +
+          ")"
+      );
+      const args = {
+        p_oauth_client_id: client.client_id,
+        p_user_id: USER,
+        p_company_id: COMPANY,
+        p_exposure_revision: exposure,
+        p_consent_catalog_revision: consent,
+      };
+      try {
+        for (const timezone of ["UTC", "America/Vancouver"]) {
+          sessionTimezone = timezone;
+          const rows = await mustRpc(
+            "resolve_mcp_oauth_canary_as_system",
+            args
+          );
+          expect(rows, timezone).toHaveLength(1);
+          expect(Date.parse(rows[0].expires_at)).toBe(Date.parse(expires));
+          expect(
+            await mustRpc("resolve_mcp_oauth_canary_as_system", {
+              ...args,
+              p_user_id: OTHER,
+            })
+          ).toHaveLength(0);
+        }
+        await disable(client);
+        for (const timezone of ["UTC", "America/Vancouver"]) {
+          sessionTimezone = timezone;
+          expect(
+            await mustRpc("resolve_mcp_oauth_canary_as_system", args)
+          ).toHaveLength(0);
+        }
+      } finally {
+        sessionTimezone = "UTC";
+      }
+    }, 60000);
+    it("preserves financial binding, bearer, refresh and exact expiry across UTC and America/Vancouver sessions", async () => {
+      const { client, token: initialToken } = await connected();
+      let token = initialToken;
+      const expectedExpiry = await sql(
+        "select to_jsonb(expires_at) from private.mcp_oauth_canary_bindings where oauth_client_id=" +
+          literal(client.client_id)
+      );
+      const timestamps = await sql(
+        "select jsonb_build_object('policy',p.created_at,'note',n.created_at,'tax',t.created_at) from private.financial_document_policies p join public.project_notes n on n.id=p.source_document_id join public.tax_rates t on t.company_id=p.company_id and t.is_default where p.id=" +
+          literal(policy.policy_id)
+      );
+      for (const value of Object.values(timestamps))
+        expect(Number.isFinite(Date.parse(String(value)))).toBe(true);
+      try {
+        for (const timezone of ["UTC", "America/Vancouver"]) {
+          sessionTimezone = timezone;
+          expect(
+            await sql("select to_jsonb(current_setting('TimeZone'))")
+          ).toBe(timezone);
+          const resolved = await mustRpc("resolve_mcp_oauth_canary_as_system", {
+            p_oauth_client_id: client.client_id,
+            p_user_id: USER,
+            p_company_id: COMPANY,
+            p_exposure_revision: EXPOSURE,
+            p_consent_catalog_revision: CONSENT,
+          });
+          expect(resolved, timezone).toHaveLength(1);
+          expect(Date.parse(resolved[0].expires_at)).toBe(
+            Date.parse(expectedExpiry)
+          );
+          expect(
+            (await host(token.access_token, "tools/list")).status,
+            timezone
+          ).toBe(200);
+          const rotated = await refresh(client, token);
+          expect(rotated.status, timezone).toBe(200);
+          token = await payload(rotated);
+          expect(
+            (await host(token.access_token, "tools/list")).status,
+            timezone
+          ).toBe(200);
+        }
+      } finally {
+        sessionTimezone = "UTC";
+        await disable(client);
+      }
     }, 60000);
     it("completes owner enrollment, fresh consent, PKCE exchange, protocol discovery, historical +8%, exact OPS approval and one held draft", async () => {
       const { client, auth, token } = await connected();
