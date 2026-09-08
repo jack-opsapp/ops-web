@@ -1,0 +1,107 @@
+SET
+SET
+CREATE SCHEMA
+CREATE FUNCTION
+INSERT 0 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:21: NOTICE:  PASS: live canonical RPC reproduces time regex type failure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:21: NOTICE:  PASS: failed canonical write leaves task untouched
+DO
+BEGIN
+DO
+COMMIT
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:27: NOTICE:  PASS: repaired canonical RPC accepts valid native time columns
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:27: NOTICE:  PASS: independent canonical task readback matches date
+DO
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+BEGIN
+CREATE FUNCTION
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+REVOKE
+CREATE FUNCTION
+REVOKE
+CREATE FUNCTION
+REVOKE
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+CREATE FUNCTION
+DO
+CREATE FUNCTION
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+DO
+INSERT 0 1
+COMMIT
+DO
+CREATE FUNCTION
+INSERT 0 1
+INSERT 0 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: prepare has no task mutation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: identical preparation replays
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: approved schedule change commits
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: canonical schedule version increments once
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: canonical internal schedule history recorded
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: internal schedule event remains queued
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: no automatic cascade confirmation or customer dispatch
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: commit replay returns existing receipt
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: commit replay creates no duplicate history
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: different commit key rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-runtime.sql:93: NOTICE:  PASS: revoked grant cannot replay receipt
+DO

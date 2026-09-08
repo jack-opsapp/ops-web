@@ -1,0 +1,54 @@
+{
+  "fixture_only": true,
+  "external_host_authenticated": false,
+  "company_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "actor_user_id": "10000000-0000-4000-8000-000000000001",
+  "oauth_client_id": "f6109d5a-b8f7-412d-84cc-50c782fe74b0",
+  "exposure_revision": "2026-09-07.mcp-exposure.v17",
+  "consent_catalog_revision": "2026-09-07.mcp-consent-catalog.v12",
+  "scope_ceiling": [
+    "ops.company.read",
+    "ops.customers.read",
+    "ops.financial_documents.prepare",
+    "ops.financial_documents.read",
+    "ops.jobs.read"
+  ],
+  "policy_id": "457210d0-73d2-4c3d-8dde-55269c31b941",
+  "policy_sha256": "sha256:50d0baa471bdf1ebbe7c6f64ef78659a776f29995593f80a4b54d41592feea56",
+  "effect_revision": "sha256:921c8e9bf19c1e6d7d55685ad5a6f782041d4f60861a09f937096f728781abbe",
+  "observed": {
+    "held": 1,
+    "sync": 0,
+    "total": 226.8,
+    "status": "draft",
+    "numbers": 1,
+    "receipt": {
+      "ok": true,
+      "effect": "private_financial_draft_saved",
+      "run_id": "1d370140-ba77-4916-a831-fddb43707542",
+      "effects": {
+        "distribution": "held_private",
+        "provider_writes": 0,
+        "invoices_created": 0,
+        "estimates_created": 1,
+        "customer_acceptances": 0,
+        "customer_messages_sent": 0,
+        "project_totals_changed": 0,
+        "existing_documents_changed": 0,
+        "official_numbers_allocated": 1
+      },
+      "replayed": false,
+      "action_id": "82ee3bd9-d5e3-4676-a79a-fd0852ed46a7",
+      "estimate_id": "ba129d68-b2b8-4302-8033-c8e7e3ab2d4c",
+      "committed_at": "2026-09-08T05:43:11.334966+00:00",
+      "change_set_id": "72a33992-d947-43bf-9cae-5ce0ef3160d9",
+      "document_kind": "estimate",
+      "preview_sha256": "sha256:f6f2c9ad9acb285281caaf1477c5cdcbc6db57c0fa2a3e0c0d6f9c2fc1c20971",
+      "receipt_sha256": "sha256:4d8d1a7352c1299bd6262ad980d97b396fe52a8259a46fa975665ae1b1dd9892",
+      "estimate_number": "EST-2026-00001",
+      "readback_sha256": "sha256:515d582ed316242fda0db6d37f0fba4943a5df7cdc2667e009f80605d5c022a9",
+      "document_version": 1,
+      "confirmation_receipt_id": "2a37e635-3708-49cc-89e6-30170f91d597"
+    }
+  }
+}

@@ -1,0 +1,1 @@
+create table private.mcp_request_audit (id bigint generated always as identity not null,request_id text not null,occurred_at timestamp with time zone default statement_timestamp() not null,grant_id uuid,client_id uuid,actor_user_id uuid,company_id uuid,tool text,protocol_era text,outcome text not null,error_code text,input_sha256 text,result_bytes integer,latency_ms integer);

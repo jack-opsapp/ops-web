@@ -33,7 +33,16 @@ export const OPS_OPERATIONS_COMPANY_ID =
  * here. Do not change these values — old audit rows would lose their anchor.
  */
 export const SPEC_CAPACITY_RECORD_IDS = {
+  // Legacy v1 tiers — retired 2026-07-14 (Tier Model v2 re-seed). The values
+  // must stay: audit_log rows written before the re-seed anchor to them.
   setup: "00000000-0000-0000-cafe-000000000001",
   build: "00000000-0000-0000-cafe-000000000002",
   enterprise: "00000000-0000-0000-cafe-000000000003",
-} as const satisfies Record<"setup" | "build" | "enterprise", string>;
+  // v2 tiers (10_TIER_MODEL_V2 § 6) — fresh anchors for the re-seeded rows.
+  spec01: "00000000-0000-0000-cafe-000000000004",
+  spec02: "00000000-0000-0000-cafe-000000000005",
+  spec03: "00000000-0000-0000-cafe-000000000006",
+} as const satisfies Record<
+  "setup" | "build" | "enterprise" | "spec01" | "spec02" | "spec03",
+  string
+>;

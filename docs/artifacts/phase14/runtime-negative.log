@@ -1,0 +1,54 @@
+SET
+SET
+UPDATE 1
+SET
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+SET
+UPDATE 1
+SET
+CREATE FUNCTION
+CREATE FUNCTION
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:29: NOTICE:  PASS: new booked visit cannot overlap approved crew
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:29: NOTICE:  PASS: unassigned booked visit cannot evade capacity fence
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:29: NOTICE:  PASS: real staff reschedule rejects approved task overlap
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:29: NOTICE:  PASS: rejected staff reschedule leaves appointment unchanged
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:29: NOTICE:  PASS: verified guest hold cannot overlap approved crew
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:47: NOTICE:  PASS: single-day all-day absence blocks work
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:47: NOTICE:  PASS: denied absence does not block work
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:47: NOTICE:  PASS: in-progress unassigned visit blocks target day
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:47: NOTICE:  PASS: verified guest hold blocks target day
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:68: NOTICE:  PASS: substituted approval seal rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:68: NOTICE:  PASS: prepare key cannot bind different input
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:68: NOTICE:  PASS: edited displayed preview invalidates approval
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:68: NOTICE:  PASS: expired approval cannot write
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:68: NOTICE:  PASS: cancelled approval cannot write
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:68: NOTICE:  PASS: new scope insertion invalidates complete preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:68: NOTICE:  PASS: all rejected approvals leave task and history unchanged
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:76: NOTICE:  PASS: booking inserted after preparation blocks approval
+DO
+CREATE FUNCTION
+CREATE TRIGGER
+UPDATE 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:90: NOTICE:  PASS: unexpected trigger mutation rolls back exact approval
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:90: NOTICE:  PASS: failed write rolls back task history and outbox together
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-schedule-crew-web-p14/tests/sql/agent-schedule-change-negative.sql:90: NOTICE:  PASS: failed write cannot persist success receipt
+DO
+DROP TRIGGER
+UPDATE 1

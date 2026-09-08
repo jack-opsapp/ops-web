@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "order": "approval first",
+      "observed": "staff reschedule blocked on approval table lock, then rejected by current capacity fence"
+    },
+    {
+      "order": "booking first",
+      "observed": "approval aborted on NOWAIT fence; exact retry rejected committed booking conflict"
+    },
+    {
+      "order": "duplicate approvals",
+      "observed": "second attempt failed fast; retry returned identical confirmation receipt"
+    },
+    {
+      "order": "row lock first",
+      "observed": "approval rejected immediately on exact project row NOWAIT lock"
+    }
+  ]
+}

@@ -1,4 +1,13 @@
 import {
+  INSPECT_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
+  PREPARE_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
+  COMMIT_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
+} from "./financial-document-capability";
+import {
+  PREPARE_SCHEDULE_CHANGE_CAPABILITY_DEFINITION,
+  COMMIT_SCHEDULE_CHANGE_CAPABILITY_DEFINITION,
+} from "./schedule-change-capability";
+import {
   PREPARE_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
   COMMIT_CUSTOMER_UPDATE_CAPABILITY_DEFINITION,
 } from "./customer-update-capability";
@@ -629,6 +638,93 @@ export function resolveCustomerMessageCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getCustomerMessageCapabilityManifestEntry(name),
+    input
+  );
+}
+
+export const SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-06.capability-manifest.v22";
+const scheduleChangeEntries = [
+  ...CUSTOMER_MESSAGE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_SCHEDULE_CHANGE_CAPABILITY_DEFINITION,
+    SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION
+  ),
+  mintImplementationEntry(
+    COMMIT_SCHEDULE_CHANGE_CAPABILITY_DEFINITION,
+    SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  scheduleChangeEntries,
+  SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(scheduleChangeEntries);
+export const SCHEDULE_CHANGE_CAPABILITY_MANIFEST = Object.freeze(
+  scheduleChangeEntries
+);
+export function getScheduleChangeCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = SCHEDULE_CHANGE_CAPABILITY_MANIFEST.find(
+    (candidate) => candidate.name === name
+  );
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+export function resolveScheduleChangeCapabilityAuthorization(
+  name: string,
+  input: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getScheduleChangeCapabilityManifestEntry(name),
+    input
+  );
+}
+export const FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-07.capability-manifest.v23";
+const financialDocumentEntries = [
+  mintImplementationEntry(
+    INSPECT_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
+    FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
+  ),
+  ...SCHEDULE_CHANGE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
+    FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
+  ),
+  mintImplementationEntry(
+    COMMIT_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
+    FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  financialDocumentEntries,
+  FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(financialDocumentEntries);
+export const FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST = Object.freeze(
+  financialDocumentEntries
+);
+export function getFinancialDocumentCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST.find(
+    (candidate) => candidate.name === name
+  );
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+export function resolveFinancialDocumentCapabilityAuthorization(
+  name: string,
+  input: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getFinancialDocumentCapabilityManifestEntry(name),
     input
   );
 }

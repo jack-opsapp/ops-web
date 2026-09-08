@@ -1,0 +1,32 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+ ❯ src/lib/agent-control-plane/mcp/oauth/__tests__/financial-canary.test.ts (5 tests | 1 failed) 15ms
+   × financial trial OAuth boundary > resolves only the narrow financial slice for the exact bound subject 8ms
+     → expected undefined to deeply equal [ 'get_company_context', …(2) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/oauth/__tests__/financial-canary.test.ts > financial trial OAuth boundary > resolves only the narrow financial slice for the exact bound subject
+AssertionError: expected undefined to deeply equal [ 'get_company_context', …(2) ]
+
+- Expected:
+Array [
+  "get_company_context",
+  "inspect_financial_document",
+  "prepare_financial_document",
+]
+
++ Received:
+undefined
+
+ ❯ src/lib/agent-control-plane/mcp/oauth/__tests__/financial-canary.test.ts:13:29
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  20:33:03
+   Duration  5.20s (transform 1.42s, setup 511ms, collect 2.35s, tests 15ms, environment 827ms, prepare 133ms)

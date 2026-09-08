@@ -1,0 +1,11 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/financial-canary.test.ts (5 tests) 17ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts (2 tests) 18ms
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  20:34:07
+   Duration  5.32s (transform 1.44s, setup 813ms, collect 5.20s, tests 35ms, environment 1.67s, prepare 227ms)

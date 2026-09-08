@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SpecProjectHeader, SpecProjectStatus, SpecTier } from "@/lib/admin/spec-types";
+import { formatSpecTier } from "@/lib/admin/spec-tiers";
 
 interface ProjectHeaderProps {
   header: SpecProjectHeader;
@@ -22,9 +23,9 @@ const STATUS_TONE: Record<SpecProjectStatus, string> = {
 };
 
 const TIER_TONE: Record<SpecTier, string> = {
-  setup: "text-olive border-olive/30",
-  build: "text-tan border-tan/30",
-  enterprise: "text-rose border-rose/40",
+  spec01: "text-olive border-olive/30",
+  spec02: "text-tan border-tan/30",
+  spec03: "text-rose border-rose/40",
 };
 
 function statusLabel(status: SpecProjectStatus): string {
@@ -60,10 +61,10 @@ export function ProjectHeader({ header }: ProjectHeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge label={header.tier.toUpperCase()} tone={TIER_TONE[header.tier]} />
+          <Badge label={formatSpecTier(header.tier)} tone={TIER_TONE[header.tier]} />
           {header.originalTier && header.originalTier !== header.tier && (
             <Badge
-              label={`WAS ${header.originalTier.toUpperCase()}`}
+              label={`WAS ${formatSpecTier(header.originalTier)}`}
               tone="text-text-mute border-white/[0.10]"
             />
           )}

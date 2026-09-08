@@ -1,0 +1,52 @@
+{
+  "status": "LOCAL_INTEGRATION_AND_RELEASE_VALIDATION_PASSED",
+  "validated_source_commit": "2465637815a9a55e671f5b8399409b6fa45be10f",
+  "log_formatting": "Trailing whitespace and final blank lines normalized for version control; test and build content preserved",
+  "merged_upstream_commit": "f49bba20226f81621c439a5946be6b83b268e094",
+  "integration_method": "Non-rewriting merge in existing Phase16 web worktree; shared main untouched",
+  "release_defect": {
+    "reproduced": "An already-valid financial binding resolved under UTC but returned zero rows under America/Vancouver; genuine non-null policy, note and tax timestamps were asserted",
+    "before": {"passed": 7, "failed": 1, "evidence": "timezone-before/financial-trial-protocol.log"},
+    "fix": "Function-local SET TimeZone TO UTC on private.mcp_oauth_canary_is_current",
+    "after": "Financial binding, bearer access, refresh and exact expiry pass in both timezones; v3 valid binding, wrong-subject refusal, exact expiry and revocation remain correct"
+  },
+  "fresh_validation": {
+    "regression": {"passed": 670, "files": 18, "evidence": "host-regression-tests.log"},
+    "real_local_protocol": {"passed": 9, "files": 1, "original_scenarios": 7, "new_timezone_scenarios": 2, "evidence": "final/financial-trial-protocol.log", "real_http_and_sql": true, "external_host_authenticated": false},
+    "changed_owner_policy": {"passed": 8, "files": 3, "evidence": "owner-policy-tests.log"},
+    "owner_policy_sql": {"passed": 160, "runtime": 156, "concurrency": 4, "evidence_directory": "owner-policy"},
+    "production_build": {
+      "exit_code": 0,
+      "compilation_passed": true,
+      "type_validation_passed": true,
+      "static_pages_generated": 388,
+      "evidence": "production-build.log",
+      "command": "NODE_OPTIONS=--max-old-space-size=8192 NEXT_PUBLIC_SUPABASE_URL=https://phase16-build.invalid NEXT_PUBLIC_SUPABASE_ANON_KEY=phase16-inert-anon SUPABASE_SERVICE_ROLE_KEY=phase16-inert-service NEXT_TELEMETRY_DISABLED=1 node node_modules/next/dist/bin/next build",
+      "lint": "Skipped by existing Next configuration",
+      "warnings": "Existing social-image runtime, HEIC dynamic require, optional async_hooks, metadataBase and aged browsers data warnings; build exits zero"
+    },
+    "disposable_databases_remaining": 0,
+    "cleanup_evidence": "local-database-cleanup.json",
+    "diff_whitespace_check": "passed"
+  },
+  "prerequisites": {
+    "upstream_changes_to_migrations_or_mcp_paths": 0,
+    "reviewed_baseline_guards_unchanged": true,
+    "guards_passed_in_local_postgresql": true,
+    "production_requeried": false,
+    "evidence": "integration-prerequisites.json"
+  },
+  "migration_sha256": {
+    "20260908024426_financial_policy_readiness.sql": "0cd104e43b1388898d97b23c1a0333d1853cadef6197c94daa5480c9e42169fe",
+    "20260908033425_financial_trial_oauth.sql": "20241fc0591d1ce5d54138099af12393646a0a7e1e26977876d226b736ddf10f"
+  },
+  "boundaries": {
+    "pushed": false,
+    "deployed": false,
+    "production_sql_or_mutations": false,
+    "production_effect_resealed": false,
+    "production_enrollment_grant_or_trial_mutations": false,
+    "bible_or_release_documents_edited": false,
+    "parent_action": "Mirror and review changed trial migration hash; parent exclusively owns all production operations"
+  }
+}

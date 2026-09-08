@@ -1,0 +1,7 @@
+SET
+NOTICE:  PASS: simultaneous commit refuses while winning transaction owns the document lock
+ rejects 
+---------
+ 
+(1 row)
+

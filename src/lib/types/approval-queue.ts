@@ -37,6 +37,8 @@ export type AgentActionType =
   | "file_day_closeout"
   | "approve_collections_draft"
   | "approve_dispatch_confirmation_task"
+  | "approve_schedule_change"
+  | "approve_financial_document"
   | "approve_customer_update"
   | "send_customer_follow_up";
 

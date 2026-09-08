@@ -21,8 +21,6 @@ import { GUARANTEE_REFUND_WINDOW_DAYS } from "@/lib/spec/constants";
 import {
   KANBAN_COLUMNS,
   SPEC_MILESTONE_LABELS,
-  SPEC_MILESTONE_ORDER,
-  SPEC_TIER_TOTAL_CENTS,
   type CapacityRow,
   type CycleTimeRow,
   type KanbanCard,
@@ -53,7 +51,6 @@ import {
   type SpecNotesTab,
   SPEC_ENTITLEMENT_TERMINAL_REASONS,
   type SpecMilestoneBreakdown,
-  type SpecMilestoneRow,
   type SpecMilestonesTab,
   type SpecSatisfactionHeatMapCell,
   type SpecSatisfactionMilestone,
@@ -88,6 +85,9 @@ import {
   type TodaySection,
   type VelocityRow,
 } from "./spec-types";
+import { SPEC_TIERS, coerceSpecTier, formatSpecTier } from "./spec-tiers";
+import { composeMilestonesTab, milestoneFireability, readLockedTotalCents } from "./spec-milestones";
+import { composeScopeLockedTotal, pickCurrentScopeDocument } from "./spec-locked-total";
 
 const db = () => getAdminSupabase();
 
@@ -116,11 +116,6 @@ function ageLabelFromIso(iso: string | null | undefined): {
 function daysBetween(fromIso: string | null | undefined, toMs: number = Date.now()): number {
   if (!fromIso) return 0;
   return Math.max(0, Math.floor((toMs - new Date(fromIso).getTime()) / DAY));
-}
-
-function ofTier(tier: string | null | undefined): SpecTier {
-  if (tier === "build" || tier === "enterprise") return tier;
-  return "setup";
 }
 
 // ─── Test-mode filter ────────────────────────────────────────────────────────
@@ -387,7 +382,7 @@ async function buildBlockedOnApproval(testMode: boolean): Promise<TodayItem[]> {
     const label = project ? projectLabel(project) : row.account_holder_user_id;
     return {
       id: `owner-approval-${row.id}`,
-      description: `${label} — awaiting owner approval (${row.tier.toUpperCase()})`,
+      description: `${label} — awaiting owner approval (${formatSpecTier(row.tier)})`,
       ageLabel: ageInfo.ageLabel,
       ageMinutes: ageInfo.ageMinutes,
       primaryAction: { label: "Open project", href: `/admin/spec/${row.spec_project_id}` },
@@ -758,7 +753,7 @@ async function loadCapacityConfig(): Promise<CapacityConfigRow[]> {
     return [];
   }
   return (data ?? []).map((r) => ({
-    tier: ofTier(r.tier as string),
+    tier: coerceSpecTier(r.tier as string),
     slot_ceiling: r.slot_ceiling as number,
     is_accepting_bookings: !!r.is_accepting_bookings,
     manual_next_start_override: (r.manual_next_start_override as string | null) ?? null,
@@ -786,7 +781,7 @@ async function loadConsumingProjects(testMode: boolean): Promise<
   const { data } = (await applyTestModeFilter(query as unknown as Filterable, testMode)) as unknown as {
     data: Array<{ tier: string; status: SpecProjectStatus; hold_type: SpecHoldType | null }> | null;
   };
-  return (data ?? []).map((r) => ({ ...r, tier: ofTier(r.tier) }));
+  return (data ?? []).map((r) => ({ ...r, tier: coerceSpecTier(r.tier) }));
 }
 
 async function loadSnapshotRefreshedAt(): Promise<string | null> {
@@ -975,7 +970,7 @@ export async function getKanban(
     console.error("[getKanban] failed:", error.message);
   }
 
-  const allProjects = (projects ?? []).map((p) => ({ ...p, tier: ofTier(p.tier) }));
+  const allProjects = (projects ?? []).map((p) => ({ ...p, tier: coerceSpecTier(p.tier) }));
   const payments = await loadAllPaymentsForKanban(testMode);
 
   const committedByProject = new Map<string, number>();
@@ -1177,7 +1172,7 @@ async function computeVelocityUncached(testMode: boolean): Promise<PipelineVeloc
     console.error("[computeVelocity] failed:", error.message);
   }
 
-  const rows = (data ?? []).map((r) => ({ ...r, tier: ofTier(r.tier) }));
+  const rows = (data ?? []).map((r) => ({ ...r, tier: coerceSpecTier(r.tier) }));
   const nowMs = Date.now();
 
   // Per-status: average days in current status across rows currently in that status.
@@ -1213,7 +1208,7 @@ async function computeVelocityUncached(testMode: boolean): Promise<PipelineVeloc
 
   // Cycle time per tier: deposit_paid_at → walkthrough_completed_at.
   const cycleBucket = new Map<SpecTier, number[]>();
-  for (const tier of ["setup", "build", "enterprise"] as SpecTier[]) {
+  for (const tier of SPEC_TIERS) {
     cycleBucket.set(tier, []);
   }
   for (const r of rows) {
@@ -1227,7 +1222,7 @@ async function computeVelocityUncached(testMode: boolean): Promise<PipelineVeloc
     );
     cycleBucket.get(r.tier)?.push(days);
   }
-  const cycleTime: CycleTimeRow[] = (["setup", "build", "enterprise"] as SpecTier[]).map((tier) => {
+  const cycleTime: CycleTimeRow[] = SPEC_TIERS.map((tier) => {
     const sample = cycleBucket.get(tier) ?? [];
     const avg =
       sample.length === 0
@@ -1287,6 +1282,8 @@ interface ProjectDetailRow {
   id: string;
   tier: SpecTier;
   original_tier: SpecTier | null;
+  /** SPEC-03 only — set at scope sign-off; null until then (fixed-total tiers ignore it). */
+  locked_total_cents: number | null;
   status: SpecProjectStatus;
   is_test: boolean;
   buyer_user_id: string;
@@ -1344,7 +1341,7 @@ async function loadProjectRow(id: string): Promise<ProjectDetailRow | null> {
   const { data, error } = await db()
     .from("spec_projects")
     .select(
-      "id, tier, original_tier, status, is_test, buyer_user_id, account_holder_user_id, linked_company_id, customer_email, customer_name, customer_phone, customer_gst_number, hold_type, prior_status, on_hold_at, on_hold_expires_at, on_hold_reason, deposit_paid_at, intake_completed_at, intake_files, intake_responses, regulated_workflow_flagged_at, regulated_workflow_flags, scope_doc_signed_at, build_started_at, walkthrough_completed_at, support_window_ends_at, estimated_completion_date, polish_hours_budget, polish_hours_used, attribution, updated_at, created_at, owner_approval_requested_at, discovery_started_at, retainer_started_at, completed_at, cancelled_at, refunded_at, stalled_at",
+      "id, tier, original_tier, locked_total_cents, status, is_test, buyer_user_id, account_holder_user_id, linked_company_id, customer_email, customer_name, customer_phone, customer_gst_number, hold_type, prior_status, on_hold_at, on_hold_expires_at, on_hold_reason, deposit_paid_at, intake_completed_at, intake_files, intake_responses, regulated_workflow_flagged_at, regulated_workflow_flags, scope_doc_signed_at, build_started_at, walkthrough_completed_at, support_window_ends_at, estimated_completion_date, polish_hours_budget, polish_hours_used, attribution, updated_at, created_at, owner_approval_requested_at, discovery_started_at, retainer_started_at, completed_at, cancelled_at, refunded_at, stalled_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -1738,17 +1735,27 @@ function buildIntakeTab(row: ProjectDetailRow): SpecIntakeTab {
   };
 }
 
-async function buildScopeTab(
-  projectId: string,
-  scopeDocs: ScopeDocumentDetailRow[],
-): Promise<SpecScopeTab> {
-  if (scopeDocs.length === 0) {
-    return { versions: [], current: null };
+async function buildScopeTab(params: {
+  row: ProjectDetailRow;
+  scopeDocs: ScopeDocumentDetailRow[];
+  acceptanceEvents: AcceptanceDetailRow[];
+  payments: PaymentDetailRow[];
+}): Promise<SpecScopeTab> {
+  const { row, scopeDocs, acceptanceEvents, payments } = params;
+  const current = pickCurrentScopeDocument(scopeDocs);
+  const lockedTotal = composeScopeLockedTotal({
+    tier: coerceSpecTier(row.tier),
+    status: row.status,
+    lockedTotalRaw: row.locked_total_cents,
+    currentDoc: current
+      ? { version: current.version, sentAt: current.sent_at, contentJson: current.content_json }
+      : null,
+    acceptanceEvents,
+    payments,
+  });
+  if (!current) {
+    return { versions: [], current: null, lockedTotal };
   }
-  // `loadScopeDocumentsForProject` returns desc by version, so [0] is the latest
-  // version. Current is the latest version with no `superseded_at`; fall back to
-  // the highest version if every row is somehow marked superseded.
-  const current = scopeDocs.find((d) => !d.superseded_at) ?? scopeDocs[0];
 
   const versions: SpecScopeDocumentRow[] = scopeDocs.map((d) => ({
     id: d.id,
@@ -1760,9 +1767,6 @@ async function buildScopeTab(
     supersededAt: d.superseded_at,
     isCurrent: d.id === current.id,
   }));
-
-  // Suppress no-await lint by referencing the projectId in a comment-like way.
-  void projectId;
 
   const features = await loadFeatureAcceptanceForScope(current.id);
   return {
@@ -1781,46 +1785,8 @@ async function buildScopeTab(
         failureNotes: f.failure_notes,
       })),
     },
+    lockedTotal,
   };
-}
-
-function fireableReason(params: {
-  milestone: SpecPaymentMilestone;
-  row: ProjectDetailRow;
-  acceptanceTypes: Set<SpecAcceptanceEventType>;
-  hasExistingPayment: boolean;
-}): { fireable: boolean; reason: string | null } {
-  const { milestone, row, acceptanceTypes, hasExistingPayment } = params;
-  if (milestone === "deposit") {
-    // P1 is fired by the Stripe webhook on `checkout.session.completed`. The
-    // operator never fires it by hand from this surface.
-    return { fireable: false, reason: "P1 fires automatically via Stripe webhook" };
-  }
-  if (hasExistingPayment) {
-    return { fireable: false, reason: "Already invoiced" };
-  }
-  if (milestone === "scope_signoff") {
-    if (!acceptanceTypes.has("scope_signoff")) {
-      return { fireable: false, reason: "Awaiting customer scope sign-off" };
-    }
-    return { fireable: true, reason: null };
-  }
-  if (milestone === "midpoint") {
-    if (!acceptanceTypes.has("midpoint_accepted")) {
-      return { fireable: false, reason: "Awaiting customer midpoint acceptance" };
-    }
-    return { fireable: true, reason: null };
-  }
-  if (milestone === "delivery") {
-    if (!row.walkthrough_completed_at) {
-      return { fireable: false, reason: "Walkthrough not yet stamped" };
-    }
-    if (!acceptanceTypes.has("delivery_accepted")) {
-      return { fireable: false, reason: "Awaiting customer delivery acceptance" };
-    }
-    return { fireable: true, reason: null };
-  }
-  return { fireable: false, reason: null };
 }
 
 function buildMilestonesTab(
@@ -1828,36 +1794,14 @@ function buildMilestonesTab(
   payments: PaymentDetailRow[],
   acceptanceEvents: AcceptanceDetailRow[],
 ): SpecMilestonesTab {
-  const tierTotalCents = SPEC_TIER_TOTAL_CENTS[row.tier];
-  const perMilestoneAmount = Math.round(tierTotalCents / 4);
-  const paymentsByMilestone = new Map<SpecPaymentMilestone, PaymentDetailRow>();
-  for (const p of payments) paymentsByMilestone.set(p.milestone, p);
-  const acceptanceTypes = new Set<SpecAcceptanceEventType>(acceptanceEvents.map((e) => e.event_type));
-
-  const rows: SpecMilestoneRow[] = SPEC_MILESTONE_ORDER.map((milestone) => {
-    const existing = paymentsByMilestone.get(milestone);
-    const fireStatus = fireableReason({
-      milestone,
-      row,
-      acceptanceTypes,
-      hasExistingPayment: !!existing,
-    });
-    return {
-      id: existing?.id ?? null,
-      milestone,
-      label: SPEC_MILESTONE_LABELS[milestone],
-      status: existing ? existing.status : "not_yet_fired",
-      amountCents: existing?.total_cents ?? perMilestoneAmount,
-      invoicedAt: existing?.invoiced_at ?? null,
-      paidAt: existing?.paid_at ?? null,
-      dueDate: existing?.due_date ?? null,
-      stripeInvoiceId: existing?.stripe_invoice_id ?? null,
-      fireable: fireStatus.fireable,
-      fireBlockedReason: fireStatus.reason,
-    };
+  const tier = coerceSpecTier(row.tier);
+  return composeMilestonesTab({
+    tier,
+    lockedTotalCents: readLockedTotalCents(tier, row.locked_total_cents),
+    walkthroughCompletedAt: row.walkthrough_completed_at,
+    acceptanceTypes: new Set<SpecAcceptanceEventType>(acceptanceEvents.map((e) => e.event_type)),
+    payments,
   });
-
-  return { tierTotalCents, rows };
 }
 
 // ─── Timeline composition ────────────────────────────────────────────────────
@@ -2166,7 +2110,7 @@ export async function getProjectDetail(
 
   const overview = buildOverviewTab(row, payments, buyerLink, accountHolderLink, company);
   const intake = buildIntakeTab(row);
-  const scopeTab = await buildScopeTab(projectId, scope);
+  const scopeTab = await buildScopeTab({ row, scopeDocs: scope, acceptanceEvents: acceptance, payments });
   const milestones = buildMilestonesTab(row, payments, acceptance);
   const timeline = buildTimelineEvents({
     row,
@@ -2183,7 +2127,7 @@ export async function getProjectDetail(
   // Tabs 6-11 (F.2.b). Load in parallel — none depend on each other.
   const [changeOrdersTab, satisfactionTab, ticketsTab, communicationsTab, entitlementsTab, notesTab] =
     await Promise.all([
-      loadChangeOrdersTab(projectId, ofTier(row.tier)),
+      loadChangeOrdersTab(projectId, coerceSpecTier(row.tier)),
       loadSatisfactionTab(projectId),
       loadTicketsTab(projectId),
       loadCommunicationsTab(projectId, row, userLinks),
@@ -2249,18 +2193,25 @@ export async function withIntakeSignedUrls(
 export async function getMilestoneFireability(
   projectId: string,
   milestone: SpecPaymentMilestone,
-): Promise<{ fireable: boolean; reason: string | null; row: ProjectDetailRow | null }> {
+): Promise<{
+  fireable: boolean;
+  reason: string | null;
+  /** Amount the checkpoint invoices per the tier schedule; null when not fireable for lack of a locked total. */
+  amountCents: number | null;
+  row: ProjectDetailRow | null;
+}> {
   const row = await loadProjectRow(projectId);
-  if (!row) return { fireable: false, reason: "Project not found", row: null };
+  if (!row) return { fireable: false, reason: "Project not found", amountCents: null, row: null };
   const payments = await loadProjectPayments(projectId);
   const acceptance = await loadAcceptanceEventsForProject(projectId);
-  const acceptanceTypes = new Set<SpecAcceptanceEventType>(acceptance.map((a) => a.event_type));
-  const existing = payments.find((p) => p.milestone === milestone);
-  const result = fireableReason({
+  const tier = coerceSpecTier(row.tier);
+  const result = milestoneFireability({
+    tier,
+    lockedTotalCents: readLockedTotalCents(tier, row.locked_total_cents),
+    walkthroughCompletedAt: row.walkthrough_completed_at,
+    acceptanceTypes: new Set<SpecAcceptanceEventType>(acceptance.map((a) => a.event_type)),
     milestone,
-    row,
-    acceptanceTypes,
-    hasExistingPayment: !!existing,
+    hasExistingPayment: payments.some((p) => p.milestone === milestone),
   });
   return { ...result, row };
 }
@@ -2483,7 +2434,7 @@ async function buildRefundQueueRows(
       processedByUserId: r.processed_by_user_id,
       isTest: r.is_test,
       totalRefundCents: r.total_refund_cents,
-      projectTier: ofTier(project?.tier),
+      projectTier: coerceSpecTier(project?.tier),
       projectStatus: project?.status ?? "deposit_paid",
       customerName: project?.customer_name ?? null,
       customerEmail: project?.customer_email ?? "",
@@ -2563,7 +2514,7 @@ export async function getRefundRequestDetail(
     processedByUserId: r.processed_by_user_id,
     isTest: r.is_test,
     totalRefundCents: r.total_refund_cents,
-    projectTier: ofTier(project?.tier),
+    projectTier: coerceSpecTier(project?.tier),
     projectStatus: project?.status ?? "deposit_paid",
     customerName: project?.customer_name ?? null,
     customerEmail: project?.customer_email ?? "",
@@ -2637,7 +2588,7 @@ export async function getPendingOwnerApprovals(
       id: r.id,
       specProjectId: r.spec_project_id,
       status: r.status,
-      tier: ofTier(r.tier),
+      tier: coerceSpecTier(r.tier),
       approvedTotalCents: r.approved_total_cents,
       approvedDepositCents: r.approved_deposit_cents,
       requestedAt: r.requested_at,
@@ -3104,7 +3055,7 @@ export async function loadSpecProjectMinimal(
   return {
     id: data.id as string,
     status: data.status as SpecProjectStatus,
-    tier: ofTier(data.tier as string | null),
+    tier: coerceSpecTier(data.tier as string | null),
     customer_email: data.customer_email as string,
     customer_name: (data.customer_name as string | null) ?? null,
     buyer_user_id: data.buyer_user_id as string,

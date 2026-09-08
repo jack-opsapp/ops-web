@@ -1,4 +1,14 @@
 import {
+  createFinancialDocumentService,
+  type FinancialDocumentService,
+} from "../services/financial-document/financial-document-service";
+import { createFinancialDocumentRepository } from "../services/financial-document/financial-document-repository";
+import {
+  createScheduleChangeService,
+  type ScheduleChangeService,
+} from "../services/schedule-change/schedule-change-service";
+import { createScheduleChangeRepository } from "../services/schedule-change/schedule-change-repository";
+import {
   createCustomerUpdateService,
   type CustomerUpdateService,
 } from "../services/customer-update/customer-update-service";
@@ -131,6 +141,8 @@ export interface McpServerRuntime {
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly customerUpdate: CustomerUpdateService;
+  readonly scheduleChange: ScheduleChangeService;
+  readonly financialDocument: FinancialDocumentService;
   readonly customerMessage: CustomerMessageService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
   readonly authorityRepository: ActorAuthorityRepository;
@@ -350,6 +362,18 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const financialDocument = createFinancialDocumentService({
+    repository: createFinancialDocumentRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
+  const scheduleChange = createScheduleChangeService({
+    repository: createScheduleChangeRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
   const customerMessage = createCustomerMessageService({
     repository: createCustomerMessageRepository({
       rpc: rpcClient.rpc.bind(rpcClient),
@@ -379,6 +403,8 @@ export function getMcpServerRuntime(): McpServerRuntime {
       crewCalloutRecovery,
       dispatchConfirmationTask,
       customerUpdate,
+      scheduleChange,
+      financialDocument,
       customerMessage,
     }),
     dayCloseout,
@@ -393,6 +419,8 @@ export function getMcpServerRuntime(): McpServerRuntime {
     crewCalloutRecovery,
     dispatchConfirmationTask,
     customerUpdate,
+    scheduleChange,
+    financialDocument,
     customerMessage,
     authorityRepository,
     rpcClient,

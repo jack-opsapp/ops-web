@@ -60,6 +60,8 @@ export const ACTION_TYPE_ICONS: Record<
   file_day_closeout: CalendarCheck,
   approve_collections_draft: Receipt,
   approve_dispatch_confirmation_task: ListTodo,
+  approve_schedule_change: CalendarCheck,
+  approve_financial_document: FileText,
   approve_customer_update: FileText,
   send_customer_follow_up: MailCheck,
 };

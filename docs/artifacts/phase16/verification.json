@@ -1,0 +1,88 @@
+{
+  "status": "LOCAL_FINANCIAL_TRIAL_IMPLEMENTED_AND_VERIFIED_NOT_RELEASED_OR_HOST_ACCEPTED",
+  "current_application_and_protocol_tests": {
+    "passed": 677,
+    "files": 19,
+    "regression": {
+      "passed": 670,
+      "files": 18,
+      "evidence": "host-regression-tests.log"
+    },
+    "fresh_financial_protocol": {
+      "passed": 7,
+      "files": 1,
+      "evidence": "financial-trial-protocol.log",
+      "real_loopback_http": true,
+      "production_runtime_composition": true,
+      "actual_oauth_and_financial_sql": true,
+      "actual_named_ops_approval_service": true,
+      "external_identity_provider_replaced_with_fictional_subject": true,
+      "external_host_authenticated": false
+    }
+  },
+  "prior_owner_readiness_proof": {
+    "application_tests": 129,
+    "postgresql_assertions": 160,
+    "not_additive_with_current_totals": true,
+    "fictional_only": true,
+    "evidence": ["sql-summary.log", "final-tests.log", "canary-tests.log"]
+  },
+  "production_build": {
+    "command": "NODE_OPTIONS=--max-old-space-size=8192 NEXT_PUBLIC_SUPABASE_URL=https://phase16-build.invalid NEXT_PUBLIC_SUPABASE_ANON_KEY=phase16-inert-anon SUPABASE_SERVICE_ROLE_KEY=phase16-inert-service NEXT_TELEMETRY_DISABLED=1 node node_modules/next/dist/bin/next build",
+    "exit_code": 0,
+    "type_validation_passed": true,
+    "static_pages_generated": 388,
+    "real_account_synchronization": false,
+    "evidence": "production-build.log",
+    "warnings": "Successful build reports warnings in unchanged HEIC/async_hooks/social-image and metadata dependencies; no claim of authenticated browser or external host proof."
+  },
+  "ui": {
+    "real_browser_fixture": true,
+    "authenticated_dashboard_verified": false,
+    "claude_financial_acceptance": false,
+    "chatgpt_financial_acceptance": false
+  },
+  "migrations": [
+    {
+      "file": "20260908024426_financial_policy_readiness.sql",
+      "sha256": "0cd104e43b1388898d97b23c1a0333d1853cadef6197c94daa5480c9e42169fe",
+      "production_applied": false
+    },
+    {
+      "file": "20260908033425_financial_trial_oauth.sql",
+      "sha256": "e5c0f4c725d49e5ea01a532ece84ac48738270f4a98e63a6c0785ea1a42fe768",
+      "production_applied": false
+    }
+  ],
+  "gates": {
+    "financial_host_activation_implemented_locally": true,
+    "financial_catalog_recognized_only_for_exact_bound_subject": true,
+    "public_defaults_changed": false,
+    "production_policy_enrolled": false,
+    "production_financial_binding_activated": false,
+    "effect_fingerprint_renewed_in_production": false,
+    "production_mutations": 0
+  },
+  "production_readback": {
+    "policies": 0,
+    "proposals": 0,
+    "observed_at": "2026-09-08T04:03:39.481455+00:00",
+    "effect_current": "sha256:1dbb20f58a47881a7838a77a2ae69cb55aea8142ba41e5c9b62c0b73a21ae4c5",
+    "held_estimates": 0,
+    "effect_installed": "sha256:1dbb20f58a47881a7838a77a2ae69cb55aea8142ba41e5c9b62c0b73a21ae4c5",
+    "financial_grants": 0,
+    "financial_bindings": 0,
+    "owner_migration_installed": false,
+    "trial_migration_installed": false
+  },
+  "live_trial_proposal": "activation-boundary.md",
+  "local_cleanup": {
+    "runner": "tests/sql/financial-trial-run.sh",
+    "local_unix_socket_only": true,
+    "unique_disposable_database": true,
+    "dropped_on_exit": true,
+    "database": "ops_p16_1788840734_72747",
+    "independent_pg_database_count": 0,
+    "readback": "Final database independently absent after seven passing scenarios. Exact fictional receipt and saved-state evidence is in financial-trial-receipt.json."
+  }
+}

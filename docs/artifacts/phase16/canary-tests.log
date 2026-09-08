@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+ ✓ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts (10 tests) 1305ms
+   ✓ MCP v3 synthetic canary acceptance > bounds a stalled operator proof RPC and still proves cleanup 1023ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  20:12:46
+   Duration  6.50s (transform 444ms, setup 716ms, collect 378ms, tests 1.31s, environment 1.30s, prepare 347ms)

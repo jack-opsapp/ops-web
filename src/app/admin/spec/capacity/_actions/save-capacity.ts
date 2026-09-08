@@ -10,7 +10,7 @@ import {
   OPS_OPERATIONS_COMPANY_ID,
   SPEC_CAPACITY_RECORD_IDS,
 } from "@/lib/admin/spec-constants";
-import type { SpecTier } from "@/lib/admin/spec-types";
+import { SPEC_TIERS, type SpecTier } from "@/lib/admin/spec-tiers";
 import {
   LEGACY_SESSION_COOKIE_NAME,
   OPS_AUTH_COOKIE_NAME,
@@ -48,7 +48,7 @@ export type SaveCapacityFormState =
   | { status: "success"; refreshedAt: string }
   | { status: "error"; formError?: string; errors?: Record<string, string> };
 
-const ALLOWED_TIERS: ReadonlyArray<SpecTier> = ["setup", "build", "enterprise"];
+const ALLOWED_TIERS: ReadonlyArray<SpecTier> = SPEC_TIERS;
 
 async function requireOperator(): Promise<{ userId: string } | null> {
   const cookieStore = await cookies();
@@ -119,7 +119,6 @@ interface ValidatedRow {
   build_days_min: number;
   build_days_max: number;
   support_window_days: number;
-  subscription_multiplier_estimate: number;
   retainer_monthly_cents: number;
   polish_hours_budget: number;
   is_accepting_bookings: boolean;
@@ -164,14 +163,6 @@ function validate(
 
   const support = parseInt0(formData.get("support_window_days"));
   if (!Number.isFinite(support) || support < 0) errors.support_window_days = "MUST BE INTEGER ≥ 0";
-
-  const multiplier = parseFloat0(formData.get("subscription_multiplier_estimate"));
-  if (!Number.isFinite(multiplier) || multiplier < 0) {
-    errors.subscription_multiplier_estimate = "MUST BE NUMBER ≥ 0";
-  } else if (multiplier > 99.99) {
-    // numeric(4,2) caps at 99.99
-    errors.subscription_multiplier_estimate = "MAX 99.99";
-  }
 
   const retainerDollars = parseInt0(formData.get("retainer_monthly_dollars"));
   if (!Number.isFinite(retainerDollars) || retainerDollars < 0) {
@@ -232,7 +223,6 @@ function validate(
       build_days_min: buildMin,
       build_days_max: buildMax,
       support_window_days: support,
-      subscription_multiplier_estimate: Math.round(multiplier * 100) / 100,
       retainer_monthly_cents: retainerDollars * 100,
       polish_hours_budget: Math.round(polish * 100) / 100,
       is_accepting_bookings: isAccepting,
@@ -306,7 +296,7 @@ export async function saveCapacityAction(
   // 5. Audit row — operator-scope (company_id = OPS_OPERATIONS_COMPANY_ID,
   // record_id = stable per-tier uuid). audit_log RLS is company-scoped; the
   // service-role client bypasses it on write. Stable record_id lets future
-  // queries pull "all changes to setup tier" by record_id without joining
+  // queries pull "all changes to the SPEC-01 tier" by record_id without joining
   // through new_data.
   const { error: auditErr } = await db.from("audit_log").insert({
     table_name: "spec_capacity",

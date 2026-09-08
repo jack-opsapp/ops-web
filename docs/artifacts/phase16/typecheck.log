@@ -1,0 +1,1 @@
+Two default 4 GiB heap attempts exhausted Node memory (exit 134). No TypeScript success was inferred from their empty intermediate logs. The 8 GiB retry completed with exit 0; see typecheck-8g.log.

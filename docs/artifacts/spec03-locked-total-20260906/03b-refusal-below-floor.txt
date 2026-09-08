@@ -1,0 +1,16 @@
+LIVE REFUSAL — below-floor input through the real server action (dev bypass as the operator)
+Project: 8964fd86-d854-4b11-8284-db58043d4d19 (is_test fixture) · locked at $32,500.50 beforehand
+Input:   24,999  → RE-LOCK
+
+Server response (Next dev error page, /_error props):
+  err.name    = Error
+  err.source  = server
+  err.message = SYS :: TOTAL BELOW FLOOR · $25,000
+  stack       = at lockTotal (src/app/admin/spec/[id]/_actions/lock-total.ts) …
+
+Database after the refusal (see 03b-refusal-db-state below): locked_total_cents unchanged at 3250050,
+comms row count unchanged (2) — the parser rejects before any read or write.
+
+03b-refusal-db-state (queried right after the refusal):
+  spec_projects.locked_total_cents = 3250050   (unchanged)
+  spec_communications rows          = 2         (unchanged: "locked" + "re-locked")

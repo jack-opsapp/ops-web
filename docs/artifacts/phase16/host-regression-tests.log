@@ -1,0 +1,28 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/grants.test.ts (175 tests) 77ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scope-catalog.test.ts (13 tests) 109ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/tokens.test.ts (40 tests) 221ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/clients.test.ts (121 tests) 233ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/canary.test.ts (17 tests) 244ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scopes.test.ts (35 tests) 255ms
+ ✓ tests/unit/mcp/oauth-consent.test.ts (73 tests) 1096ms
+ ✓ tests/unit/mcp/oauth-routes.test.ts (53 tests) 1293ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/grant-pinned-exposure.test.ts (19 tests) 1264ms
+   ✓ grant-pinned MCP exposure > keeps an existing v1 grant on exactly the historical eleven tools 459ms
+ ✓ src/lib/agent-control-plane/services/financial-document/__tests__/financial-domain.test.ts (19 tests) 261ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/config.test.ts (36 tests) 83ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/domain-dispatch.test.ts (2 tests) 41ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/authorization-response.test.ts (4 tests) 30ms
+ ✓ tests/unit/mcp/oauth-consent-protocol.test.ts (2 tests) 22ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/pkce.test.ts (50 tests) 71ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/bearer.test.ts (4 tests) 185ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/financial-canary.test.ts (5 tests) 57ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts (2 tests) 36ms
+
+ Test Files  18 passed (18)
+      Tests  670 passed (670)
+   Start at  20:59:53
+   Duration  27.17s (transform 10.81s, setup 19.77s, collect 114.29s, tests 5.58s, environment 41.52s, prepare 9.02s)

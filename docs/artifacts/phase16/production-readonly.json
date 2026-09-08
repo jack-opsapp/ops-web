@@ -1,0 +1,15 @@
+{
+  "policies": 0,
+  "proposals": 0,
+  "checked_at": "2026-09-08T03:11:55.095704+00:00",
+  "v17_grants": 0,
+  "canpro_taxes": 0,
+  "effect_current": "sha256:1dbb20f58a47881a7838a77a2ae69cb55aea8142ba41e5c9b62c0b73a21ae4c5",
+  "held_estimates": 0,
+  "canpro_estimates": 0,
+  "effect_installed": "sha256:1dbb20f58a47881a7838a77a2ae69cb55aea8142ba41e5c9b62c0b73a21ae4c5",
+  "phase16_migration_installed": false,
+  "canpro_products_including_deleted": 2,
+  "canpro_usable_products": 0,
+  "note": "Two catalog rows are historical soft-deleted records; neither is eligible. No production writes were performed by this task."
+}
