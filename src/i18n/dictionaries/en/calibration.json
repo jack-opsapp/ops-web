@@ -3,6 +3,13 @@
   "page.breadcrumb": "Command // Calibration",
   "page.subtitle": "Inputs. Corpus. Config. The system, visible.",
 
+  "state.loading.heading": "SYS :: LOADING",
+  "state.forbidden.heading": "SYS :: CALIBRATION LOCKED",
+  "state.forbidden.body": "Calibration reads your mailbox. It needs the email.configure_ai permission and a mailbox in your scope. Ask an admin.",
+  "state.error.heading": "SYS :: DECK UNAVAILABLE",
+  "state.error.body": "The deck did not load. Nothing else is affected.",
+  "state.error.retry": "RETRY",
+
   "firstRun.header": "// CALIBRATION · INITIAL SCOPE",
   "firstRun.body": "Three sources feed the system. Each is optional. Complete what you want. Skip the rest.",
   "firstRun.progress": "{done} / 3",

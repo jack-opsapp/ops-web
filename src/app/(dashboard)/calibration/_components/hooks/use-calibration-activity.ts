@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import { CalibrationRequestError } from "./calibration-request-error";
 import type {
   ActivityFilters,
   RecentEvent,
@@ -43,14 +44,21 @@ export function useCalibrationActivity(
       });
       if (cursor) sp.set("cursor", cursor);
       const res = await authedFetch(`/api/calibration/activity?${sp}`);
-      if (!res.ok) throw new Error("Failed to fetch activity log");
+      if (!res.ok) {
+        throw new CalibrationRequestError(
+          res.status,
+          "Failed to fetch activity log"
+        );
+      }
       return res.json() as Promise<{
         events: RecentEvent[];
         nextCursor: string | null;
       }>;
     },
     enabled: !!companyId,
-    refetchInterval: 15_000,
+    // Same rule as the deck: stop polling a read that is failing.
+    refetchInterval: (query) =>
+      query.state.status === "error" ? false : 15_000,
     staleTime: 10_000,
   });
 }

@@ -3,6 +3,13 @@
   "page.breadcrumb": "Command // Calibration",
   "page.subtitle": "Inputs. Corpus. Config. El sistema, visible.",
 
+  "state.loading.heading": "SYS :: LOADING",
+  "state.forbidden.heading": "SYS :: CALIBRATION LOCKED",
+  "state.forbidden.body": "Calibration lee tu buzón. Requiere el permiso email.configure_ai y un buzón en tu alcance. Pide acceso a un administrador.",
+  "state.error.heading": "SYS :: DECK UNAVAILABLE",
+  "state.error.body": "El panel no se cargó. Nada más está afectado.",
+  "state.error.retry": "RETRY",
+
   "firstRun.header": "// CALIBRATION · INITIAL SCOPE",
   "firstRun.body": "Tres fuentes alimentan al sistema. Cada una es opcional. Completa lo que quieras. Salta el resto.",
   "firstRun.progress": "{done} / 3",
