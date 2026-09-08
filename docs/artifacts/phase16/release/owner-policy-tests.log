@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+ ✓ src/lib/agent-control-plane/services/financial-policy/__tests__/financial-policy-service.test.ts (3 tests) 4ms
+ ✓ src/app/api/agent/financial-policy/__tests__/route.test.ts (3 tests) 9ms
+ ✓ src/components/agent/__tests__/financial-policy-panel.test.tsx (2 tests) 89ms
+
+ Test Files  3 passed (3)
+      Tests  8 passed (8)
+   Start at  22:43:06
+   Duration  859ms (transform 78ms, setup 253ms, collect 216ms, tests 102ms, environment 903ms, prepare 92ms)

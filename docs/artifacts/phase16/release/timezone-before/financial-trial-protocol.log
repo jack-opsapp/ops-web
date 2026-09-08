@@ -1,0 +1,43 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+stdout | src/lib/agent-control-plane/mcp/__tests__/financial-trial-protocol.test.ts > Phase16 real local financial OAuth / HTTP / SQL acceptance > completes owner enrollment, fresh consent, PKCE exchange, protocol discovery, historical +8%, exact OPS approval and one held draft
+FINANCIAL_TRIAL_EVIDENCE {"fixture_only":true,"external_host_authenticated":false,"company_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","actor_user_id":"10000000-0000-4000-8000-000000000001","oauth_client_id":"e1294a12-27ed-45b7-9185-68907c549327","exposure_revision":"2026-09-07.mcp-exposure.v17","consent_catalog_revision":"2026-09-07.mcp-consent-catalog.v12","scope_ceiling":["ops.company.read","ops.customers.read","ops.financial_documents.prepare","ops.financial_documents.read","ops.jobs.read"],"policy_id":"a9e9cd40-78eb-4b47-9e40-7eaca182ef0d","policy_sha256":"sha256:0fe65a647dcdeb07116888451a06d28b4bd320c37525062df7462325c662967d","effect_revision":"sha256:f24a501b096bfd14e1ed6f8e2662ae6fd4dfd68371d39521ee544cd3ce77d396","observed":{"held":1,"sync":0,"total":226.8,"status":"draft","numbers":1,"receipt":{"ok":true,"effect":"private_financial_draft_saved","run_id":"5110a1f0-d02d-43b7-b2d7-1387d4726230","effects":{"distribution":"held_private","provider_writes":0,"invoices_created":0,"estimates_created":1,"customer_acceptances":0,"customer_messages_sent":0,"project_totals_changed":0,"existing_documents_changed":0,"official_numbers_allocated":1},"replayed":false,"action_id":"e06e44e1-715f-45a6-8a22-ea801ebe3e55","estimate_id":"e4911516-1755-4797-b84d-a4e064730f10","committed_at":"2026-09-08T05:41:02.329038+00:00","change_set_id":"3e571f3c-b102-45e4-bc9f-f698b7daf79b","document_kind":"estimate","preview_sha256":"sha256:af4099cf73bec30e76553665cccf564aa09eb92c4598df2a4dc609e09ffca805","receipt_sha256":"sha256:504e57553a616be8fbd37bee5d35fca67d2511b4802d1ce97a9442ed9ba1a3a7","estimate_number":"EST-2026-00001","readback_sha256":"sha256:9deb5a91b93d1c58864f6fcb40a96f9a22432420e32fd8ebca33036a47c12ee9","document_version":1,"confirmation_receipt_id":"38a29342-73e9-47ba-be22-c26643b0e16e"}}}
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/financial-trial-protocol.test.ts (8 tests | 1 failed) 11311ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > keeps public registration v14/v9 and refuses unbound or expanded financial subjects 321ms
+   × Phase16 real local financial OAuth / HTTP / SQL acceptance > preserves financial binding, bearer, refresh and exact expiry across UTC and America/Vancouver sessions 573ms
+     → America/Vancouver: expected [] to have a length of 1 but got +0
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > completes owner enrollment, fresh consent, PKCE exchange, protocol discovery, historical +8%, exact OPS approval and one held draft 1648ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > rejects bad PKCE and revoked consent between preview, decision and code exchange 494ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > invalidates issued bearers on policy source, tax, owner and effect drift, with no additional financial rows 863ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > expires real issued tokens and prevents extending or substituting the exact binding 6211ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > fences a prepared approval against revocation, including racing local calls and receipt replay 582ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > retires enrolled rules through the owner API and blocks a previously prepared approval without releasing holds 526ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/financial-trial-protocol.test.ts > Phase16 real local financial OAuth / HTTP / SQL acceptance > preserves financial binding, bearer, refresh and exact expiry across UTC and America/Vancouver sessions
+AssertionError: America/Vancouver: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/financial-trial-protocol.test.ts:540:38
+    538|             p_exposure_revision: EXPOSURE, p_consent_catalog_revision:…
+    539|           });
+    540|           expect(resolved, timezone).toHaveLength(1);
+       |                                      ^
+    541|           expect(Date.parse(resolved[0].expires_at)).toBe(Date.parse(e…
+    542|           expect((await host(token.access_token, "tools/list")).status…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  22:40:57
+   Duration  13.84s (transform 910ms, setup 161ms, collect 2.17s, tests 11.31s, environment 0ms, prepare 44ms)

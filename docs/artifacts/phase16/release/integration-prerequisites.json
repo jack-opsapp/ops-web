@@ -1,0 +1,35 @@
+{
+  "source_commit": "2465637815a9a55e671f5b8399409b6fa45be10f",
+  "merge_commit": "04a6f0ebf4ef0fad3012bce10ca54bddce0ebb58",
+  "merged_upstream": "f49bba20226f81621c439a5946be6b83b268e094",
+  "upstream_changed_files": 74,
+  "upstream_protected_paths_changed": [],
+  "migration_baseline_guards_passed_in_local_postgresql": true,
+  "production_prerequisites_requeried": false,
+  "migration_change": "Function-local TimeZone UTC on private.mcp_oauth_canary_is_current only; parent owns production and Bible mirror.",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260908024426_financial_policy_readiness.sql",
+      "sha256": "0cd104e43b1388898d97b23c1a0333d1853cadef6197c94daa5480c9e42169fe",
+      "baseline_guards_unchanged": true,
+      "baseline_guards": [
+        "md5(pg_get_functiondef('private.financial_document_source(uuid,uuid,jsonb)'::regprocedure))<>'45bcfccd1d5b2f9203cf0113022d3ada' then raise exception 'FINANCIAL_POLICY_SOURCE_DEFINITION_DRIFT'"
+      ]
+    },
+    {
+      "path": "supabase/migrations/20260908033425_financial_trial_oauth.sql",
+      "sha256": "20241fc0591d1ce5d54138099af12393646a0a7e1e26977876d226b736ddf10f",
+      "baseline_guards_unchanged": true,
+      "baseline_guards": [
+        "md5(pg_get_functiondef('private.assert_financial_document_authority(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text)'::regprocedure))<>'827d31ce25428a91edae5520c27be566' then raise exception 'FINANCIAL_TRIAL_DEFINITION_DRIFT: private.assert_financial_document_authority(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text)'",
+        "md5(pg_get_functiondef('disable_mcp_oauth_canary_as_system(uuid,uuid,uuid)'::regprocedure))<>'92f3419aabba817d318090584fd725ca' then raise exception 'FINANCIAL_TRIAL_DEFINITION_DRIFT: disable_mcp_oauth_canary_as_system(uuid,uuid,uuid)'",
+        "md5(pg_get_functiondef('private.enforce_mcp_v3_canary_write()'::regprocedure))<>'9963ea713caf1e5b84dd2fbb7ebb787a' then raise exception 'FINANCIAL_TRIAL_DEFINITION_DRIFT: private.enforce_mcp_v3_canary_write()'",
+        "md5(pg_get_functiondef('private.mcp_oauth_canary_is_current(uuid,uuid,uuid,text,text)'::regprocedure))<>'4c3e73f9435b52d177fbe2c492701846' then raise exception 'FINANCIAL_TRIAL_DEFINITION_DRIFT: private.mcp_oauth_canary_is_current(uuid,uuid,uuid,text,text)'",
+        "md5(pg_get_functiondef('private.mcp_oauth_labels_for_scopes(text[],text)'::regprocedure))<>'9cf5d0bbde57d083133abd1d14a5b8ad' then raise exception 'FINANCIAL_TRIAL_DEFINITION_DRIFT: private.mcp_oauth_labels_for_scopes(text[],text)'",
+        "md5(pg_get_functiondef('resolve_mcp_oauth_access_token_as_system(text,text)'::regprocedure))<>'e11c6ea61cd748aa465c4dd103964dd3' then raise exception 'FINANCIAL_TRIAL_DEFINITION_DRIFT: resolve_mcp_oauth_access_token_as_system(text,text)'",
+        "md5(pg_get_functiondef('rotate_mcp_oauth_refresh_token_as_system(text,uuid,text[],text,text,timestamp with time zone,timestamp with time zone)'::regprocedure))<>'b69ca68f6b3c2b6c0c0c39a04d96509f' then raise exception 'FINANCIAL_TRIAL_DEFINITION_DRIFT: rotate_mcp_oauth_refresh_token_as_system(text,uuid,text[],text,text,timestamp with time zone,timestamp with time zone)'",
+        "md5(pg_get_functiondef('public.resolve_mcp_oauth_canary_as_system(uuid,uuid,uuid,text,text)'::regprocedure))<>'b52694d45d53580fc3fdbaf071ff14aa' then raise exception 'FINANCIAL_TRIAL_DEFINITION_DRIFT: public.resolve_mcp_oauth_canary_as_system(uuid,uuid,uuid,text,text)'"
+      ]
+    }
+  ]
+}
