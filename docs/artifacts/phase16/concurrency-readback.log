@@ -1,20 +1,19 @@
 SET
 SET
 NOTICE:  PASS: exact owner request reconciles to winning receipt
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 NOTICE:  PASS: competing policy preview cannot supersede unseen winner
- rejects 
+ rejects
 ---------
- 
+
 (1 row)
 
 NOTICE:  PASS: concurrent enrollment creates exactly one policy and notification
- assert 
+ assert
 --------
- 
-(1 row)
 
+(1 row)

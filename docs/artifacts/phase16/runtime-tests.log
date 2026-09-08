@@ -1,15 +1,15 @@
 CREATE SCHEMA
 CREATE FUNCTION
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:5: NOTICE:  PASS: server-owned financial calculation exists
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:6: NOTICE:  PASS: quantity extension and tax round independently at cents
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 SET
@@ -43,9 +43,9 @@ psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: receipt replay reauthorizes revoked grants
 DO
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:58: NOTICE:  PASS: tax matches canonical taxable subtotal rounding
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null operation rejected by RPC
@@ -75,9 +75,9 @@ psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web
 DO
 ROLLBACK
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:80: NOTICE:  PASS: held header insertion requires the canonical approval transaction token
- rejects 
+ rejects
 ---------
- 
+
 (1 row)
 
 BEGIN
@@ -133,12 +133,12 @@ GRANT
 GRANT
 UPDATE 1
 INSERT 0 6
-              set_config              
+              set_config
 --------------------------------------
  db62f0a9-b04f-40fb-84ae-cf7dea685bb3
 (1 row)
 
-                                       set_config                                        
+                                       set_config
 -----------------------------------------------------------------------------------------
  {"sub":"financial-fixture-browser","company_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}
 (1 row)
@@ -146,26 +146,26 @@ INSERT 0 6
 SET
 SET
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:128: NOTICE:  PASS: browser sees own action with complete current business permissions
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 RESET
 DELETE 1
 SET
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:132: NOTICE:  PASS: browser cannot SELECT proposal after project read permission loss
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 RESET
 ROLLBACK
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:2: NOTICE:  PASS: owner policy preview exists
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 SET
@@ -176,27 +176,27 @@ CREATE FUNCTION
 CREATE FUNCTION
 CREATE FUNCTION
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:16: NOTICE:  PASS: browser cannot call policy enrollment RPC directly
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:17: NOTICE:  PASS: service role cannot bypass preview ledger RPCs
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:18: NOTICE:  PASS: admin without exact company ownership denied
- rejects 
+ rejects
 ---------
- 
+
 (1 row)
 
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:19: NOTICE:  PASS: cross tenant readiness denied
- rejects 
+ rejects
 ---------
- 
+
 (1 row)
 
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing revision rejected
@@ -224,9 +224,9 @@ DO
 ALTER FUNCTION
 CREATE FUNCTION
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:51: NOTICE:  PASS: post-enrollment effect review restricted to fictional DB
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 UPDATE 1
@@ -283,12 +283,12 @@ GRANT
 GRANT
 UPDATE 1
 INSERT 0 6
-              set_config              
+              set_config
 --------------------------------------
  5e1e539e-380f-4536-82cf-578431404dd7
 (1 row)
 
-                                       set_config                                        
+                                       set_config
 -----------------------------------------------------------------------------------------
  {"sub":"financial-fixture-browser","company_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}
 (1 row)
@@ -296,18 +296,18 @@ INSERT 0 6
 SET
 SET
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:128: NOTICE:  PASS: browser sees own action with complete current business permissions
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 RESET
 DELETE 1
 SET
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:132: NOTICE:  PASS: browser cannot SELECT proposal after project read permission loss
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 RESET
@@ -316,9 +316,9 @@ INSERT 0 1
 INSERT 0 1
 INSERT 0 1
 psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:63: NOTICE:  PASS: acceptance effect installation is restricted to isolated fictional DB
- assert 
+ assert
 --------
- 
+
 (1 row)
 
 UPDATE 1

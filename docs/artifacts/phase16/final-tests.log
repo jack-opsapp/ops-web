@@ -42,12 +42,12 @@
  FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > runs real loopback consent, refresh reuse proof, and exact cleanup without leaking secrets
 Error: MCP canary acceptance failed at loopback_bind
  ❯ failure src/lib/agent-control-plane/mcp/canary-acceptance.ts:98:10
-     96| 
+     96|
      97| function failure(stage: string): Error {
      98|   return new Error(`MCP canary acceptance failed at ${stage}`);
        |          ^
      99| }
-    100| 
+    100|
  ❯ Module.runMcpV3CanaryAcceptance src/lib/agent-control-plane/mcp/canary-acceptance.ts:639:11
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:230:21
 
@@ -61,7 +61,7 @@ Received: "MCP canary acceptance failed at loopback_bind"
 
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:371:5
     369|     const openAuthorization = vi.fn();
-    370| 
+    370|
     371|     await expect(
        |     ^
     372|       runMcpV3CanaryAcceptance(
@@ -77,7 +77,7 @@ Received: "MCP canary acceptance failed at loopback_bind"
 
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:395:5
     393|     const fetcher = tokenFetcher();
-    394| 
+    394|
     395|     await expect(
        |     ^
     396|       runMcpV3CanaryAcceptance(
@@ -93,7 +93,7 @@ Received: "MCP canary acceptance failed at loopback_bind"
 
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:431:5
     429|     const rpc = rpcFixture();
-    430| 
+    430|
     431|     await expect(
        |     ^
     432|       runMcpV3CanaryAcceptance(
@@ -109,7 +109,7 @@ Received: "MCP canary acceptance failed at loopback_bind"
 
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:469:5
     467|     const openOperatorSurface = vi.fn();
-    468| 
+    468|
     469|     await expect(
        |     ^
     470|       runMcpV3CanaryAcceptance(
@@ -141,7 +141,7 @@ Received: "MCP canary acceptance failed at loopback_bind"
 
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:568:5
     566|     const controller = new AbortController();
-    567| 
+    567|
     568|     await expect(
        |     ^
     569|       runMcpV3CanaryAcceptance(
@@ -157,7 +157,7 @@ Received: "MCP canary acceptance failed at loopback_bind"
 
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:593:5
     591|     const rpc = rpcFixture({ operatorProofStalls: true });
-    592| 
+    592|
     593|     await expect(
        |     ^
     594|       runMcpV3CanaryAcceptance(
@@ -169,7 +169,7 @@ Received: "MCP canary acceptance failed at loopback_bind"
 AssertionError: expected Error: MCP canary acceptance failed at lo… to be an instance of AggregateError
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:651:20
     649|     }
-    650| 
+    650|
     651|     expect(caught).toBeInstanceOf(AggregateError);
        |                    ^
     652|     const aggregate = caught as AggregateError;
@@ -180,12 +180,12 @@ AssertionError: expected Error: MCP canary acceptance failed at lo… to be an i
  FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > times out an unused real loopback callback without exposing its URI
 Error: MCP canary acceptance failed at loopback_bind
  ❯ failure src/lib/agent-control-plane/mcp/canary-acceptance.ts:98:10
-     96| 
+     96|
      97| function failure(stage: string): Error {
      98|   return new Error(`MCP canary acceptance failed at ${stage}`);
        |          ^
      99| }
-    100| 
+    100|
  ❯ Module.createLoopbackAuthorizationReceiver src/lib/agent-control-plane/mcp/canary-acceptance.ts:562:11
  ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:664:22
 
@@ -195,4 +195,3 @@ Error: MCP canary acceptance failed at loopback_bind
       Tests  10 failed | 119 passed (129)
    Start at  20:11:44
    Duration  17.61s (transform 9.39s, setup 15.32s, collect 64.48s, tests 2.76s, environment 34.77s, prepare 6.61s)
-
