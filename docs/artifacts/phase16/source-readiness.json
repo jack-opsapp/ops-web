@@ -1,0 +1,25 @@
+{
+  "company_id": "a612edc0-5c18-4c4d-af97-55b9410dd077",
+  "owner_id": "283d49df-90a1-4abb-b94c-3e9f17f02c0d",
+  "source_documents": [
+    {
+      "document": "CANPRO-EST-001",
+      "path": "/Users/jacksonsweet/Desktop/Canpro/canpro-bible/30_estimating/CANPRO-EST-001.md",
+      "sha256": "2ae0fdcada439db4d63b7665b675fb469919284cb067bf9b8befd7f6b1fad7c5",
+      "authority": "Observed external document, not enrolled or approved by this task"
+    },
+    {
+      "document": "CANPRO-EST-003",
+      "path": "/Users/jacksonsweet/Desktop/Canpro/canpro-bible/30_estimating/CANPRO-EST-003.md",
+      "sha256": "fa827b25caf00f71b0ccb4fc67d5d6f702a5183939b96f3c14e65325b44f492e",
+      "authority": "Observed external document, not enrolled or approved by this task"
+    }
+  ],
+  "unresolved": [
+    "CANPRO-EST-003 mandates full plywood replacement but retains partial-replacement and substrate-allowance passages. Do not choose a precedence automatically.",
+    "The price band requires an exact logged operator choice. There is no automatic band-point rule.",
+    "No exact normalized OPS pricing note, tax record or historical estimate is approved for the trial.",
+    "A job-specific approximate quote and discount promise is not a company-wide pricing policy."
+  ],
+  "production_mutations": 0
+}

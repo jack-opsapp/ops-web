@@ -160,9 +160,17 @@ export const CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
   "ops.customers.prepare":
     "Prepare customer notes and lead details, owner and follow-up date changes for exact approval inside OPS",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+/** Candidate only. Enrollment is not financial save or delivery authority. */
+export const FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
+  "ops.financial_documents.prepare":
+    "Inspect pricing sources and prepare private estimates or change orders for exact approval in OPS; never send or issue documents",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
 export type LabelledMcpScope =
   | keyof typeof DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
-  | keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS;
+  | keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+  | keyof typeof FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,

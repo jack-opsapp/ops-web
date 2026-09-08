@@ -1,0 +1,41 @@
+{
+  "status": "LOCAL_OWNER_READINESS_VERIFIED_NOT_RELEASED_OR_HOST_ACCEPTED",
+  "application_tests": {
+    "passed": 129,
+    "files": 12,
+    "evidence": [
+      "final-tests.log",
+      "canary-tests.log"
+    ],
+    "note": "119 passed in sandbox; 10 loopback-only synthetic tests passed with local listener permission"
+  },
+  "postgresql_assertions": {
+    "passed": 160,
+    "fictional_only": true,
+    "database_dropped": true
+  },
+  "typescript": {
+    "command": "NODE_OPTIONS=--max-old-space-size=8192 node node_modules/typescript/bin/tsc --noEmit --incremental false",
+    "exit_code": 0,
+    "diagnostics": 0
+  },
+  "ui": {
+    "real_browser_fixture": true,
+    "authenticated_dashboard_verified": false,
+    "claude_financial_acceptance": false,
+    "chatgpt_financial_acceptance": false
+  },
+  "migration": {
+    "file": "20260908024426_financial_policy_readiness.sql",
+    "sha256": "0cd104e43b1388898d97b23c1a0333d1853cadef6197c94daa5480c9e42169fe",
+    "production_applied": false
+  },
+  "gates": {
+    "source_policy_enrolled": false,
+    "candidate_financial_exposure_selectable": false,
+    "financial_host_activation_implemented": false,
+    "public_defaults_changed": false,
+    "effect_fingerprint_renewed": false,
+    "production_mutations": 0
+  }
+}

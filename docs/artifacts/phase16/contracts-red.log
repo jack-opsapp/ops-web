@@ -1,0 +1,36 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+ ❯ src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts (2 tests | 2 failed) 16ms
+   × financial readiness contract > requires exact explicit source and prior policy binding 7ms
+     → expected undefined to be defined
+   × financial readiness contract > defines preparation consent without selecting or activating financial exposure 1ms
+     → expected undefined to be defined
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts > financial readiness contract > requires exact explicit source and prior policy binding
+AssertionError: expected undefined to be defined
+ ❯ src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts:8:50
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts > financial readiness contract > defines preparation consent without selecting or activating financial exposure
+AssertionError: expected undefined to be defined
+ ❯ src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts:14:45
+     12|   });
+     13|   it('defines preparation consent without selecting or activating fina…
+     14|     expect(consent.MCP_CONSENT_CATALOG_V12).toBeDefined();
+       |                                             ^
+     15|     expect(consent.MCP_CONSENT_CATALOG_V12.consentLabels['ops.financia…
+     16|     expect(consent.MCP_CONSENT_CATALOG[consent.MCP_CONSENT_CATALOG_V12…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  19:41:57
+   Duration  6.41s (transform 1.83s, setup 732ms, collect 2.87s, tests 16ms, environment 948ms, prepare 213ms)
+

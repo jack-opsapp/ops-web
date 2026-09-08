@@ -1,0 +1,198 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+ ✓ src/lib/agent-control-plane/contracts/__tests__/financial-document.test.ts (17 tests) 39ms
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts (10 tests | 10 failed) 135ms
+   × MCP v3 synthetic canary acceptance > runs real loopback consent, refresh reuse proof, and exact cleanup without leaking secrets 89ms
+     → MCP canary acceptance failed at loopback_bind
+   × MCP v3 synthetic canary acceptance > cleans up the inert client when provisioning conflicts 19ms
+     → expected [Function] to throw error including 'MCP canary acceptance failed at canar…' but got 'MCP canary acceptance failed at loopb…'
+   × MCP v3 synthetic canary acceptance > rejects a state mismatch and still proves cleanup 3ms
+     → expected [Function] to throw error including 'MCP canary acceptance failed at conse…' but got 'MCP canary acceptance failed at loopb…'
+   × MCP v3 synthetic canary acceptance > rejects denied consent and still proves cleanup 3ms
+     → expected [Function] to throw error including 'MCP canary acceptance failed at conse…' but got 'MCP canary acceptance failed at loopb…'
+   × MCP v3 synthetic canary acceptance > refuses an approval summary without the exact private proof and still proves cleanup 2ms
+     → expected [Function] to throw error including 'MCP canary acceptance failed at appro…' but got 'MCP canary acceptance failed at loopb…'
+   × MCP v3 synthetic canary acceptance > redacts browser and token transport details and still proves cleanup 3ms
+     → expected [Function] to throw error including 'MCP canary acceptance failed at brows…' but got 'MCP canary acceptance failed at loopb…'
+   × MCP v3 synthetic canary acceptance > cancels consent safely and still proves cleanup 2ms
+     → expected [Function] to throw error including 'MCP canary acceptance failed at cance…' but got 'MCP canary acceptance failed at loopb…'
+   × MCP v3 synthetic canary acceptance > bounds a stalled operator proof RPC and still proves cleanup 2ms
+     → expected [Function] to throw error including 'MCP canary acceptance failed at opera…' but got 'MCP canary acceptance failed at loopb…'
+   × MCP v3 synthetic canary acceptance > preserves both the primary and cleanup failure without leaking details 2ms
+     → expected Error: MCP canary acceptance failed at lo… to be an instance of AggregateError
+   × MCP v3 synthetic canary acceptance > times out an unused real loopback callback without exposing its URI 1ms
+     → MCP canary acceptance failed at loopback_bind
+ ✓ src/components/agent/__tests__/financial-policy-panel.test.tsx (2 tests) 1508ms
+   ✓ owner financial policy review > renders untrusted source as text and never enrolls on visit 798ms
+   ✓ owner financial policy review > enrolls only the sealed preview and preserves its key after uncertain response 690ms
+ ✓ src/app/api/agent/financial-policy/__tests__/route.test.ts (3 tests) 127ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scope-catalog.test.ts (13 tests) 96ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/canary.test.ts (17 tests) 127ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/mcp-exposure-catalog.test.ts (20 tests) 130ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/bearer.test.ts (4 tests) 102ms
+ ✓ src/lib/agent-control-plane/services/financial-policy/__tests__/financial-policy-service.test.ts (3 tests) 41ms
+ ✓ src/lib/agent-control-plane/services/financial-document/__tests__/financial-domain.test.ts (19 tests) 216ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts (2 tests) 14ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/grant-pinned-exposure.test.ts (19 tests) 225ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > runs real loopback consent, refresh reuse proof, and exact cleanup without leaking secrets
+Error: MCP canary acceptance failed at loopback_bind
+ ❯ failure src/lib/agent-control-plane/mcp/canary-acceptance.ts:98:10
+     96| 
+     97| function failure(stage: string): Error {
+     98|   return new Error(`MCP canary acceptance failed at ${stage}`);
+       |          ^
+     99| }
+    100| 
+ ❯ Module.runMcpV3CanaryAcceptance src/lib/agent-control-plane/mcp/canary-acceptance.ts:639:11
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:230:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > cleans up the inert client when provisioning conflicts
+AssertionError: expected [Function] to throw error including 'MCP canary acceptance failed at canar…' but got 'MCP canary acceptance failed at loopb…'
+
+Expected: "MCP canary acceptance failed at canary_provision"
+Received: "MCP canary acceptance failed at loopback_bind"
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:371:5
+    369|     const openAuthorization = vi.fn();
+    370| 
+    371|     await expect(
+       |     ^
+    372|       runMcpV3CanaryAcceptance(
+    373|         {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > rejects a state mismatch and still proves cleanup
+AssertionError: expected [Function] to throw error including 'MCP canary acceptance failed at conse…' but got 'MCP canary acceptance failed at loopb…'
+
+Expected: "MCP canary acceptance failed at consent_callback"
+Received: "MCP canary acceptance failed at loopback_bind"
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:395:5
+    393|     const fetcher = tokenFetcher();
+    394| 
+    395|     await expect(
+       |     ^
+    396|       runMcpV3CanaryAcceptance(
+    397|         {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > rejects denied consent and still proves cleanup
+AssertionError: expected [Function] to throw error including 'MCP canary acceptance failed at conse…' but got 'MCP canary acceptance failed at loopb…'
+
+Expected: "MCP canary acceptance failed at consent_callback"
+Received: "MCP canary acceptance failed at loopback_bind"
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:431:5
+    429|     const rpc = rpcFixture();
+    430| 
+    431|     await expect(
+       |     ^
+    432|       runMcpV3CanaryAcceptance(
+    433|         {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > refuses an approval summary without the exact private proof and still proves cleanup
+AssertionError: expected [Function] to throw error including 'MCP canary acceptance failed at appro…' but got 'MCP canary acceptance failed at loopb…'
+
+Expected: "MCP canary acceptance failed at approval_fixture"
+Received: "MCP canary acceptance failed at loopback_bind"
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:469:5
+    467|     const openOperatorSurface = vi.fn();
+    468| 
+    469|     await expect(
+       |     ^
+    470|       runMcpV3CanaryAcceptance(
+    471|         {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > redacts browser and token transport details and still proves cleanup
+AssertionError: expected [Function] to throw error including 'MCP canary acceptance failed at brows…' but got 'MCP canary acceptance failed at loopb…'
+
+Expected: "MCP canary acceptance failed at browser_open"
+Received: "MCP canary acceptance failed at loopback_bind"
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:509:5
+    507|   it("redacts browser and token transport details and still proves cle…
+    508|     const browserRpc = rpcFixture();
+    509|     await expect(
+       |     ^
+    510|       runMcpV3CanaryAcceptance(
+    511|         {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > cancels consent safely and still proves cleanup
+AssertionError: expected [Function] to throw error including 'MCP canary acceptance failed at cance…' but got 'MCP canary acceptance failed at loopb…'
+
+Expected: "MCP canary acceptance failed at cancelled"
+Received: "MCP canary acceptance failed at loopback_bind"
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:568:5
+    566|     const controller = new AbortController();
+    567| 
+    568|     await expect(
+       |     ^
+    569|       runMcpV3CanaryAcceptance(
+    570|         {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > bounds a stalled operator proof RPC and still proves cleanup
+AssertionError: expected [Function] to throw error including 'MCP canary acceptance failed at opera…' but got 'MCP canary acceptance failed at loopb…'
+
+Expected: "MCP canary acceptance failed at operator_proof_timeout"
+Received: "MCP canary acceptance failed at loopback_bind"
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:593:5
+    591|     const rpc = rpcFixture({ operatorProofStalls: true });
+    592| 
+    593|     await expect(
+       |     ^
+    594|       runMcpV3CanaryAcceptance(
+    595|         {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > preserves both the primary and cleanup failure without leaking details
+AssertionError: expected Error: MCP canary acceptance failed at lo… to be an instance of AggregateError
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:651:20
+    649|     }
+    650| 
+    651|     expect(caught).toBeInstanceOf(AggregateError);
+       |                    ^
+    652|     const aggregate = caught as AggregateError;
+    653|     expect(aggregate.message).toBe(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/10]⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts > MCP v3 synthetic canary acceptance > times out an unused real loopback callback without exposing its URI
+Error: MCP canary acceptance failed at loopback_bind
+ ❯ failure src/lib/agent-control-plane/mcp/canary-acceptance.ts:98:10
+     96| 
+     97| function failure(stage: string): Error {
+     98|   return new Error(`MCP canary acceptance failed at ${stage}`);
+       |          ^
+     99| }
+    100| 
+ ❯ Module.createLoopbackAuthorizationReceiver src/lib/agent-control-plane/mcp/canary-acceptance.ts:562:11
+ ❯ src/lib/agent-control-plane/mcp/__tests__/canary-acceptance.test.ts:664:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯
+
+ Test Files  1 failed | 11 passed (12)
+      Tests  10 failed | 119 passed (129)
+   Start at  20:11:44
+   Duration  17.61s (transform 9.39s, setup 15.32s, collect 64.48s, tests 2.76s, environment 34.77s, prepare 6.61s)
+

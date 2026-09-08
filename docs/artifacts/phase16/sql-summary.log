@@ -1,0 +1,160 @@
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:5: NOTICE:  PASS: server-owned financial calculation exists
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:6: NOTICE:  PASS: quantity extension and tax round independently at cents
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: prepare creates no financial rows or numbers
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: preparation exact replay
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: changed-input preparation rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: approved exact draft is saved privately
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: one number and one line allocated
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: exact commit replay does not duplicate financial truth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: changed commit key rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: draft save cannot become delivery
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: incidental update cannot release hold
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: saved revision lines immutable
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: receipt replay reauthorizes revoked grants
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:58: NOTICE:  PASS: tax matches canonical taxable subtotal rounding
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null operation rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null title rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null currency rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null increase_percent rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null issue_date rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line name rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line name rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line description rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line description rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line unit rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line unit rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line quantity rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line quantity rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line discount_percent rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line discount_percent rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 2
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 3
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 4
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 5
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 6
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 7
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-runtime.sql:80: NOTICE:  PASS: held header insertion requires the canonical approval transaction token
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order rejects mismatched or absent baseline currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order rejects mismatched or absent baseline currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: real change order saves as additional held draft
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order preserves entire accepted baseline
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: competing prepared revision loses after first exact save
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: losing prepared revision allocates no document or official number
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: real change order revision preserves baseline and increments version
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: revision preserves entire predecessor and its lines
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: second private child of exact predecessor rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: independent provider enqueue producer cannot queue held draft
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: history rejects mismatched or absent currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: history rejects mismatched or absent currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: historical preparation uses authoritative saved price
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: source price mutation invalidates approval
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: stale source consumes no document or number
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: another company admin cannot approve named actor action
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: different tenant cannot approve action
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: tampered confirmation seal rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: tampered stored action payload rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: changed effect fingerprint blocks commit
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: effect mismatch leaves document lines and numbers unchanged
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: effect test restores original trigger fingerprint
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: same exact proposal saves after effect definition is restored
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: receipt replay rejects tampered original preview seal
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect returns every exact live historical source
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array product_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array historical_line_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array estimate_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array project_note_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects non-object request
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects unknown input field
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects omitted nullable target field
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides deleted historical project sources
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect accepts permitted company history from separate live client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides deleted source client without deleting target client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides merged source client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:128: NOTICE:  PASS: browser sees own action with complete current business permissions
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:132: NOTICE:  PASS: browser cannot SELECT proposal after project read permission loss
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:2: NOTICE:  PASS: owner policy preview exists
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:16: NOTICE:  PASS: browser cannot call policy enrollment RPC directly
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:17: NOTICE:  PASS: service role cannot bypass preview ledger RPCs
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:18: NOTICE:  PASS: admin without exact company ownership denied
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:19: NOTICE:  PASS: cross tenant readiness denied
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing revision rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing source_document_id rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing source_sha256 rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing expected_policy_sha256 rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing currency_code rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing terms rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing permitted_units rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy missing permitted_price_sources rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: untrusted standing authority field refused
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: duplicate units refused
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: company currency mismatch refused
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: wrong source hash refused
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: instruction-like source is readable inert evidence
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: tampered approval hash refused
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: tax change between preview and enrollment refused
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy receipt grants preparation only
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: same exact policy approval replays once
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: enrollment creates no financial proposal or document
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: exactly one owner-enrolled active revision
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: policy content immutable
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:43: NOTICE:  PASS: migration does not renew the financial effect seal
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:51: NOTICE:  PASS: post-enrollment effect review restricted to fictional DB
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order rejects mismatched or absent baseline currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order rejects mismatched or absent baseline currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: real change order saves as additional held draft
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order preserves entire accepted baseline
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: competing prepared revision loses after first exact save
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: losing prepared revision allocates no document or official number
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: real change order revision preserves baseline and increments version
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: revision preserves entire predecessor and its lines
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: second private child of exact predecessor rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: independent provider enqueue producer cannot queue held draft
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: history rejects mismatched or absent currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: history rejects mismatched or absent currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: historical preparation uses authoritative saved price
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: source price mutation invalidates approval
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: stale source consumes no document or number
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: another company admin cannot approve named actor action
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: different tenant cannot approve action
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: tampered confirmation seal rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: tampered stored action payload rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: changed effect fingerprint blocks commit
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: effect mismatch leaves document lines and numbers unchanged
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: effect test restores original trigger fingerprint
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: same exact proposal saves after effect definition is restored
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: receipt replay rejects tampered original preview seal
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect returns every exact live historical source
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array product_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array historical_line_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array estimate_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array project_note_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects non-object request
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects unknown input field
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects omitted nullable target field
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides deleted historical project sources
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect accepts permitted company history from separate live client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides deleted source client without deleting target client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides merged source client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:128: NOTICE:  PASS: browser sees own action with complete current business permissions
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-document-adversarial.sql:132: NOTICE:  PASS: browser cannot SELECT proposal after project read permission loss
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:63: NOTICE:  PASS: acceptance effect installation is restricted to isolated fictional DB
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: golden historical plus 8 percent arithmetic is exact
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: golden prepare creates no financial document
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: golden exact approved private draft readback
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: golden duplicate prevention and truthful replay
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: golden held draft has no accounting distribution
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: golden unit ambiguity refused
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: missing historical currency never inferred
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: readiness reports tax drift after enrollment
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: tax drift after enrollment requires new owner review
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: ownership change invalidates former owner policy
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: owner enrollment never substitutes for current financial consent
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: revocation stops future financial preparation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: policy revocation cannot release an existing draft
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: policy revocation invalidates already-prepared approvals
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/tests/sql/financial-readiness-runtime.sql:100: NOTICE:  PASS: revoked approval allocates no financial document or number
+/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/docs/artifacts/phase16/concurrency-contender.log:NOTICE:  PASS: concurrent owner enrollment fails closed while winner holds company lock
+/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/docs/artifacts/phase16/concurrency-readback.log:NOTICE:  PASS: exact owner request reconciles to winning receipt
+/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/docs/artifacts/phase16/concurrency-readback.log:NOTICE:  PASS: competing policy preview cannot supersede unseen winner
+/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16/docs/artifacts/phase16/concurrency-readback.log:NOTICE:  PASS: concurrent enrollment creates exactly one policy and notification

@@ -114,6 +114,8 @@ do $$ declare req jsonb;broken jsonb;field text;begin
 end $$;
 
 -- Verify the actual authenticated SELECT policy, using real permission overrides.
+-- Remove owner-wide authority before testing granular permission loss; rolled back below.
+update public.companies set account_holder_id=null where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 grant usage on schema financial_test to authenticated;
 grant execute on all functions in schema financial_test to authenticated;
 update public.users set auth_id='financial-fixture-browser',is_company_admin=false where id='10000000-0000-4000-8000-000000000001';

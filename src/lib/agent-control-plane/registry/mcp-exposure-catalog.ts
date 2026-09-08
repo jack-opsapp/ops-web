@@ -1,8 +1,13 @@
 import {
   CUSTOMER_UPDATE_CAPABILITY_MANIFEST,
   CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
+  FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST,
+  FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION,
 } from "./capability-manifest";
-import { CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS } from "./mcp-scope-catalog";
+import {
+  CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
+  FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS,
+} from "./mcp-scope-catalog";
 import "server-only";
 
 import {
@@ -551,53 +556,58 @@ function validateExposure(exposure: McpExposure): void {
   assertMcpExposureInvariants({
     exposure,
     manifestEntries:
-      exposure.revision === MCP_EXPOSURE_V14.revision
-        ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST
-        : exposure.revision === MCP_EXPOSURE_V13.revision
-          ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST
-          : exposure.revision === MCP_EXPOSURE_V12.revision
-            ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST
-            : exposure.revision === MCP_EXPOSURE_V11.revision
-              ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST
-              : exposure.revision === MCP_EXPOSURE_V10.revision
-                ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST
-                : exposure.revision === MCP_EXPOSURE_V9.revision
-                  ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST
-                  : exposure.revision === MCP_EXPOSURE_V8.revision
-                    ? PAYROLL_READINESS_CAPABILITY_MANIFEST
-                    : exposure.revision === MCP_EXPOSURE_V7.revision
-                      ? SALES_TRUTH_CAPABILITY_MANIFEST
-                      : exposure.revision === MCP_EXPOSURE_V6.revision
-                        ? PROMISE_RECOVERY_CAPABILITY_MANIFEST
-                        : exposure.revision === MCP_EXPOSURE_V5.revision
-                          ? HIRING_WHAT_IF_CAPABILITY_MANIFEST
-                          : exposure.revision === MCP_EXPOSURE_V4.revision
-                            ? COLLECTIONS_CAPABILITY_MANIFEST
-                            : exposure.revision === MCP_EXPOSURE_V3.revision
-                              ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
-                              : CAPABILITY_MANIFEST,
+      exposure.revision === MCP_EXPOSURE_V17.revision
+        ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST
+        : exposure.revision === MCP_EXPOSURE_V14.revision
+          ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST
+          : exposure.revision === MCP_EXPOSURE_V13.revision
+            ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST
+            : exposure.revision === MCP_EXPOSURE_V12.revision
+              ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST
+              : exposure.revision === MCP_EXPOSURE_V11.revision
+                ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST
+                : exposure.revision === MCP_EXPOSURE_V10.revision
+                  ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST
+                  : exposure.revision === MCP_EXPOSURE_V9.revision
+                    ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST
+                    : exposure.revision === MCP_EXPOSURE_V8.revision
+                      ? PAYROLL_READINESS_CAPABILITY_MANIFEST
+                      : exposure.revision === MCP_EXPOSURE_V7.revision
+                        ? SALES_TRUTH_CAPABILITY_MANIFEST
+                        : exposure.revision === MCP_EXPOSURE_V6.revision
+                          ? PROMISE_RECOVERY_CAPABILITY_MANIFEST
+                          : exposure.revision === MCP_EXPOSURE_V5.revision
+                            ? HIRING_WHAT_IF_CAPABILITY_MANIFEST
+                            : exposure.revision === MCP_EXPOSURE_V4.revision
+                              ? COLLECTIONS_CAPABILITY_MANIFEST
+                              : exposure.revision === MCP_EXPOSURE_V3.revision
+                                ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
+                                : CAPABILITY_MANIFEST,
     domainMethods: DOMAIN_METHOD_BY_CAPABILITY,
     registeredScopes: REGISTERED_MCP_SCOPES,
     scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
     consentLabels:
-      exposure.revision === MCP_EXPOSURE_V14.revision
-        ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
-        : exposure.revision === MCP_EXPOSURE_V13.revision
-          ? DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
-          : exposure.revision === MCP_EXPOSURE_V12.revision
-            ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
-            : exposure.revision === MCP_EXPOSURE_V11.revision
-              ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
-              : exposure.revision === MCP_EXPOSURE_V10.revision
-                ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
-                : exposure.revision === MCP_EXPOSURE_V9.revision
-                  ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
-                  : exposure.revision === MCP_EXPOSURE_V4.revision
-                    ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
-                    : exposure.revision === MCP_EXPOSURE_V3.revision
-                      ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
-                      : MCP_SCOPE_CONSENT_LABELS,
+      exposure.revision === MCP_EXPOSURE_V17.revision
+        ? FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
+        : exposure.revision === MCP_EXPOSURE_V14.revision
+          ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+          : exposure.revision === MCP_EXPOSURE_V13.revision
+            ? DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
+            : exposure.revision === MCP_EXPOSURE_V12.revision
+              ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
+              : exposure.revision === MCP_EXPOSURE_V11.revision
+                ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
+                : exposure.revision === MCP_EXPOSURE_V10.revision
+                  ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
+                  : exposure.revision === MCP_EXPOSURE_V9.revision
+                    ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
+                    : exposure.revision === MCP_EXPOSURE_V4.revision
+                      ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
+                      : exposure.revision === MCP_EXPOSURE_V3.revision
+                        ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
+                        : MCP_SCOPE_CONSENT_LABELS,
     allowedOperations:
+      exposure.revision === MCP_EXPOSURE_V17.revision ||
       exposure.revision === MCP_EXPOSURE_V3.revision ||
       exposure.revision === MCP_EXPOSURE_V4.revision ||
       exposure.revision === MCP_EXPOSURE_V9.revision ||
@@ -625,35 +635,39 @@ validateExposure(MCP_EXPOSURE_V11);
 validateExposure(MCP_EXPOSURE_V12);
 validateExposure(MCP_EXPOSURE_V13);
 validateExposure(MCP_EXPOSURE_V14);
+// Validate the dormant candidate without adding it to the selectable catalogue.
+validateExposure(MCP_EXPOSURE_V17);
 
 export function capabilityManifestRevisionForExposure(
   exposureRevision: string
 ): string {
-  return exposureRevision === MCP_EXPOSURE_V14.revision
-    ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
-    : exposureRevision === MCP_EXPOSURE_V13.revision
-      ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION
-      : exposureRevision === MCP_EXPOSURE_V12.revision
-        ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
-        : exposureRevision === MCP_EXPOSURE_V11.revision
-          ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
-          : exposureRevision === MCP_EXPOSURE_V10.revision
-            ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
-            : exposureRevision === MCP_EXPOSURE_V9.revision
-              ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
-              : exposureRevision === MCP_EXPOSURE_V7.revision
-                ? SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
-                : exposureRevision === MCP_EXPOSURE_V8.revision
-                  ? PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
-                  : exposureRevision === MCP_EXPOSURE_V6.revision
-                    ? PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
-                    : exposureRevision === MCP_EXPOSURE_V5.revision
-                      ? HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
-                      : exposureRevision === MCP_EXPOSURE_V4.revision
-                        ? COLLECTIONS_CAPABILITY_MANIFEST_REVISION
-                        : exposureRevision === MCP_EXPOSURE_V3.revision
-                          ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
-                          : CAPABILITY_MANIFEST_REVISION;
+  return exposureRevision === MCP_EXPOSURE_V17.revision
+    ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
+    : exposureRevision === MCP_EXPOSURE_V14.revision
+      ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
+      : exposureRevision === MCP_EXPOSURE_V13.revision
+        ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION
+        : exposureRevision === MCP_EXPOSURE_V12.revision
+          ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
+          : exposureRevision === MCP_EXPOSURE_V11.revision
+            ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+            : exposureRevision === MCP_EXPOSURE_V10.revision
+              ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+              : exposureRevision === MCP_EXPOSURE_V9.revision
+                ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+                : exposureRevision === MCP_EXPOSURE_V7.revision
+                  ? SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+                  : exposureRevision === MCP_EXPOSURE_V8.revision
+                    ? PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
+                    : exposureRevision === MCP_EXPOSURE_V6.revision
+                      ? PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+                      : exposureRevision === MCP_EXPOSURE_V5.revision
+                        ? HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+                        : exposureRevision === MCP_EXPOSURE_V4.revision
+                          ? COLLECTIONS_CAPABILITY_MANIFEST_REVISION
+                          : exposureRevision === MCP_EXPOSURE_V3.revision
+                            ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+                            : CAPABILITY_MANIFEST_REVISION;
 }
 
 /** Pure exact-revision seam for catalogue invariants and adversarial tests. */

@@ -1,0 +1,8 @@
+SET
+SET
+NOTICE:  PASS: concurrent owner enrollment fails closed while winner holds company lock
+ rejects 
+---------
+ 
+(1 row)
+
