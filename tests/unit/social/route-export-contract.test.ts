@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import * as adminSocialPostRoute from "@/app/api/admin/social/posts/[id]/route";
 import * as adminSocialPostsRoute from "@/app/api/admin/social/posts/route";
 import * as socialPublishCronRoute from "@/app/api/cron/social-publish/route";
+import * as editorialClaimRoute from "@/app/api/internal/social/editorial/claim/route";
+import * as editorialDraftRoute from "@/app/api/internal/social/editorial/assignments/[id]/draft/route";
+import * as editorialReleaseRoute from "@/app/api/internal/social/editorial/assignments/[id]/release/route";
 import * as internalSocialPostsRoute from "@/app/api/internal/social/posts/route";
 
 const ALLOWED_ROUTE_EXPORTS = new Set([
@@ -29,6 +32,9 @@ describe("social route export contract", () => {
     ["social publishing cron", socialPublishCronRoute],
     ["admin social queue", adminSocialPostsRoute],
     ["admin social post action", adminSocialPostRoute],
+    ["editorial authoring claim", editorialClaimRoute],
+    ["editorial authoring draft", editorialDraftRoute],
+    ["editorial authoring release", editorialReleaseRoute],
   ])("keeps %s exports within the Next.js route contract", (_name, route) => {
     const invalidExports = Object.keys(route).filter(
       (name) => !ALLOWED_ROUTE_EXPORTS.has(name)

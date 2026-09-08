@@ -1,3 +1,13 @@
+import {
+  isTrustedFinancialDocumentService,
+  type FinancialDocumentService,
+} from "./financial-document/financial-document-service";
+import { FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION } from "../registry/capability-manifest";
+import {
+  isTrustedScheduleChangeService,
+  type ScheduleChangeService,
+} from "./schedule-change/schedule-change-service";
+import { SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION } from "../registry/capability-manifest";
 import type { ActorAuthorityRepository } from "../actor/authority-repository";
 import {
   isActorContext,
@@ -6,12 +16,17 @@ import {
 import {
   CAPABILITY_MANIFEST_REVISION,
   CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
+  CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION,
 } from "../registry/capability-manifest";
 import { reauthorizeResolvedMcpActor } from "../mcp/actor-reauthorization";
 import {
   isTrustedCustomerUpdateService,
   type CustomerUpdateService,
 } from "./customer-update/customer-update-service";
+import {
+  isTrustedCustomerMessageService,
+  type CustomerMessageService,
+} from "./customer-message/customer-message-service";
 import "server-only";
 
 import {
@@ -77,7 +92,10 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   WeatherRescheduleService &
   CrewCalloutRecoveryService &
   DispatchConfirmationTaskService &
-  CustomerUpdateService;
+  CustomerUpdateService &
+  ScheduleChangeService &
+  FinancialDocumentService &
+  CustomerMessageService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
@@ -93,6 +111,9 @@ export function createOpsAgentCapabilityService(input: {
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly customerUpdate: CustomerUpdateService;
+  readonly scheduleChange: ScheduleChangeService;
+  readonly financialDocument: FinancialDocumentService;
+  readonly customerMessage: CustomerMessageService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
@@ -141,8 +162,14 @@ export function createOpsAgentCapabilityService(input: {
       "A trusted dispatch confirmation task service is required"
     );
   }
+  if (!isTrustedFinancialDocumentService(input.financialDocument))
+    throw new TypeError("A trusted financial document service is required");
+  if (!isTrustedScheduleChangeService(input.scheduleChange))
+    throw new TypeError("A trusted schedule change service is required");
   if (!isTrustedCustomerUpdateService(input.customerUpdate))
     throw new TypeError("A trusted customer update service is required");
+  if (!isTrustedCustomerMessageService(input.customerMessage))
+    throw new TypeError("A trusted customer message service is required");
   // Preserve the independently proven v8 read contracts under the additive v20
   // catalogue. Re-resolve the same principal and scope ceiling; never copy or
   // fabricate a nominal ActorContext or change prepare/commit authority.
@@ -182,6 +209,9 @@ export function createOpsAgentCapabilityService(input: {
     ...input.crewCalloutRecovery,
     ...input.dispatchConfirmationTask,
     ...input.customerUpdate,
+    ...input.scheduleChange,
+    ...input.financialDocument,
+    ...input.customerMessage,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;
@@ -204,8 +234,14 @@ export async function reauthorizeCustomerUpdateReadActor(
 ): Promise<ActorContext> {
   if (
     !isActorContext(actor) ||
-    actor.capabilityManifestRevision !==
-      CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
+    (actor.capabilityManifestRevision !==
+      CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
+      actor.capabilityManifestRevision !==
+        CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION &&
+      actor.capabilityManifestRevision !==
+        SCHEDULE_CHANGE_CAPABILITY_MANIFEST_REVISION &&
+      actor.capabilityManifestRevision !==
+        FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION)
   )
     return actor;
   return reauthorizeResolvedMcpActor({

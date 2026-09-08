@@ -1,26 +1,50 @@
-import { BodyCopy, Eyebrow, Headline, SocialFrame, type TreatmentProps } from "../frame";
-import { SOCIAL_FONTS, SOCIAL_THEME } from "../theme";
+import {
+  Eyebrow,
+  Headline,
+  SlideBody,
+  SocialFrame,
+  headlineSize,
+  type TreatmentProps,
+} from "../frame";
+import { SOCIAL_LINE, SOCIAL_SPACE, SOCIAL_THEME, SOCIAL_TYPE } from "../theme";
 
 export function OperatorBrief(props: TreatmentProps) {
   return (
-    <SocialFrame treatmentLabel="OPERATOR BRIEF" index={props.index} total={props.total} date={props.content.date}>
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "54px 34px 44px", justifyContent: "center" }}>
-        <Eyebrow tone="tan">{props.slide.eyebrow ?? "// OPERATOR BRIEF"}</Eyebrow>
-        <Headline size={props.slide.headline.length > 84 ? 57 : 68}>{props.slide.headline}</Headline>
-        <div style={{ display: "flex", width: 170, borderTop: `3px solid ${SOCIAL_THEME.tan}`, margin: "42px 0 36px" }} />
-        {props.slide.body ? <BodyCopy size={34}>{props.slide.body}</BodyCopy> : null}
+    <SocialFrame
+      index={props.index}
+      total={props.total}
+      date={props.content.date}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          padding: `${SOCIAL_SPACE.slideTop}px ${SOCIAL_SPACE.slideX}px ${SOCIAL_SPACE.slideBottom}px`,
+          justifyContent: "center",
+        }}
+      >
+        <Eyebrow tone="tan">
+          {props.slide.eyebrow ?? "// OPERATOR BRIEF"}
+        </Eyebrow>
+        <Headline
+          size={headlineSize(
+            props.slide.headline,
+            SOCIAL_TYPE.slideHeadline,
+            SOCIAL_TYPE.slideHeadlineLong
+          )}
+        >
+          {props.slide.headline}
+        </Headline>
         <div
           style={{
             display: "flex",
-            marginTop: 48,
-            color: SOCIAL_THEME.textMute,
-            fontFamily: SOCIAL_FONTS.mono,
-            fontSize: 21,
-            letterSpacing: "0.12em",
+            width: SOCIAL_SPACE.ruleWidth,
+            borderTop: `${SOCIAL_LINE.rule}px solid ${SOCIAL_THEME.tan}`,
+            margin: `${SOCIAL_SPACE.ruleGap}px 0`,
           }}
-        >
-          [READ · DECIDE · MOVE]
-        </div>
+        />
+        <SlideBody body={props.slide.body} />
       </div>
     </SocialFrame>
   );

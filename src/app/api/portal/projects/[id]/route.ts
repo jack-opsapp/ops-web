@@ -27,10 +27,14 @@ export async function GET(
 
     // Preview mode: return demo project
     if (session.isPreview) {
-      const { getDemoProjectDetail } = await import("@/lib/api/services/portal-demo-data");
+      const { getDemoProjectDetail } =
+        await import("@/lib/api/services/portal-demo-data");
       const demoProject = getDemoProjectDetail(id);
       if (!demoProject) {
-        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Project not found" },
+          { status: 404 }
+        );
       }
       return NextResponse.json(demoProject);
     }
@@ -42,6 +46,7 @@ export async function GET(
     const { data: linkedDocs } = await supabase
       .from("estimates")
       .select("id")
+      .eq("distribution_hold", false)
       .eq("client_id", session.clientId)
       .eq("company_id", session.companyId)
       .eq("project_id", id)
@@ -70,9 +75,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from("projects")
-      .select(
-        "id, title, address, status, start_date, end_date, description"
-      )
+      .select("id, title, address, status, start_date, end_date, description")
       .eq("id", id)
       .eq("company_id", session.companyId)
       .maybeSingle();
@@ -82,48 +85,51 @@ export async function GET(
     }
 
     if (!data) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     // Fetch linked estimates, invoices, tasks, and client-visible photos in parallel
-    const [estimatesResult, invoicesResult, tasksResult, photosResult] = await Promise.all([
-      supabase
-        .from("estimates")
-        .select("id, estimate_number, title, status, total, issue_date")
-        .eq("client_id", session.clientId)
-        .eq("company_id", session.companyId)
-        .eq("project_id", id)
-        .is("deleted_at", null)
-        .neq("status", "draft")
-        .order("issue_date", { ascending: false }),
-      supabase
-        .from("invoices")
-        .select("id, invoice_number, subject, status, total, balance_due, due_date")
-        .eq("client_id", session.clientId)
-        .eq("company_id", session.companyId)
-        .eq("project_id", id)
-        .is("deleted_at", null)
-        .neq("status", "draft")
-        .order("issue_date", { ascending: false }),
-      supabase
-        .from("project_tasks")
-        .select("id, title, status, scheduled_date, task_type_id, display_order, task_type:task_types(id, name, color)")
-        .eq("project_id", id)
-        .eq("company_id", session.companyId)
-        .is("deleted_at", null)
-        .order("display_order", { ascending: true }),
-      supabase
-        .from("project_photos")
-        .select("id, url, thumbnail_url, source, caption, created_at")
-        .eq("project_id", id)
-        .eq("company_id", session.companyId)
-        .eq("is_client_visible", true)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false }),
-    ]);
+    const [estimatesResult, invoicesResult, tasksResult, photosResult] =
+      await Promise.all([
+        supabase
+          .from("estimates")
+          .select("id, estimate_number, title, status, total, issue_date")
+          .eq("distribution_hold", false)
+          .eq("client_id", session.clientId)
+          .eq("company_id", session.companyId)
+          .eq("project_id", id)
+          .is("deleted_at", null)
+          .neq("status", "draft")
+          .order("issue_date", { ascending: false }),
+        supabase
+          .from("invoices")
+          .select(
+            "id, invoice_number, subject, status, total, balance_due, due_date"
+          )
+          .eq("client_id", session.clientId)
+          .eq("company_id", session.companyId)
+          .eq("project_id", id)
+          .is("deleted_at", null)
+          .neq("status", "draft")
+          .order("issue_date", { ascending: false }),
+        supabase
+          .from("project_tasks")
+          .select(
+            "id, title, status, scheduled_date, task_type_id, display_order, task_type:task_types(id, name, color)"
+          )
+          .eq("project_id", id)
+          .eq("company_id", session.companyId)
+          .is("deleted_at", null)
+          .order("display_order", { ascending: true }),
+        supabase
+          .from("project_photos")
+          .select("id, url, thumbnail_url, source, caption, created_at")
+          .eq("project_id", id)
+          .eq("company_id", session.companyId)
+          .eq("is_client_visible", true)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false }),
+      ]);
 
     const project = {
       id: data.id as string,
@@ -156,12 +162,20 @@ export async function GET(
         status: row.status as string,
         scheduledDate: (row.scheduled_date as string) ?? undefined,
         displayOrder: (row.display_order as number) ?? 0,
-        taskType: row.task_type ? (() => {
-          const tt = Array.isArray(row.task_type) ? row.task_type[0] : row.task_type;
-          if (!tt) return null;
-          const r = tt as Record<string, unknown>;
-          return { id: r.id as string, name: r.name as string, color: r.color as string };
-        })() : null,
+        taskType: row.task_type
+          ? (() => {
+              const tt = Array.isArray(row.task_type)
+                ? row.task_type[0]
+                : row.task_type;
+              if (!tt) return null;
+              const r = tt as Record<string, unknown>;
+              return {
+                id: r.id as string,
+                name: r.name as string,
+                color: r.color as string,
+              };
+            })()
+          : null,
       })),
       photos: (photosResult.data ?? []).map((row) => ({
         id: row.id as string,

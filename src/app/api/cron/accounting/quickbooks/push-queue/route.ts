@@ -583,6 +583,8 @@ async function prepareEstimatePush(
     ["company_id", row.companyId],
   ]);
   if (!estimate) deterministicBlock("OPS estimate row not found");
+  if (estimate.distribution_hold === true)
+    deterministicBlock("OPS private draft is held from accounting export");
 
   const entity = "Estimate";
   const localQbId = cleanString(estimate.qb_id);

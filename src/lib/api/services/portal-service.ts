@@ -24,7 +24,11 @@ import type {
   LineItem,
   Payment,
 } from "@/lib/types/pipeline";
-import { EstimateStatus, PaymentMethod, DiscountType } from "@/lib/types/pipeline";
+import {
+  EstimateStatus,
+  PaymentMethod,
+  DiscountType,
+} from "@/lib/types/pipeline";
 import type {
   PortalClientData,
   PortalCompanyInfo,
@@ -54,7 +58,8 @@ function mapEstimateFromDb(row: Record<string, unknown>): Estimate {
     // Pricing
     subtotal: Number(row.subtotal ?? 0),
     discountType: (row.discount_type as DiscountType) ?? null,
-    discountValue: row.discount_value != null ? Number(row.discount_value) : null,
+    discountValue:
+      row.discount_value != null ? Number(row.discount_value) : null,
     discountAmount: Number(row.discount_amount ?? 0),
     taxRate: row.tax_rate != null ? Number(row.tax_rate) : null,
     taxAmount: Number(row.tax_amount ?? 0),
@@ -63,7 +68,8 @@ function mapEstimateFromDb(row: Record<string, unknown>): Estimate {
     // Payment schedule
     depositType: (row.deposit_type as DiscountType) ?? null,
     depositValue: row.deposit_value != null ? Number(row.deposit_value) : null,
-    depositAmount: row.deposit_amount != null ? Number(row.deposit_amount) : null,
+    depositAmount:
+      row.deposit_amount != null ? Number(row.deposit_amount) : null,
 
     // Status
     status: row.status as EstimateStatus,
@@ -110,7 +116,8 @@ function mapInvoiceFromDb(row: Record<string, unknown>): Invoice {
     // Pricing
     subtotal: Number(row.subtotal ?? 0),
     discountType: (row.discount_type as DiscountType) ?? null,
-    discountValue: row.discount_value != null ? Number(row.discount_value) : null,
+    discountValue:
+      row.discount_value != null ? Number(row.discount_value) : null,
     discountAmount: Number(row.discount_amount ?? 0),
     taxRate: row.tax_rate != null ? Number(row.tax_rate) : null,
     taxAmount: Number(row.tax_amount ?? 0),
@@ -252,6 +259,7 @@ export const PortalService = {
       supabase
         .from("estimates")
         .select("*")
+        .eq("distribution_hold", false)
         .eq("client_id", clientId)
         .eq("company_id", companyId)
         .is("deleted_at", null)
@@ -286,9 +294,13 @@ export const PortalService = {
     ]);
 
     if (estimatesResult.error)
-      throw new Error(`Failed to fetch estimates: ${estimatesResult.error.message}`);
+      throw new Error(
+        `Failed to fetch estimates: ${estimatesResult.error.message}`
+      );
     if (invoicesResult.error)
-      throw new Error(`Failed to fetch invoices: ${invoicesResult.error.message}`);
+      throw new Error(
+        `Failed to fetch invoices: ${invoicesResult.error.message}`
+      );
 
     // Build client object (fallback if not found in Supabase)
     const client: Client = clientResult.data
@@ -399,7 +411,9 @@ export const PortalService = {
     if (projectIds.length > 0) {
       const { data: projectRows } = await supabase
         .from("projects")
-        .select("id, title, address, status, start_date, end_date, project_images")
+        .select(
+          "id, title, address, status, start_date, end_date, project_images"
+        )
         .in("id", projectIds);
 
       if (projectRows) {
@@ -433,7 +447,10 @@ export const PortalService = {
         .is("deleted_at", null);
 
       if (taskRows) {
-        const taskCounts = new Map<string, { total: number; completed: number }>();
+        const taskCounts = new Map<
+          string,
+          { total: number; completed: number }
+        >();
         for (const row of taskRows) {
           const pid = row.project_id as string;
           const entry = taskCounts.get(pid) ?? { total: 0, completed: 0 };
@@ -475,6 +492,7 @@ export const PortalService = {
       supabase
         .from("estimates")
         .select("*")
+        .eq("distribution_hold", false)
         .eq("id", estimateId)
         .is("deleted_at", null)
         .single(),
@@ -486,9 +504,13 @@ export const PortalService = {
     ]);
 
     if (estimateResult.error)
-      throw new Error(`Failed to fetch estimate: ${estimateResult.error.message}`);
+      throw new Error(
+        `Failed to fetch estimate: ${estimateResult.error.message}`
+      );
     if (lineItemsResult.error)
-      throw new Error(`Failed to fetch line items: ${lineItemsResult.error.message}`);
+      throw new Error(
+        `Failed to fetch line items: ${lineItemsResult.error.message}`
+      );
 
     const estimate = mapEstimateFromDb(estimateResult.data);
 
@@ -533,11 +555,17 @@ export const PortalService = {
     ]);
 
     if (invoiceResult.error)
-      throw new Error(`Failed to fetch invoice: ${invoiceResult.error.message}`);
+      throw new Error(
+        `Failed to fetch invoice: ${invoiceResult.error.message}`
+      );
     if (lineItemsResult.error)
-      throw new Error(`Failed to fetch line items: ${lineItemsResult.error.message}`);
+      throw new Error(
+        `Failed to fetch line items: ${lineItemsResult.error.message}`
+      );
     if (paymentsResult.error)
-      throw new Error(`Failed to fetch payments: ${paymentsResult.error.message}`);
+      throw new Error(
+        `Failed to fetch payments: ${paymentsResult.error.message}`
+      );
 
     const invoice = mapInvoiceFromDb(invoiceResult.data);
 
@@ -563,6 +591,8 @@ export const PortalService = {
     const { data: existing } = await supabase
       .from("estimates")
       .select("viewed_at, status")
+      .eq("distribution_hold", false)
+      .neq("status", "draft")
       .eq("id", estimateId)
       .single();
 
@@ -579,7 +609,8 @@ export const PortalService = {
       const { error } = await supabase
         .from("estimates")
         .update(updates)
-        .eq("id", estimateId);
+        .eq("id", estimateId)
+        .eq("distribution_hold", false);
 
       if (error)
         throw new Error(`Failed to mark estimate viewed: ${error.message}`);
@@ -590,16 +621,14 @@ export const PortalService = {
    * Approve an estimate on behalf of the client.
    * Verifies client_id matches to prevent cross-client action.
    */
-  async approveEstimate(
-    estimateId: string,
-    clientId: string
-  ): Promise<void> {
+  async approveEstimate(estimateId: string, clientId: string): Promise<void> {
     const supabase = getServiceRoleClient();
 
     // Fetch estimate and verify ownership
     const { data, error: fetchError } = await supabase
       .from("estimates")
       .select("client_id, status")
+      .eq("distribution_hold", false)
       .eq("id", estimateId)
       .is("deleted_at", null)
       .single();
@@ -618,9 +647,7 @@ export const PortalService = {
       currentStatus !== EstimateStatus.Viewed &&
       currentStatus !== EstimateStatus.ChangesRequested
     ) {
-      throw new Error(
-        `Cannot approve estimate in "${currentStatus}" status`
-      );
+      throw new Error(`Cannot approve estimate in "${currentStatus}" status`);
     }
 
     const { error } = await supabase
@@ -629,10 +656,10 @@ export const PortalService = {
         status: EstimateStatus.Approved,
         approved_at: new Date().toISOString(),
       })
-      .eq("id", estimateId);
+      .eq("id", estimateId)
+      .eq("distribution_hold", false);
 
-    if (error)
-      throw new Error(`Failed to approve estimate: ${error.message}`);
+    if (error) throw new Error(`Failed to approve estimate: ${error.message}`);
   },
 
   /**
@@ -650,6 +677,7 @@ export const PortalService = {
     const { data, error: fetchError } = await supabase
       .from("estimates")
       .select("client_id, status")
+      .eq("distribution_hold", false)
       .eq("id", estimateId)
       .is("deleted_at", null)
       .single();
@@ -668,9 +696,7 @@ export const PortalService = {
       currentStatus !== EstimateStatus.Viewed &&
       currentStatus !== EstimateStatus.ChangesRequested
     ) {
-      throw new Error(
-        `Cannot decline estimate in "${currentStatus}" status`
-      );
+      throw new Error(`Cannot decline estimate in "${currentStatus}" status`);
     }
 
     const updates: Record<string, unknown> = {
@@ -685,9 +711,9 @@ export const PortalService = {
     const { error } = await supabase
       .from("estimates")
       .update(updates)
-      .eq("id", estimateId);
+      .eq("id", estimateId)
+      .eq("distribution_hold", false);
 
-    if (error)
-      throw new Error(`Failed to decline estimate: ${error.message}`);
+    if (error) throw new Error(`Failed to decline estimate: ${error.message}`);
   },
 };

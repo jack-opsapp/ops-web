@@ -25,3 +25,79 @@ export const SOCIAL_FONTS = {
   body: "Mohave",
   mono: "JetBrains Mono",
 } as const;
+
+/**
+ * Raster type scale. Sizes step down by copy length so a 100-character
+ * headline and a 350-character body — the contract maximums — still sit
+ * inside the 1080x1350 frame.
+ */
+export const SOCIAL_TYPE = {
+  coverHeadline: 76,
+  coverHeadlineLong: 62,
+  slideHeadline: 64,
+  slideHeadlineLong: 52,
+  fieldHeadline: 57,
+  fieldHeadlineLong: 46,
+  body: 34,
+  bodyLong: 30,
+  eyebrow: 22,
+  counter: 22,
+  url: 30,
+  urlWide: 40,
+  mark: 26,
+  subtitle: 34,
+} as const;
+
+/** Raster spacing scale. */
+export const SOCIAL_SPACE = {
+  frameX: 62,
+  frameTop: 58,
+  frameBottom: 48,
+  eyebrowGap: 28,
+  headlineGap: 34,
+  ruleGap: 40,
+  headerHeight: 48,
+  headerGap: 20,
+  footerHeight: 50,
+  footerGap: 20,
+  slideX: 34,
+  slideTop: 54,
+  slideBottom: 44,
+  coverX: 40,
+  coverBottom: 56,
+  ruleWidth: 170,
+  panelTop: 34,
+  panelBottom: 36,
+  splitTop: 42,
+  splitBottom: 38,
+  splitGap: 34,
+  splitPanelInset: 74,
+  proofX: 26,
+  roastX: 24,
+} as const;
+
+/** Typographic ratios. Mono micro labels track wide; display type tracks tight. */
+export const SOCIAL_TRACKING = {
+  label: "0.16em",
+  labelTight: "0.12em",
+  display: "-0.025em",
+  url: "0.01em",
+} as const;
+
+export const SOCIAL_LEADING = {
+  display: 0.98,
+  body: 1.25,
+  url: 1.3,
+  flush: 1,
+} as const;
+
+/** Copy-length thresholds that drive the type steps above. */
+export const SOCIAL_TYPE_STEPS = {
+  headlineLong: 44,
+  bodyLong: 200,
+  urlWide: 34,
+} as const;
+
+/** Raster border + radius scale. */
+export const SOCIAL_LINE = { hairline: 1, rule: 3 } as const;
+export const SOCIAL_RADIUS = { panel: 10 } as const;

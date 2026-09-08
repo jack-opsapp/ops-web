@@ -261,6 +261,7 @@ create table private.agent_provider_outbound_authority_attestations (
 
 \ir ../../supabase/migrations/20260830113400_delivery_source_normalization_reprojection.sql
 \ir ../../supabase/migrations/20260830113700_shorten_renormalization_list_fn_name.sql
+\ir ../../supabase/migrations/20260906040000_delivery_source_reprojection_replay.sql
 
 -- ── Fixtures ───────────────────────────────────────────────────────────────
 insert into public.email_connections (id, company_id, provider)

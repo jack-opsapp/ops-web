@@ -1,0 +1,13 @@
+{
+  "extends": "../../../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../../../..",
+    "paths": {
+      "@/*": ["./src/*"],
+      "server-only": [
+        "./docs/artifacts/social-editorial/render-proof-2026-09-07/server-only.ts"
+      ]
+    },
+    "jsx": "react-jsx"
+  }
+}

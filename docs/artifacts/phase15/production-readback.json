@@ -1,0 +1,550 @@
+{
+  "lines": {
+    "hash": "571303a12f1b10b15bac1774975b5295",
+    "count": 169
+  },
+  "grants": {
+    "hash": "f4e05f0e5776e2d7b2a8d2967f812502",
+    "count": 5
+  },
+  "ledger": [
+    {
+      "name": "financial_document_private_drafts",
+      "version": "20260907173708",
+      "sql_sha256": "17d5cc51d665548c652784e37dba3d9fe756672ea08d46fdc85612287e3519ee",
+      "statement_count": 1
+    }
+  ],
+  "clients": {
+    "hash": "aaba2782b1c68056c714e4b0a26a6859",
+    "count": 13
+  },
+  "columns": [
+    {
+      "name": "distribution_hold",
+      "type": "boolean",
+      "default": "false",
+      "nullable": "NO"
+    },
+    {
+      "name": "document_kind",
+      "type": "text",
+      "default": "'estimate'::text",
+      "nullable": "NO"
+    },
+    {
+      "name": "baseline_estimate_id",
+      "type": "uuid",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "name": "currency_code",
+      "type": "text",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "name": "scope_inclusions",
+      "type": "text",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "name": "scope_exclusions",
+      "type": "text",
+      "default": null,
+      "nullable": "YES"
+    }
+  ],
+  "dormant": {
+    "actions": 0,
+    "policies": 0,
+    "proposals": 0,
+    "v17_grants": 0,
+    "v17_clients": 0,
+    "write_tokens": 0
+  },
+  "triggers": [
+    {
+      "name": "accounting_sync_queue_private_drafts",
+      "table": "accounting_sync_queue",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER accounting_sync_queue_private_drafts BEFORE INSERT OR UPDATE ON public.accounting_sync_queue FOR EACH ROW EXECUTE FUNCTION private.guard_financial_document_distribution()"
+    },
+    {
+      "name": "estimates_private_draft_custody",
+      "table": "estimates",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER estimates_private_draft_custody BEFORE INSERT OR DELETE OR UPDATE ON public.estimates FOR EACH ROW EXECUTE FUNCTION private.guard_financial_document_custody()"
+    },
+    {
+      "name": "line_items_private_draft_custody",
+      "table": "line_items",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER line_items_private_draft_custody BEFORE INSERT OR DELETE OR UPDATE ON public.line_items FOR EACH ROW EXECUTE FUNCTION private.guard_financial_document_custody()"
+    }
+  ],
+  "estimates": {
+    "count": 27,
+    "held_count": 0,
+    "legacy_hash": "5e13dd4a59c35607a29730a148fef2d6",
+    "change_orders": 0
+  },
+  "functions": [
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "can_read_financial_document_action(uuid,uuid)",
+      "anon_execute": true,
+      "definition_md5": "d92e71d605f947f431aa21a049383efd",
+      "service_execute": true,
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "commit_financial_document_as_actor(uuid,uuid,uuid,uuid,text,text)",
+      "anon_execute": false,
+      "definition_md5": "03d19ff3ae8e76828b361f8dc0afc702",
+      "service_execute": true,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\""
+      ],
+      "signature": "consume_financial_document_prepare_rate_limit_as_system(text,uuid,uuid,uuid,text,text,integer,text)",
+      "anon_execute": false,
+      "definition_md5": "0f068ec4bb87cfb24d28f0ec76880f75",
+      "service_execute": true,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "filter_financial_document_actions_as_actor(uuid,uuid,uuid[])",
+      "anon_execute": false,
+      "definition_md5": "a065001a186e8b3ee441ad2c0802c815",
+      "service_execute": true,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "inspect_financial_document_as_system(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text,jsonb)",
+      "anon_execute": false,
+      "definition_md5": "c0d8682d2aaf001ac859f8dfac68e5d2",
+      "service_execute": true,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "prepare_financial_document_as_system(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text,text,jsonb)",
+      "anon_execute": false,
+      "definition_md5": "ee0fc150158c1c5e20c715d6ef8b08fb",
+      "service_execute": true,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.assert_financial_document_authority(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text)",
+      "anon_execute": false,
+      "definition_md5": "827d31ce25428a91edae5520c27be566",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_calculate(jsonb,numeric)",
+      "anon_execute": false,
+      "definition_md5": "ec15bfa54fec87699784465c82149f65",
+      "service_execute": false,
+      "security_definer": false,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_can_read(uuid,uuid,uuid)",
+      "anon_execute": false,
+      "definition_md5": "b8b7446670504104a1ed0814eb71c1f4",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_effect_revision()",
+      "anon_execute": false,
+      "definition_md5": "ee77124a3ba4b682067bec8cd4dd8b95",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_effects()",
+      "anon_execute": false,
+      "definition_md5": "f3dc988337f601ef13105aa87b381c60",
+      "service_execute": false,
+      "security_definer": false,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_hash(jsonb)",
+      "anon_execute": false,
+      "definition_md5": "241a00effd34b86a8f805a8619f5b436",
+      "service_execute": false,
+      "security_definer": false,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_lock(uuid)",
+      "anon_execute": false,
+      "definition_md5": "2a4e641028bf3fcda0adf01f69f609eb",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_money(numeric)",
+      "anon_execute": false,
+      "definition_md5": "ef8ebb4922e6dc5869e0c4036d1648e8",
+      "service_execute": false,
+      "security_definer": false,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_reauthorize(private.financial_document_proposals)",
+      "anon_execute": false,
+      "definition_md5": "e16c4d23b7c096c817fdfdf854d72203",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.financial_document_source(uuid,uuid,jsonb)",
+      "anon_execute": false,
+      "definition_md5": "45bcfccd1d5b2f9203cf0113022d3ada",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.guard_financial_document_custody()",
+      "anon_execute": false,
+      "definition_md5": "76bebdd346e688c337567ab838d1e27e",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.guard_financial_document_distribution()",
+      "anon_execute": false,
+      "definition_md5": "2055ba36169a4a4878fb404e6e32e6eb",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "private.persist_private_financial_document(uuid,uuid,jsonb,jsonb)",
+      "anon_execute": false,
+      "definition_md5": "f00f18d361ceed7c6c16995db2a82067",
+      "service_execute": false,
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "config": [
+        "search_path=\"\"",
+        "TimeZone=UTC"
+      ],
+      "signature": "reject_financial_document_as_actor(uuid,uuid,uuid,text)",
+      "anon_execute": false,
+      "definition_md5": "5cde191f38ecac04224d3956745deacf",
+      "service_execute": true,
+      "security_definer": true,
+      "authenticated_execute": false
+    }
+  ],
+  "constraints": [
+    {
+      "name": "estimates_sage_document_kind_check",
+      "valid": true,
+      "definition": "CHECK (((sage_document_kind IS NULL) OR (sage_document_kind = ANY (ARRAY['sales_estimate'::text, 'sales_quote'::text]))))"
+    },
+    {
+      "name": "estimates_document_kind_check",
+      "valid": true,
+      "definition": "CHECK ((document_kind = ANY (ARRAY['estimate'::text, 'change_order'::text])))"
+    },
+    {
+      "name": "estimates_baseline_estimate_id_fkey",
+      "valid": true,
+      "definition": "FOREIGN KEY (baseline_estimate_id) REFERENCES estimates(id)"
+    },
+    {
+      "name": "estimates_currency_code_check",
+      "valid": true,
+      "definition": "CHECK ((currency_code = ANY (ARRAY['CAD'::text, 'USD'::text])))"
+    },
+    {
+      "name": "estimates_change_order_baseline",
+      "valid": true,
+      "definition": "CHECK ((((document_kind = 'estimate'::text) AND (baseline_estimate_id IS NULL)) OR ((document_kind = 'change_order'::text) AND (baseline_estimate_id IS NOT NULL) AND (project_id IS NOT NULL))))"
+    },
+    {
+      "name": "estimates_private_draft_custody",
+      "valid": true,
+      "definition": "CHECK (((NOT distribution_hold) OR ((status = 'draft'::text) AND (currency_code IS NOT NULL) AND (sent_at IS NULL) AND (viewed_at IS NULL) AND (approved_at IS NULL) AND (qb_id IS NULL) AND (sage_id IS NULL))))"
+    },
+    {
+      "name": "agent_mcp_rate_limit_buckets_policy_closed",
+      "valid": true,
+      "definition": "CHECK (((policy_id = ANY (ARRAY['mcp-lightweight-read:2026-08-23.v1'::text, 'mcp-evidence-search:2026-08-23.v1'::text, 'mcp-day-closeout-prepare:2026-08-30.v1'::text, 'mcp-collections-prepare:2026-08-31.v1'::text, 'mcp-dispatch-confirmation-prepare:2026-09-03.v1'::text, 'mcp-customer-update-prepare:2026-09-04.v1'::text])) OR (policy_id = 'mcp-schedule-change-prepare:2026-09-06.v1'::text) OR (policy_id = 'mcp-financial-document-prepare:2026-09-07.v1'::text)))"
+    }
+  ],
+  "observed_at": "2026-09-07T17:37:47.072263+00:00",
+  "rls_policies": [
+    {
+      "cmd": "DELETE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_financial_document'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "financial_document_action_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "financial_document_action_insert",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_financial_document'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((action_type IS DISTINCT FROM 'approve_financial_document'::text) OR can_read_financial_document_action(id, company_id))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "financial_document_action_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_financial_document'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "financial_document_action_update",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_financial_document'::text)"
+    }
+  ],
+  "effect_policy": [
+    {
+      "stored": "sha256:1dbb20f58a47881a7838a77a2ae69cb55aea8142ba41e5c9b62c0b73a21ae4c5",
+      "current": "sha256:1dbb20f58a47881a7838a77a2ae69cb55aea8142ba41e5c9b62c0b73a21ae4c5",
+      "matches": true,
+      "revision": "financial-document-draft:2026-09-07.v1"
+    }
+  ],
+  "private_tables": [
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres"
+      ],
+      "rls": true,
+      "name": "financial_document_effect_policy",
+      "force_rls": true,
+      "anon_select": false,
+      "service_insert": false,
+      "service_select": false,
+      "authenticated_select": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres"
+      ],
+      "rls": true,
+      "name": "financial_document_policies",
+      "force_rls": true,
+      "anon_select": false,
+      "service_insert": false,
+      "service_select": false,
+      "authenticated_select": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres"
+      ],
+      "rls": true,
+      "name": "financial_document_proposals",
+      "force_rls": true,
+      "anon_select": false,
+      "service_insert": false,
+      "service_select": false,
+      "authenticated_select": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres"
+      ],
+      "rls": true,
+      "name": "financial_document_write_tokens",
+      "force_rls": true,
+      "anon_select": false,
+      "service_insert": false,
+      "service_select": false,
+      "authenticated_select": false
+    }
+  ]
+}

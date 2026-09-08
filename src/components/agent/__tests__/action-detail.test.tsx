@@ -232,3 +232,94 @@ describe("customer update exact approval", () => {
     ).toBeDisabled();
   });
 });
+
+describe("customer message exact approval", () => {
+  const proposal = {
+    operation: "send_customer_email_follow_up" as const,
+    policy_revision: "customer-message-follow-up:2026-09-06.v1" as const,
+    opportunity: {
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Patio expansion",
+      updated_at: "2026-09-06T17:00:00.000Z",
+    },
+    sender: {
+      connection_id: "22222222-2222-4222-8222-222222222222",
+      address: "operator@example.com",
+      mailbox_type: "individual" as const,
+    },
+    recipients: {
+      to: ["customer@example.com"] as [string],
+      cc: [] as [],
+      bcc: [] as [],
+    },
+    thread: {
+      internal_thread_id: "33333333-3333-4333-8333-333333333333",
+      provider_thread_id: "thread-1",
+      in_reply_to: "message-1",
+    },
+    message: {
+      subject: "Re: Patio expansion",
+      body: "Thanks for the update. We can meet Tuesday morning.",
+      content_type: "text" as const,
+      attachment_ids: [] as [],
+    },
+    source: {
+      activity_id: "44444444-4444-4444-8444-444444444444",
+      provider_source_id: "55555555-5555-4555-8555-555555555555",
+      source_sha256: "sha256:" + "a".repeat(64),
+      sender_identity: "customer@example.com",
+      direction: "inbound" as const,
+      delivered_at: "2026-09-06T16:55:00.000Z",
+      excerpt: "Tuesday morning works for us.",
+      content_kind: "untrusted_business_data" as const,
+    },
+    effects: {
+      external_messages_attempted: 1 as const,
+      recipients: 1 as const,
+      cc_recipients: 0 as const,
+      bcc_recipients: 0 as const,
+      attachments: 0 as const,
+      business_records_changed: 0 as const,
+      schedules_changed: 0 as const,
+      money_moved: false as const,
+    },
+    approval: {
+      required: true as const,
+      named_approver_id: "66666666-6666-4666-8666-666666666666",
+      expires_at: "2099-09-06T18:00:00.000Z",
+      single_use: true as const,
+    },
+    cancellation:
+      "Cancellation is available until approval. After approval, OPS may already be attempting the send." as const,
+  };
+
+  it("shows exact addressing and submits only the visible seal", () => {
+    const approve = vi.fn();
+    render(
+      <ActionDetail
+        action={make({
+          actionType: "send_customer_follow_up",
+          actionData: {
+            proposal,
+            preview_sha256: "sha256:" + "b".repeat(64),
+            change_set_id: "77777777-7777-4777-8777-777777777777",
+          },
+        })}
+        onApprove={approve}
+        onReject={() => {}}
+        t={(k) => k}
+      />
+    );
+    expect(screen.getByText("operator@example.com")).toBeInTheDocument();
+    expect(screen.getByText("customer@example.com")).toBeInTheDocument();
+    expect(screen.getByText(proposal.message.body)).toBeInTheDocument();
+    expect(screen.getByText(proposal.source.excerpt)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "customerMessage.send" })
+    );
+    expect(approve).toHaveBeenCalledWith("action-1", {
+      preview_sha256: "sha256:" + "b".repeat(64),
+      change_set_id: "77777777-7777-4777-8777-777777777777",
+    });
+  });
+});

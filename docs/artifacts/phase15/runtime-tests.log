@@ -1,0 +1,163 @@
+CREATE SCHEMA
+CREATE FUNCTION
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:5: NOTICE:  PASS: server-owned financial calculation exists
+ assert 
+--------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:6: NOTICE:  PASS: quantity extension and tax round independently at cents
+ assert 
+--------
+ 
+(1 row)
+
+SET
+SET
+CREATE FUNCTION
+DO
+CREATE FUNCTION
+UPDATE 1
+INSERT 0 2
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: prepare creates no financial rows or numbers
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: preparation exact replay
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: changed-input preparation rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: approved exact draft is saved privately
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: one number and one line allocated
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: exact commit replay does not duplicate financial truth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: changed commit key rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: draft save cannot become delivery
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: incidental update cannot release hold
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: saved revision lines immutable
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:57: NOTICE:  PASS: receipt replay reauthorizes revoked grants
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:58: NOTICE:  PASS: tax matches canonical taxable subtotal rounding
+ assert 
+--------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null operation rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null title rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null currency rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null increase_percent rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null issue_date rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line name rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line name rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line description rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line description rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line unit rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line unit rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line quantity rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line quantity rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: null line discount_percent rejected by RPC
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:70: NOTICE:  PASS: numeric line discount_percent rejected by RPC
+DO
+BEGIN
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 2
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 3
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 4
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 5
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 6
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:77: NOTICE:  PASS: durable preparation rate limit attempt 7
+DO
+ROLLBACK
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-runtime.sql:80: NOTICE:  PASS: held header insertion requires the canonical approval transaction token
+ rejects 
+---------
+ 
+(1 row)
+
+BEGIN
+SET
+SET
+INSERT 0 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order rejects mismatched or absent baseline currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order rejects mismatched or absent baseline currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: real change order saves as additional held draft
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: change order preserves entire accepted baseline
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: competing prepared revision loses after first exact save
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: losing prepared revision allocates no document or official number
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: real change order revision preserves baseline and increments version
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: revision preserves entire predecessor and its lines
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: second private child of exact predecessor rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:36: NOTICE:  PASS: independent provider enqueue producer cannot queue held draft
+DO
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: history rejects mismatched or absent currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: history rejects mismatched or absent currency
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: historical preparation uses authoritative saved price
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: source price mutation invalidates approval
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:60: NOTICE:  PASS: stale source consumes no document or number
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: another company admin cannot approve named actor action
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: different tenant cannot approve action
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: tampered confirmation seal rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: tampered stored action payload rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: changed effect fingerprint blocks commit
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: effect mismatch leaves document lines and numbers unchanged
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: effect test restores original trigger fingerprint
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: same exact proposal saves after effect definition is restored
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:84: NOTICE:  PASS: receipt replay rejects tampered original preview seal
+DO
+CREATE FUNCTION
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect returns every exact live historical source
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array product_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array historical_line_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array estimate_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects null source array project_note_ids
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects non-object request
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects unknown input field
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect rejects omitted nullable target field
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides deleted historical project sources
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect accepts permitted company history from separate live client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides deleted source client without deleting target client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:114: NOTICE:  PASS: inspect hides merged source client
+DO
+GRANT
+GRANT
+UPDATE 1
+INSERT 0 6
+              set_config              
+--------------------------------------
+ 3b40ef27-dbc6-44ff-b5f5-22419d8dfe2b
+(1 row)
+
+                                       set_config                                        
+-----------------------------------------------------------------------------------------
+ {"sub":"financial-fixture-browser","company_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}
+(1 row)
+
+SET
+SET
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:126: NOTICE:  PASS: browser sees own action with complete current business permissions
+ assert 
+--------
+ 
+(1 row)
+
+RESET
+DELETE 1
+SET
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15/tests/sql/financial-document-adversarial.sql:130: NOTICE:  PASS: browser cannot SELECT proposal after project read permission loss
+ assert 
+--------
+ 
+(1 row)
+
+RESET
+ROLLBACK

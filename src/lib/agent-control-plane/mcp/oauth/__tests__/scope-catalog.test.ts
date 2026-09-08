@@ -91,6 +91,7 @@ const EXPECTED_REGISTERED_SCOPES = [
   "ops.expenses.read",
   "ops.files.read",
   "ops.financial_documents.read",
+  "ops.financial_documents.prepare",
   "ops.financials.prepare",
   "ops.financials.read",
   "ops.financials.write",
@@ -123,9 +124,9 @@ const EXISTING_READ_LABELS = {
 } as const;
 
 describe("registered MCP scope vocabulary", () => {
-  it("pins the reviewed 32-scope union while preserving all 18 existing scope IDs", () => {
+  it("pins the reviewed 33-scope union while preserving all 18 existing scope IDs", () => {
     expect([...REGISTERED_MCP_SCOPES]).toEqual(EXPECTED_REGISTERED_SCOPES);
-    expect(REGISTERED_MCP_SCOPES).toHaveLength(32);
+    expect(REGISTERED_MCP_SCOPES).toHaveLength(33);
     expect(
       EXISTING_SCOPE_VOCABULARY.every((scope) =>
         REGISTERED_MCP_SCOPES.includes(scope)

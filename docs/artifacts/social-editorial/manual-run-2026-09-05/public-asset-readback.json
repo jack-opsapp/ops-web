@@ -1,0 +1,50 @@
+{
+  "checkedAt": "2026-09-06T00:13:19.087Z",
+  "checks": [
+    {
+      "order": 1,
+      "status": 200,
+      "width": 1080,
+      "height": 1350,
+      "bytes": 135358,
+      "hashMatches": true,
+      "ok": true
+    },
+    {
+      "order": 2,
+      "status": 200,
+      "width": 1080,
+      "height": 1350,
+      "bytes": 131392,
+      "hashMatches": true,
+      "ok": true
+    },
+    {
+      "order": 3,
+      "status": 200,
+      "width": 1080,
+      "height": 1350,
+      "bytes": 133744,
+      "hashMatches": true,
+      "ok": true
+    },
+    {
+      "order": 4,
+      "status": 200,
+      "width": 1080,
+      "height": 1350,
+      "bytes": 135769,
+      "hashMatches": true,
+      "ok": true
+    },
+    {
+      "order": 5,
+      "status": 200,
+      "width": 1080,
+      "height": 1350,
+      "bytes": 131885,
+      "hashMatches": true,
+      "ok": true
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "startedFrom": "local operator session",
+  "usesProductionServices": true,
+  "result": {
+    "state": "prepared",
+    "date": "2026-09-05",
+    "copywriting_reference": {
+      "path": "docs/social/voice/sam-parr-field-guide.md",
+      "sha256": "33eb69c729c46c56995cedcb87955b732eeba763b0d6a93401e3e6c404ab086e"
+    }
+  },
+  "completedAt": "2026-09-06T00:12:29.274Z"
+}

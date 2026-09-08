@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-documents-web-p15
+
+ ✓ src/lib/api/services/__tests__/sage-queue-repository.test.ts (10 tests) 16ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  00:18:21
+   Duration  689ms (transform 42ms, setup 143ms, collect 16ms, tests 16ms, environment 295ms, prepare 38ms)
+

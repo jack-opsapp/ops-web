@@ -1,0 +1,14 @@
+{
+  "state": "prepared",
+  "date": "2026-09-05",
+  "attempts": 3,
+  "reserved_usd": 2.25,
+  "estimated_model_usd": 0.11266399999999999,
+  "model_call_count": 2,
+  "preview_count": 5,
+  "notified_at": "2026-09-06T00:12:29.32119+00:00",
+  "post_id": null,
+  "execution": "local operator invocation against production services",
+  "storage": "existing Supabase social-media bucket",
+  "publishing": "off"
+}
