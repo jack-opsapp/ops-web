@@ -4,6 +4,7 @@ import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { CalibrationService } from "@/lib/api/services/calibration-service";
 import { resolveEmailInboxListAccess } from "@/lib/email/email-opportunity-access";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 
 export const maxDuration = 30;
 
@@ -28,10 +29,9 @@ export async function GET(request: NextRequest) {
     if (!access.allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const state = await CalibrationService.getDeckState(
-      auth.companyId,
-      auth.id,
-      access
+    // Nested category and graduation reads require the server client too.
+    const state = await runWithSupabase(supabase, () =>
+      CalibrationService.getDeckState(auth.companyId, auth.id, access)
     );
     return NextResponse.json(state);
   } catch (err) {
