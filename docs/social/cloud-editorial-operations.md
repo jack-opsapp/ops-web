@@ -1,5 +1,7 @@
 # Cloud Instagram editorial operations
 
+Status (2026-09-08 15:25 Vancouver): **first automatic Instagram publication verified live.** The scheduled 14:05 fire (session `cse_01GQqRtzC5jqtGJxEKxi4Hq5`, success, 662 s) drafted the Kauaʻi hurricane article and the Tuesday protocol under prompt v2; the 14:24 tick rendered both and queued them under `publish` mode; the publisher posted the Kauaʻi carousel at 14:43 (media `17899797792664494`, https://www.instagram.com/p/DdCrehGoC-n/, 7 slides, caption ending in the article link, exactly one post); the protocol is in review for 09-09 10:34. Evidence: `../artifacts/social-editorial/first-publication-2026-09-08/`. Found and fixed by that readout: the queued/live rail items never inserted (untrimmed operator ids, `2e3cfcb77`) and the persistent stall alarm never cleared (`197f87d5c`); both ship with the voice bundle (`01326cad5`, brief v4, prompt v2) in the next deploy. Still open: the Fable and Cape Breton drafts are held under the old voice pending Jackson's reset (approved in principle; the SQL is in the session scratchpad), and the legacy edge function `social-publish-instagram` still exists. The 2026-09-07 line follows for history.
+
 Status (2026-09-07 06:30 UTC): **deployed and live.** Migration `20260907055055` applied; `app.opsapp.co` serves the release; `SOCIAL_AUTHORING_TOKEN` and `SOCIAL_STORAGE_BACKEND=supabase` are set; the cloud environment credential works. The first native cloud run (manual **Run now**, 06:12–06:22 UTC) drafted the Fable and Cape Breton articles on Jackson's subscription with the independent editor loop; the 06:23 tick rendered both as held previews and delivered two `INSTAGRAM DRAFT READY` notifications; `social_posts` = 0. Evidence: `../artifacts/social-editorial/cloud-run-2026-09-07/`. Still open: the routine is **paused** (a scheduled fire has not been observed), first publication and the recurring `publish` policy await Jackson's approval, and the legacy edge function `social-publish-instagram` still exists. Every proof boundary below says which of prepared / tested / deployed / verified-live it has reached.
 
 ## What runs where
@@ -48,7 +50,7 @@ In `publish` mode the worker submits a drafted assignment to the existing queue 
 - `INSTAGRAM POST BLOCKED` (persistent) — an assignment stopped; the reason is on `/admin/social#cloud-production`.
 - `INSTAGRAM AUTHORING STALLED` (persistent, at most once per Vancouver day) — work has been queued for 26 hours and the routine has not contacted OPS in 26 hours. This is the quota-exhausted / routine-disabled / credential-broken alarm.
 
-Recipients: `SOCIAL_OPERATOR_*`, falling back to `PMF_OPERATOR_*`.
+Recipients: `SOCIAL_OPERATOR_*`, falling back to `PMF_OPERATOR_*`, always through `getEditorialOperator` (trimmed; the production values carry trailing whitespace, and an untrimmed company id fails the notifications canonical-id check silently). The stall alarm is resolved by the tick as soon as the heartbeat is fresh again.
 
 ## Inspection
 
