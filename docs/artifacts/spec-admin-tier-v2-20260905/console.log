@@ -1,0 +1,29 @@
+[AuthProvider] Calling authStateReady()...
+[AuthProvider] onIdTokenChanged fired: false
+[AuthProvider] onIdTokenChanged fired: true
+[AuthProvider] Calling authStateReady()...
+[AuthProvider] authStateReady resolved, currentUser: true
+[AuthProvider] onIdTokenChanged fired: true
+[dev-bypass] Signed in as j4ckson.sweet@gmail.com via custom token
+[AuthProvider] Syncing user: j4ckson.sweet@gmail.com
+[AuthProvider] syncUser FAILED: TypeError: Failed to fetch
+    at Object.syncUser (webpack-internal:///(app-pages-browser)/./src/lib/api/services/user-service.ts:205:32)
+    at handleAuthState (webpack-internal:///(app-pages-browser)/./src/components/providers/auth-provider.tsx:373:118)
+[AuthProvider] Auth processing failed: TypeError: Failed to fetch
+    at Object.syncUser (webpack-internal:///(app-pages-browser)/./src/lib/api/services/user-service.ts:205:32)
+    at handleAuthState (webpack-internal:///(app-pages-browser)/./src/components/providers/auth-provider.tsx:373:118)
+[AuthProvider] Calling authStateReady()...
+[AuthProvider] authStateReady resolved, currentUser: true
+[AuthProvider] onIdTokenChanged fired: true
+[AuthProvider] Calling authStateReady()...
+[AuthProvider] onIdTokenChanged fired: true
+[AuthProvider] Calling authStateReady()...
+[AuthProvider] authStateReady resolved, currentUser: true
+[AuthProvider] onIdTokenChanged fired: true
+[AuthProvider] Syncing user: j4ckson.sweet@gmail.com
+[AuthProvider] syncUser result: {userId: 1746a0c1-be43-45d6-ab4d-584e82594b1b, userRole: operator, companyName: Canpro Deck and Rail}
+[AuthProvider] Calling authStateReady()...
+[AuthProvider] Calling authStateReady()...
+[AuthProvider] authStateReady resolved, currentUser: true
+[AuthProvider] onIdTokenChanged fired: true
+[AuthProvider] User already in store, using cached data. 1746a0c1-be43-45d6-ab4d-584e82594b1b

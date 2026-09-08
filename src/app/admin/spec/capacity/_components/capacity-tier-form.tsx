@@ -5,6 +5,12 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils/cn";
 import type { CapacityEditRow, SpecTier } from "@/lib/admin/spec-types";
 import {
+  SPEC_TIER_MILESTONE_SHAPE,
+  formatSpecTierLockup,
+  specMilestoneSchedule,
+} from "@/lib/admin/spec-tiers";
+import { formatCents } from "../../_components/format";
+import {
   saveCapacityAction,
   type SaveCapacityFormState,
 } from "../_actions/save-capacity";
@@ -13,11 +19,22 @@ interface CapacityTierFormProps {
   row: CapacityEditRow;
 }
 
-const TIER_HINT: Record<SpecTier, string> = {
-  setup: "SHORT ENGAGEMENT · 1–2 WEEK BUILD",
-  build: "FULL BUILD · 3–4 WEEK ENGAGEMENT",
-  enterprise: "CUSTOM SCOPE · 4–6+ WEEK BUILD",
-};
+/**
+ * Price + payment shape, derived from the tier model so the hint can never
+ * drift from what the console invoices (10_TIER_MODEL_V2 § 2).
+ */
+function tierHint(tier: SpecTier): string {
+  const schedule = specMilestoneSchedule(tier, null);
+  const total = formatCents(schedule.totalCents);
+  switch (SPEC_TIER_MILESTONE_SHAPE[tier]) {
+    case "half_half":
+      return `${total} FIXED · PAID 50/50`;
+    case "quarters":
+      return `${total} FIXED · PAID IN QUARTERS`;
+    case "floor_quarters":
+      return `FROM ${total} · P1 ${formatCents(schedule.entries[0]?.amountCents)} FIXED · TOTAL LOCKED AT SCOPE SIGN-OFF`;
+  }
+}
 
 function formatUpdatedAt(iso: string | null): string {
   if (!iso) return "[never]";
@@ -60,11 +77,11 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
             id={`capacity-${row.tier}-heading`}
             className="font-cakemono text-[20px] font-light uppercase tracking-[0.04em] text-text"
           >
-            {row.tier}
+            {formatSpecTierLockup(row.tier)}
           </h2>
           <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
             <span className="text-text-mute">[</span>
-            {TIER_HINT[row.tier]}
+            {tierHint(row.tier)}
             <span className="text-text-mute">]</span>
           </p>
         </div>
@@ -152,23 +169,12 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
         </Field>
       </Section>
 
-      {/* Pricing */}
+      {/* Pricing — the tier total is a model constant (see tierHint); the
+          v1 subscription multiplier is retired (10_TIER_MODEL_V2 § 5). */}
       <Section label="// PRICING">
         <Field
-          label="SUBSCRIPTION MULTIPLIER ESTIMATE"
-          hint="e.g. 0.30 for build · published on /spec"
-          error={errors.subscription_multiplier_estimate}
-        >
-          <NumberInput
-            name="subscription_multiplier_estimate"
-            defaultValue={row.subscriptionMultiplierEstimate.toFixed(2)}
-            min={0}
-            step={0.01}
-          />
-        </Field>
-        <Field
-          label="RETAINER MONTHLY ($)"
-          hint="Whole dollars · stored as cents"
+          label="CARE PLAN ($ / MO)"
+          hint="Whole dollars · stored as cents · 0 = no care plan · billing starts when the support window ends"
           error={errors.retainer_monthly_dollars}
         >
           <DollarInput

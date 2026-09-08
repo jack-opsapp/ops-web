@@ -31,9 +31,9 @@ const STATUS_COPY: Record<SpecProjectStatus, string> = {
 };
 
 const TIER_TONE: Record<SpecTier, string> = {
-  setup: "text-olive border-olive/30",
-  build: "text-tan border-tan/30",
-  enterprise: "text-rose border-rose/40",
+  spec01: "text-olive border-olive/30",
+  spec02: "text-tan border-tan/30",
+  spec03: "text-rose border-rose/40",
 };
 
 export function KanbanPipeline({ columns, counters }: KanbanPipelineProps) {

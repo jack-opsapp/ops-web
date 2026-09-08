@@ -4,11 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getStripe, ensureStripeCustomer } from "@/lib/stripe/checkout-helpers";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { getMilestoneFireability } from "@/lib/admin/spec-queries";
-import {
-  SPEC_MILESTONE_LABELS,
-  SPEC_TIER_TOTAL_CENTS,
-  type SpecPaymentMilestone,
-} from "@/lib/admin/spec-types";
+import { SPEC_MILESTONE_LABELS, type SpecPaymentMilestone } from "@/lib/admin/spec-types";
+import { SPEC_TIER_STRIPE_DISPLAY_NAMES } from "@/lib/admin/spec-tiers";
 import { denyNonOperator, requireSpecOperatorUserId } from "./_require-operator";
 
 const VALID_MILESTONES = new Set<SpecPaymentMilestone>(["scope_signoff", "midpoint", "delivery"]);
@@ -102,7 +99,12 @@ export async function fireMilestone(formData: FormData): Promise<void> {
   });
 
   const tier = project.tier;
-  const milestoneAmount = Math.round(SPEC_TIER_TOTAL_CENTS[tier] / 4);
+  // Amount comes from the tier schedule (SPEC-01 50/50, SPEC-02 quarters,
+  // SPEC-03 locked remainder) — never a flat quarter of a total.
+  const milestoneAmount = fireability.amountCents;
+  if (milestoneAmount == null) {
+    throw new Error("SYS :: MILESTONE NOT FIREABLE · amount not yet knowable for this tier");
+  }
   const milestoneLabel = SPEC_MILESTONE_LABELS[milestone];
 
   // Insert the spec_payments row FIRST so we have something to roll back if
@@ -141,7 +143,7 @@ export async function fireMilestone(formData: FormData): Promise<void> {
         customer: stripeCustomerId,
         currency: "cad",
         amount: milestoneAmount,
-        description: `SPEC ${milestoneLabel} — ${tier.toUpperCase()} (${milestoneNameFor(milestone)})`,
+        description: `${SPEC_TIER_STRIPE_DISPLAY_NAMES[tier]} · ${milestoneLabel} (${milestoneNameFor(milestone)})`,
         metadata: {
           spec_project_id: projectId,
           spec_payment_id: paymentId,
@@ -165,7 +167,7 @@ export async function fireMilestone(formData: FormData): Promise<void> {
           tier,
           invoice_item_id: invoiceItem.id ?? "",
         },
-        description: `${milestoneLabel} invoice for SPEC ${tier.toUpperCase()} engagement`,
+        description: `${milestoneLabel} invoice · ${SPEC_TIER_STRIPE_DISPLAY_NAMES[tier]}`,
       },
       { idempotencyKey: `spec-${paymentId}-invoice` },
     );

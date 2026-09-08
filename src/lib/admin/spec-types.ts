@@ -6,7 +6,10 @@
 
 // ─── Domain enums ────────────────────────────────────────────────────────────
 
-export type SpecTier = "setup" | "build" | "enterprise";
+// Tier identity (slugs, designations, pricing shape) lives in ./spec-tiers —
+// re-exported here so existing type-only importers keep working.
+import type { SpecTier } from "./spec-tiers";
+export type { SpecTier };
 
 export type SpecProjectStatus =
   | "awaiting_owner_approval"
@@ -98,8 +101,7 @@ export interface CapacityEditRow {
   buildDaysMin: number;
   buildDaysMax: number;
   supportWindowDays: number;
-  subscriptionMultiplierEstimate: number; // numeric(4,2)
-  retainerMonthlyCents: number;
+  retainerMonthlyCents: number; // care plan per month (v2); 0 = none
   polishHoursBudget: number; // numeric(4,2), 0.5 increments
   isAcceptingBookings: boolean;
   manualNextStartOverride: string | null; // YYYY-MM-DD
@@ -428,6 +430,36 @@ export interface SpecScopeFeatureRow {
   failureNotes: string | null;
 }
 
+/**
+ * Why the SPEC-03 locked-total control is read-only. Ordered by decisiveness —
+ * `lockedTotalGate` reports the first that applies.
+ */
+export type LockBlockedReason =
+  | "not_variable_tier"
+  | "engagement_closed"
+  | "signed"
+  | "p2_invoiced"
+  | "no_scope_doc"
+  | "doc_sent";
+
+/** Tab 4 projection of the SPEC-03 lock state (null for fixed-total tiers). */
+export interface SpecScopeLockedTotal {
+  /** Always the variable-total tier; carried so the panel can price the split without guessing. */
+  tier: SpecTier;
+  /** The tier floor — P1 is a quarter of it. */
+  floorCents: number;
+  /** `spec_projects.locked_total_cents`, validated; null = not locked. */
+  lockedTotalCents: number | null;
+  /** Version of the current scope doc, the figure's home; null when none exists. */
+  currentDocVersion: number | null;
+  /** The figure the current doc's content carries, if any — may drift from the project. */
+  currentDocTotalCents: number | null;
+  /** `accepted_at` of the customer's scope_signoff, once it exists. */
+  signedAt: string | null;
+  /** null = the operator may lock / re-lock right now. */
+  blockedReason: LockBlockedReason | null;
+}
+
 export interface SpecScopeTab {
   versions: SpecScopeDocumentRow[];
   current: {
@@ -437,6 +469,8 @@ export interface SpecScopeTab {
     externalUrl: string | null;
     features: SpecScopeFeatureRow[];
   } | null;
+  /** SPEC-03 only; fixed-total tiers never render the control. */
+  lockedTotal: SpecScopeLockedTotal | null;
 }
 
 // ─── Tab 5: Milestones ───────────────────────────────────────────────────────
@@ -446,7 +480,7 @@ export interface SpecMilestoneRow {
   milestone: SpecPaymentMilestone;
   label: string;                 // "P1" | "P2" | "P3" | "P4"
   status: SpecPaymentStatus | "not_yet_fired";
-  amountCents: number;           // canonical tier-derived amount (25% of total)
+  amountCents: number | null;    // tier-schedule amount; null until a SPEC-03 total is locked
   invoicedAt: string | null;
   paidAt: string | null;
   dueDate: string | null;
@@ -456,7 +490,14 @@ export interface SpecMilestoneRow {
 }
 
 export interface SpecMilestonesTab {
-  tierTotalCents: number;
+  tier: SpecTier;
+  /** Locked total when known, otherwise the tier's published total / floor. */
+  totalCents: number;
+  /** true when `totalCents` is the SPEC-03 floor rather than a locked figure. */
+  totalIsFloor: boolean;
+  /** false only for SPEC-03 before scope sign-off locks the total. */
+  totalLocked: boolean;
+  /** Only the checkpoints that carry a payment for this tier (plus any off-schedule payment). */
   rows: SpecMilestoneRow[];
 }
 
@@ -640,13 +681,8 @@ export interface SpecProjectDetailSnapshot {
   notes: SpecNotesTab;
 }
 
-// ─── Tier pricing (locked 25 / 25 / 25 / 25 across all tiers) ───────────────
-
-export const SPEC_TIER_TOTAL_CENTS: Record<SpecTier, number> = {
-  setup: 300_000,
-  build: 850_000,
-  enterprise: 1_800_000,
-};
+// ─── Milestones ──────────────────────────────────────────────────────────────
+// Tier totals + per-tier payment shapes live in ./spec-tiers (Tier Model v2).
 
 export const SPEC_MILESTONE_LABELS: Record<SpecPaymentMilestone, string> = {
   deposit: "P1",

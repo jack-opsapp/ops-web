@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { fireMilestone } from "@/app/admin/spec/[id]/_actions/fire-milestone";
 import type {
   SpecMilestoneRow,
@@ -5,6 +6,7 @@ import type {
   SpecPaymentMilestone,
   SpecPaymentStatus,
 } from "@/lib/admin/spec-types";
+import { SPEC_TIER_MILESTONE_SHAPE } from "@/lib/admin/spec-tiers";
 import { formatCents, formatDate, statusLabel } from "./format";
 
 interface MilestonesTabProps {
@@ -13,15 +15,15 @@ interface MilestonesTabProps {
 }
 
 const STATUS_TONE: Record<SpecPaymentStatus | "not_yet_fired", string> = {
-  not_yet_fired: "text-text-mute border-white/[0.10]",
-  pending: "text-text-mute border-white/[0.10]",
+  not_yet_fired: "text-text-mute border-line",
+  pending: "text-text-mute border-line",
   invoiced: "text-tan border-tan/40",
   paid: "text-olive border-olive/40",
   overdue: "text-rose border-rose/40",
   disputed: "text-rose border-rose/40",
   refunded: "text-rose border-rose/40",
   partially_refunded: "text-rose border-rose/40",
-  voided: "text-text-3 border-white/[0.10]",
+  voided: "text-text-3 border-line",
   uncollectible: "text-rose border-rose/40",
 };
 
@@ -42,7 +44,7 @@ const MILESTONE_NAME: Record<SpecPaymentMilestone, string> = {
 export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
   const totalPaid = data.rows
     .filter((r) => r.status === "paid" || r.status === "partially_refunded")
-    .reduce((sum, r) => sum + r.amountCents, 0);
+    .reduce((sum, r) => sum + (r.amountCents ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -57,11 +59,21 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
             </span>
             MILESTONES
           </h2>
-          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
-            <span className="text-text-mute">[</span>
-            TIER TOTAL · {formatCents(data.tierTotalCents)} · PAID {formatCents(totalPaid)}
-            <span className="text-text-mute">]</span>
-          </span>
+          <div className="flex flex-wrap items-baseline gap-4">
+            <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
+              <span className="text-text-mute">[</span>
+              {totalLabel(data)} · PAID {formatCents(totalPaid)}
+              <span className="text-text-mute">]</span>
+            </span>
+            {!data.totalLocked && (
+              <Link
+                href={`/admin/spec/${projectId}?tab=scope`}
+                className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-2 underline-offset-4 transition-colors duration-150 ease-smooth hover:text-text hover:underline hover:decoration-text-3"
+              >
+                LOCK TOTAL ON SCOPE DOC →
+              </Link>
+            )}
+          </div>
         </div>
       </section>
 
@@ -87,13 +99,42 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
         </table>
       </div>
 
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
         <span className="text-text-mute">[</span>
-        P1 FIRES AUTOMATICALLY VIA STRIPE WEBHOOK · P2/P3/P4 FIRE MANUALLY ONCE THE PREREQUISITE ACCEPTANCE EVENT EXISTS
+        {scheduleNote(data)}
         <span className="text-text-mute">]</span>
       </p>
     </div>
   );
+}
+
+/**
+ * Summary label for the tier total (10_TIER_MODEL_V2 § 2): fixed-total tiers
+ * read TIER TOTAL; SPEC-03 reads FLOOR until the operator locks the real
+ * figure on the scope doc, then LOCKED TOTAL.
+ */
+function totalLabel(data: SpecMilestonesTab): string {
+  if (data.totalIsFloor) return `FLOOR · FROM ${formatCents(data.totalCents)}`;
+  if (SPEC_TIER_MILESTONE_SHAPE[data.tier] === "floor_quarters") {
+    return `LOCKED TOTAL · ${formatCents(data.totalCents)}`;
+  }
+  return `TIER TOTAL · ${formatCents(data.totalCents)}`;
+}
+
+/** Footer note — what fires by itself, what the operator fires, and what gates it. */
+function scheduleNote(data: SpecMilestonesTab): string {
+  const auto = "P1 FIRES AUTOMATICALLY VIA STRIPE WEBHOOK";
+  switch (SPEC_TIER_MILESTONE_SHAPE[data.tier]) {
+    case "half_half":
+      return `${auto} · P4 FIRES MANUALLY ONCE DELIVERY IS ACCEPTED · SCOPE SIGN-OFF CARRIES NO INVOICE`;
+    case "floor_quarters":
+      if (!data.totalLocked) {
+        return `${auto} · P2/P3/P4 UNLOCK WHEN THE TOTAL IS LOCKED ON THE SCOPE DOC`;
+      }
+      return `${auto} · P2/P3/P4 FIRE MANUALLY ONCE THE PREREQUISITE ACCEPTANCE EVENT EXISTS`;
+    case "quarters":
+      return `${auto} · P2/P3/P4 FIRE MANUALLY ONCE THE PREREQUISITE ACCEPTANCE EVENT EXISTS`;
+  }
 }
 
 function MilestoneRow({ row, projectId }: { row: SpecMilestoneRow; projectId: string }) {
@@ -107,7 +148,7 @@ function MilestoneRow({ row, projectId }: { row: SpecMilestoneRow; projectId: st
       </Td>
       <Td>
         <span
-          className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${STATUS_TONE[row.status]}`}
+          className={`rounded-chip border px-1.5 py-px font-mono text-[11px] uppercase tracking-[0.16em] ${STATUS_TONE[row.status]}`}
         >
           {row.status === "not_yet_fired" ? "NOT FIRED" : statusLabel(row.status)}
         </span>
@@ -161,7 +202,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
   if (row.milestone === "deposit") {
     return (
       <span
-        className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute"
+        className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute"
         title="P1 fires automatically via Stripe webhook on checkout.session.completed"
       >
         AUTO
@@ -171,7 +212,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
   if (!row.fireable) {
     return (
       <span
-        className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute"
+        className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute"
         title={row.fireBlockedReason ?? "Not fireable"}
       >
         {row.fireBlockedReason ? row.fireBlockedReason.toUpperCase() : "—"}
@@ -184,7 +225,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
       <input type="hidden" name="milestone" value={row.milestone} />
       <button
         type="submit"
-        className="rounded border border-ops-accent px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black"
+        className="rounded border border-ops-accent px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black"
       >
         FIRE {row.label} INVOICE
       </button>
@@ -195,7 +236,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
 function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
   return (
     <th
-      className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute ${
+      className={`px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute ${
         align === "right" ? "text-right" : ""
       }`}
     >

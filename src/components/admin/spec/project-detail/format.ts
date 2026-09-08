@@ -6,6 +6,8 @@
  * with tabular-lining + slashed-zero (CSS-level token).
  */
 
+import { formatSpecTier } from "@/lib/admin/spec-tiers";
+
 const CAD = new Intl.NumberFormat("en-CA", {
   style: "currency",
   currency: "CAD",
@@ -106,8 +108,9 @@ export function statusLabel(status: string): string {
   return status.replace(/_/g, " ").toUpperCase();
 }
 
+/** Tier designation short form (SPEC-01 / SPEC-02 / SPEC-03). */
 export function tierLabel(tier: string): string {
-  return tier.toUpperCase();
+  return formatSpecTier(tier);
 }
 
 export function formatHours(hours: number | null | undefined, fractionDigits = 1): string {

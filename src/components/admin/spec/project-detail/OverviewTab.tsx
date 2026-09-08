@@ -6,6 +6,7 @@ import type {
   SpecProjectHeader,
 } from "@/lib/admin/spec-types";
 import { SPEC_MILESTONE_LABELS } from "@/lib/admin/spec-types";
+import { formatSpecTier } from "@/lib/admin/spec-tiers";
 import { formatCents, formatDate, formatIsoDate, formatRelative, statusLabel } from "./format";
 
 interface OverviewTabProps {
@@ -81,10 +82,10 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
               label="TIER"
               value={
                 <span>
-                  {header.tier.toUpperCase()}
+                  {formatSpecTier(header.tier)}
                   {header.originalTier && header.originalTier !== header.tier && (
                     <span className="ml-2 text-text-mute">
-                      · WAS {header.originalTier.toUpperCase()}
+                      · WAS {formatSpecTier(header.originalTier)}
                     </span>
                   )}
                 </span>
