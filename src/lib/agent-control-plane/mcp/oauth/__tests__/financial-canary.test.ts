@@ -57,15 +57,17 @@ describe("financial trial OAuth boundary", () => {
     );
   });
   it.each([
-    [],
-    [{ ...binding, expires_at: "2000-01-01T00:00:00Z" }],
-    [
-      {
-        ...binding,
-        consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
-      },
-    ],
-  ])("rejects unavailable or stale binding without fallback", async (data) => {
+    { data: [] },
+    { data: [{ ...binding, expires_at: "2000-01-01T00:00:00Z" }] },
+    {
+      data: [
+        {
+          ...binding,
+          consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
+        },
+      ],
+    },
+  ])("rejects unavailable or stale binding without fallback", async ({ data }) => {
     const rpc = vi
       .fn<McpOAuthRpcClient["rpc"]>()
       .mockResolvedValue({ data, error: null });

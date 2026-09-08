@@ -1,4 +1,5 @@
 import { z } from "zod-v4";
+import { PostgresUuidSchema } from "./postgres-uuid";
 
 const hash = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const boundedText = (max: number) =>
@@ -59,7 +60,7 @@ export const FinancialPolicyPreviewSchema = z.strictObject({
   policy: FinancialPolicyInputSchema,
   source: FinancialPolicySourceSchema,
   tax: z.strictObject({
-    id: z.uuid(),
+    id: PostgresUuidSchema,
     name: z.string(),
     rate: z.string().regex(/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/),
   }),
