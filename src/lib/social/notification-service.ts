@@ -1,15 +1,14 @@
 import "server-only";
 
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { getEditorialOperator } from "./editorial/operator";
 import type { SocialPostRecord } from "./types";
 
+// One resolver for every Instagram rail item. The production operator values
+// carry trailing whitespace; an untrimmed company id fails the notifications
+// canonical-id check, which is why the first queued post raised no alert.
 function recipients(): { userId: string; companyId: string } | null {
-  const userId =
-    process.env.SOCIAL_OPERATOR_USER_ID ?? process.env.PMF_OPERATOR_USER_ID;
-  const companyId =
-    process.env.SOCIAL_OPERATOR_COMPANY_ID ??
-    process.env.PMF_OPERATOR_COMPANY_ID;
-  return userId && companyId ? { userId, companyId } : null;
+  return getEditorialOperator(process.env);
 }
 
 const launchTimeFormat = new Intl.DateTimeFormat("en-US", {
