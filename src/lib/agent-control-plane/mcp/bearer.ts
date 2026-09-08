@@ -18,6 +18,8 @@ import {
   credentialDigest,
   resolveAccessToken,
   resolveMcpOAuthConfig,
+  getClient,
+  resolveOAuthExposureForSubject,
 } from "./oauth";
 import type { McpServerRuntime } from "./runtime";
 
@@ -108,6 +110,19 @@ export async function resolveMcpBearer(
   }
   try {
     resolveMcpExposure(row.exposure_revision);
+    if (row.exposure_revision === "2026-09-07.mcp-exposure.v17") {
+      const client = await getClient(runtime.rpcClient, row.client_id);
+      if (
+        !client ||
+        !(await resolveOAuthExposureForSubject({
+          rpcClient: runtime.rpcClient,
+          client,
+          userId: row.user_id,
+          companyId: row.company_id,
+        }))
+      )
+        return { kind: "invalid_token" };
+    }
   } catch {
     return { kind: "invalid_token" };
   }

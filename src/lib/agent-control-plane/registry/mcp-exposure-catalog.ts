@@ -397,7 +397,8 @@ export const MCP_EXPOSURE_V16 = Object.freeze({
   ),
 } as const satisfies McpExposure);
 
-/** Dormant Phase 15. Not selectable; prospective consent v12 is absent. */
+/** Full Phase15 candidate remains unselected. Phase16 selects only its narrow
+ * financial trial below, with v12 consent and an exact live subject binding. */
 export const MCP_EXPOSURE_V17 = Object.freeze({
   revision: "2026-09-07.mcp-exposure.v17",
   toolIds: Object.freeze([
@@ -415,8 +416,26 @@ export const MCP_EXPOSURE_V17 = Object.freeze({
 
 export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V14.revision;
 
+/** Recognized only for exact subject-bound trials; public registration stays v14. */
+export const MCP_FINANCIAL_TRIAL_EXPOSURE = Object.freeze({
+  revision: MCP_EXPOSURE_V17.revision,
+  toolIds: Object.freeze([
+    "get_company_context",
+    "inspect_financial_document",
+    "prepare_financial_document",
+  ]),
+  grantableScopes: Object.freeze([
+    "ops.company.read",
+    "ops.customers.read",
+    "ops.financial_documents.prepare",
+    "ops.financial_documents.read",
+    "ops.jobs.read",
+  ]),
+} as const satisfies McpExposure);
+
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
   Object.freeze({
+    [MCP_FINANCIAL_TRIAL_EXPOSURE.revision]: MCP_FINANCIAL_TRIAL_EXPOSURE,
     [MCP_EXPOSURE_V1.revision]: MCP_EXPOSURE_V1,
     [MCP_EXPOSURE_V2.revision]: MCP_EXPOSURE_V2,
     [MCP_EXPOSURE_V3.revision]: MCP_EXPOSURE_V3,
@@ -635,8 +654,9 @@ validateExposure(MCP_EXPOSURE_V11);
 validateExposure(MCP_EXPOSURE_V12);
 validateExposure(MCP_EXPOSURE_V13);
 validateExposure(MCP_EXPOSURE_V14);
-// Validate the dormant candidate without adding it to the selectable catalogue.
+// Validate both the full candidate and the separately restricted trial.
 validateExposure(MCP_EXPOSURE_V17);
+validateExposure(MCP_FINANCIAL_TRIAL_EXPOSURE);
 
 export function capabilityManifestRevisionForExposure(
   exposureRevision: string

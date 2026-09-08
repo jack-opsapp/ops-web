@@ -116,7 +116,7 @@ export const MCP_CONSENT_CATALOG_V9 = Object.freeze({
   consentLabels: CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
   allowedOperations: Object.freeze(["read", "prepare"] as const),
 } as const satisfies McpConsentCatalog);
-/** Dormant v12 candidate. Not registered or selectable until exact activation. */
+/** V12 is recognized for exact-bound trials; ordinary consent remains v9. */
 export const MCP_CONSENT_CATALOG_V12 = Object.freeze({
   revision: "2026-09-07.mcp-consent-catalog.v12",
   registeredScopes: REGISTERED_MCP_SCOPES,
@@ -130,6 +130,7 @@ export const ACTIVE_MCP_CONSENT_CATALOG_REVISION =
 
 export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
   Object.freeze({
+    [MCP_CONSENT_CATALOG_V12.revision]: MCP_CONSENT_CATALOG_V12,
     [MCP_CONSENT_CATALOG_V1.revision]: MCP_CONSENT_CATALOG_V1,
     [MCP_CONSENT_CATALOG_V2.revision]: MCP_CONSENT_CATALOG_V2,
     [MCP_CONSENT_CATALOG_V3.revision]: MCP_CONSENT_CATALOG_V3,

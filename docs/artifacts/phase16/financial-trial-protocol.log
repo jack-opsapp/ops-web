@@ -1,0 +1,20 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-financial-readiness-web-p16
+
+stdout | src/lib/agent-control-plane/mcp/__tests__/financial-trial-protocol.test.ts > Phase16 real local financial OAuth / HTTP / SQL acceptance > completes owner enrollment, fresh consent, PKCE exchange, protocol discovery, historical +8%, exact OPS approval and one held draft
+FINANCIAL_TRIAL_EVIDENCE {"fixture_only":true,"external_host_authenticated":false,"company_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","actor_user_id":"10000000-0000-4000-8000-000000000001","oauth_client_id":"0f51b5aa-26a5-4835-980c-15274b99dc25","exposure_revision":"2026-09-07.mcp-exposure.v17","consent_catalog_revision":"2026-09-07.mcp-consent-catalog.v12","scope_ceiling":["ops.company.read","ops.customers.read","ops.financial_documents.prepare","ops.financial_documents.read","ops.jobs.read"],"policy_id":"67962352-79f9-48a6-b9ed-73ac3e12a7b8","policy_sha256":"sha256:646b941da2fcdab00718bf5c994c34a798709dac3ea7857f3f6509208c796c5f","effect_revision":"sha256:f24a501b096bfd14e1ed6f8e2662ae6fd4dfd68371d39521ee544cd3ce77d396","observed":{"held":1,"sync":0,"total":226.8,"status":"draft","numbers":1,"receipt":{"ok":true,"effect":"private_financial_draft_saved","run_id":"418f167d-6900-4ef1-83f0-482e878c99c8","effects":{"distribution":"held_private","provider_writes":0,"invoices_created":0,"estimates_created":1,"customer_acceptances":0,"customer_messages_sent":0,"project_totals_changed":0,"existing_documents_changed":0,"official_numbers_allocated":1},"replayed":false,"action_id":"cac4b134-5c40-41e7-b098-db6eb728b58f","estimate_id":"7a2a99f6-b1f0-4237-bb17-8b8e143b22b3","committed_at":"2026-09-08T04:12:30.20808+00:00","change_set_id":"02a3281a-773c-44b7-9832-164e1ffe38f9","document_kind":"estimate","preview_sha256":"sha256:da818f118d9bd643af5a6b0b2c80d3a839b85259766d4d9550ce49365987b013","receipt_sha256":"sha256:d95a9fd74da13bdaaf499b88f20181b1bff1ba1c707aa3950c573fd47a04a358","estimate_number":"EST-2026-00001","readback_sha256":"sha256:1f53916155f13bb60cbb99fca1365587c63cf68cceb5e643cce1c1aa7e103f45","document_version":1,"confirmation_receipt_id":"c682c616-ab27-4f14-b0c5-9a40b570ba4f"}}}
+
+ ✓ src/lib/agent-control-plane/mcp/__tests__/financial-trial-protocol.test.ts (7 tests) 19996ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > keeps public registration v14/v9 and refuses unbound or expanded financial subjects 1002ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > completes owner enrollment, fresh consent, PKCE exchange, protocol discovery, historical +8%, exact OPS approval and one held draft 4905ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > rejects bad PKCE and revoked consent between preview, decision and code exchange 1524ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > invalidates issued bearers on policy source, tax, owner and effect drift, with no additional financial rows 2674ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > expires real issued tokens and prevents extending or substituting the exact binding 6403ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > fences a prepared approval against revocation, including racing local calls and receipt replay 1654ms
+   ✓ Phase16 real local financial OAuth / HTTP / SQL acceptance > retires enrolled rules through the owner API and blocks a previously prepared approval without releasing holds 1589ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  21:12:15
+   Duration  29.55s (transform 3.68s, setup 452ms, collect 8.00s, tests 20.00s, environment 0ms, prepare 145ms)

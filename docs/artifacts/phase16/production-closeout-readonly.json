@@ -1,0 +1,12 @@
+{
+  "policies": 0,
+  "proposals": 0,
+  "observed_at": "2026-09-08T04:03:39.481455+00:00",
+  "effect_current": "sha256:1dbb20f58a47881a7838a77a2ae69cb55aea8142ba41e5c9b62c0b73a21ae4c5",
+  "held_estimates": 0,
+  "effect_installed": "sha256:1dbb20f58a47881a7838a77a2ae69cb55aea8142ba41e5c9b62c0b73a21ae4c5",
+  "financial_grants": 0,
+  "financial_bindings": 0,
+  "owner_migration_installed": false,
+  "trial_migration_installed": false
+}

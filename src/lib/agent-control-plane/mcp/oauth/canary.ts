@@ -10,6 +10,7 @@ import {
   MCP_CONSENT_CATALOG_V1,
   MCP_CONSENT_CATALOG_V2,
   MCP_CONSENT_CATALOG_V9,
+  MCP_CONSENT_CATALOG_V12,
 } from "./scope-catalog";
 import {
   MCP_EXPOSURE_V1,
@@ -17,6 +18,7 @@ import {
   resolveActiveMcpExposure,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
+  MCP_FINANCIAL_TRIAL_EXPOSURE,
   type McpExposure,
 } from "../../registry/mcp-exposure-catalog";
 
@@ -45,7 +47,7 @@ function clientMatchesExposure(
 }
 
 /**
- * Resolve OAuth authority from immutable server state. Inactive v3 clients
+ * Resolve OAuth authority from immutable server state. Inactive trial clients
  * never fall back to the public active exposure when their exact binding is
  * absent or unavailable.
  */
@@ -91,11 +93,20 @@ export async function resolveOAuthExposureForSubject(input: {
     return MCP_EXPOSURE_V2;
   }
 
+  const candidate = clientMatchesExposure(
+    input.client,
+    MCP_FINANCIAL_TRIAL_EXPOSURE,
+    MCP_CONSENT_CATALOG_V12.revision
+  )
+    ? MCP_FINANCIAL_TRIAL_EXPOSURE
+    : MCP_EXPOSURE_V3;
   if (
     !clientMatchesExposure(
       input.client,
-      MCP_EXPOSURE_V3,
-      MCP_CONSENT_CATALOG_V2.revision
+      candidate,
+      candidate === MCP_FINANCIAL_TRIAL_EXPOSURE
+        ? MCP_CONSENT_CATALOG_V12.revision
+        : MCP_CONSENT_CATALOG_V2.revision
     )
   ) {
     return null;
@@ -124,7 +135,7 @@ export async function resolveOAuthExposureForSubject(input: {
     ) {
       return null;
     }
-    return MCP_EXPOSURE_V3;
+    return candidate;
   } catch (error) {
     if (error instanceof McpOAuthStoreError) return null;
     throw error;

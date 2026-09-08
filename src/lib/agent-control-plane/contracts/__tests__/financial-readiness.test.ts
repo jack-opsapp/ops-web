@@ -44,8 +44,12 @@ describe("financial readiness contract", () => {
     ).toContain("exact approval in OPS");
     expect(
       consent.MCP_CONSENT_CATALOG[consent.MCP_CONSENT_CATALOG_V12.revision]
-    ).toBeUndefined();
-    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V17.revision]).toBeUndefined();
+    ).toBe(consent.MCP_CONSENT_CATALOG_V12);
+    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V17.revision].toolIds).toEqual([
+      "get_company_context",
+      "inspect_financial_document",
+      "prepare_financial_document",
+    ]);
     const snapshot = consent.consentSnapshotForExposure(
       MCP_EXPOSURE_V17,
       consent.MCP_CONSENT_CATALOG_V12
