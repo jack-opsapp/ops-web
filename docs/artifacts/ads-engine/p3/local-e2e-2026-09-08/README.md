@@ -50,3 +50,9 @@ For the approve step the worktree was temporarily checked out on a scratch merge
 - `POST /api/auth/sync-user` returns 500 locally because the baseline `users` table has no `auth_id` column; the admin gate still passed because `admins` carries `pete`'s email.
 - `ad_briefings` had to be created by hand (its DDL is not in the repo) and PostgREST needed a schema reload (`NOTIFY pgrst, 'reload schema'`) to see it.
 - Operator-approved failures do not raise `ADS CHANGE FAILED`; that alert is for unattended (auto) applies, where nobody is watching the card.
+
+## Integration (2026-09-09)
+
+`feat/ads-engine-p1` was merged into `feat/ads-engine-p3` for real (`fa553337b`), and current `origin/main` on top of that (`aae19f810`). The four overlapping files were resolved by keeping both sides, exactly as the scratch preview above predicted: the ads client carries phase 1's warehouse reports plus the engine's budget-pacing query, the admin page shows the readiness ledger while the account is dark and the engine console always, and the cron manifest and its isolation test list both new lanes. The branch is 46 commits ahead of `origin/main`, 0 behind.
+
+Proved on the merged branch: 433 tests across the ads, analytics, cron, console and attribution suites, and the engine SQL harness. Not proved, and not this work's: `src/lib/agent-control-plane` is red on `origin/main` itself — the same 7 test failures and the same `domain-dispatch.test.ts` type error appear on a clean checkout of `origin/main` with no ads code in it. Neither ads branch touches that directory.
