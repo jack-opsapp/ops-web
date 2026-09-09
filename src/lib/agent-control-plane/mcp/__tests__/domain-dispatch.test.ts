@@ -61,6 +61,9 @@ const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
   ["prepare_customer_message", "prepareCustomerMessage"],
   ["prepare_schedule_change", "prepareScheduleChange"],
   ["prepare_financial_document", "prepareFinancialDocument"],
+  ["inspect_catalog_changes", "inspectCatalogChanges"],
+  ["prepare_catalog_changes", "prepareCatalogChanges"],
+  ["prepare_inventory_adjustment", "prepareInventoryAdjustment"],
   ["inspect_financial_document", "inspectFinancialDocument"],
 ] as const;
 
@@ -82,6 +85,9 @@ describe("typed MCP domain dispatch", () => {
       | "prepare_dispatch_confirmation_task"
       | "prepare_customer_update"
       | "prepare_schedule_change"
+      | "inspect_catalog_changes"
+      | "prepare_catalog_changes"
+      | "prepare_inventory_adjustment"
       | "inspect_financial_document"
       | "prepare_financial_document"
       | "prepare_customer_message"
