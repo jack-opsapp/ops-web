@@ -138,6 +138,73 @@ describe("catalog MCP candidate and restricted trial protocol", () => {
     expect(JSON.stringify(result)).toContain("approval_required");
     expect(JSON.stringify(result)).toContain("untrusted");
   });
+  it.each(["prepare_catalog_changes", "prepare_inventory_adjustment"])(
+    "%s exposes a request conflict without encouraging an unchanged retry",
+    async (name) => {
+      const f = await fixture();
+      f.rpc.mockResolvedValueOnce({
+        data: null,
+        error: { code: "P0001", message: "CATALOG_IDEMPOTENCY_CONFLICT" },
+      });
+      const result = await f.call("tools/call", {
+        name,
+        arguments:
+          name === "prepare_catalog_changes"
+            ? REQUEST
+            : {
+                ...REQUEST,
+                operation: "inventory",
+                rows: [
+                  {
+                    row_key: "stock",
+                    source_row: "1",
+                    entity: "stock",
+                    existing_id: "10000000-0000-4000-8000-000000000001",
+                    expected_sha256: `sha256:${"a".repeat(64)}`,
+                    values: { quantity: "6", reason: "Counted" },
+                  },
+                ],
+              },
+      });
+      expect(result.result.isError).toBe(true);
+      const error = JSON.parse(result.result.content[0].text);
+      expect(error).toMatchObject({
+        code: "INVALID_ARGUMENT",
+        retryable: false,
+        request_id: f.input.requestId,
+        details: {
+          field_issues: [
+            {
+              path: ["idempotency_key"],
+              code: "CATALOG_IDEMPOTENCY_CONFLICT",
+            },
+          ],
+        },
+      });
+      expect(error.message).toMatch(/different changes/);
+      expect(error.message).toMatch(/Inspect current records/);
+      expect(error.message).toMatch(/new proposal/);
+    }
+  );
+  it.each([
+    ["P0001", "CATALOG_IDEMPOTENCY_CONFLICT private detail", "INTERNAL", true],
+    ["55P03", "CATALOG_IDEMPOTENCY_CONFLICT", "TEMPORARILY_UNAVAILABLE", true],
+    ["42501", "CATALOG_IDEMPOTENCY_CONFLICT", "FORBIDDEN", false],
+  ])(
+    "keeps %s failures separate from the exact business conflict",
+    async (code, message, expected, retryable) => {
+      const f = await fixture();
+      f.rpc.mockResolvedValueOnce({ data: null, error: { code, message } });
+      const result = await f.call("tools/call", {
+        name: "prepare_catalog_changes",
+        arguments: REQUEST,
+      });
+      const error = JSON.parse(result.result.content[0].text);
+      expect(error).toMatchObject({ code: expected, retryable });
+      expect(error.message).not.toContain("private detail");
+      expect(error.details?.field_issues).toBeUndefined();
+    }
+  );
   it("includes the exact nested request reference when host declarations hide row alternatives", async () => {
     const f = await fixture();
     const result = await f.call("tools/list", {});
