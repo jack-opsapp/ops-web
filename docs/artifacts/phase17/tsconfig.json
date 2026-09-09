@@ -5,6 +5,9 @@
     "plugins": []
   },
   "include": [
+    "../../../src/app/api/agent/queue/route.ts",
+    "../../../src/app/api/agent/queue/[actionId]/route.ts",
+    "../../../src/app/api/agent/queue/bulk/route.ts",
     "../../../src/app/api/feature-flags/route.ts",
     "../../../src/lib/store/feature-flags-store.ts",
     "../../../src/app/api/mcp/oauth/token/route.ts",

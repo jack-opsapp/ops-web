@@ -14,7 +14,7 @@ import {
 } from "../_lib/auth";
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { parseStatusesParam } from "@/lib/agent-queue/status-filter";
 import type {
   AgentActionStatus,
@@ -29,156 +29,154 @@ export async function GET(request: NextRequest) {
   // requireSupabase() would otherwise fall through to the anon browser
   // client and RLS policies on agent_actions would filter every row out.
   // Override it with the service-role client for the duration of this call.
-  setSupabaseOverride(getServiceRoleClient());
-
-  try {
-    const auth = await authenticateRequest(request);
-    if (isErrorResponse(auth)) return auth;
-
-    // The approval queue exposes proposed financial actions (invoices,
-    // payment reminders, etc.) with full context — reading it requires the
-    // granular `agent.review` grant, not merely manager status.
-    const gate = await requirePermission(auth, "agent.review");
-    if (gate) return gate;
-
-    const url = new URL(request.url);
-    const statsOnly = url.searchParams.get("statsOnly") === "true";
-    const countOnly = url.searchParams.get("countOnly") === "true";
-
-    if (statsOnly) {
-      const stats = await ApprovalQueueService.getStats(auth.companyId);
-      return NextResponse.json(stats);
-    }
-
-    if (countOnly) {
-      const count = await ApprovalQueueService.getPendingCount(auth.companyId);
-      return NextResponse.json({ count });
-    }
-
-    const status = url.searchParams.get("status") as AgentActionStatus | null;
-    const actionType = url.searchParams.get(
-      "actionType"
-    ) as AgentActionType | null;
-    const priority = url.searchParams.get(
-      "priority"
-    ) as AgentActionPriority | null;
-
-    // `?statuses=a,b` drives the HISTORY view. An unknown status is a client
-    // bug, so it becomes a 400 rather than a silently empty queue.
-    let statuses: AgentActionStatus[] | undefined;
+  return runWithSupabase(getServiceRoleClient(), async () => {
     try {
-      statuses = parseStatusesParam(url.searchParams.get("statuses"));
+      const auth = await authenticateRequest(request);
+      if (isErrorResponse(auth)) return auth;
+
+      // The approval queue exposes proposed financial actions (invoices,
+      // payment reminders, etc.) with full context — reading it requires the
+      // granular `agent.review` grant, not merely manager status.
+      const gate = await requirePermission(auth, "agent.review");
+      if (gate) return gate;
+
+      const url = new URL(request.url);
+      const statsOnly = url.searchParams.get("statsOnly") === "true";
+      const countOnly = url.searchParams.get("countOnly") === "true";
+
+      if (statsOnly) {
+        const stats = await ApprovalQueueService.getStats(auth.companyId);
+        return NextResponse.json(stats);
+      }
+
+      if (countOnly) {
+        const count = await ApprovalQueueService.getPendingCount(
+          auth.companyId
+        );
+        return NextResponse.json({ count });
+      }
+
+      const status = url.searchParams.get("status") as AgentActionStatus | null;
+      const actionType = url.searchParams.get(
+        "actionType"
+      ) as AgentActionType | null;
+      const priority = url.searchParams.get(
+        "priority"
+      ) as AgentActionPriority | null;
+
+      // `?statuses=a,b` drives the HISTORY view. An unknown status is a client
+      // bug, so it becomes a 400 rather than a silently empty queue.
+      let statuses: AgentActionStatus[] | undefined;
+      try {
+        statuses = parseStatusesParam(url.searchParams.get("statuses"));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Invalid statuses";
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
+
+      const actions = await ApprovalQueueService.getQueue(
+        auth.companyId,
+        {
+          status: status ?? undefined,
+          statuses,
+          actionType: actionType ?? undefined,
+          priority: priority ?? undefined,
+        },
+        auth.id
+      );
+
+      return NextResponse.json({ actions });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Invalid statuses";
-      return NextResponse.json({ error: message }, { status: 400 });
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("[agent/queue GET]", message);
+      return NextResponse.json({ error: message }, { status: 500 });
     }
-
-    const actions = await ApprovalQueueService.getQueue(
-      auth.companyId,
-      {
-        status: status ?? undefined,
-        statuses,
-        actionType: actionType ?? undefined,
-        priority: priority ?? undefined,
-      },
-      auth.id
-    );
-
-    return NextResponse.json({ actions });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[agent/queue GET]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
-  } finally {
-    setSupabaseOverride(null);
-  }
+  });
 }
 
 // ─── POST: Propose Action ─────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  setSupabaseOverride(getServiceRoleClient());
+  return runWithSupabase(getServiceRoleClient(), async () => {
+    try {
+      const auth = await authenticateRequest(request);
+      if (isErrorResponse(auth)) return auth;
 
-  try {
-    const auth = await authenticateRequest(request);
-    if (isErrorResponse(auth)) return auth;
+      // Proposing into the queue is gated by `agent.review` — the same grant
+      // that lets a user work the queue.
+      const gate = await requirePermission(auth, "agent.review");
+      if (gate) return gate;
 
-    // Proposing into the queue is gated by `agent.review` — the same grant
-    // that lets a user work the queue.
-    const gate = await requirePermission(auth, "agent.review");
-    if (gate) return gate;
+      const body = await request.json();
+      const {
+        actionType,
+        actionData,
+        contextSummary,
+        contextSource,
+        sourceId,
+        confidence,
+        priority,
+      } = body;
 
-    const body = await request.json();
-    const {
-      actionType,
-      actionData,
-      contextSummary,
-      contextSource,
-      sourceId,
-      confidence,
-      priority,
-    } = body;
+      if (!actionType || !actionData || !contextSummary) {
+        return NextResponse.json(
+          { error: "actionType, actionData, and contextSummary are required" },
+          { status: 400 }
+        );
+      }
 
-    if (!actionType || !actionData || !contextSummary) {
-      return NextResponse.json(
-        { error: "actionType, actionData, and contextSummary are required" },
-        { status: 400 }
-      );
+      const VALID_ACTION_TYPES = [
+        "create_project",
+        "create_task",
+        "create_invoice",
+        "send_email",
+        "send_status_email",
+        "send_invoice_email",
+        "send_payment_reminder",
+        "reassign_task",
+        "archive_project",
+        "close_project",
+        "client_health_alert",
+        "financial_insight",
+        "optimize_schedule",
+        "reschedule_tasks",
+        "send_appointment_confirmation",
+        "send_day_before_reminder",
+        "send_schedule_changed",
+        "send_subcontractor_coordination",
+        "process_reschedule_request",
+      ];
+      if (!VALID_ACTION_TYPES.includes(actionType)) {
+        return NextResponse.json(
+          { error: `Invalid action type: ${actionType}` },
+          { status: 400 }
+        );
+      }
+
+      const actionId = await ApprovalQueueService.proposeAction({
+        companyId: auth.companyId,
+        userId: auth.id,
+        actionType,
+        actionData,
+        contextSummary,
+        contextSource,
+        sourceId,
+        confidence,
+        priority,
+      });
+
+      if (!actionId) {
+        return NextResponse.json(
+          { message: "Duplicate action already pending" },
+          { status: 200 }
+        );
+      }
+
+      return NextResponse.json({ actionId }, { status: 201 });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("[agent/queue POST]", message);
+      return NextResponse.json({ error: message }, { status: 500 });
     }
-
-    const VALID_ACTION_TYPES = [
-      "create_project",
-      "create_task",
-      "create_invoice",
-      "send_email",
-      "send_status_email",
-      "send_invoice_email",
-      "send_payment_reminder",
-      "reassign_task",
-      "archive_project",
-      "close_project",
-      "client_health_alert",
-      "financial_insight",
-      "optimize_schedule",
-      "reschedule_tasks",
-      "send_appointment_confirmation",
-      "send_day_before_reminder",
-      "send_schedule_changed",
-      "send_subcontractor_coordination",
-      "process_reschedule_request",
-    ];
-    if (!VALID_ACTION_TYPES.includes(actionType)) {
-      return NextResponse.json(
-        { error: `Invalid action type: ${actionType}` },
-        { status: 400 }
-      );
-    }
-
-    const actionId = await ApprovalQueueService.proposeAction({
-      companyId: auth.companyId,
-      userId: auth.id,
-      actionType,
-      actionData,
-      contextSummary,
-      contextSource,
-      sourceId,
-      confidence,
-      priority,
-    });
-
-    if (!actionId) {
-      return NextResponse.json(
-        { message: "Duplicate action already pending" },
-        { status: 200 }
-      );
-    }
-
-    return NextResponse.json({ actionId }, { status: 201 });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[agent/queue POST]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
-  } finally {
-    setSupabaseOverride(null);
-  }
+  });
 }

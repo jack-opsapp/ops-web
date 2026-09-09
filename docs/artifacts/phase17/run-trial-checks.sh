@@ -3,6 +3,7 @@ set -eu
 NODE=/Users/jacksonsweet/.nvm/versions/node/v22.22.3/bin/node
 $NODE --test tests/build/catalog-client-boundary.test.mjs > docs/artifacts/phase17/trial-build-boundaries.log 2>&1
 $NODE node_modules/vitest/vitest.mjs run \
+  src/app/api/agent/queue/__tests__/request-isolation.test.ts \
   tests/unit/feature-flags/catalog-review-route.test.ts \
   tests/unit/feature-flags/feature-flags-store-actor-binding.test.ts \
   tests/integration/inbox/feature-flags-route.test.ts \
