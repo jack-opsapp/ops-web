@@ -113,6 +113,7 @@ function rig(
     existingPost?: { id: string; status: string } | null;
     lastScheduled?: Date | null;
     submitStatus?: string;
+    heartbeat?: string | null;
   } = {}
 ): Rig {
   const promotions: Rig["promotions"] = [];
@@ -132,6 +133,7 @@ function rig(
     readSettings: async () => ({
       mode: options.mode ?? "publish",
       delivery_gap_minutes: 1200,
+      authoring_heartbeat_at: options.heartbeat ?? null,
     }),
     listDrafted: async () => options.drafted ?? [row()],
     sourceStillCurrent: async () => options.unchanged ?? true,
@@ -155,6 +157,10 @@ function rig(
     checkAuthoringStall: async () => {
       calls.push("stall");
       return false;
+    },
+    clearAuthoringStall: async () => {
+      calls.push("clear-stall");
+      return 1;
     },
   };
   const deps: EditorialTickDependencies = {
@@ -435,5 +441,25 @@ describe("editorial tick", () => {
     expect(r.promotions).toMatchObject([
       { state: "blocked", code: "PACKAGE_MISSING" },
     ]);
+  });
+
+  it("clears the stall alarm once the writer has checked in", async () => {
+    const fresh = rig({
+      drafted: [],
+      heartbeat: new Date(NOW.getTime() - 60 * 60 * 1000).toISOString(),
+    });
+    await runEditorialTick(fresh.deps);
+    expect(fresh.calls.slice(-2)).toEqual(["stall", "clear-stall"]);
+
+    const stale = rig({
+      drafted: [],
+      heartbeat: new Date(NOW.getTime() - 27 * 60 * 60 * 1000).toISOString(),
+    });
+    await runEditorialTick(stale.deps);
+    expect(stale.calls).not.toContain("clear-stall");
+
+    const silent = rig({ drafted: [], heartbeat: null });
+    await runEditorialTick(silent.deps);
+    expect(silent.calls).not.toContain("clear-stall");
   });
 });

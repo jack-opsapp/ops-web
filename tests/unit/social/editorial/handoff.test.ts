@@ -45,6 +45,12 @@ const GUIDE = {
   sha256: createHash("sha256").update(GUIDE_CONTENT).digest("hex"),
   content: GUIDE_CONTENT,
 };
+const VOICE_CONTENT = "# OPS copywriter brief\nSay less. Mean more.\n";
+const VOICE = {
+  path: "docs/social/voice/ops-copywriter-brief.md",
+  sha256: createHash("sha256").update(VOICE_CONTENT).digest("hex"),
+  content: VOICE_CONTENT,
+};
 
 const source: EditorialSource = {
   id: BLOG_ID,
@@ -171,6 +177,7 @@ function rig(initial: Partial<EditorialAssignmentRecord> = {}): Rig {
       now: () => NOW,
       loadBrief: loadEditorialBrief,
       loadGuide: () => GUIDE,
+      loadVoice: () => VOICE,
     }),
     repository,
     finished,
@@ -313,7 +320,7 @@ describe("claim", () => {
     });
   });
 
-  it("hands over the whole brief, the guide and the article the routine cannot fetch", async () => {
+  it("hands over the whole brief, the voice, the guide and the article the routine cannot fetch", async () => {
     const r = rig();
     r.claimQueue.push(assignment({ source_snapshot: null }));
     const response = await r.handlers.claim(
@@ -334,8 +341,14 @@ describe("claim", () => {
       recent_hooks: ["An old hook about something else entirely"],
       format: loadEditorialBrief("protocol").format,
       limits: EDITORIAL_LIMITS,
+      voice: VOICE,
       guide: GUIDE,
     });
+    // The governing voice is the OPS copywriter brief; the Sam Parr guide is
+    // the pacing layer. Both arrive whole, with fingerprints the package keeps.
+    expect(body.assignment.voice.sha256).toBe(
+      createHash("sha256").update(VOICE_CONTENT).digest("hex")
+    );
     expect(body.assignment.source).toEqual({
       id: BLOG_ID,
       title: source.title,
@@ -599,7 +612,10 @@ describe("draft", () => {
     expect(stored?.state).toBe("drafted");
     expect(stored?.pack).toMatchObject({
       brief_version: EDITORIAL_BRIEF_VERSION,
-      references: [{ path: GUIDE.path, sha256: GUIDE.sha256 }],
+      references: [
+        { path: VOICE.path, sha256: VOICE.sha256 },
+        { path: GUIDE.path, sha256: GUIDE.sha256 },
+      ],
       review: review(),
       usage: [{ stage: "writer", model: "claude", input: 10, output: 20 }],
     });
