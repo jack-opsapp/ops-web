@@ -1,3 +1,4 @@
+import { z } from "zod-v4";
 import {
   CatalogCommitInputSchema,
   CatalogAuthoringRequestSchema,
@@ -94,6 +95,14 @@ function definition(
   description: string
 ): ImplementationOnlyCapabilityDefinition {
   const read = name === "inspect_catalog_changes";
+  const inputSchema =
+    name === "prepare_catalog_changes"
+      ? CatalogAuthoringRequestSchema.refine((r) => r.operation === "catalog")
+      : name === "prepare_inventory_adjustment"
+        ? CatalogAuthoringRequestSchema.refine(
+            (r) => r.operation === "inventory"
+          )
+        : CatalogAuthoringRequestSchema;
   return {
     name,
     schemaRevision: CATALOG_AUTHORING_REVISION,
@@ -106,15 +115,11 @@ function definition(
               ? "inventory_adjustment"
               : "catalog",
         }),
-    description,
-    inputSchema:
-      name === "prepare_catalog_changes"
-        ? CatalogAuthoringRequestSchema.refine((r) => r.operation === "catalog")
-        : name === "prepare_inventory_adjustment"
-          ? CatalogAuthoringRequestSchema.refine(
-              (r) => r.operation === "inventory"
-            )
-          : CatalogAuthoringRequestSchema,
+    // Keep the exact schema available in normal tool discovery even when a
+    // host renders nested object unions as unknown. Generate it from the same
+    // validator: no parallel handwritten contract and no relaxed input schema.
+    description: `${description}\n\nUse the request reference below for nested row fields and formats. Ask the owner for missing business details, not technical IDs or schemas. Omit unknown costs. Compute source.sha256 from the actual source text or bytes; never invent a digest.\nRequest JSON Schema:\n${JSON.stringify(z.toJSONSchema(inputSchema, { io: "input" }))}`,
+    inputSchema,
     authorization,
     riskTier: "high",
     bounds: {
@@ -167,6 +172,8 @@ function commitDefinition(
       "Save only the exact proposal reviewed by its named operator in OPS. Current scoped authority is rechecked from the sealed request inside the database transaction."
     ),
     name,
+    description:
+      "Save only the exact proposal reviewed by its named operator in OPS. Current scoped authority is rechecked from the sealed request inside the database transaction.",
     operation: "commit",
     inputSchema: CatalogCommitInputSchema,
     authorization: {
