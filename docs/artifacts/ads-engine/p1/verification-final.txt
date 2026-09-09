@@ -1,0 +1,34 @@
+# Final verification — Google Ads engine phase 1 (measurement), 2026-09-09 ~04:50 UTC
+# worktree /Users/jacksonsweet/Projects/OPS/ops-web-ads-engine-p1, branch feat/ads-engine-p1
+
+## ops-web unit (tests/unit/analytics tests/unit/admin tests/unit/ads tests/unit/pmf src/app/admin/google-ads + cron isolation)
+ Test Files  38 passed (38)
+      Tests  375 passed (375)
+(baseline on pristine origin/main: 28 files, 299 tests)
+
+## PG17 harnesses
+=== node tests/sql/ads-conversion-outbox-runtime.mjs
+PASS: outbox tables + grants, plan value, trial_started/activated/paid triggers under app + webhook roles, idempotence, gbraid/wbraid capture + expiry
+exit=0
+=== node tests/sql/ads-warehouse-grain-runtime.mjs
+PASS: grain tables + keys + RLS + indexes, keyword table recreated, funnel view arithmetic, entity snapshot upsert
+exit=0
+
+## tsc --noEmit (NODE_OPTIONS=--max-old-space-size=8192)
+tsc exit=0
+error count: 0   (baseline: 3, both in agent-control-plane test files)
+
+## sibling repos
+=== try-ops npm test
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+=== try-ops tsc
+exit=0
+=== ops-site npm test
+# tests 130
+# pass 130
+# fail 0
+
+## production objects: migration-verify.txt (ledger 20260909023503), migration-verify-grain.txt (ledger 20260909041702)
+## Data Manager: validateOnly request v-7291313a-0955-4637-a7c2-f1b89fe92d1c, live request 3ac0bc8f-4d84-4bf2-98f2-1ebe4a3817e3
+## readiness ledger: readiness-ledger.png (see runbook caveat)
