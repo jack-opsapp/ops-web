@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import type { AdminChangeRow, AdminProposalRow, AdminRunRow, EngineAdminRepository, EngineSettingsPatch, EngineSettingsRow } from "./admin";
 import type { ApplyProposalRecord, ApplyRepository, NewChange, NewTest } from "./apply";
 import type { BriefRepository, FunnelRow, MarketDigest, ProposalSummary, RunSummary } from "./brief";
 import { vancouverMonthStart } from "./brief";
@@ -92,7 +93,39 @@ function summaryOf(row: Record<string, unknown>): ProposalSummary {
 const RUN_FIELDS = "id,state,worker,claim_token,lease_until,duties,brief_version,submission_counts,proposals_accepted,proposals_rejected";
 const PROPOSAL_FIELDS = "id,run_id,kind,target,state,payload,rationale,review_notes,error,google_validation,created_at,expires_at";
 
-export type EngineRepository = EngineHandoffRepository & BriefRepository & WorkerRepository & ApplyRepository;
+export type EngineRepository = EngineHandoffRepository & BriefRepository & WorkerRepository & ApplyRepository & EngineAdminRepository;
+
+const ADMIN_PROPOSAL_FIELDS =
+  "id,run_id,kind,target,submission_index,state,mode_at_submit,payload,evidence,rationale,review_notes,reviewed_by,reviewed_at,applied_at,applied_by,applied_resource_names,label,error,google_validation,created_at,expires_at,updated_at";
+const RUN_ADMIN_FIELDS = "id,state,worker,duties,outcome,summary,proposals_accepted,proposals_rejected,brief_version,created_at,released_at";
+const PROPOSAL_STATES = ["proposed", "approved", "rejected", "applied", "failed", "expired"] as const;
+
+function adminRowOf(row: Record<string, unknown>): AdminProposalRow {
+  return {
+    id: String(row.id),
+    run_id: String(row.run_id),
+    kind: row.kind as ProposalKind,
+    target: String(row.target),
+    submission_index: Number(row.submission_index ?? 0),
+    state: row.state as AdminProposalRow["state"],
+    mode_at_submit: row.mode_at_submit as "propose" | "auto",
+    payload: (row.payload as Record<string, unknown>) ?? {},
+    evidence: Array.isArray(row.evidence) ? row.evidence : [],
+    rationale: String(row.rationale ?? ""),
+    review_notes: typeof row.review_notes === "string" ? row.review_notes : null,
+    reviewed_by: typeof row.reviewed_by === "string" ? row.reviewed_by : null,
+    reviewed_at: typeof row.reviewed_at === "string" ? row.reviewed_at : null,
+    applied_at: typeof row.applied_at === "string" ? row.applied_at : null,
+    applied_by: typeof row.applied_by === "string" ? row.applied_by : null,
+    applied_resource_names: Array.isArray(row.applied_resource_names) ? (row.applied_resource_names as string[]) : null,
+    label: typeof row.label === "string" ? row.label : null,
+    error: typeof row.error === "string" ? row.error : null,
+    google_validation: (row.google_validation as Record<string, unknown>) ?? null,
+    created_at: String(row.created_at),
+    expires_at: String(row.expires_at),
+    updated_at: String(row.updated_at),
+  };
+}
 
 const TEST_FIELDS = "id,campaign_id,ad_group_id,ad_group_name,control_ad_id,challenger_ad_id,started_at,min_days,min_impressions,max_days,state,stats,verdict_at";
 const CHANGE_FIELDS = "id,proposal_id,kind,campaign_id,ad_group_id,resource_names,before,after,applied_at,measure_from,measure_to,pre_metrics,post_metrics,verdict,verdict_at";
@@ -521,6 +554,101 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
     },
     async refreshSnapshot() {
       await refreshEntitySnapshot();
+    },
+
+    // ─── Admin ───────────────────────────────────────────────────────────────
+
+    async listProposals(states) {
+      const { data, error } = await db.from("ads_proposals").select(ADMIN_PROPOSAL_FIELDS).in("state", states).order("created_at", { ascending: false }).limit(300);
+      if (error) throw error;
+      return (data ?? []).map((row) => adminRowOf(row as Record<string, unknown>));
+    },
+    async findProposal(id) {
+      const { data, error } = await db.from("ads_proposals").select(ADMIN_PROPOSAL_FIELDS).eq("id", id).maybeSingle();
+      if (error) throw error;
+      return data ? adminRowOf(data as Record<string, unknown>) : null;
+    },
+    async reviewProposal(id, decision, reviewer, notes) {
+      const { data, error } = await db.rpc("review_ads_proposal", { p_id: id, p_decision: decision, p_reviewer: reviewer, p_notes: notes });
+      if (error) throw error;
+      return typeof data === "string" ? data : null;
+    },
+    async readSettingsRow() {
+      const { data, error } = await db.from("ads_engine_settings").select("*").eq("id", true).single();
+      if (error) throw error;
+      const row = data as Record<string, unknown>;
+      return {
+        ...settingsOf(row),
+        stall_notified_on: typeof row.stall_notified_on === "string" ? row.stall_notified_on : null,
+        updated_at: String(row.updated_at),
+      } satisfies EngineSettingsRow;
+    },
+    async updateSettings(patch: EngineSettingsPatch) {
+      const { modes, ...scalars } = patch;
+      const update: Record<string, unknown> = { ...scalars, updated_at: new Date().toISOString() };
+      if (modes) {
+        const { data, error } = await db.from("ads_engine_settings").select("modes").eq("id", true).single();
+        if (error) throw error;
+        update.modes = { ...((data as { modes: Record<string, string> }).modes ?? {}), ...modes };
+      }
+      const { error } = await db.from("ads_engine_settings").update(update).eq("id", true);
+      if (error) throw error;
+      const { data: after, error: readError } = await db.from("ads_engine_settings").select("*").eq("id", true).single();
+      if (readError) throw readError;
+      const row = after as Record<string, unknown>;
+      return { ...settingsOf(row), stall_notified_on: typeof row.stall_notified_on === "string" ? row.stall_notified_on : null, updated_at: String(row.updated_at) } satisfies EngineSettingsRow;
+    },
+    listTests: readTests,
+    async listChanges(sinceIso) {
+      const changes = await readLedger(sinceIso);
+      const ids = [...new Set(changes.map((c) => c.proposal_id))];
+      const proposals = new Map<string, AdminChangeRow["proposal"]>();
+      if (ids.length > 0) {
+        const { data, error } = await db.from("ads_proposals").select("id,kind,rationale,reviewed_by,applied_by,label").in("id", ids);
+        if (error) throw error;
+        for (const row of data ?? []) {
+          const r = row as Record<string, unknown>;
+          proposals.set(String(r.id), {
+            kind: r.kind as ProposalKind,
+            rationale: String(r.rationale ?? ""),
+            reviewed_by: typeof r.reviewed_by === "string" ? r.reviewed_by : null,
+            applied_by: typeof r.applied_by === "string" ? r.applied_by : null,
+            label: typeof r.label === "string" ? r.label : null,
+          });
+        }
+      }
+      return changes.map((change) => ({ ...change, proposal: proposals.get(change.proposal_id) ?? null })) as AdminChangeRow[];
+    },
+    funnelByKeyword: readFunnelByKeyword,
+    async lastRuns(limit) {
+      const { data, error } = await db.from("ads_engine_runs").select(RUN_ADMIN_FIELDS).order("created_at", { ascending: false }).limit(limit);
+      if (error) throw error;
+      return (data ?? []).map((row) => {
+        const r = row as Record<string, unknown>;
+        return {
+          id: String(r.id),
+          state: String(r.state),
+          worker: String(r.worker ?? ""),
+          duties: Array.isArray(r.duties) ? (r.duties as string[]) : [],
+          outcome: typeof r.outcome === "string" ? r.outcome : null,
+          summary: typeof r.summary === "string" ? r.summary : null,
+          proposals_accepted: Number(r.proposals_accepted ?? 0),
+          proposals_rejected: Number(r.proposals_rejected ?? 0),
+          brief_version: typeof r.brief_version === "string" ? r.brief_version : null,
+          created_at: String(r.created_at),
+          released_at: typeof r.released_at === "string" ? r.released_at : null,
+        } satisfies AdminRunRow;
+      });
+    },
+    async countByState() {
+      const counts = await Promise.all(
+        PROPOSAL_STATES.map(async (state) => {
+          const { count, error } = await db.from("ads_proposals").select("id", { count: "exact", head: true }).eq("state", state);
+          if (error) throw error;
+          return [state, count ?? 0] as const;
+        })
+      );
+      return Object.fromEntries(counts) as Record<(typeof PROPOSAL_STATES)[number], number>;
     },
   };
 }
