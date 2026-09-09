@@ -1598,7 +1598,7 @@ export async function queryEntitySnapshot(): Promise<EntityRow[]> {
       queryGoogleAds(`
         SELECT campaign.resource_name, campaign.id, campaign.name, campaign.status,
                campaign.serving_status, campaign.advertising_channel_type, campaign.campaign_budget,
-               campaign.bidding_strategy_type, campaign.start_date, campaign.end_date, campaign.labels,
+               campaign.bidding_strategy_type, campaign.start_date_time, campaign.end_date_time, campaign.labels,
                campaign.network_settings.target_google_search, campaign.network_settings.target_search_network,
                campaign.network_settings.target_content_network, campaign.network_settings.target_partner_search_network,
                campaign.target_spend.cpc_bid_ceiling_micros

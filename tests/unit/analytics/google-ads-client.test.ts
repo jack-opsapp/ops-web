@@ -340,6 +340,31 @@ describe("google-ads-client request layer", () => {
     for (const r of requests) expect(r.url).toContain("/v25/");
   });
 
+  /**
+   * v25 removed the bare `campaign.start_date` / `campaign.end_date` fields;
+   * the account answers a query that selects them with
+   * `UNRECOGNIZED_FIELD`, which took the whole daily sync down on
+   * 2026-09-08 (Google request CnGpVfygOu0M3ED2DpjO3w). The replacements are
+   * `campaign.start_date_time` / `campaign.end_date_time`.
+   */
+  it("selects only v25 campaign date fields in the entity snapshot", async () => {
+    installFetch(
+      [customerClientRow(MANAGER_ID, 0, true), customerClientRow(CLIENT_ID, 1, false)],
+      []
+    );
+    const client = await importClient();
+    await client.queryEntitySnapshot();
+    const campaignQuery = requests
+      .map((r) => String((r.body as { query?: string }).query ?? ""))
+      .find((q) => /FROM campaign\s/.test(q));
+    expect(campaignQuery).toBeDefined();
+    expect(campaignQuery).toContain("campaign.start_date_time");
+    expect(campaignQuery).toContain("campaign.end_date_time");
+    // The removed names, matched without swallowing their replacements.
+    expect(campaignQuery).not.toMatch(/campaign\.start_date(?!_time)/);
+    expect(campaignQuery).not.toMatch(/campaign\.end_date(?!_time)/);
+  });
+
   it("reads reports through searchStream and merges chunks in order", async () => {
     installStreamFetch(
       [customerClientRow(MANAGER_ID, 0, true), customerClientRow(CLIENT_ID, 1, false)],
