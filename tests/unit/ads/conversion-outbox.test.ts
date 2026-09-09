@@ -181,7 +181,8 @@ describe("processOutbox", () => {
     const e1 = event({ company_id: "c1" });
     const e2 = event({ company_id: "c2", kind: "paid", value: 1680 });
     const repo = fakeRepo([e1, e2], new Map([["c1", { gclid: "G1" }], ["c2", { gclid: "G2" }]]));
-    const ingest = vi.fn<IngestFn>(async () => ({ requestId: `req-${ingest.mock.calls.length}`, fieldWarnings: [] }));
+    let calls = 0;
+    const ingest = vi.fn<IngestFn>(async () => ({ requestId: `req-${++calls}`, fieldWarnings: [] }));
     const out = await processOutbox({ validateOnly: false, now: NOW }, { repo, ingest, accounts: async () => ACCOUNTS });
     expect(ingest).toHaveBeenCalledTimes(2);
     expect(ingest.mock.calls[0][1]).toEqual({ validateOnly: false });
@@ -268,11 +269,13 @@ describe("processOutbox", () => {
         ],
       },
     });
+    let calls = 0;
     const ingest = vi.fn<IngestFn>(async (request) => {
+      calls += 1;
       if (request.events.some((e) => e.adIdentifiers?.gclid?.startsWith("FAKE"))) {
         throw new DataManagerApiError(400, violation);
       }
-      return { requestId: `ok-${ingest.mock.calls.length}`, fieldWarnings: [] };
+      return { requestId: `ok-${calls}`, fieldWarnings: [] };
     });
     const out = await processOutbox({ validateOnly: false, now: NOW }, { repo, ingest, accounts: async () => ACCOUNTS });
 
