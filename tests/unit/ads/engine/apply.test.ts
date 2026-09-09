@@ -1,13 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  applyProposal,
-  planOperations,
-  type AdsGateway,
-  type ApplyProposalRecord,
-  type ApplyRepository,
-  type MutateOperation,
-  type MutateResult,
-} from "@/lib/ads/engine/apply";
+import { applyProposal, planOperations, type AdsGateway, type ApplyProposalRecord, type ApplyRepository, type MutateOperation, type MutateResult, describeGoogleError } from "@/lib/ads/engine/apply";
 import { goodRsa, NOW, R, snapshot } from "./fixtures";
 
 const CUSTOMER = "4454506598";
@@ -345,5 +337,21 @@ describe("applyProposal", () => {
     const auto = await apply(proposal({ state: "proposed", mode_at_submit: "auto" }), r);
     expect(auto.state).toBe("applied");
     expect(r.calls).toHaveLength(2);
+  });
+});
+
+describe("describeGoogleError", () => {
+  const raw =
+    'Google Ads API error (400): [{"error":{"code":400,"message":"Request contains an invalid argument.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure","errors":[{"errorCode":{"mutateError":"RESOURCE_NOT_FOUND"},"message":"Resource was not found.","trigger":{"int64Value":"502"},"location":{"fieldPathElements":[{"fieldName":"mutate_operations","index":0},{"fieldName":"shared_criterion_operation"},{"fieldName":"create"},{"fieldName":"shared_set"}]}}],"requestId":"_JkObu9KPBQBt7YEYgP5dg"}]}}]';
+
+  it("turns Google's refusal into one line with the code, the field and the request id", () => {
+    expect(describeGoogleError(raw)).toBe(
+      "Google refused this change (400 RESOURCE_NOT_FOUND): Resource was not found · mutate_operations[0].shared_criterion_operation.create.shared_set · request _JkObu9KPBQBt7YEYgP5dg"
+    );
+  });
+
+  it("leaves anything that is not a Google error alone", () => {
+    expect(describeGoogleError("fetch failed")).toBe("fetch failed");
+    expect(describeGoogleError("Google Ads API error (503): <html>")).toBe("Google refused this change (503): <html>");
   });
 });

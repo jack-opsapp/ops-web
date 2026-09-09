@@ -107,6 +107,49 @@ export type ApplyOutcome =
   | { state: "validated"; validation: MutateResult; label: string | null }
   | { state: "failed"; validation: MutateResult | null; error: string; policyTopics: string[] };
 
+// ─── Google refusals in one line ─────────────────────────────────────────────
+
+/**
+ * The client throws "Google Ads API error (400): <GoogleAdsFailure json>".
+ * The card shows one line a person can act on: the error code, Google's
+ * message, the field it points at and the request id; the raw text stays in
+ * the validation record for anyone who needs the whole thing.
+ */
+export function describeGoogleError(raw: string): string {
+  const match = /^Google Ads API error \((\d{3})\): ([\s\S]*)$/.exec(raw.trim());
+  if (!match) return raw;
+  const status = match[1];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(match[2]);
+  } catch {
+    return `Google refused this change (${status}): ${match[2].slice(0, 300)}`;
+  }
+  const body = Array.isArray(parsed) ? parsed[0] : parsed;
+  const err = isRecord(body) && isRecord(body.error) ? body.error : null;
+  const details = err && Array.isArray(err.details) ? err.details : [];
+  const failure = details.find((d): d is Record<string, unknown> => isRecord(d) && Array.isArray(d.errors));
+  const first = failure && Array.isArray(failure.errors) && isRecord(failure.errors[0]) ? failure.errors[0] : null;
+  const codeMap = first && isRecord(first.errorCode) ? first.errorCode : null;
+  const code = codeMap ? Object.values(codeMap).find((v) => typeof v === "string") : null;
+  const message = first && typeof first.message === "string" ? first.message.replace(/\.$/, "") : err && typeof err.message === "string" ? err.message : "no detail";
+  const location = first && isRecord(first.location) && Array.isArray(first.location.fieldPathElements)
+    ? first.location.fieldPathElements
+        .map((e) => (isRecord(e) && typeof e.fieldName === "string" ? (typeof e.index === "number" ? `${e.fieldName}[${e.index}]` : e.fieldName) : null))
+        .filter((x): x is string => !!x)
+        .join(".")
+    : "";
+  const requestId = failure && typeof failure.requestId === "string" ? failure.requestId : null;
+  const parts = [`Google refused this change (${status}${code ? ` ${code}` : ""}): ${message}`];
+  if (location) parts.push(location);
+  if (requestId) parts.push(`request ${requestId}`);
+  return parts.join(" · ");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 // ─── Planning ────────────────────────────────────────────────────────────────
 
 export interface Plan {
@@ -394,8 +437,9 @@ export async function applyProposal(proposal: ApplyProposalRecord, deps: ApplyDe
   try {
     validation = await deps.gateway.mutate(plan.operations, { validateOnly: true, partialFailure: false });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await deps.repository.markApplied(proposal.id, "failed", { validateOnly: true, error: message }, null, plan.label, message);
+    const raw = error instanceof Error ? error.message : String(error);
+    const message = describeGoogleError(raw);
+    await deps.repository.markApplied(proposal.id, "failed", { validateOnly: true, error: raw }, null, plan.label, message);
     return { state: "failed", validation: null, error: message, policyTopics: [] };
   }
   if (validation.failures.length > 0) {
@@ -413,8 +457,9 @@ export async function applyProposal(proposal: ApplyProposalRecord, deps: ApplyDe
   try {
     real = await deps.gateway.mutate(plan.operations, { validateOnly: false, partialFailure: false });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await deps.repository.markApplied(proposal.id, "failed", validationRecord(validation, true, { realError: message }), null, plan.label, message);
+    const raw = error instanceof Error ? error.message : String(error);
+    const message = describeGoogleError(raw);
+    await deps.repository.markApplied(proposal.id, "failed", validationRecord(validation, true, { realError: raw }), null, plan.label, message);
     return { state: "failed", validation, error: message, policyTopics: [] };
   }
   if (real.failures.length > 0) {
