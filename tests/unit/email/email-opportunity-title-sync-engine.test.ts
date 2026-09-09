@@ -198,6 +198,8 @@ interface SupabaseState {
   syncLockResult?: unknown;
   syncLockError?: string;
   activityInsertError?: string;
+  workRoutingFailures?: number;
+  workNotifications?: string[];
   opportunityStageUpdateError?: string;
   opportunityEnrichmentUpdateError?: string;
   correspondenceEventInsertError?: string;
@@ -245,6 +247,11 @@ function makeSupabaseDouble(state: SupabaseState) {
 
     eq(column: string, value: unknown) {
       this.filters.set(column, value);
+      return this;
+    }
+
+    in(column: string, values: unknown[]) {
+      this.filters.set(column, values);
       return this;
     }
 
@@ -587,6 +594,10 @@ function makeSupabaseDouble(state: SupabaseState) {
       ) {
         const match = (state.correspondenceEvents ?? []).filter((event) => {
           for (const [column, value] of this.filters.entries()) {
+            if (Array.isArray(value)) {
+              if (!value.includes(event[column])) return false;
+              continue;
+            }
             if (
               String(event[column] ?? "").toLowerCase() !==
               String(value ?? "").toLowerCase()
@@ -602,6 +613,10 @@ function makeSupabaseDouble(state: SupabaseState) {
       if (this.table === "lead_field_provenance" && this.action === "select") {
         const match = (state.provenanceRows ?? []).filter((row) => {
           for (const [column, value] of this.filters.entries()) {
+            if (Array.isArray(value)) {
+              if (!value.includes(row[column])) return false;
+              continue;
+            }
             if (
               String(row[column] ?? "").toLowerCase() !==
               String(value ?? "").toLowerCase()
@@ -618,6 +633,10 @@ function makeSupabaseDouble(state: SupabaseState) {
         const match = state.clients.filter((client) => {
           for (const [column, value] of this.filters.entries()) {
             if (column === "deleted_at") continue;
+            if (Array.isArray(value)) {
+              if (!value.includes(client[column])) return false;
+              continue;
+            }
             if (
               String(client[column] ?? "").toLowerCase() !==
               String(value ?? "").toLowerCase()
@@ -667,6 +686,10 @@ function makeSupabaseDouble(state: SupabaseState) {
         const match = (state.subClients ?? []).filter((subClient) => {
           for (const [column, value] of this.filters.entries()) {
             if (column === "deleted_at") continue;
+            if (Array.isArray(value)) {
+              if (!value.includes(subClient[column])) return false;
+              continue;
+            }
             if (
               String(subClient[column] ?? "").toLowerCase() !==
               String(value ?? "").toLowerCase()
@@ -775,6 +798,10 @@ function makeSupabaseDouble(state: SupabaseState) {
               if (project.deleted_at) return false;
               continue;
             }
+            if (Array.isArray(value)) {
+              if (!value.includes(project[column])) return false;
+              continue;
+            }
             if (
               String(project[column] ?? "").toLowerCase() !==
               String(value ?? "").toLowerCase()
@@ -855,6 +882,23 @@ function makeSupabaseDouble(state: SupabaseState) {
       return new Query(table);
     },
     rpc: vi.fn(async (name: string, params: Record<string, unknown>) => {
+      if (name === "route_email_work_correspondence_as_system") {
+        state.rpcCalls?.push({ name, params });
+        if ((state.workRoutingFailures ?? 0) > 0) {
+          state.workRoutingFailures!--;
+          return { data: null, error: { message: "routing temporarily unavailable" } };
+        }
+        const activity = state.activities.find((row) => row.id === params.p_activity_id && row.company_id === params.p_company_id && row.email_connection_id === params.p_connection_id && row.email_message_id === params.p_provider_message_id && row.email_thread_id === params.p_provider_thread_id);
+        if (!activity || activity.opportunity_id) return { data: null, error: { message: "source ownership conflict" } };
+        if (activity.match_confidence !== "existing_job" && activity.match_confidence !== "work_intent_review") {
+          activity.client_id = params.p_client_id;
+          activity.project_id = params.p_project_id;
+          activity.match_confidence = params.p_needs_review ? "work_intent_review" : "existing_job";
+          activity.match_needs_review = params.p_needs_review;
+          if (activity.direction === "inbound") (state.workNotifications ??= []).push(String(activity.id));
+        }
+        return { data: true, error: null };
+      }
       if (name === "claim_legacy_email_activity_connection_as_system") {
         state.rpcCalls?.push({ name, params });
         if (state.legacyActivityClaimRpcError) {
@@ -1942,6 +1986,62 @@ describe("SyncEngine email opportunity title generation", () => {
   afterEach(() => {
     vi.useRealTimers();
     setSupabaseOverride(null);
+  });
+
+  it.each(["forwarded damage", "pattern damage", "ambiguous job", "separate new job", "retry", "outbound retry"])("keeps existing-job correspondence out of sales: %s", async (scenario) => {
+    const state: SupabaseState = {
+      clients: [{ id: "client-erin", company_id: "company-1", name: "Erin Young", email: "erin@example.com" }],
+      subClients: [{ id: "sub-sean", company_id: "company-1", client_id: "client-erin", email: "sean@example.com" }],
+      projects: [{ id: "project-deck", company_id: "company-1", client_id: "client-erin", address: "541 Prince Robert Lane", status: "in_progress" }],
+      opportunities: [{ id: "archived-lead", company_id: "company-1", client_id: "client-erin", stage: "new_lead", archived_at: "2026-05-01T00:00:00Z" }],
+      activities: [], threadLinks: [], rpcCalls: [],
+      workRoutingFailures: scenario.endsWith("retry") ? 1 : 0,
+    };
+    if (scenario === "ambiguous job") state.projects!.push({ ...state.projects![0], id: "second-project", address: "10 Douglas Street" });
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const isNew = scenario === "separate new job";
+    const body = isNew ? "Could you quote a new fence at our other property?" : "Something was thrown off the deck and damaged the tenant's baby gate. The crew offered to replace it. Should I pay her and deduct it from the bill?";
+    const forwarded = scenario === "forwarded damage";
+    const outbound = scenario === "outbound retry";
+    const email = baseEmail({ id: "job-correspondence", threadId: "job-thread",
+      from: forwarded ? "Office Victoria <victoria@canprodeckandrail.com>" : "Sean Hayes <sean@example.com>",
+      fromName: forwarded ? "Office Victoria" : "Sean Hayes", to: ["jackson@canprodeckandrail.com"],
+      subject: forwarded ? "Fwd: damaged gate" : scenario === "pattern damage" ? "Canpro Deck and Rail Estimate" : "Deck question",
+      bodyText: forwarded ? `---------- Forwarded message ---------\nFrom: Sean Hayes <sean@example.com>\nDate: Today\nSubject: damaged gate\nTo: Office Victoria <victoria@canprodeckandrail.com>\n\n${body}` : body,
+      snippet: body, labelIds: ["INBOX"] });
+    if (outbound) Object.assign(email, { from: "jackson@canprodeckandrail.com", to: ["sean@example.com"], labelIds: ["SENT"] });
+    getConnectionMock.mockResolvedValue(baseConnection({ userId: "user-1" }));
+    getProviderMock.mockReturnValue({ providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({ emails: [email], nextSyncToken: "sync-token-2" })),
+      fetchSentEmailsSince: vi.fn(async () => ({ emails: outbound ? [email] : [], nextSyncToken: "sync-token-2" })) });
+    matchMock.mockResolvedValue({ action: "link", clientId: "client-erin", confidence: "exact_email" });
+    reviewUnmatchedEmailsMock.mockResolvedValue({ classifiedLeads: [{ email, clientName: "Sean Hayes", clientEmail: "sean@example.com", clientPhone: null,
+      address: null, description: body, stage: "negotiation", terminalFlag: "likely_won", confidence: 0.97, estimatedValue: null,
+      workIntent: isNew ? "new_work" : "existing_job", newWorkEvidence: isNew ? body : null }], newLeadsClassified: isNew ? 1 : 0 });
+    const first = await SyncEngine.runSync("connection-1");
+    if (scenario.endsWith("retry")) {
+      expect(first.errors.join(" ")).toContain("routing temporarily unavailable");
+      expect(state.opportunities).toHaveLength(1);
+    } else expect(first.errors).toEqual([]);
+    if (scenario.endsWith("retry")) expect((await SyncEngine.runSync("connection-1")).errors).toEqual([]);
+    expect(state.clients).toHaveLength(1);
+    expect(state.opportunities).toHaveLength(isNew ? 2 : 1);
+    expect(state.opportunities[0].archived_at).toBe("2026-05-01T00:00:00Z");
+    expect(state.activities).toHaveLength(1);
+    if (!isNew) {
+      expect(first.newLeads).toBe(0);
+      expect(state.activities[0]).toMatchObject({ opportunity_id: null,
+        project_id: scenario === "ambiguous job" || outbound ? null : "project-deck",
+        match_confidence: scenario === "ambiguous job" || outbound ? "work_intent_review" : "existing_job" });
+      expect(state.workNotifications ?? []).toHaveLength(outbound ? 0 : 1);
+      const calls = reviewUnmatchedEmailsMock.mock.calls.length;
+      expect((await SyncEngine.runSync("connection-1")).errors).toEqual([]);
+      expect(reviewUnmatchedEmailsMock.mock.calls.length).toBe(calls);
+      expect(state.activities).toHaveLength(1);
+      expect(state.workNotifications ?? []).toHaveLength(outbound ? 0 : 1);
+      expect(state.threadLinks).toHaveLength(0);
+      expect(phaseCRouteMock).not.toHaveBeenCalled();
+    }
   });
 
   it("skips the cycle when another worker owns the sync lease", async () => {

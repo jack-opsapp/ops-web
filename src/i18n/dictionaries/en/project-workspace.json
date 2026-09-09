@@ -39,6 +39,7 @@
   "activity.empty": "No activity yet.",
   "activity.composerPlaceholder": "Note · @ to mention · drop photos to attach",
   "activity.author.system": "System",
+  "activity.kind.email": "EMAIL",
   "activity.kind.note": "NOTE",
   "activity.kind.statusChange": "STATUS",
   "activity.kind.estimateSent": "ESTIMATE SENT",

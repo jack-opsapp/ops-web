@@ -1,3 +1,5 @@
+import { retainImportForWorkReview } from "@/lib/email/import-email-work-review";
+import { isEmailWorkRoutingReceipt } from "@/lib/email/email-work-routing";
 /**
  * OPS Web - Gmail Historical Import
  *
@@ -914,7 +916,7 @@ async function processMessage(
   // Dedup: check if we already have this message
   const { data: existing, error: existingError } = await supabase
     .from("activities")
-    .select("id, opportunity_id, client_id, is_read")
+    .select("id, opportunity_id, client_id, is_read, match_confidence")
     .eq("company_id", companyId)
     .eq("email_connection_id", connectionId)
     .eq("email_message_id", providerMessageId)
@@ -931,8 +933,11 @@ async function processMessage(
         opportunity_id: string | null;
         client_id: string | null;
         is_read: boolean | null;
+        match_confidence?: string | null;
       }
     | undefined;
+
+  if (isEmailWorkRoutingReceipt(existingActivity)) return { matched: true, needsReview: existingActivity?.match_confidence === "work_intent_review", leadCreated: false };
 
   // Full payload is required: form submitter identity, job details, and body
   // facts do not exist in Gmail metadata/snippets reliably.
@@ -1269,6 +1274,13 @@ async function processMessage(
       markClassificationDirty: true,
     });
   };
+
+  if (!existingActivity?.opportunity_id) {
+    const workReview = await retainImportForWorkReview({ supabase, companyId, connectionId, connectionEmail,
+      customerEmail, messages: [{ providerMessageId, providerThreadId, fromEmail: effectiveFromEmail || "",
+        subject, occurredAt, direction, bodyText, bodyTextClean: "bodyTextClean" in effectiveEmail ? effectiveEmail.bodyTextClean : undefined }] });
+    if (workReview.held) return { matched: true, needsReview: true, leadCreated: false };
+  }
 
   // Activity creation can succeed immediately before a later semantic write
   // fails. A retry must repair those idempotent side effects instead of

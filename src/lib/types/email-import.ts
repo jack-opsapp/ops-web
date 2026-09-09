@@ -223,6 +223,8 @@ export interface ActivationPayload {
 
 // Import result
 export interface ImportResult {
+  /** Retained customer correspondence that requires explicit new-work review. */
+  correspondenceHeld?: number;
   clientsCreated: number;
   leadsCreated: number;
   activitiesLogged: number;

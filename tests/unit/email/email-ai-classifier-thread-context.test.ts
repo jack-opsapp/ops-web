@@ -69,7 +69,7 @@ describe("reclassifyWithThreadContext — request shape", () => {
   it("sends BOTH directions of the conversation, the company's own replies included", async () => {
     const { fake, create } = client(
       jsonResponse([
-        { id: "message-landlord", verdict: "personal_or_admin", confidence: 0.94 },
+        { id: "message-landlord", verdict: "personal_or_admin", confidence: 0.94, workIntent: "uncertain", newWorkEvidence: null },
       ])
     );
 
@@ -149,7 +149,7 @@ describe("reclassifyWithThreadContext — contract handling", () => {
   it("returns the personal_or_admin verdict the single-message lane could not reach", async () => {
     const { fake } = client(
       jsonResponse([
-        { id: "message-landlord", verdict: "personal_or_admin", confidence: 0.94 },
+        { id: "message-landlord", verdict: "personal_or_admin", confidence: 0.94, workIntent: "uncertain", newWorkEvidence: null },
       ])
     );
 
@@ -160,7 +160,7 @@ describe("reclassifyWithThreadContext — contract handling", () => {
     );
 
     expect(results).toEqual([
-      { id: "message-landlord", verdict: "personal_or_admin", confidence: 0.94 },
+      { id: "message-landlord", verdict: "personal_or_admin", confidence: 0.94, workIntent: "uncertain", newWorkEvidence: null },
     ]);
   });
 

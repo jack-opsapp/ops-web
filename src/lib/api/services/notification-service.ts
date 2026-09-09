@@ -7,6 +7,7 @@ export type NotificationType =
   | "pipeline_complete"
   | "gmail_sync"
   | "email_sync_complete"
+  | "email_correspondence"
   | "email_signature_required"
   | "email_identity_confirmation_required"
   | "intel_available"
