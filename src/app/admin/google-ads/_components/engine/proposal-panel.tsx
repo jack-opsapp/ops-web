@@ -4,8 +4,11 @@
  * The engine's inbox: everything waiting for Jackson, one card each, with a
  * batch bar when several negative lists wait at once. Skeleton while pending
  * (a paused fetch must never read as empty), a quiet line when nothing waits.
+ * A card Jackson has just decided stays where it was, with its outcome, until
+ * the page is loaded again: the list refetch drops reviewed rows, and a
+ * Google rejection that vanished a second after it appeared would be lost.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { AdminProposalRow } from "@/lib/ads/engine/admin";
 import type { ReviewOutcome, ReviewResponse } from "@/lib/hooks/use-ads-engine";
@@ -26,8 +29,18 @@ export function ProposalPanel({ proposals, isPending, error, onReview, onRetry, 
   const [outcomes, setOutcomes] = useState<Record<string, ReviewOutcome>>({});
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [decided, setDecided] = useState<Record<string, AdminProposalRow>>({});
+
+  const rows = useMemo(() => {
+    const live = proposals ?? [];
+    const liveIds = new Set(live.map((p) => p.id));
+    const kept = Object.values(decided).filter((p) => !liveIds.has(p.id));
+    return kept.length === 0 ? live : [...live, ...kept].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [proposals, decided]);
 
   const review = async (id: string, decision: "approve" | "reject", notes?: string) => {
+    const row = rows.find((p) => p.id === id);
+    if (row) setDecided((current) => ({ ...current, [id]: row }));
     setBusy((current) => new Set(current).add(id));
     setErrors((current) => ({ ...current, [id]: "" }));
     try {
@@ -72,11 +85,11 @@ export function ProposalPanel({ proposals, isPending, error, onReview, onRetry, 
         <PanelStatus tone="error" action={onRetry ? { label: BUTTONS.retry, onClick: onRetry } : undefined}>
           {ERROR.load}
         </PanelStatus>
-      ) : (proposals ?? []).length === 0 ? (
+      ) : rows.length === 0 ? (
         <PanelStatus>{EMPTY.proposals}</PanelStatus>
       ) : (
         <ul className="mt-1 space-y-1">
-          {(proposals ?? []).map((proposal) => (
+          {rows.map((proposal) => (
             <li key={proposal.id}>
               <ProposalCard proposal={proposal} outcome={outcomes[proposal.id] ?? null} busy={busy.has(proposal.id)} error={errors[proposal.id] || null} onReview={review} now={now} />
             </li>

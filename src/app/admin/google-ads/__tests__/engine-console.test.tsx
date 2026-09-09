@@ -175,10 +175,15 @@ describe("ProposalPanel", () => {
 
   it("shows a failed apply with Google's reason and keeps the card decided", async () => {
     const onReview = vi.fn(async () => ({ proposal: proposal({ state: "failed" }), outcome: { state: "failed" as const, validation: null, error: "POLICY_FINDING@0: Trademark", policyTopics: ["TRADEMARKS"] } }));
-    render(<ProposalPanel proposals={[challenger()]} isPending={false} error={null} onReview={onReview} now={NOW} />);
+    const { rerender } = render(<ProposalPanel proposals={[challenger()]} isPending={false} error={null} onReview={onReview} now={NOW} />);
     fireEvent.click(screen.getByRole("button", { name: "APPROVE" }));
     await waitFor(() => expect(screen.getByText("FAILED")).toBeInTheDocument());
     expect(screen.getByText("POLICY_FINDING@0: Trademark")).toBeInTheDocument();
+    // The list refetch no longer returns the reviewed row; the card stays with its verdict.
+    rerender(<ProposalPanel proposals={[]} isPending={false} error={null} onReview={onReview} now={NOW} />);
+    expect(screen.getByText("FAILED")).toBeInTheDocument();
+    expect(screen.getByText("POLICY_FINDING@0: Trademark")).toBeInTheDocument();
+    expect(screen.queryByText("No proposals waiting.")).not.toBeInTheDocument();
   });
 });
 
