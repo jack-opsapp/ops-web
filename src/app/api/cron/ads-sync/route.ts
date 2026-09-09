@@ -10,6 +10,7 @@ import {
   CronDatabaseOperationError,
   runWithCronWorkloadControl,
 } from "@/lib/api/services/cron-workload-control-service";
+import { refreshReadinessProbe } from "@/lib/ads/readiness-probe";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 
 export const maxDuration = 60;
@@ -88,6 +89,15 @@ export async function GET(request: NextRequest) {
           });
 
           await reportAdsProviderHealth(supabase, { blocked: false });
+
+          // Refresh the engine readiness ledger once a day, so the admin page
+          // never depends on someone remembering to run the probe.
+          try {
+            await refreshReadinessProbe(supabase);
+          } catch (probeError) {
+            console.error("[ads-sync] readiness probe refresh failed:", probeError);
+          }
+
           return { date: dateStr, extension, degraded: null as string | null };
         } catch (error) {
           if (error instanceof CronDatabaseOperationError) {
