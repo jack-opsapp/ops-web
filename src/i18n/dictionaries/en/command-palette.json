@@ -1,0 +1,55 @@
+{
+  "input.placeholder": "Search or run a command",
+
+  "group.projects": "Projects",
+  "group.clients": "Clients",
+  "group.leads": "Leads",
+  "group.tasks": "Tasks",
+  "group.documents": "Documents",
+  "group.countSeparator": "·",
+  "group.create": "Create",
+  "group.navigation": "Navigation",
+  "group.settings": "Settings",
+  "group.system": "System",
+
+  "empty.title": "// NO MATCHES",
+  "empty.body": "Try fewer words, a phone number, or a document number.",
+
+  "error.title": "// SEARCH UNAVAILABLE",
+  "error.retry": "Retry",
+
+  "footer.navigate": "Navigate",
+  "footer.select": "Select",
+  "footer.close": "Close",
+
+  "row.invoice": "Invoice",
+  "row.estimate": "Estimate",
+
+  "settings.profile": "Profile",
+  "settings.appearance": "Appearance",
+  "settings.notifications": "Notifications",
+  "settings.shortcuts": "Keyboard Shortcuts",
+  "settings.company": "Company Details",
+  "settings.team": "Team Members",
+  "settings.roles": "Roles & Permissions",
+  "settings.taskTypes": "Task Types",
+  "settings.inventory": "Inventory",
+  "settings.expenses": "Expenses",
+  "settings.quickActions": "Quick Actions",
+  "settings.subscription": "Subscription",
+  "settings.billing": "Payment",
+  "settings.integrations": "Email Integration",
+  "settings.portal": "Client Portal",
+  "settings.templates": "Document Templates",
+  "settings.accounting": "Accounting Integration",
+  "settings.preferences": "General Preferences",
+  "settings.map": "Map Preferences",
+  "settings.dataPrivacy": "Data & Privacy",
+
+  "system.sync": "Sync Data",
+  "system.sync.toast": "Syncing all data",
+  "system.reportBug": "Report a bug",
+  "system.shortcuts": "Keyboard Shortcuts",
+  "system.shortcuts.toast": "1-9 Navigate · ⌘K Search · ⌘⇧P New project · ⌘⇧C New client · Esc Close",
+  "system.signOut": "Sign Out"
+}

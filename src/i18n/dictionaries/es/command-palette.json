@@ -1,0 +1,55 @@
+{
+  "input.placeholder": "Busca o ejecuta un comando",
+
+  "group.projects": "Proyectos",
+  "group.clients": "Clientes",
+  "group.leads": "Prospectos",
+  "group.tasks": "Tareas",
+  "group.documents": "Documentos",
+  "group.countSeparator": "·",
+  "group.create": "Crear",
+  "group.navigation": "Navegación",
+  "group.settings": "Configuración",
+  "group.system": "Sistema",
+
+  "empty.title": "// SIN COINCIDENCIAS",
+  "empty.body": "Prueba con menos palabras, un teléfono o un número de documento.",
+
+  "error.title": "// BÚSQUEDA NO DISPONIBLE",
+  "error.retry": "Reintentar",
+
+  "footer.navigate": "Navegar",
+  "footer.select": "Seleccionar",
+  "footer.close": "Cerrar",
+
+  "row.invoice": "Factura",
+  "row.estimate": "Cotización",
+
+  "settings.profile": "Perfil",
+  "settings.appearance": "Apariencia",
+  "settings.notifications": "Notificaciones",
+  "settings.shortcuts": "Atajos de teclado",
+  "settings.company": "Datos de la empresa",
+  "settings.team": "Miembros del equipo",
+  "settings.roles": "Roles y permisos",
+  "settings.taskTypes": "Tipos de tarea",
+  "settings.inventory": "Inventario",
+  "settings.expenses": "Gastos",
+  "settings.quickActions": "Acciones rápidas",
+  "settings.subscription": "Suscripción",
+  "settings.billing": "Pagos",
+  "settings.integrations": "Integración de correo",
+  "settings.portal": "Portal del cliente",
+  "settings.templates": "Plantillas de documentos",
+  "settings.accounting": "Integración contable",
+  "settings.preferences": "Preferencias generales",
+  "settings.map": "Preferencias del mapa",
+  "settings.dataPrivacy": "Datos y privacidad",
+
+  "system.sync": "Sincronizar datos",
+  "system.sync.toast": "Sincronizando todos los datos",
+  "system.reportBug": "Reportar un error",
+  "system.shortcuts": "Atajos de teclado",
+  "system.shortcuts.toast": "1-9 Navegar · ⌘K Buscar · ⌘⇧P Nuevo proyecto · ⌘⇧C Nuevo cliente · Esc Cerrar",
+  "system.signOut": "Cerrar sesión"
+}

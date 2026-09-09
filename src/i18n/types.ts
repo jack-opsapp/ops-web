@@ -35,6 +35,7 @@ export type Namespace =
   | 'calibration'
   | 'notifications'
   | 'quick-actions'
+  | 'command-palette'
   | 'server-emails'
   | 'unsubscribe'
   | 'project-workspace'
