@@ -52,6 +52,7 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
+import { useOpenDocumentFromUrl } from "../use-open-document-from-url";
 import { InvoiceFormModal } from "../modals/invoice-form-modal";
 import { RecordPaymentModal } from "../modals/record-payment-modal";
 import { FilterChips, DrillChip } from "../segment-toolbar";
@@ -174,6 +175,16 @@ export function InvoicesSegment({
   const { data: invoices = [], isLoading } = useInvoices();
   const { data: invoiceDetail, isLoading: isEditingDetailLoading } = useInvoice(editingInvoice?.id);
   const isEditingLoading = !!editingInvoice && (isEditingDetailLoading || !invoiceDetail);
+
+  // Universal search lands here as `?segment=invoices&invoice=<id>`: open that
+  // invoice's detail once, then drop the id from the URL.
+  useOpenDocumentFromUrl<Invoice>({
+    param: "invoice",
+    useDocument: useInvoice,
+    onOpen: setEditingInvoice,
+    notFoundMessage: tb("openByLink.invoiceNotFound"),
+  });
+
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();

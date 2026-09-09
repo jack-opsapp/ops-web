@@ -58,6 +58,7 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
+import { useOpenDocumentFromUrl } from "../use-open-document-from-url";
 import { EstimateFormModal } from "../modals/estimate-form-modal";
 import {
   FilterChips,
@@ -147,6 +148,16 @@ export function EstimatesSegment({
     editingEstimate?.id,
   );
   const isEditingLoading = !!editingEstimate && (isEditingDetailLoading || !estimateDetail);
+
+  // Universal search lands here as `?segment=estimates&estimate=<id>`: open that
+  // estimate's detail once, then drop the id from the URL.
+  useOpenDocumentFromUrl<Estimate>({
+    param: "estimate",
+    useDocument: useEstimate,
+    onOpen: setEditingEstimate,
+    notFoundMessage: tb("openByLink.estimateNotFound"),
+  });
+
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();

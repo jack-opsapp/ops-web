@@ -348,5 +348,7 @@
   "expenses.reject.sending": "SENDING",
   "expenses.reject.approveAll": "APPROVE ALL",
   "expenses.reject.approving": "APPROVING",
-  "expenses.reject.noDate": "No date"
+  "expenses.reject.noDate": "No date",
+  "openByLink.invoiceNotFound": "// INVOICE NOT FOUND",
+  "openByLink.estimateNotFound": "// ESTIMATE NOT FOUND"
 }

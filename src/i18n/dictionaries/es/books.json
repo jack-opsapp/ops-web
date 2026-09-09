@@ -348,5 +348,7 @@
   "expenses.reject.sending": "ENVIANDO",
   "expenses.reject.approveAll": "APROBAR TODO",
   "expenses.reject.approving": "APROBANDO",
-  "expenses.reject.noDate": "Sin fecha"
+  "expenses.reject.noDate": "Sin fecha",
+  "openByLink.invoiceNotFound": "// FACTURA NO ENCONTRADA",
+  "openByLink.estimateNotFound": "// COTIZACIÓN NO ENCONTRADA"
 }
