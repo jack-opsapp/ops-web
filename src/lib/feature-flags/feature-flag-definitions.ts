@@ -32,6 +32,8 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   // Per-company Website API pilot. The settings section checks this slug
   // directly; no unrelated /settings route is commercially gated.
   external_api: [],
+  // Exact trial review hint, not a company automation flag. No prefix routes.
+  mcp_catalog_review: [],
 };
 
 // ─── Permission Mapping ──────────────────────────────────────────────────────

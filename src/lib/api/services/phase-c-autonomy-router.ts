@@ -1,3 +1,4 @@
+import { isEmailWorkRoutingReceipt } from "@/lib/email/email-work-routing";
 /**
  * OPS Web - Phase C Autonomy Router
  *
@@ -904,6 +905,18 @@ export const PhaseCAutonomyRouter = {
           return syncIncompleteResult(thread, "off");
         }
         throw error;
+      }
+
+      if (!thread.opportunityId) {
+        const { data: latestActivity, error: workRoutingError } = await requireSupabase()
+          .from("activities").select("match_confidence, opportunity_id")
+          .eq("company_id", thread.companyId).eq("email_connection_id", thread.connectionId)
+          .eq("email_thread_id", thread.providerThreadId).eq("type", "email")
+          .order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1).maybeSingle();
+        if (workRoutingError) throw workRoutingError;
+        if (latestActivity && !latestActivity.opportunity_id && isEmailWorkRoutingReceipt(latestActivity)) {
+          return { outcome: "noop_held_for_review", category, effectiveLevel: "off", detail: "Existing-job correspondence or uncertain new-work intent" };
+        }
       }
 
       const mailboxPolicy = await PhaseCCategoryAutonomy.get(

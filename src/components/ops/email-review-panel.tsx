@@ -42,7 +42,7 @@ interface ReviewItem {
   subject: string;
   content: string | null;
   fromEmail: string | null;
-  matchConfidence: "exact" | "domain" | "phone" | "thread" | "unmatched" | null;
+  matchConfidence: "exact" | "domain" | "phone" | "thread" | "unmatched" | "work_intent_review" | null;
   suggestedClientId: string | null;
   suggestedClientName: string | null;
   clientId: string | null;
@@ -395,7 +395,8 @@ function UnmatchedCard({
   isIgnoring: boolean;
   isBlocking: boolean;
 }) {
-  const domain = extractDomain(item.fromEmail);
+  const workReview = item.matchConfidence === "work_intent_review";
+  const domain = workReview ? null : extractDomain(item.fromEmail);
   const busy = isIgnoring || isBlocking;
 
   return (
@@ -422,7 +423,7 @@ function UnmatchedCard({
 
       {/* Snippet */}
       {item.content && (
-        <p className="line-clamp-2 font-mohave text-xs leading-relaxed text-[#999]">
+        <p className={cn("font-mohave text-xs leading-relaxed text-text-2", workReview ? "whitespace-pre-wrap" : "line-clamp-2")}>
           {item.content}
         </p>
       )}
@@ -430,7 +431,7 @@ function UnmatchedCard({
       {/* Actions */}
       <div className="flex flex-col gap-2">
         <Button
-          variant="primary"
+          variant={workReview ? "ghost" : "primary"}
           size="sm"
           className="w-full"
           onClick={onCreateLead}
@@ -441,7 +442,7 @@ function UnmatchedCard({
         </Button>
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
+            variant={workReview ? "primary" : "ghost"}
             size="sm"
             className="flex-1"
             onClick={onIgnore}
@@ -449,7 +450,7 @@ function UnmatchedCard({
             loading={isIgnoring}
           >
             <EyeOff className="h-3.5 w-3.5" />
-            Ignore
+            {workReview ? "Done" : "Ignore"}
           </Button>
           {domain && (
             <Button
@@ -554,9 +555,11 @@ export function EmailReviewPanel({
   // Split items into tabs
   const needsReview = allItems.filter(
     (i) =>
-      i.matchConfidence !== "unmatched" &&
-      i.matchConfidence !== "exact" &&
-      i.suggestedClientId
+      i.matchConfidence === "work_intent_review" || (
+        i.matchConfidence !== "unmatched" &&
+        i.matchConfidence !== "exact" &&
+        i.suggestedClientId
+      )
   );
   const unmatched = allItems.filter(
     (i) => i.matchConfidence === "unmatched" && !i.clientId
@@ -724,7 +727,15 @@ export function EmailReviewPanel({
               ) : (
                 <div className="space-y-3">
                   {activeTab === "needs-review" &&
-                    needsReview.map((item) => (
+                    needsReview.map((item) => item.matchConfidence === "work_intent_review" ? (
+                      <UnmatchedCard key={item.id} item={item}
+                        onCreateLead={() => handleCreateLead(item)}
+                        onIgnore={() => handleIgnore(item.id)}
+                        onBlockDomain={() => handleBlockDomain(item.fromEmail)}
+                        isIgnoring={actioningId === item.id && actionType === "ignore"}
+                        isBlocking={false}
+                      />
+                    ) : (
                       <NeedsReviewCard
                         key={item.id}
                         item={item}

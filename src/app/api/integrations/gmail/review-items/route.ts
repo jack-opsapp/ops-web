@@ -48,13 +48,15 @@ export async function GET(request: NextRequest) {
     const { data: gmailConnections, error: gmailConnectionsError } =
       await supabase
         .from("email_connections")
-        .select("id")
+        .select("id, provider")
         .eq("company_id", actorResolution.actor.companyId)
-        .eq("provider", "gmail");
+        .in("provider", ["gmail", "microsoft365"]);
     if (gmailConnectionsError) throw gmailConnectionsError;
     const gmailConnectionIds = (gmailConnections ?? []).map((connection) =>
       String(connection.id)
     );
+    const gmailOnlyIds = (gmailConnections ?? []).filter((connection) => connection.provider === "gmail")
+      .map((connection) => String(connection.id));
     const allowedConnectionIds = authorizationFilter.connectionIds
       ? authorizationFilter.connectionIds.filter((connectionId) =>
           gmailConnectionIds.includes(connectionId)
@@ -83,15 +85,20 @@ export async function GET(request: NextRequest) {
     let activitiesQuery = supabase
       .from("activities")
       .select(
-        "id, subject, content, from_email, match_confidence, suggested_client_id, client_id, email_thread_id, email_connection_id, opportunity_id, created_at"
+        "id, subject, content, body_text_clean, body_text, from_email, match_confidence, suggested_client_id, client_id, email_thread_id, email_connection_id, opportunity_id, created_at"
       )
       .eq("type", "email")
       .eq("company_id", actorResolution.actor.companyId)
       .in("email_connection_id", allowedConnectionIds)
       .eq("is_read", false)
-      .gte("created_at", windowStart)
+      .or(`created_at.gte.${windowStart},match_confidence.eq.work_intent_review`)
       .or("match_needs_review.eq.true,match_confidence.eq.unmatched")
       .order("created_at", { ascending: false });
+    // Existing match actions remain Gmail-only. Microsoft holds use the
+    // mailbox-authorized work-review action, so surface only those cards.
+    activitiesQuery = gmailOnlyIds.length
+      ? activitiesQuery.or(`email_connection_id.in.(${gmailOnlyIds.join(",")}),match_confidence.eq.work_intent_review`)
+      : activitiesQuery.eq("match_confidence", "work_intent_review");
     if (authorizationFilter.unlinkedOnly) {
       activitiesQuery = activitiesQuery.is("opportunity_id", null);
     }
@@ -139,7 +146,7 @@ export async function GET(request: NextRequest) {
     const items = activities.map((a) => ({
       id: a.id,
       subject: a.subject,
-      content: a.content,
+      content: a.match_confidence === "work_intent_review" ? (a.body_text_clean?.trim() || a.body_text || a.content) : a.content,
       fromEmail: a.from_email,
       matchConfidence: a.match_confidence,
       suggestedClientId: a.suggested_client_id,

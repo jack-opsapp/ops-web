@@ -4,7 +4,7 @@ import type { EditorialKind } from "./policy";
 // Bumped whenever the writing instructions or the accepted shape change, and
 // stamped onto every package so a draft can always be traced to the brief that
 // produced it.
-export const EDITORIAL_BRIEF_VERSION = "ops-editorial-2026-09-07-v3";
+export const EDITORIAL_BRIEF_VERSION = "ops-editorial-2026-09-08-v4";
 
 // A near-duplicate hook is the failure the writer cannot see, so the claim
 // always carries the recent history it has to stay clear of.

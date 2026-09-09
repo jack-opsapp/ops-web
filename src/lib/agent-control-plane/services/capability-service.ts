@@ -1,4 +1,10 @@
 import {
+  createCatalogAuthoringService,
+  isTrustedCatalogAuthoringService,
+  type CatalogAuthoringService,
+} from "./catalog-authoring/catalog-authoring-service";
+import { CATALOG_AUTHORING_MANIFEST } from "../contracts/catalog-authoring";
+import {
   isTrustedFinancialDocumentService,
   type FinancialDocumentService,
 } from "./financial-document/financial-document-service";
@@ -80,7 +86,8 @@ import {
 
 const TRUSTED_CAPABILITY_SERVICES = new WeakSet<object>();
 
-export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
+export type OpsAgentCapabilityService = CatalogAuthoringService &
+  OpsAgentReadCatalogueService &
   DayCloseoutService &
   CollectionsService &
   HiringWhatIfService &
@@ -113,6 +120,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly customerUpdate: CustomerUpdateService;
   readonly scheduleChange: ScheduleChangeService;
   readonly financialDocument: FinancialDocumentService;
+  readonly catalogAuthoring: CatalogAuthoringService;
   readonly customerMessage: CustomerMessageService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
 }): OpsAgentCapabilityService {
@@ -162,6 +170,8 @@ export function createOpsAgentCapabilityService(input: {
       "A trusted dispatch confirmation task service is required"
     );
   }
+  if (!isTrustedCatalogAuthoringService(input.catalogAuthoring))
+    throw new TypeError("A trusted catalog authoring service is required");
   if (!isTrustedFinancialDocumentService(input.financialDocument))
     throw new TypeError("A trusted financial document service is required");
   if (!isTrustedScheduleChangeService(input.scheduleChange))
@@ -211,6 +221,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.customerUpdate,
     ...input.scheduleChange,
     ...input.financialDocument,
+    ...input.catalogAuthoring,
     ...input.customerMessage,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
@@ -234,8 +245,9 @@ export async function reauthorizeCustomerUpdateReadActor(
 ): Promise<ActorContext> {
   if (
     !isActorContext(actor) ||
-    (actor.capabilityManifestRevision !==
-      CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
+    (actor.capabilityManifestRevision !== CATALOG_AUTHORING_MANIFEST &&
+      actor.capabilityManifestRevision !==
+        CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
       actor.capabilityManifestRevision !==
         CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION &&
       actor.capabilityManifestRevision !==

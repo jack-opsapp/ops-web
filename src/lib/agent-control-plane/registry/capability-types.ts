@@ -86,6 +86,16 @@ export type CapabilityIdempotencyPolicy =
     }>;
 
 export type CapabilityAuthorizationSelector =
+  | Readonly<{
+      kind: "catalog_authoring_effect";
+      effect:
+        | "catalog"
+        | "inventory"
+        | "products"
+        | "import"
+        | "prices"
+        | "costs";
+    }>
   | Readonly<{ kind: "always" }>
   | Readonly<{ kind: "input_always" }>
   | Readonly<{
@@ -507,6 +517,18 @@ function isExactAuthorizationSelector(
   if (typeof value !== "object" || value === null) return false;
   const selector = value as Record<string, unknown>;
   switch (selector.kind) {
+    case "catalog_authoring_effect":
+      return (
+        hasExactKeys(selector, ["kind", "effect"]) &&
+        [
+          "catalog",
+          "inventory",
+          "products",
+          "import",
+          "prices",
+          "costs",
+        ].includes(selector.effect as string)
+      );
     case "always":
     case "input_always":
       return hasExactKeys(selector, ["kind"]);

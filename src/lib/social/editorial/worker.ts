@@ -44,6 +44,7 @@ export interface EditorialWorkerRepository {
   readSettings(): Promise<{
     mode: "off" | "prepare" | "publish";
     delivery_gap_minutes: number;
+    authoring_heartbeat_at: string | null;
   }>;
   listDrafted(limit: number): Promise<EditorialAssignmentRow[]>;
   sourceStillCurrent(source: EditorialSource): Promise<boolean>;
@@ -69,6 +70,7 @@ export interface EditorialWorkerRepository {
     operator: EditorialOperator,
     staleHours: number
   ): Promise<boolean>;
+  clearAuthoringStall(operator: EditorialOperator): Promise<number>;
 }
 
 export interface EditorialTickDependencies {
@@ -96,6 +98,16 @@ const MINIMUM_REVIEW_MINUTES = 11;
 const PROMOTION_LIMIT = 3;
 const MAX_ATTEMPTS = 3;
 export const AUTHORING_STALE_HOURS = 26;
+
+export function authoringHeartbeatFresh(
+  heartbeatAt: string | null,
+  now: Date
+): boolean {
+  if (!heartbeatAt) return false;
+  const at = Date.parse(heartbeatAt);
+  if (Number.isNaN(at)) return false;
+  return now.getTime() - at < AUTHORING_STALE_HOURS * 60 * 60 * 1000;
+}
 export const EDITORIAL_IDEMPOTENCY_PREFIX = "cloud-editorial-v2:";
 const DELIVERED_STATUSES = ["review", "publishing", "published"];
 
@@ -398,8 +410,13 @@ export async function runEditorialTick(d: EditorialTickDependencies): Promise<{
   }
 
   const notified = d.operator ? await d.repository.notify(d.operator) : 0;
-  if (d.operator)
+  if (d.operator) {
     await d.repository.checkAuthoringStall(d.operator, AUTHORING_STALE_HOURS);
+    // The stall alarm is persistent, so the rail can only clear it once the
+    // writer has actually checked in again.
+    if (authoringHeartbeatFresh(settings.authoring_heartbeat_at, now))
+      await d.repository.clearAuthoringStall(d.operator);
+  }
 
   return {
     state: promoted > 0 ? "promoted" : discovered > 0 ? "discovered" : "idle",

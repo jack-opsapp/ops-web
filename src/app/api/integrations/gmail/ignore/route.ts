@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const { data: activity, error: readError } = await supabase
       .from("activities")
       .select(
-        "company_id, email_connection_id, email_thread_id, opportunity_id"
+        "company_id, email_connection_id, email_thread_id, opportunity_id, match_confidence"
       )
       .eq("id", activityId)
       .eq("company_id", actorResolution.actor.companyId)
@@ -63,11 +63,29 @@ export async function POST(request: NextRequest) {
       .eq("id", activity.email_connection_id)
       .eq("company_id", actorResolution.actor.companyId)
       .maybeSingle();
-    if (connectionError || !connection || connection.provider !== "gmail") {
+    if (connectionError || !connection || (connection.provider !== "gmail" && activity.match_confidence !== "work_intent_review")) {
       return NextResponse.json(
         { error: "Activity not found" },
         { status: 404 }
       );
+    }
+    // Message-scoped forwards deliberately have no shared email_threads row.
+    // Authorize the exact mailbox before acknowledging a durable work review.
+    if (activity.match_confidence === "work_intent_review" && !activity.opportunity_id) {
+      const { data: allowed, error: accessError } = await supabase.rpc("authorize_email_inbox_action_as_system", {
+        p_actor_user_id: actorResolution.actor.userId, p_connection_id: activity.email_connection_id,
+        p_opportunity_id: null, p_action: "view",
+      });
+      if (accessError || allowed !== true) return NextResponse.json({ error: "Activity not found" }, { status: 404 });
+      const { data: acknowledged, error: acknowledgeError } = await supabase.from("activities")
+        .update({ is_read: true, match_needs_review: false })
+        .eq("id", activityId).eq("company_id", actorResolution.actor.companyId)
+        .eq("email_connection_id", activity.email_connection_id)
+        .eq("match_confidence", "work_intent_review").is("opportunity_id", null)
+        .select("id").maybeSingle();
+      if (acknowledgeError) throw acknowledgeError;
+      if (!acknowledged) return NextResponse.json({ error: "Activity changed. Refresh and try again." }, { status: 409 });
+      return NextResponse.json({ ok: true });
     }
     const { data: thread, error: threadError } = await supabase
       .from("email_threads")

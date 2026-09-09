@@ -1,3 +1,4 @@
+import { CatalogReceiptSchema } from "@/lib/agent-control-plane/contracts/catalog-authoring";
 import { FinancialDocumentReceiptSchema } from "@/lib/agent-control-plane/contracts/financial-document";
 import { ScheduleChangeReceiptSchema } from "@/lib/agent-control-plane/contracts/schedule-change";
 /**
@@ -105,6 +106,7 @@ const EXPIRY_DAYS: Record<string, number> = {
   approve_collections_draft: 3,
   approve_dispatch_confirmation_task: 1,
   approve_schedule_change: 1,
+  approve_catalog_changes: 1,
   approve_financial_document: 1,
   approve_customer_update: 1,
   send_customer_follow_up: 1,
@@ -962,6 +964,7 @@ export const ApprovalQueueService = {
     const supabase = requireSupabase();
     if (
       params.actionType === "approve_schedule_change" ||
+      params.actionType === "approve_catalog_changes" ||
       params.actionType === "approve_financial_document" ||
       params.actionType === "approve_customer_update" ||
       params.actionType === "send_customer_follow_up"
@@ -1219,6 +1222,7 @@ export const ApprovalQueueService = {
     const rows = (data ?? []).filter((row) => {
       const privateAction =
         row.action_type === "approve_schedule_change" ||
+        row.action_type === "approve_catalog_changes" ||
         row.action_type === "approve_financial_document" ||
         row.action_type === "approve_customer_update" ||
         row.action_type === "send_customer_follow_up";
@@ -1263,6 +1267,24 @@ export const ApprovalQueueService = {
         if (parsed.success) readableFinancialIds = new Set(parsed.data);
       }
     }
+    let readableCatalogIds = new Set<string>();
+    const catalogChanges = rows.filter(
+      (row) => row.action_type === "approve_catalog_changes"
+    );
+    if (catalogChanges.length && actorUserId) {
+      const visibility = await supabase.rpc(
+        "filter_catalog_actions_as_actor" as never,
+        {
+          p_actor: actorUserId,
+          p_company: companyId,
+          p_actions: catalogChanges.map((row) => row.id),
+        } as never
+      );
+      if (!visibility.error) {
+        const parsed = z.array(z.uuid()).max(200).safeParse(visibility.data);
+        if (parsed.success) readableCatalogIds = new Set(parsed.data);
+      }
+    }
     let readableScheduleIds = new Set<string>();
     const scheduleChanges = rows.filter(
       (row) => row.action_type === "approve_schedule_change"
@@ -1298,8 +1320,10 @@ export const ApprovalQueueService = {
     }
     const actions = rows.map((row) =>
       mapFromDb(
-        (row.action_type === "approve_schedule_change" &&
-          !readableScheduleIds.has(String(row.id))) ||
+        (row.action_type === "approve_catalog_changes" &&
+          !readableCatalogIds.has(String(row.id))) ||
+          (row.action_type === "approve_schedule_change" &&
+            !readableScheduleIds.has(String(row.id))) ||
           (row.action_type === "approve_financial_document" &&
             !readableFinancialIds.has(String(row.id))) ||
           (row.action_type === "approve_customer_update" &&
@@ -1555,6 +1579,82 @@ export const ApprovalQueueService = {
       if (finalError || !final) {
         throw new Error("Action not found after collection draft approval");
       }
+      return mapFromDb(final);
+    }
+
+    if (actionIdentity.action_type === "approve_catalog_changes") {
+      if (learningAuthority !== "operator_approved")
+        throw new Error("Catalog changes require operator approval");
+      const confirmation = z
+        .object({
+          preview_sha256: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+          change_set_id: z.uuid(),
+        })
+        .strict()
+        .safeParse(editedActionData);
+      const actionData = actionIdentity.action_data as Record<string, unknown>;
+      if (
+        !confirmation.success ||
+        confirmation.data.preview_sha256 !== actionData.preview_sha256 ||
+        confirmation.data.change_set_id !== actionData.change_set_id
+      )
+        throw new Error("Review the current catalog preview before approving");
+      const args = {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: confirmation.data.change_set_id,
+        p_preview_sha256: confirmation.data.preview_sha256,
+        p_idempotency_key: "approve-catalog:" + actionId,
+      };
+      let execution = await supabase.rpc(
+        "commit_catalog_changes_as_actor" as never,
+        args as never
+      );
+      if (
+        [
+          "55P03",
+          "57014",
+          "25P04",
+          "40P01",
+          "08006",
+          "PGRST001",
+          "PGRST002",
+          "PGRST003",
+        ].includes(execution.error?.code ?? "")
+      )
+        throw new Error("The catalog is busy. Retry this approval shortly.");
+      if (execution.error || !execution.data)
+        execution = await supabase.rpc(
+          "commit_catalog_changes_as_actor" as never,
+          args as never
+        );
+      if (execution.error || !execution.data)
+        throw new Error(
+          "Catalog save could not be reconciled. Reload the preview before retrying."
+        );
+      const receipt = CatalogReceiptSchema.parse(execution.data);
+      if (
+        receipt.action_id !== actionId ||
+        receipt.change_set_id !== args.p_change_set_id ||
+        receipt.preview_sha256 !== args.p_preview_sha256
+      )
+        throw new Error("Catalog save receipt is invalid");
+      const { data: final, error } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .single();
+      if (error || !final || final.status !== "executed")
+        throw new Error("Catalog save readback is unavailable");
+      const persisted = CatalogReceiptSchema.parse(final.execution_result);
+      if (
+        JSON.stringify({ ...persisted, replayed: false }) !==
+        JSON.stringify({ ...receipt, replayed: false })
+      )
+        throw new Error("Catalog save readback does not match the receipt");
       return mapFromDb(final);
     }
 
@@ -2121,6 +2221,8 @@ export const ApprovalQueueService = {
     if (actionIdentity.action_type === "approve_collections_draft") {
       throw new Error("Collection drafts require operator approval");
     }
+    if (actionIdentity.action_type === "approve_catalog_changes")
+      throw new Error("Catalog changes require exact operator approval");
     if (actionIdentity.action_type === "approve_financial_document")
       throw new Error("Financial drafts require operator approval");
     if (actionIdentity.action_type === "approve_schedule_change")
@@ -2303,6 +2405,36 @@ export const ApprovalQueueService = {
       if (finalError || !final) {
         throw new Error("Action not found after collection draft rejection");
       }
+      return mapFromDb(final);
+    }
+    if (actionIdentity.action_type === "approve_catalog_changes") {
+      const { data, error } = await supabase.rpc(
+        "reject_catalog_changes_as_actor" as never,
+        {
+          p_actor_user_id: userId,
+          p_company_id: companyId,
+          p_action_id: actionId,
+        } as never
+      );
+      const receipt = z
+        .object({
+          ok: z.literal(true),
+          effect: z.literal("rejected"),
+          action_id: z.uuid(),
+        })
+        .strict()
+        .parse(data);
+      if (error || receipt.action_id !== actionId)
+        throw new Error("Catalog rejection could not be verified");
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .single();
+      if (finalError || !final || final.status !== "rejected")
+        throw new Error("Catalog rejection readback failed");
       return mapFromDb(final);
     }
     if (actionIdentity.action_type === "approve_financial_document") {
@@ -2512,6 +2644,7 @@ export const ApprovalQueueService = {
         "approve_collections_draft",
         "approve_dispatch_confirmation_task",
         "approve_schedule_change",
+        "approve_catalog_changes",
         "approve_financial_document",
         "approve_customer_update",
         "send_customer_follow_up",
@@ -2522,6 +2655,10 @@ export const ApprovalQueueService = {
     if (exactConfirmations && exactConfirmations.length > 0) {
       if (exactConfirmations[0]?.action_type === "send_customer_follow_up")
         throw new Error("Customer replies must be approved one at a time");
+      if (exactConfirmations[0]?.action_type === "approve_catalog_changes")
+        throw new Error(
+          "Catalog changes must be approved one proposal at a time"
+        );
       if (exactConfirmations[0]?.action_type === "approve_financial_document")
         throw new Error(
           "Financial drafts must be approved one proposal at a time"
@@ -2599,6 +2736,7 @@ export const ApprovalQueueService = {
       .from("agent_actions")
       .update({ status: "cancelled" })
       .neq("action_type", "approve_schedule_change")
+      .neq("action_type", "approve_catalog_changes")
       .neq("action_type", "approve_financial_document")
       .neq("action_type", "approve_customer_update")
       .neq("action_type", "send_customer_follow_up")

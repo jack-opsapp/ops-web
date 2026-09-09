@@ -2,8 +2,19 @@ import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const baseNextConfig: NextConfig = {
+  // The editorial voice documents are read from disk at runtime by the cron
+  // tick and by the three authoring handoff routes. Static tracing cannot see
+  // them, so every consumer names the whole voice folder explicitly; a file
+  // missing from the bundle throws on every tick and every claim.
   outputFileTracingIncludes: {
-    "/api/cron/social-editorial": ["./docs/social/voice/sam-parr-field-guide.md"],
+    "/api/cron/social-editorial": ["./docs/social/voice/*.md"],
+    "/api/internal/social/editorial/claim": ["./docs/social/voice/*.md"],
+    "/api/internal/social/editorial/assignments/[id]/draft": [
+      "./docs/social/voice/*.md",
+    ],
+    "/api/internal/social/editorial/assignments/[id]/release": [
+      "./docs/social/voice/*.md",
+    ],
   },
   eslint: {
     // Warnings from other agents' unused imports break the Vercel build.

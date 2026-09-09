@@ -1,6 +1,9 @@
 import "server-only";
 import { loadEditorialBrief } from "./brief";
-import { loadCopywritingReference } from "./copywriting-reference";
+import {
+  loadCopywritingReference,
+  loadOpsCopywriterBrief,
+} from "./copywriting-reference";
 import { createEditorialHandoffHandlers } from "./handoff";
 import { createEditorialRepository } from "./repository";
 
@@ -12,5 +15,6 @@ export function editorialHandoffHandlers() {
     now: () => new Date(),
     loadBrief: loadEditorialBrief,
     loadGuide: loadCopywritingReference,
+    loadVoice: loadOpsCopywriterBrief,
   });
 }

@@ -1,0 +1,33 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "../../../src/app/(dashboard)/pipeline/page.tsx",
+    "../../../src/app/api/integrations/email/import/route.ts",
+    "../../../src/app/api/integrations/gmail/historical-import/route.ts",
+    "../../../src/app/api/integrations/gmail/ignore/route.ts",
+    "../../../src/app/api/integrations/gmail/reject-match/route.ts",
+    "../../../src/app/api/integrations/gmail/review-items/route.ts",
+    "../../../src/components/ops/email-review-panel.tsx",
+    "../../../src/components/ops/projects/workspace/viewing/activity-tab.tsx",
+    "../../../src/lib/api/services/ai-sync-reviewer.ts",
+    "../../../src/lib/api/services/email-ai-classifier.ts",
+    "../../../src/lib/api/services/notification-service.ts",
+    "../../../src/lib/api/services/phase-c-autonomy-router.ts",
+    "../../../src/lib/api/services/sync-engine.ts",
+    "../../../src/lib/email/email-work-routing.ts",
+    "../../../src/lib/email/import-email-work-review.ts",
+    "../../../src/lib/email/persist-email-work-routing.ts",
+    "../../../src/lib/hooks/use-project-activity.ts",
+    "../../../src/lib/notifications/notification-meta.ts",
+    "../../../src/lib/types/email-import.ts",
+    "../../../next-env.d.ts",
+    "../../../src/**/*.d.ts"
+  ],
+  "exclude": [
+    "../../../node_modules",
+    "../../../supabase/functions"
+  ]
+}
