@@ -254,7 +254,9 @@ export function DocumentRow({
         hit.number,
         hit.title,
         hit.client_name,
-        // `inv1042` and `INV-1042` both reach the row that way.
+        // Number without its punctuation. The database is what matches
+        // `inv1042` to `INV-1042`; this only keeps the row's cmdk value honest
+        // about what it represents.
         hit.number?.replace(/[^a-zA-Z0-9]/g, ""),
         hit.id,
       ])}
