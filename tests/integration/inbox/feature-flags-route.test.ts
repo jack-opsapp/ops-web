@@ -29,11 +29,13 @@ const {
   findUserByAuthMock,
   getServiceRoleClientMock,
   getOverridesMock,
+  catalogReviewMock,
 } = vi.hoisted(() => ({
   verifyAdminAuthMock: vi.fn(),
   findUserByAuthMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
   getOverridesMock: vi.fn(),
+  catalogReviewMock: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/admin-verify", () => ({
@@ -100,6 +102,7 @@ function makeDbDouble(
   }>
 ) {
   return {
+    rpc: catalogReviewMock,
     from: (table: string) => {
       if (table === "feature_flags") {
         return {
@@ -122,6 +125,7 @@ function makeDbDouble(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  catalogReviewMock.mockResolvedValue({ data: false, error: null });
 
   // Auth resolves to a known user
   verifyAdminAuthMock.mockResolvedValue({
@@ -154,6 +158,30 @@ beforeEach(() => {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("GET /api/feature-flags — per-company synthetic flags", () => {
+  it("opens only the catalog trial review hint for the authenticated subject", async () => {
+    catalogReviewMock.mockResolvedValue({ data: true, error: null });
+    const response = await GET(makeRequest(TEST_USER_ID));
+    const flags = await response.json();
+    expect(catalogReviewMock).toHaveBeenCalledWith("can_review_catalog_trial_as_actor", {
+      p_actor: TEST_USER_ID, p_company: TEST_COMPANY_ID,
+    });
+    expect(flags.find((f: { slug: string }) => f.slug === "mcp_catalog_review")).toEqual({
+      slug: "mcp_catalog_review", enabled: true, hasOverride: false, routes: [], permissions: [],
+    });
+    expect(flags.find((f: { slug: string }) => f.slug === "phase_c").enabled).toBe(false);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it.each([
+    { data: true, error: { message: "unavailable" } },
+    { data: "true", error: null },
+    { data: null, error: null },
+  ])("fails closed on an invalid review proof: %j", async (result) => {
+    catalogReviewMock.mockResolvedValue(result);
+    const flags = await (await GET(makeRequest(TEST_USER_ID))).json();
+    expect(flags.find((f: { slug: string }) => f.slug === "mcp_catalog_review").enabled).toBe(false);
+  });
+
   it("includes inbox_ui enabled when the company override is on", async () => {
     getOverridesMock.mockResolvedValue([override("inbox_ui", true)]);
 

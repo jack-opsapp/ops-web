@@ -11,6 +11,7 @@ import {
   MCP_CONSENT_CATALOG_V2,
   MCP_CONSENT_CATALOG_V9,
   MCP_CONSENT_CATALOG_V12,
+  MCP_CONSENT_CATALOG_V14,
 } from "./scope-catalog";
 import {
   MCP_EXPOSURE_V1,
@@ -19,6 +20,7 @@ import {
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
   MCP_FINANCIAL_TRIAL_EXPOSURE,
+  MCP_CATALOG_TRIAL_EXPOSURE,
   type McpExposure,
 } from "../../registry/mcp-exposure-catalog";
 
@@ -95,18 +97,26 @@ export async function resolveOAuthExposureForSubject(input: {
 
   const candidate = clientMatchesExposure(
     input.client,
-    MCP_FINANCIAL_TRIAL_EXPOSURE,
-    MCP_CONSENT_CATALOG_V12.revision
+    MCP_CATALOG_TRIAL_EXPOSURE,
+    MCP_CONSENT_CATALOG_V14.revision
   )
-    ? MCP_FINANCIAL_TRIAL_EXPOSURE
-    : MCP_EXPOSURE_V3;
+    ? MCP_CATALOG_TRIAL_EXPOSURE
+    : clientMatchesExposure(
+          input.client,
+          MCP_FINANCIAL_TRIAL_EXPOSURE,
+          MCP_CONSENT_CATALOG_V12.revision
+        )
+      ? MCP_FINANCIAL_TRIAL_EXPOSURE
+      : MCP_EXPOSURE_V3;
   if (
     !clientMatchesExposure(
       input.client,
       candidate,
-      candidate === MCP_FINANCIAL_TRIAL_EXPOSURE
-        ? MCP_CONSENT_CATALOG_V12.revision
-        : MCP_CONSENT_CATALOG_V2.revision
+      candidate === MCP_CATALOG_TRIAL_EXPOSURE
+        ? MCP_CONSENT_CATALOG_V14.revision
+        : candidate === MCP_FINANCIAL_TRIAL_EXPOSURE
+          ? MCP_CONSENT_CATALOG_V12.revision
+          : MCP_CONSENT_CATALOG_V2.revision
     )
   ) {
     return null;

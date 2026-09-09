@@ -126,6 +126,7 @@ export async function GET(req: NextRequest) {
   let inboxUiEnabled = false;
   let phaseCEnabled = false;
   let externalApiEnabled = false;
+  let catalogReviewEnabled = false;
   if (resolvedCompanyId) {
     try {
       const companyOverrides =
@@ -142,9 +143,28 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       console.error("[feature-flags] Failed to check company overrides:", err);
     }
+    // No Phase C enrollment or autonomous capability is enabled by this hint.
+    // The database derives it from this exact authenticated subject's live,
+    // consented catalog trial, never a client-supplied actor or company.
+    try {
+      const review = await db.rpc("can_review_catalog_trial_as_actor", {
+        p_actor: resolvedUserId,
+        p_company: resolvedCompanyId,
+      });
+      catalogReviewEnabled = !review.error && review.data === true;
+    } catch {
+      catalogReviewEnabled = false;
+    }
   }
 
   result.push(
+    {
+      slug: "mcp_catalog_review",
+      enabled: catalogReviewEnabled,
+      hasOverride: false,
+      routes: [],
+      permissions: [],
+    },
     {
       slug: "inbox_ui",
       enabled: inboxUiEnabled,
@@ -168,5 +188,5 @@ export async function GET(req: NextRequest) {
     }
   );
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
 }

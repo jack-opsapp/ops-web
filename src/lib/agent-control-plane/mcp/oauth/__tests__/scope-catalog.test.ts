@@ -81,6 +81,9 @@ const EXPECTED_REGISTERED_SCOPES = [
   "ops.catalog.read",
   "ops.catalog.write",
   "ops.catalog_costs.read",
+  "ops.catalog_prices.write",
+  "ops.catalog_costs.write",
+  "ops.inventory.adjust",
   "ops.communications.prepare",
   "ops.communications.send",
   "ops.company.read",
@@ -124,9 +127,9 @@ const EXISTING_READ_LABELS = {
 } as const;
 
 describe("registered MCP scope vocabulary", () => {
-  it("pins the reviewed 33-scope union while preserving all 18 existing scope IDs", () => {
+  it("pins the reviewed 36-scope union while preserving all 18 existing scope IDs", () => {
     expect([...REGISTERED_MCP_SCOPES]).toEqual(EXPECTED_REGISTERED_SCOPES);
-    expect(REGISTERED_MCP_SCOPES).toHaveLength(33);
+    expect(REGISTERED_MCP_SCOPES).toHaveLength(36);
     expect(
       EXISTING_SCOPE_VOCABULARY.every((scope) =>
         REGISTERED_MCP_SCOPES.includes(scope)
@@ -152,7 +155,7 @@ describe("registered MCP scope vocabulary", () => {
       EXPECTED_REGISTERED_SCOPES
     );
     for (const scope of EXPECTED_REGISTERED_SCOPES) {
-      expect(MCP_SCOPE_OPERATION_BY_ID[scope]).toBe(scope.split(".").at(-1));
+      expect(MCP_SCOPE_OPERATION_BY_ID[scope]).toBe(scope === "ops.inventory.adjust" ? "write" : scope.split(".").at(-1));
     }
   });
 });

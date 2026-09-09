@@ -334,7 +334,8 @@ async function exchangeRefreshToken(
   let grantExposure: McpExposure | null;
   if (
     rotated.exposure_revision === "2026-08-30.mcp-exposure.v3" ||
-    rotated.exposure_revision === "2026-09-07.mcp-exposure.v17"
+    rotated.exposure_revision === "2026-09-07.mcp-exposure.v17" ||
+    rotated.exposure_revision === "2026-09-08.mcp-exposure.v19"
   ) {
     grantExposure = await resolveOAuthExposureForSubject({
       rpcClient: rpc,
