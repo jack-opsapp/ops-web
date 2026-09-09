@@ -1,0 +1,26 @@
+# Design-system audit — Task 10 (readiness ledger), 2026-09-09
+# Skill: custom-skills:audit-design-system. Scope: lines added this session in
+# src/app/admin/google-ads/_components/readiness-ledger.tsx and the hook added
+# to src/app/admin/google-ads/page.tsx. The page's pre-existing hex literals
+# (error state, "not configured" card) predate this work and are out of scope.
+
+Scan: hex colours (#…), pixel literals (Npx), arbitrary Tailwind values ([…]).
+
+Violations found and fixed
+  Warning  readiness-ledger.tsx  h2 label  tracking-[0.16em]  → tracking-authority
+           (tailwind.config.ts letterSpacing.authority = 0.16em; arbitrary value where a token exists)
+
+Passed (every value traces to a token)
+  surface   glass-surface, rounded-panel (10px), rounded-bar (2px), rounded-full (dots only)
+  colour    text-text, text-text-2, text-text-3, text-text-mute (// slash only),
+            bg-olive / text-olive (ready), bg-rose / text-rose (blocked),
+            bg-fill-neutral (pending dot), bg-fill-neutral-dim (skeleton), divide-line (hairline rows)
+            — no accent anywhere; earth tones carry meaning only
+  type      font-mono text-micro uppercase (label, state, reason), font-mohave text-body-sm (row title),
+            tabular-nums on every line that carries a number
+  spacing   px-3 py-2 pb-1 mt-1 mt-2 gap-1.5 gap-2 py-1.5 space-y-1.5 h-1 w-1 h-1.5 h-2 w-data
+            (OPS 8px scale: 0.5=4px 1=8px 1.5=12px 2=16px 3=24px; data=48px)
+  motion    framer-motion 200 ms fade-up, EASE_SMOOTH, 30 ms stagger; useReducedMotion → 150 ms opacity only
+  page hook page.tsx: px-8 pt-4 (matches the sibling SyncStatusBar wrapper), no literals
+
+Result: zero hardcoded colour / spacing / radius / font values in the audited lines.
