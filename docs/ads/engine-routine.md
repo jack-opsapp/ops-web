@@ -14,10 +14,10 @@ The routine never reaches Google. It claims a brief, reasons, files typed propos
 | Repositories | none | Everything the routine needs comes from the claim response |
 | Connectors | none (cleared) | The routine must not reach Supabase, Google, Slack, Gmail or the OPS MCP; it only talks to the OPS engine endpoints |
 | Tools | `Bash, Read, Write, Edit, Agent` | curl + local scratch files + one independent editor subagent per RSA |
-| Environment | `Default` with an **API credential**: allowed website `app.opsapp.co`, header `Authorization`, prefix `Bearer`, value = `ADS_ENGINE_TOKEN` | The agent proxy injects the token after requests leave the sandbox; the token never enters the session |
+| Environment | `Default` (`env_01SbMVBKxZJvyDPXKYoNkkW5`), which already carries the **API credential** for host `app.opsapp.co` (header `Authorization`, prefix `Bearer`) created for the Instagram routine; the same value must be set in Vercel Production as `ADS_ENGINE_TOKEN` | The agent proxy injects that credential on every request to `app.opsapp.co` after it leaves the sandbox; one environment holds one credential per host, so the ads engine accepts the same bearer as the Instagram authoring routes. The token never enters the session |
 | Usage | Draws Jackson's subscription | A refused run leaves the day's duties for tomorrow; OPS raises `ADS ENGINE STALLED` after 50 hours of silence while ads are live. No paid overage, no API fallback |
 
-Account actions (Jackson): `openssl rand -hex 32` → Vercel Production `ADS_ENGINE_TOKEN`; the API credential above on the `Default` environment; un-pause the routine once the phase 2 campaigns are enabled; read the daily run allowance at claude.ai/code/routines.
+Account actions (Jackson): add `ADS_ENGINE_TOKEN` to Vercel Production with the same value as `SOCIAL_AUTHORING_TOKEN` (the value the Default environment's `app.opsapp.co` credential already injects; no new credential is needed); un-pause the routine once the phase 2 campaigns are enabled; read the daily run allowance at claude.ai/code/routines.
 
 ## Manual run
 
