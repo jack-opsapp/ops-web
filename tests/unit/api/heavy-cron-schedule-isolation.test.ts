@@ -33,6 +33,11 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/email-send-reconciliation", "8-59/20 * * * *"],
   ["/api/cron/ads-briefing", "34 12 * * 1"],
   ["/api/cron/ads-sync", "4 8 * * *"],
+  // The Google Ads engine worker: once a day after the 08:04 sync and one
+  // minute before the 15:00 UTC routine claims its brief. :59 at hour 14 is
+  // the only minute at that hour with no other lane, so this once-a-day cron
+  // never collides with an infrequent neighbour.
+  ["/api/cron/ads-engine", "59 14 * * *"],
   ["/api/cron/app-store-sync", "4 9 * * *"],
   ["/api/cron/search-console-sync", "26 9 * * *"],
   ["/api/cron/ga4-acquisition-sync", "44 9 * * *"],

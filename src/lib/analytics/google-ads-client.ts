@@ -75,7 +75,7 @@ function getDeveloperToken(): string {
 
 interface GoogleAdsRow {
   customer?: { id?: string };
-  campaign?: { name?: string; status?: string };
+  campaign?: { id?: string; name?: string; status?: string };
   adGroup?: { name?: string };
   adGroupCriterion?: { keyword?: { text?: string; matchType?: string } };
   searchTermView?: { searchTerm?: string };
@@ -89,6 +89,7 @@ interface GoogleAdsRow {
     costPerConversion?: number;
     ctr?: number;
     historicalQualityScore?: number;
+    searchBudgetLostImpressionShare?: number;
   };
 }
 
@@ -873,6 +874,40 @@ export async function getCostPerConversionForRange(
   ]);
 
   return aggregateConversionRows(rows, summary.totalSpend, categories);
+}
+
+// ─── Engine: budget pacing ────────────────────────────────────────────────────
+
+/**
+ * Daily share of Search impressions each enabled campaign lost to its budget.
+ * The engine's worker raises ADS BUDGET PACING when a campaign is capped
+ * three days running (design spec §7); the warehouse does not carry this
+ * metric, so it is read live for a three-day window.
+ */
+export async function queryCampaignBudgetPacing(
+  startDate: Date,
+  endDate: Date
+): Promise<Array<{ date: string; campaignId: string; campaignName: string; lostShare: number }>> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      campaign.id,
+      campaign.name,
+      metrics.search_budget_lost_impression_share
+    FROM campaign
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+      AND campaign.status = 'ENABLED'
+    ORDER BY segments.date ASC
+  `);
+
+  return rows.map((row) => ({
+    date: String(row.segments?.date ?? ""),
+    campaignId: String(row.campaign?.id ?? ""),
+    campaignName: String(row.campaign?.name ?? "Unknown"),
+    lostShare: Number(row.metrics?.searchBudgetLostImpressionShare ?? 0),
+  }));
 }
 
 // ─── Cached Exports (5-min TTL, matching existing admin query pattern) ────────

@@ -278,3 +278,32 @@ describe("google-ads-client request layer", () => {
     ).resolves.toEqual([]);
   });
 });
+
+describe("engine budget pacing", () => {
+  it("reads search_budget_lost_impression_share per enabled campaign per day", async () => {
+    installFetch(
+      [
+        customerClientRow(MANAGER_ID, 0, true, "ENABLED", "OPS LTD"),
+        customerClientRow(CLIENT_ID, 1, false, "ENABLED", "OPS"),
+      ],
+      [
+        { segments: { date: "2026-10-15" }, campaign: { id: "11", name: "CORE · CA" }, metrics: { searchBudgetLostImpressionShare: 0.42 } },
+        { segments: { date: "2026-10-16" }, campaign: { id: "11", name: "CORE · CA" }, metrics: { searchBudgetLostImpressionShare: 0 } },
+      ]
+    );
+    const client = await importClient();
+    const rows = await client.queryCampaignBudgetPacing(
+      new Date("2026-10-15T00:00:00Z"),
+      new Date("2026-10-17T00:00:00Z")
+    );
+    expect(rows).toEqual([
+      { date: "2026-10-15", campaignId: "11", campaignName: "CORE · CA", lostShare: 0.42 },
+      { date: "2026-10-16", campaignId: "11", campaignName: "CORE · CA", lostShare: 0 },
+    ]);
+    const query = String(requests[1].body.query);
+    expect(query).toContain("metrics.search_budget_lost_impression_share");
+    expect(query).toContain("campaign.status = 'ENABLED'");
+    expect(query).toContain("segments.date >= '2026-10-15'");
+    expect(requests[1].body).not.toHaveProperty("pageSize");
+  });
+});
