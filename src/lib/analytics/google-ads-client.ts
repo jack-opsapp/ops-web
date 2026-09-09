@@ -22,7 +22,7 @@ import type {
 
 // ─── Singleton auth client ────────────────────────────────────────────────────
 
-const ADS_API_VERSION = "v23";
+const ADS_API_VERSION = "v25";
 const ADS_BASE_URL = `https://googleads.googleapis.com/${ADS_API_VERSION}`;
 
 let _auth: GoogleAuth | null = null;
@@ -124,7 +124,7 @@ export class GoogleAdsApiError extends Error {
  *
  * Do NOT send pageSize: the API rejects it with PAGE_SIZE_NOT_SUPPORTED —
  * responses are fixed at 10,000 rows per page, paged via nextPageToken.
- * `search` (paginated) instead of `searchStream` (deprecated in v19).
+ * Kept for the tiny discovery query only; report reads use rawSearchStream.
  */
 async function rawSearch(
   accessToken: string,
@@ -168,6 +168,72 @@ async function rawSearch(
   } while (pageToken);
 
   return allRows;
+}
+
+/**
+ * Streaming GAQL read. `googleAds:searchStream` answers with a JSON ARRAY of
+ * chunks, each `{ results, fieldMask, requestId }`; the chunks are concatenated
+ * in order. One request per report — no paging, and never a pageSize.
+ * The request id of the failing call is logged so a Google support thread can
+ * be opened against it.
+ */
+async function rawSearchStream(
+  accessToken: string,
+  customerId: string,
+  gaql: string,
+  loginCustomerId?: string
+): Promise<GoogleAdsRow[]> {
+  const developerToken = getDeveloperToken();
+  const response = await fetch(
+    `${ADS_BASE_URL}/customers/${customerId}/googleAds:searchStream`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": developerToken,
+        "Content-Type": "application/json",
+        ...(loginCustomerId ? { "login-customer-id": loginCustomerId } : {}),
+      },
+      body: JSON.stringify({ query: gaql }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    const requestId = response.headers?.get?.("request-id") ?? extractRequestId(errorBody);
+    console.error(
+      `[google-ads-client] searchStream failed (${response.status})${requestId ? ` request-id=${requestId}` : ""}`
+    );
+    throw new GoogleAdsApiError(response.status, errorBody);
+  }
+
+  const chunks = (await response.json()) as unknown;
+  const list: Array<{ results?: GoogleAdsRow[]; requestId?: string }> = Array.isArray(chunks)
+    ? (chunks as Array<{ results?: GoogleAdsRow[]; requestId?: string }>)
+    : chunks && typeof chunks === "object"
+      ? [chunks as { results?: GoogleAdsRow[]; requestId?: string }]
+      : [];
+
+  const allRows: GoogleAdsRow[] = [];
+  for (const chunk of list) {
+    if (Array.isArray(chunk?.results)) allRows.push(...chunk.results);
+  }
+  return allRows;
+}
+
+/** Best-effort request id from a Google Ads error body (GoogleAdsFailure.requestId). */
+function extractRequestId(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body) as {
+      error?: { details?: Array<{ requestId?: string }> };
+    };
+    for (const detail of parsed.error?.details ?? []) {
+      if (detail?.requestId) return String(detail.requestId);
+    }
+  } catch {
+    // not JSON
+  }
+  return null;
 }
 
 // ─── Manager → serving-account resolution ─────────────────────────────────────
@@ -271,7 +337,142 @@ async function resolveServingCustomer(accessToken: string): Promise<ServingCusto
 async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
   const accessToken = await getAccessToken();
   const { servingId, loginId } = await resolveServingCustomer(accessToken);
-  return rawSearch(accessToken, servingId, gaql, loginId);
+  return rawSearchStream(accessToken, servingId, gaql, loginId);
+}
+
+/**
+ * The resolved serving customer id and (when access flows through a manager)
+ * the login customer id. Exported for sibling clients that address the same
+ * account through other Google APIs — the Data Manager client sends both as
+ * `operatingAccount` / `loginAccount`.
+ */
+export async function getServingCustomerIds(): Promise<{ servingId: string; loginId?: string }> {
+  const accessToken = await getAccessToken();
+  const { servingId, loginId } = await resolveServingCustomer(accessToken);
+  return { servingId, loginId };
+}
+
+// ─── Mutate (googleAds:mutate) ────────────────────────────────────────────────
+
+/**
+ * One GoogleAdsService.mutate operation, keyed by its service operation
+ * (`campaignBudgetOperation`, `conversionActionOperation`, …) with the
+ * create / update+updateMask / remove body inside.
+ */
+export interface MutateOperation {
+  [service: `${string}Operation`]: Record<string, unknown>;
+}
+
+/** A per-operation failure decoded from `partialFailureError`. */
+export interface MutateFailure {
+  /** Index into the submitted operations, or null when Google gave no location. */
+  index: number | null;
+  /** The enum name of the error, e.g. `POLICY_FINDING`, `ACTION_NOT_PERMITTED`. */
+  code: string;
+  message: string;
+}
+
+export interface MutateResult {
+  /** One entry per submitted operation, positionally (empty object on failure). */
+  results: Array<Record<string, unknown>>;
+  failures: MutateFailure[];
+  requestId?: string;
+}
+
+interface MutateResponseBody {
+  mutateOperationResponses?: Array<Record<string, unknown>>;
+  partialFailureError?: {
+    code?: number;
+    message?: string;
+    details?: Array<{
+      requestId?: string;
+      errors?: Array<{
+        errorCode?: Record<string, string>;
+        message?: string;
+        location?: { fieldPathElements?: Array<{ fieldName?: string; index?: number }> };
+      }>;
+    }>;
+  };
+}
+
+/**
+ * Decode `partialFailureError.details[].errors[]` positionally: the first
+ * fieldPathElement carries `index` = the failing operation's position in
+ * `mutateOperations`. The first key of `errorCode` names the error enum
+ * (`policyFindingError`), its value the member (`POLICY_FINDING`).
+ */
+function decodePartialFailures(body: MutateResponseBody): { failures: MutateFailure[]; requestId?: string } {
+  const failures: MutateFailure[] = [];
+  let requestId: string | undefined;
+  for (const detail of body.partialFailureError?.details ?? []) {
+    if (detail?.requestId && !requestId) requestId = String(detail.requestId);
+    for (const err of detail?.errors ?? []) {
+      const first = err?.location?.fieldPathElements?.[0];
+      const index = typeof first?.index === "number" ? first.index : null;
+      const entry = err?.errorCode ? Object.entries(err.errorCode)[0] : undefined;
+      failures.push({
+        index,
+        code: entry ? String(entry[1]) : "UNKNOWN",
+        message: String(err?.message ?? ""),
+      });
+    }
+  }
+  return { failures, requestId };
+}
+
+/**
+ * Write to the serving customer through GoogleAdsService.mutate.
+ *
+ * Defaults: `partialFailure: true` (one bad operation never voids the batch),
+ * `validateOnly: false`. Every caller in the engine runs with
+ * `validateOnly: true` first and re-sends only on a clean pass — that rule is
+ * enforced at the call sites, not here, so this stays a faithful transport.
+ * Throws GoogleAdsApiError on a non-2xx (whole-request) failure; per-operation
+ * failures come back decoded in `failures`.
+ */
+export async function mutateGoogleAds(
+  operations: MutateOperation[],
+  options: { validateOnly?: boolean; partialFailure?: boolean } = {}
+): Promise<MutateResult> {
+  const accessToken = await getAccessToken();
+  const { servingId, loginId } = await resolveServingCustomer(accessToken);
+  const developerToken = getDeveloperToken();
+
+  const response = await fetch(
+    `${ADS_BASE_URL}/customers/${servingId}/googleAds:mutate`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": developerToken,
+        "Content-Type": "application/json",
+        ...(loginId ? { "login-customer-id": loginId } : {}),
+      },
+      body: JSON.stringify({
+        mutateOperations: operations,
+        partialFailure: options.partialFailure ?? true,
+        validateOnly: options.validateOnly ?? false,
+        responseContentType: "MUTABLE_RESOURCE",
+      }),
+    }
+  );
+
+  const headerRequestId = response.headers?.get?.("request-id") ?? null;
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    const requestId = headerRequestId ?? extractRequestId(errorBody);
+    console.error(
+      `[google-ads-client] mutate failed (${response.status})${requestId ? ` request-id=${requestId}` : ""}`
+    );
+    throw new GoogleAdsApiError(response.status, errorBody);
+  }
+
+  const body = (await response.json()) as MutateResponseBody;
+  const { failures, requestId: failureRequestId } = decodePartialFailures(body);
+  const results = (body.mutateOperationResponses ?? []).map((r) => r ?? {});
+  const requestId = headerRequestId ?? failureRequestId;
+  return requestId ? { results, failures, requestId } : { results, failures };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
