@@ -6,9 +6,8 @@
  * etc.). content_metadata carries structured event payloads. Authors are
  * hydrated via a follow-up users query (no FK).
  *
- * IMPORTANT: must NOT read from `activities` — that table is no longer the
- * primary source for the workspace timeline. The previous implementation
- * (commit d0943de1) read activities and is being reworked here.
+ * Notes remain canonical; mailbox-authorized project correspondence is merged
+ * from activities without copying private email into project_notes.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -40,6 +39,8 @@ let mockNotes: MockNote[] = [];
 let mockUsers: MockUser[] = [];
 let lastNotesLimit: number | null = null;
 let activitiesTableHits = 0;
+let mockEmails: Array<Record<string, unknown>> = [];
+let emailFilters: Record<string, string> = {};
 let projectNotesTableHits = 0;
 
 // ─── Mock supabase ───────────────────────────────────────────────────────────
@@ -49,7 +50,12 @@ vi.mock("@/lib/supabase/helpers", () => ({
     from: (table: string) => {
       if (table === "activities") {
         activitiesTableHits++;
-        throw new Error("useProjectActivity must not read from activities — use project_notes");
+        const builder = { select: () => builder,
+          eq: (column: string, value: string) => { emailFilters[column] = value; return builder; },
+          order: () => builder,
+          limit: (count: number) => Promise.resolve({ data: mockEmails.slice(0, count), error: null }),
+        };
+        return builder;
       }
       if (table === "project_notes") {
         projectNotesTableHits++;
@@ -120,13 +126,15 @@ beforeEach(() => {
   mockUsers = [];
   lastNotesLimit = null;
   activitiesTableHits = 0;
+  mockEmails = [];
+  emailFilters = {};
   projectNotesTableHits = 0;
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("useProjectActivity (project_notes-canonical)", () => {
-  it("reads from project_notes and never from activities", async () => {
+  it("reads canonical notes and only authorized existing-job emails", async () => {
     mockNotes = [makeNote()];
     mockUsers = [
       { id: "u-0", first_name: "Alice", last_name: "Anderson", user_color: "#9DB582" },
@@ -138,8 +146,26 @@ describe("useProjectActivity (project_notes-canonical)", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(activitiesTableHits).toBe(0);
+    expect(activitiesTableHits).toBe(1);
+    expect(emailFilters).toEqual({ project_id: "proj-1", type: "email", match_confidence: "existing_job" });
     expect(projectNotesTableHits).toBeGreaterThan(0);
+  });
+
+  it("interleaves authorized email without duplicating it into project notes", async () => {
+    mockNotes = [makeNote({ created_at: "2026-05-01T00:00:00Z" })];
+    mockEmails = [{ id: "email-1", subject: "Crew access", body_text_clean: "The gate is open.", body_text: "The gate is open. Old quoted quote request.", from_email: "customer@example.com", created_at: "2026-05-02T00:00:00Z" }];
+    const { result } = renderHook(() => useProjectActivity("proj-1"), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.map((row) => row.kind)).toEqual(["email", "note"]);
+    expect(result.current.data?.[0].content).toBe("Crew access\n\nThe gate is open.");
+    expect(mockNotes).toHaveLength(1);
+  });
+
+  it("keeps correspondence readable when the provider clean body is empty", async () => {
+    mockEmails = [{ id: "email-empty-clean", subject: "Damaged gate", body_text_clean: "", body_text: "Please deduct the replacement from the bill.", created_at: "2026-05-02T00:00:00Z" }];
+    const { result } = renderHook(() => useProjectActivity("proj-1"), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.[0].content).toBe("Damaged gate\n\nPlease deduct the replacement from the bill.");
   });
 
   it("returns rows sorted by created_at desc, limited to 25 by default", async () => {

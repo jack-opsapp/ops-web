@@ -276,6 +276,10 @@ export default function PipelinePage() {
   // ── Handle ?action=new from FAB navigation ────────────────────────────
   const searchParams = useSearchParams();
   useEffect(() => {
+    if (searchParams.get("review") === "email") setReviewPanelOpen(true);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (searchParams.get("action") === "new" && canCreateLead) {
       openWindow({
         id: "create-lead",

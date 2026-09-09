@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import { CalibrationRequestError } from "./calibration-request-error";
 import { useAuthStore } from "@/lib/store/auth-store";
 import type { FirstRunState } from "@/lib/types/calibration";
 
@@ -21,7 +22,12 @@ export function useCalibrationFirstRun() {
     queryKey: ["calibration", "first-run", companyId, userId],
     queryFn: async (): Promise<FirstRunState> => {
       const res = await authedFetch("/api/calibration/first-run");
-      if (!res.ok) throw new Error("Failed to fetch first-run state");
+      if (!res.ok) {
+        throw new CalibrationRequestError(
+          res.status,
+          "Failed to fetch first-run state"
+        );
+      }
       return res.json();
     },
     enabled: !!companyId && !!userId,
@@ -34,7 +40,9 @@ export function useCalibrationFirstRun() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "dismiss" }),
       });
-      if (!res.ok) throw new Error("Failed to dismiss");
+      if (!res.ok) {
+        throw new CalibrationRequestError(res.status, "Failed to dismiss");
+      }
       return res.json();
     },
     onSuccess: () =>

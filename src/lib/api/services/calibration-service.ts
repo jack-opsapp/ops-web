@@ -14,6 +14,7 @@
  */
 
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import {
   buildEmailThreadListAuthorizationFilter,
   type AllowedEmailInboxListAccess,
@@ -80,7 +81,12 @@ async function projectActorCategoryAutonomy(
   );
 }
 
-export const CalibrationService = {
+/**
+ * The raw reads. Deliberately not exported — `CalibrationService` at the foot
+ * of this section is the only entry point, and it binds every one of these to
+ * the service-role database context first.
+ */
+const calibrationReads = {
   /**
    * Fetch the complete deck state for a company. Single entry point;
    * TanStack Query hook caches this with a 20-30s staleness window.
@@ -829,6 +835,69 @@ export const CalibrationService = {
       nextLadderName: next ? `ladder.${next.position}` : null,
     };
   },
+};
+
+type CalibrationReads = typeof calibrationReads;
+
+/**
+ * Every calibration read runs inside the service-role database context.
+ *
+ * The reads above query the service client directly, but they also delegate to
+ * services that resolve their own client through `requireSupabase()`:
+ * `PhaseCCategoryAutonomy.get` (phase-c-category-autonomy-service.ts:89) and,
+ * through `PhaseCCategoryAutonomy.isGraduated`, `getHumanDraftAccuracy`
+ * (phase-c-draft-accuracy-service.ts:85). With nothing bound to the async
+ * context those calls fall through to the Firebase-backed browser client, which
+ * on the server holds no user — PostgREST answers 42501, the read throws, and
+ * the route 500s. That is bug 049cb3f5: /api/calibration/deck failed 63 times
+ * and the page never left SYS :: LOADING.
+ *
+ * Binding here rather than at each route makes the guarantee structural: a new
+ * route, a cron, or any future caller inherits it without having to remember.
+ * The map is written out by hand on purpose — the `CalibrationReads`
+ * annotation turns a read added above but not bound here into a compile error.
+ */
+export const CalibrationService: CalibrationReads = {
+  getDeckState: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getDeckState(...args)
+    ),
+  getFirstRunState: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getFirstRunState(...args)
+    ),
+  dismissFirstRun: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.dismissFirstRun(...args)
+    ),
+  getRecentEvents: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getRecentEvents(...args)
+    ),
+  getActivityLog: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getActivityLog(...args)
+    ),
+  getInputsState: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getInputsState(...args)
+    ),
+  getCorpusState: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getCorpusState(...args)
+    ),
+  getConfigState: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getConfigState(...args)
+    ),
+  getActivityState: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getActivityState(...args)
+    ),
+  getMilestonesState: (...args) =>
+    runWithSupabase(getServiceRoleClient(), () =>
+      calibrationReads.getMilestonesState(...args)
+    ),
 };
 
 // ─── Utilities ──────────────────────────────────────────────────────────────

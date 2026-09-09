@@ -70,10 +70,14 @@ vi.mock("@/lib/email/email-signature-runtime", () => ({
   resolveEmailSignatureForMessage: vi.fn(),
 }));
 
+let workRoutingMarker: string | null = null;
+
 vi.mock("@/lib/supabase/helpers", () => ({
   requireSupabase: () => ({
     from: (table: string) => {
       const activity = {
+        match_confidence: workRoutingMarker,
+        opportunity_id: null,
         id: "00000000-0000-4000-8000-000000000009",
         email_message_id: "provider-message-1",
         direction: "inbound",
@@ -163,6 +167,7 @@ function thread(overrides: Partial<EmailThread> = {}): EmailThread {
 
 describe("PhaseCAutonomyRouter actor resolution", () => {
   beforeEach(() => {
+  workRoutingMarker = null;
     vi.clearAllMocks();
     categoryAutonomyMock.mockResolvedValue({ CUSTOMER: "auto_draft" });
     categoryGraduationMock.mockResolvedValue({
@@ -172,6 +177,15 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
     });
     isAutoSendEnabledMock.mockResolvedValue({ enabled: false, settings: null });
     accessResolverMock.mockResolvedValue(allowedSendAccess);
+  });
+
+  it.each(["existing_job", "work_intent_review"])("does not draft or resolve a sales actor for %s correspondence", async (marker) => {
+    workRoutingMarker = marker;
+    const result = await PhaseCAutonomyRouter.route(thread({ opportunityId: null }));
+    expect(result).toMatchObject({ outcome: "noop_held_for_review", effectiveLevel: "off" });
+    expect(actorResolverMock).not.toHaveBeenCalled();
+    expect(generateDraftMock).not.toHaveBeenCalled();
+    expect(scheduleAutoSendMock).not.toHaveBeenCalled();
   });
 
   it("stops before draft work when actor resolution returns typed no-work", async () => {

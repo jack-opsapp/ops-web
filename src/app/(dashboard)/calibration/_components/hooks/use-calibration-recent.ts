@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import { CalibrationRequestError } from "./calibration-request-error";
 import type { RecentEvent } from "@/lib/types/calibration";
 
 const LIMIT = 5;
@@ -28,12 +29,19 @@ export function useCalibrationRecent(): RecentEvent[] {
     queryKey: ["calibration", "recent", companyId],
     queryFn: async () => {
       const res = await authedFetch(`/api/calibration/recent?limit=${LIMIT}`);
-      if (!res.ok) throw new Error("Failed to fetch recent events");
+      if (!res.ok) {
+        throw new CalibrationRequestError(
+          res.status,
+          "Failed to fetch recent events"
+        );
+      }
       const json = (await res.json()) as { events: RecentEvent[] };
       return json.events;
     },
     enabled: !!companyId,
-    refetchInterval: 30_000,
+    // Same rule as the deck: stop polling a read that is failing.
+    refetchInterval: (query) =>
+      query.state.status === "error" ? false : 30_000,
     staleTime: 15_000,
   });
 

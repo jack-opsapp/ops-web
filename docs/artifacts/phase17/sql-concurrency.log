@@ -1,0 +1,15 @@
+PASS existing other-company writer makes catalog preparation fail promptly with retryable 55P03
+PASS busy preparation persists no proposal
+PASS concurrent authority writer cannot slip through permission snapshot fence
+PASS stalled catalog transaction terminated by 2s deadline (2.065s measured)
+PASS waiting other-company writer proceeds after deadline releases all catalog locks:
+PASS deadline rolls back catalog price change
+PASS deadline leaves exact approval pending without false receipt
+PASS same exact approval retries successfully after deadline rollback
+PASS same-key replay returns one immutable receipt
+PASS retry and replay leave one durable receipt and the exact approved price
+PASS existing shorter transaction deadline is preserved
+PASS long deadline is shortened and repeated checks do not restart the timer
+PASS elapsed time on an older transaction is preserved when shortening its deadline (3.080s)
+PASS already-armed 100ms statement timeout remains enforced through the function boundary
+PASS catalog RPCs do not hoist a statement timeout that could widen existing role limits

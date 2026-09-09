@@ -1,0 +1,42 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "plugins": []
+  },
+  "include": [
+    "../../../src/app/api/agent/queue/route.ts",
+    "../../../src/app/api/agent/queue/[actionId]/route.ts",
+    "../../../src/app/api/agent/queue/bulk/route.ts",
+    "../../../src/app/api/feature-flags/route.ts",
+    "../../../src/lib/store/feature-flags-store.ts",
+    "../../../src/app/api/mcp/oauth/token/route.ts",
+    "../../../src/lib/agent-control-plane/mcp/bearer.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/canary.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/scope-catalog.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/scopes.ts",
+    "../../../src/app/(dashboard)/agent/queue/page.tsx",
+    "../../../src/components/agent/action-detail.tsx",
+    "../../../src/components/agent/catalog-changes-preview.tsx",
+    "../../../src/components/agent/queue-row.ts",
+    "../../../src/lib/agent-control-plane/contracts/catalog-authoring.ts",
+    "../../../src/lib/agent-control-plane/mcp/domain-dispatch.ts",
+    "../../../src/lib/agent-control-plane/mcp/durable-rate-limit.ts",
+    "../../../src/lib/agent-control-plane/mcp/runtime.ts",
+    "../../../src/lib/agent-control-plane/mcp/server-factory.ts",
+    "../../../src/lib/agent-control-plane/registry/capability-manifest.ts",
+    "../../../src/lib/agent-control-plane/registry/capability-types.ts",
+    "../../../src/lib/agent-control-plane/registry/catalog-authoring-capability.ts",
+    "../../../src/lib/agent-control-plane/registry/mcp-exposure-catalog.ts",
+    "../../../src/lib/agent-control-plane/registry/mcp-scope-catalog.ts",
+    "../../../src/lib/agent-control-plane/services/capability-service.ts",
+    "../../../src/lib/agent-control-plane/services/catalog-authoring/catalog-authoring-service.ts",
+    "../../../src/lib/api/services/approval-queue-service.ts",
+    "../../../src/lib/types/approval-queue.ts",
+    "../../../src/**/*.d.ts",
+    "../../../next-env.d.ts"
+  ],
+  "exclude": [
+    "../../../node_modules"
+  ]
+}

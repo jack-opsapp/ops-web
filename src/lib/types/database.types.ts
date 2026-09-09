@@ -37752,6 +37752,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      search_workspace: {
+        Args: { p_limit_per_kind?: number; p_query: string }
+        Returns: Json
+      }
       set_company_inventory_mode: {
         Args: { p_company_id: string; p_inventory_mode: string }
         Returns: Json

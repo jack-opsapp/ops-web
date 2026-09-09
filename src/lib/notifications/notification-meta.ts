@@ -111,6 +111,7 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
     icon: "calendar-x",
     tone: "attn",
   },
+  email_correspondence: { label: "EMAIL", icon: "inbox", tone: "ambient" },
   email_sync_complete: { label: "INBOX", icon: "inbox", tone: "accent" },
   email_signature_required: {
     label: "SIGNATURE",

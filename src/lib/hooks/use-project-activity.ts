@@ -21,6 +21,7 @@ import { queryKeys } from "@/lib/api/query-client";
 import type { NoteAttachment } from "@/lib/types/pipeline";
 
 export type ProjectActivityKind =
+  | "email"
   | "note"
   | "status_change"
   | "estimate_sent"
@@ -92,6 +93,15 @@ export function useProjectActivity(projectId: string | null, limit = 25) {
 
       if (notesError) throw notesError;
       const notes = (rawNotes ?? []) as NoteRow[];
+      // Read through the signed-in client's activities RLS: project access
+      // alone must never grant access to another operator's mailbox.
+      const { data: correspondence, error: correspondenceError } = await supabase
+        .from("activities")
+        .select("id, subject, body_text_clean, body_text, content, from_email, created_at")
+        .eq("project_id", projectId).eq("type", "email")
+        .eq("match_confidence", "existing_job")
+        .order("created_at", { ascending: false }).limit(limit);
+      if (correspondenceError) throw correspondenceError;
 
       const authorIds = Array.from(
         new Set(notes.map((n) => n.author_id).filter((id): id is string => !!id)),
@@ -111,7 +121,7 @@ export function useProjectActivity(projectId: string | null, limit = 25) {
 
       const authorById = new Map(authorRows.map((u) => [u.id, u]));
 
-      return notes.map<ProjectActivityEntry>((n) => {
+      const entries = notes.map<ProjectActivityEntry>((n) => {
         const author = n.author_id ? authorById.get(n.author_id) ?? null : null;
         return {
           id: n.id,
@@ -131,6 +141,13 @@ export function useProjectActivity(projectId: string | null, limit = 25) {
           eventPayload: n.content_metadata ?? null,
         };
       });
+      for (const email of correspondence ?? []) {
+        entries.push({ id: email.id, kind: "email", createdAt: email.created_at,
+          content: [email.subject, email.body_text_clean?.trim() || email.body_text || email.content].filter(Boolean).join("\n\n"),
+          author: email.from_email ? { id: email.from_email, name: email.from_email, avatarColor: FALLBACK_AVATAR_COLOR } : null,
+          attachments: [], mentionedUserIds: [], eventPayload: null });
+      }
+      return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, limit);
     },
     enabled: !!projectId,
     staleTime: 30_000,

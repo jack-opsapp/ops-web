@@ -1,0 +1,123 @@
+CREATE SCHEMA
+CREATE FUNCTION
+CREATE FUNCTION
+SET
+INSERT 0 3
+INSERT 0 2
+INSERT 0 2
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+psql:tests/sql/catalog-authoring-runtime.sql:22: NOTICE:  PASS migration is dormant without exact effect activation
+ rejects
+---------
+
+(1 row)
+
+INSERT 0 1
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS multi-item catalog compiles into exact approval
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS prepare changes no business records
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS identical preparation replay
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS exact approval saves full graph
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS new variants have zero physical stock
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS fixed recipe persisted
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS canonical price mirror preserved
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS catalog import creates no inventory movements
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS variants reuse one family axis
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS identical commit returns same immutable receipt
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS lost prepare response recovers committed identity
+psql:tests/sql/catalog-authoring-runtime.sql:39: NOTICE:  PASS new retry key cannot duplicate existing records
+DO
+CREATE FUNCTION
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS price review contains exact prior price
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS price-only review redacts cost
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS different operator cannot approve
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS modified seal cannot approve
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS price patch preserves pricing basis and canonical mirror
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS changed commit key cannot replay
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS intervening web or iOS edit invalidates approval
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS stale approval preserves newer edit
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS different SKU cannot duplicate current option combination
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS noncanonical existing option label needs resolution before approval
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS new SKU does not bypass existing product name
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS duplicate recipe in same batch needs resolution
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS duplicate variant combination in same batch needs resolution
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS expired approval cannot save
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS rejected approval cannot save
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS stock adjustment has a separate explicit effect
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS approved stock count is exact
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS stock adjustment creates one auditable movement
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS stock replay never duplicates a movement
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS stock approval changes no catalog price
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS catalog request cannot contain stock changes
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS permission loss after review prevents save
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS unavailable tenant reference denied
+psql:tests/sql/catalog-authoring-runtime.sql:99: NOTICE:  PASS default drift invalidates approved effect closure
+DO
+CREATE FUNCTION
+CREATE TRIGGER
+UPDATE 1
+psql:tests/sql/catalog-authoring-runtime.sql:117: NOTICE:  PASS late recipe failure rolls back entire save
+psql:tests/sql/catalog-authoring-runtime.sql:117: NOTICE:  PASS no early catalog row survives late failure
+psql:tests/sql/catalog-authoring-runtime.sql:117: NOTICE:  PASS failed transaction leaves review pending without receipt
+psql:tests/sql/catalog-authoring-runtime.sql:117: NOTICE:  PASS read domain revisions roll back with failed catalog graph
+psql:tests/sql/catalog-authoring-runtime.sql:117: NOTICE:  PASS same sealed approval retries once after rollback
+psql:tests/sql/catalog-authoring-runtime.sql:117: NOTICE:  PASS successful save resolves persistent review notification
+DO
+INSERT 0 1
+INSERT 0 1
+CREATE FUNCTION
+psql:tests/sql/catalog-authoring-runtime.sql:138: NOTICE:  PASS exact current MCP grant prepares a proposal
+psql:tests/sql/catalog-authoring-runtime.sql:138: NOTICE:  PASS revoked grant cannot approve already prepared changes
+psql:tests/sql/catalog-authoring-runtime.sql:138: NOTICE:  PASS price grant cannot prepare supplier cost changes
+psql:tests/sql/catalog-authoring-runtime.sql:138: NOTICE:  PASS disabled host client cannot approve
+psql:tests/sql/catalog-authoring-runtime.sql:138: NOTICE:  PASS receipt replay still requires a live grant
+DO
+SET
+psql:tests/sql/catalog-authoring-runtime.sql:140: NOTICE:  PASS direct authenticated database caller cannot invoke system save
+ rejects
+---------
+
+(1 row)
+
+SET
+psql:tests/sql/catalog-authoring-runtime.sql:142: NOTICE:  PASS customer database role cannot call approval transaction directly
+ assert
+--------
+
+(1 row)
+
+psql:tests/sql/catalog-authoring-runtime.sql:143: NOTICE:  PASS generic service table reads cannot expose sealed private authority
+ assert
+--------
+
+(1 row)
+
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS mixed SKU and no-SKU rows cannot duplicate a product name
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS first product link resolves canonical mapping notification
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS explicit null cannot clear established catalog relationship
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS stock review displays inherited counting unit
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS inherited counting-unit drift invalidates stock approval
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS durable catalog quota request 1
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS durable catalog quota request 2
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS durable catalog quota request 3
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS durable catalog quota request 4
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS durable catalog quota request 5
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS durable catalog quota request 6
+psql:tests/sql/catalog-authoring-runtime.sql:167: NOTICE:  PASS durable catalog quota request 7
+DO
+psql:tests/sql/catalog-authoring-runtime.sql:177: NOTICE:  PASS clearing price override shows exact inherited unit price
+psql:tests/sql/catalog-authoring-runtime.sql:177: NOTICE:  PASS unresolved rows return actionable review state
+psql:tests/sql/catalog-authoring-runtime.sql:177: NOTICE:  PASS new family option casing is reconciled before approval
+DO
+psql:tests/sql/catalog-authoring-runtime.sql:192: NOTICE:  PASS category removal retains exact prior category name
+psql:tests/sql/catalog-authoring-runtime.sql:192: NOTICE:  PASS approved category removal persists
+psql:tests/sql/catalog-authoring-runtime.sql:192: NOTICE:  PASS category self-cycle never reaches approval
+psql:tests/sql/catalog-authoring-runtime.sql:192: NOTICE:  PASS category descendant-cycle never reaches approval
+DO
+psql:tests/sql/catalog-authoring-runtime.sql:207: NOTICE:  PASS unresolved staged ancestor remains actionable for dependent category
+psql:tests/sql/catalog-authoring-runtime.sql:207: NOTICE:  PASS physical stock units require the existing capture workflow
+psql:tests/sql/catalog-authoring-runtime.sql:207: NOTICE:  PASS selected recipe cannot silently become fixed
+DO

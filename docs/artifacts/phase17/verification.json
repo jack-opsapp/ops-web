@@ -1,0 +1,39 @@
+{
+  "base_web_revision": "e6fb07d7d6540db22c948fb1f8650684ca8e4af8",
+  "migration": "supabase/migrations/20260908221635_agent_catalog_authoring.sql",
+  "migration_sha256": "0d9b3d9fe3864489d67ef668cecc5f3daf709d520b224bf605ff9812367d9efd",
+  "source_manifest_sha256": "1ea8b5226dff6cbb32ff9bb5dd9bfeb6cecb5915886702eefe9713e15c670fc5",
+  "focused_tests": {
+    "tests": 131,
+    "files": 9,
+    "exit_code": 0,
+    "command": "sh docs/artifacts/phase17/run-checks.sh"
+  },
+  "typecheck": {
+    "exit_code": 0,
+    "command": "node node_modules/typescript/bin/tsc --noEmit --pretty false -p docs/artifacts/phase17/tsconfig.json",
+    "scope": "all changed production TS/TSX files, transitive imports, existing ambient declarations"
+  },
+  "sql": {
+    "runtime_assertions": 73,
+    "concurrency_assertions": 15,
+    "exit_code": 0,
+    "command": "sh docs/artifacts/phase17/run-sql.sh",
+    "server": "disposable local PostgreSQL17; synthetic catalog_p17; canonical metadata fixture"
+  },
+  "broader_compatibility": {
+    "tests": 20,
+    "passed": 20,
+    "failed": 0,
+    "exit_code": 0,
+    "note": "parent-authorized generic test expectation corrected for existing narrow MCP_FINANCIAL_TRIAL_EXPOSURE; production and Phase16 data unchanged",
+    "test_only_commit": "b85ce28a4da307f6916f5c0b35a682182dca1d88"
+  },
+  "unverified": [
+    "browser visual acceptance",
+    "signed-in native-host acceptance",
+    "deployed PostgREST/pool session-disconnect, same-key retry and persisted receipt canary",
+    "production migration and activation"
+  ],
+  "production_mutations": false
+}

@@ -39,6 +39,7 @@
   "activity.empty": "Sin actividad aún.",
   "activity.composerPlaceholder": "Nota · @ para mencionar · arrastra fotos para adjuntar",
   "activity.author.system": "Sistema",
+  "activity.kind.email": "CORREO",
   "activity.kind.note": "NOTA",
   "activity.kind.statusChange": "ESTADO",
   "activity.kind.estimateSent": "COTIZACIÓN ENVIADA",

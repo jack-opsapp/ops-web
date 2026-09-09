@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const { data: activity, error: readError } = await supabase
       .from("activities")
       .select(
-        "company_id, email_connection_id, email_thread_id, opportunity_id"
+        "company_id, email_connection_id, email_thread_id, opportunity_id, match_confidence"
       )
       .eq("id", activityId)
       .eq("company_id", actorResolution.actor.companyId)
@@ -98,6 +98,10 @@ export async function POST(request: NextRequest) {
         { error: "Activity not found" },
         { status: 404 }
       );
+    }
+
+    if (activity.match_confidence === "work_intent_review" || activity.match_confidence === "existing_job") {
+      return NextResponse.json({ error: "This email has a saved correspondence decision. Use its review action." }, { status: 409 });
     }
 
     const { error } = await supabase

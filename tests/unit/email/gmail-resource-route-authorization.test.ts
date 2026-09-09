@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
   authorizeConnection: vi.fn(),
+  workReview: false,
+  inboxAuthorization: vi.fn(),
   checkPermission: vi.fn(),
   client: null as unknown,
   resolveActor: vi.fn(),
@@ -126,7 +128,8 @@ class Query {
           company_id: "company-1",
           email_connection_id: "connection-1",
           email_thread_id: "provider-thread-1",
-          opportunity_id: "opportunity-1",
+          opportunity_id: mocks.workReview ? null : "opportunity-1",
+          match_confidence: mocks.workReview ? "work_intent_review" : "domain",
           suggested_client_id: "client-1",
         },
         error: null,
@@ -147,6 +150,10 @@ class Query {
   }
 
   async maybeSingle() {
+    if (this.table === "activities" && this.action === "update") {
+      mocks.updates.push({ table: this.table, payload: this.payload });
+      return { data: { id: "activity-1" }, error: null };
+    }
     if (this.table === "email_connections") {
       return {
         data: { id: "connection-1", provider: "gmail" },
@@ -154,7 +161,7 @@ class Query {
       };
     }
     if (this.table === "email_threads") {
-      return { data: { id: "thread-1" }, error: null };
+      return { data: mocks.workReview ? null : { id: "thread-1" }, error: null };
     }
     return { data: null, error: null };
   }
@@ -176,6 +183,7 @@ class Query {
 function makeClient() {
   return {
     from: vi.fn((table: string) => new Query(table)),
+    rpc: mocks.inboxAuthorization,
   };
 }
 
@@ -191,6 +199,8 @@ import { GET as scanStatus } from "@/app/api/integrations/gmail/scan-status/rout
 describe("Gmail resource route authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.workReview = false;
+    mocks.inboxAuthorization.mockResolvedValue({ data: false, error: null });
     mocks.updates.length = 0;
     mocks.client = makeClient();
     mocks.resolveActor.mockResolvedValue({
@@ -273,6 +283,18 @@ describe("Gmail resource route authorization", () => {
 
     expect(response.status).toBe(403);
     expect(mocks.updates).toEqual([]);
+  });
+
+  it.each([true, false])("acknowledges a forwarded work review only for an authorized mailbox (%s)", async (allowed) => {
+    mocks.workReview = true;
+    mocks.inboxAuthorization.mockResolvedValue({ data: allowed, error: null });
+    const response = await ignoreActivity(new NextRequest("https://ops.test/api/integrations/gmail/ignore", {
+      method: "POST", body: JSON.stringify({ activityId: "activity-1" }),
+    }));
+    expect(response.status).toBe(allowed ? 200 : 404);
+    expect(mocks.resolveOpportunity).not.toHaveBeenCalled();
+    expect(mocks.inboxAuthorization).toHaveBeenCalledWith("authorize_email_inbox_action_as_system", expect.objectContaining({ p_actor_user_id: "user-1", p_connection_id: "connection-1", p_opportunity_id: null, p_action: "view" }));
+    expect(mocks.updates).toEqual(allowed ? [{ table: "activities", payload: { is_read: true, match_needs_review: false } }] : []);
   });
 
   it.each([

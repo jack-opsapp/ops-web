@@ -13,6 +13,7 @@ import {
   Archive,
   FilePlus2,
   FileSignature,
+  Mail,
 } from "lucide-react";
 import {
   useProjectActivity,
@@ -61,6 +62,7 @@ interface ActivityTabProps {
 }
 
 const KIND_KEY: Record<ProjectActivityKind, string> = {
+  email: "activity.kind.email",
   note: "activity.kind.note",
   status_change: "activity.kind.statusChange",
   estimate_sent: "activity.kind.estimateSent",
@@ -78,6 +80,8 @@ const KIND_KEY: Record<ProjectActivityKind, string> = {
 function KindIcon({ kind }: { kind: ProjectActivityKind }) {
   const cls = "w-3.5 h-3.5";
   switch (kind) {
+    case "email":
+      return <Mail className={cls} strokeWidth={1.5} />;
     case "status_change":
       return <ArrowUpDown className={cls} strokeWidth={1.5} />;
     case "estimate_sent":

@@ -62,6 +62,9 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   prepare_customer_message: "prepareCustomerMessage",
   prepare_schedule_change: "prepareScheduleChange",
   prepare_financial_document: "prepareFinancialDocument",
+  inspect_catalog_changes: "inspectCatalogChanges",
+  prepare_catalog_changes: "prepareCatalogChanges",
+  prepare_inventory_adjustment: "prepareInventoryAdjustment",
   inspect_financial_document: "inspectFinancialDocument",
 } as const satisfies Readonly<
   Record<
@@ -80,6 +83,9 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
     | "prepare_dispatch_confirmation_task"
     | "prepare_customer_update"
     | "prepare_customer_message"
+    | "inspect_catalog_changes"
+    | "prepare_catalog_changes"
+    | "prepare_inventory_adjustment"
     | "prepare_financial_document"
     | "inspect_financial_document"
     | "prepare_schedule_change",
@@ -103,6 +109,9 @@ export type McpDomainCapabilityId =
   | "prepare_dispatch_confirmation_task"
   | "prepare_customer_update"
   | "prepare_customer_message"
+  | "inspect_catalog_changes"
+  | "prepare_catalog_changes"
+  | "prepare_inventory_adjustment"
   | "prepare_financial_document"
   | "inspect_financial_document"
   | "prepare_schedule_change";

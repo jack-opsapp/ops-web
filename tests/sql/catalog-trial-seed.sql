@@ -1,0 +1,22 @@
+\set ON_ERROR_STOP on
+create schema catalog_test;
+set request.jwt.claim.role='service_role';
+insert into private.agent_read_domains(domain) values('catalog'),('purchasing'),('tasks');
+insert into public.companies(id,name,public_handle,currency_code) values('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Catalog fixture','catalog-fixture','CAD'),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Other catalog','other-catalog','USD');
+insert into public.users(id,company_id,first_name,last_name,is_company_admin) values('10000000-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Catalog','Operator',true),('10000000-0000-4000-8000-000000000002','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Second','Operator',true);
+create function catalog_test.assert(ok boolean,label text) returns void language plpgsql as $$begin if ok is distinct from true then raise exception 'FAIL %',label;end if;raise notice 'PASS %',label;end $$;
+create function catalog_test.rejects(statement text,expected text,label text) returns void language plpgsql as $$declare caught boolean:=false;begin begin execute statement;exception when others then if sqlerrm not like '%'||expected||'%' then raise exception 'FAIL % unexpected %',label,sqlerrm;end if;caught:=true;end;perform catalog_test.assert(caught,label);end $$;
+create function catalog_test.context() returns jsonb language sql as $$select jsonb_build_object('actor','10000000-0000-4000-8000-000000000001','company','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','channel','internal','manifest','2026-09-08.capability-manifest.v24','permission_keys',keys,'permission_revision',a.permission_snapshot_revision,'grant',null,'client',null,'grant_revision',null,'scopes',null) from (select array['agent.review','catalog.import','catalog.manage','catalog.products.manage','catalog.products.view','catalog.stock.adjust','catalog.view','finances.view']::text[] keys) p cross join lateral private.resolve_agent_actor_authority('10000000-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',keys) a $$;
+create function catalog_test.row(key text,entity text,vals jsonb) returns jsonb language sql as $$select jsonb_build_object('row_key',key,'source_row',key,'entity',entity,'existing_id',null,'expected_sha256',null,'values',vals)$$;
+create function catalog_test.request(key text) returns jsonb language sql as $$select jsonb_build_object('operation','catalog','currency','CAD','source',jsonb_build_object('key','fixture-source','name','Supplier sheet','kind','file','sha256','sha256:'||repeat('a',64)),'rows',jsonb_build_array(
+ catalog_test.row('each','unit','{"name":"Each","abbreviation":"ea","dimension":"count"}'),
+ catalog_test.row('materials','category','{"name":"Materials"}'),
+ catalog_test.row('boards','family','{"name":"Boards","unit":"row:each","category":"row:materials","price":"10.00"}'),
+ catalog_test.row('installation','product','{"name":"Installation","kind":"service","price":"12.50","unit":"hour","pricing_unit":"hour","taxable":true}'),
+ catalog_test.row('black','variant','{"family":"row:boards","unit":"row:each","sku":"BOARD-BLACK","price":"10.00","choices":[{"option":"Colour","value":"Black"}]}'),
+ catalog_test.row('white','variant','{"family":"row:boards","unit":"row:each","sku":"BOARD-WHITE","price":"10.00","choices":[{"option":"Colour","value":"White"}]}'),
+ catalog_test.row('recipe','recipe','{"product":"row:installation","variant":"row:black","quantity":"2","unit":"row:each"}')
+ ),'skipped_rows','[]'::jsonb,'idempotency_key',key) $$;
+create function catalog_test.prepare(req jsonb) returns jsonb language sql as $$select public.prepare_catalog_changes_as_system(catalog_test.context(),req,'catalog-test')$$;
+create function catalog_test.commit(p jsonb,key text default 'catalog-commit-001') returns jsonb language sql as $$select public.commit_catalog_changes_as_actor('10000000-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',(p->>'action_id')::uuid,(p->>'change_set_id')::uuid,p->>'preview_sha256',key)$$;
+create function catalog_test.one(key text,entity text,vals jsonb,rid uuid default null) returns jsonb language sql as $$select jsonb_set(catalog_test.request(key),'{rows}',jsonb_build_array(catalog_test.row(key,entity,vals)||jsonb_build_object('existing_id',rid,'expected_sha256',case when rid is null then null else private.agent_catalog_hash(private.agent_catalog_row('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',entity,rid)) end)))$$;

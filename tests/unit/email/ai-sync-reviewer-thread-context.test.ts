@@ -117,6 +117,8 @@ function stageALead(confidence: number) {
     {
       id: "message-landlord",
       verdict: "lead" as const,
+      workIntent: "new_work" as const,
+      newWorkEvidence: "Could you quote a new deck?",
       confidence,
       stage: "new_lead",
       estimatedValue: null,
@@ -186,6 +188,18 @@ beforeEach(() => {
   );
 });
 
+describe("existing-job correspondence survives sales filters", () => {
+  it.each([0.4, 0.95])("retains an existing-job result at confidence %s", async (confidence) => {
+    classifyBatchMock.mockResolvedValue(stageALead(confidence).map((row) => ({ ...row, workIntent: "existing_job", newWorkEvidence: null })));
+    reclassifyMock.mockResolvedValue([{ id: "message-landlord", verdict: "lead", workIntent: "existing_job", newWorkEvidence: null, confidence }]);
+    const result = await review();
+    expect(result.newLeadsClassified).toBe(0);
+    expect(result.classifiedLeads).toHaveLength(1);
+    expect(result.classifiedLeads[0].workIntent).toBe(confidence < 0.7 ? "uncertain" : "existing_job");
+    expect(result.deferredClassifications).toEqual([]);
+  });
+});
+
 describe("Stage B replaces the single-message verdict", () => {
   it("suppresses the landlord lead once the full thread is read", async () => {
     reclassifyMock.mockResolvedValue([
@@ -225,7 +239,7 @@ describe("Stage B replaces the single-message verdict", () => {
 
   it("keeps a genuine lead that the full thread confirms", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "lead", confidence: 0.91 },
+      { id: "message-landlord", verdict: "lead", workIntent: "new_work", newWorkEvidence: "Could you quote a new deck?", confidence: 0.91 },
     ]);
 
     const result = await review();
@@ -312,7 +326,7 @@ describe("unverified leads lose the confidence to auto-create", () => {
 describe("the borderline review band", () => {
   it("defers a lead scored between the floor and the threshold", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "lead", confidence: 0.62 },
+      { id: "message-landlord", verdict: "lead", workIntent: "new_work", newWorkEvidence: "Could you quote a new deck?", confidence: 0.62 },
     ]);
 
     const result = await review();
@@ -327,7 +341,7 @@ describe("the borderline review band", () => {
 
   it("leaves a sub-floor verdict a silent non-lead", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "lead", confidence: 0.3 },
+      { id: "message-landlord", verdict: "lead", workIntent: "new_work", newWorkEvidence: "Could you quote a new deck?", confidence: 0.3 },
     ]);
 
     const result = await review();
@@ -338,7 +352,7 @@ describe("the borderline review band", () => {
 
   it("still auto-creates an above-threshold lead — the optimistic bias stands", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "lead", confidence: 0.85 },
+      { id: "message-landlord", verdict: "lead", workIntent: "new_work", newWorkEvidence: "Could you quote a new deck?", confidence: 0.85 },
     ]);
 
     const result = await review();

@@ -1,0 +1,59 @@
+{
+  "status": "read_only_preflight_passed_catalog_authoring_blocked",
+  "host": "Codex native OPS MCP connection",
+  "company_id": "ddee107c-33cd-483e-8278-0f8d8a180181",
+  "company_name": "MAVERICK PROJECTS LTD",
+  "observed_at_utc": "2026-09-09T01:24:41.431Z",
+  "candidate_source_commit": "2edc61aa9f438b4e98e06198031b7cc00ef06c0c",
+  "calls": [
+    {
+      "tool": "get_company_context",
+      "result": "authenticated company matches MAVERICK; CAD; tracked inventory",
+      "proof_ref": "ops_proof:v1:2f101ec6bfdcc0c8e0248348ef352e325d8333d2e9911e45604e8e00d8c129b5",
+      "read_at": "2026-09-09T01:23:37.248Z"
+    },
+    {
+      "tool": "search_catalog_items",
+      "input": { "active_state": "all", "limit": 3 },
+      "result": "three variants returned with stock units and evidence; continuation available",
+      "proof_ref": "ops_proof:v1:02947a7c25851def7cde2d6ecc7494e7af184d54e254a3c2f72746c20fdfea4d",
+      "read_at": "2026-09-09T01:24:19.481Z"
+    },
+    {
+      "tool": "get_catalog_item",
+      "variant_id": "493cb50e-7e17-44f8-bd8d-286d29b2c39b",
+      "result": "exact variant returned; CAD 25.00 sale price; 100 each; recipe and physical-stock relationships readable; no supplier-cost section requested or returned",
+      "proof_ref": "ops_proof:v1:48d39b5e459f1cce5cdbcea0407180538bf04d26edcb1e665a0f905a1f589fce",
+      "read_at": "2026-09-09T01:24:41.431Z"
+    },
+    {
+      "tool": "search_catalog_items",
+      "input": { "active_state": "all", "limit": 3, "cursor": "exact opaque continuation from the first response; intentionally not retained" },
+      "result": "three additional variants; zero overlap with first page; source revision and snapshot timestamp preserved",
+      "proof_ref": "ops_proof:v1:3bc8ffdb0d87e74df739e3c43ead7a2051e4a34710f9376f7a887a8cac8d1357",
+      "snapshot_read_at": "2026-09-09T01:24:19.481Z"
+    }
+  ],
+  "deployment_preflight": {
+    "native_authoring_tools_available": false,
+    "missing_tools": ["inspect_catalog_changes", "prepare_catalog_changes", "prepare_inventory_adjustment"],
+    "production_project": "ijeekuhbatykdomumfjx",
+    "metadata_query": "select n.nspname as schema_name, p.proname as function_name, pg_get_function_identity_arguments(p.oid) as arguments from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname in ('public','private') and p.proname in ('inspect_catalog_changes_as_system','prepare_catalog_changes_as_system','commit_catalog_changes_as_actor','agent_catalog_authorize','agent_catalog_deadline') order by n.nspname,p.proname;",
+    "matching_production_functions": 0
+  },
+  "not_tested": [
+    "Phase17 inspection or preparation",
+    "operator approval and catalog/inventory writes",
+    "PostgREST timeout, same-key save replay or durable write receipt",
+    "fresh OAuth consent, refresh or revocation",
+    "ChatGPT or Claude host acceptance",
+    "cross-company authorization attacks"
+  ],
+  "mutations": {
+    "business_records": false,
+    "production_schema": false,
+    "oauth_grants_or_activation": false,
+    "deployment": false
+  },
+  "next_gate": "Separate approval to deploy the candidate application and catalog migration, followed by scoped MAVERICK-only test authorization. Existing authenticated reads are not catalog-authoring acceptance."
+}
