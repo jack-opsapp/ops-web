@@ -19,11 +19,33 @@ const DEBOUNCE_MS = 150;
 /** A settled result stays usable for half a minute of continued typing. */
 const STALE_TIME_MS = 30_000;
 
+/**
+ * One retry, not the global two. The app-wide policy only declines a retry when
+ * the error carries `status`, and a PostgREST failure does not — a hard fault
+ * (denied RPC, function not deployed) would cost three requests per typing
+ * pause. One retry still absorbs a dropped connection.
+ */
+const RETRY_COUNT = 1;
+
 export interface UseWorkspaceSearchResult {
-  /** The envelope on screen — the previous one while the next is in flight. */
+  /**
+   * The envelope on screen, or `null` when there is nothing legitimate to
+   * show — no settled result yet, a failed query, or the search switched off.
+   */
   result: WorkspaceSearchResult | null;
-  /** The query the visible result belongs to: trimmed and lower-cased. */
+  /**
+   * The query the caller asked for: trimmed and lower-cased. This is the
+   * *requested* text, not necessarily the one `result` answers — while the
+   * next query is in flight the previous envelope is kept on screen, so pair
+   * this with `isPlaceholderData` before labelling a result.
+   */
   activeQuery: string;
+  /**
+   * True while `result` is the previous query's envelope, held to stop the list
+   * blinking empty mid-word. False once the request for `activeQuery` settles,
+   * successfully or not.
+   */
+  isPlaceholderData: boolean;
   isFetching: boolean;
   isError: boolean;
   error: unknown;
@@ -53,15 +75,23 @@ export function useWorkspaceSearch(
 
   const query = useQuery({
     queryKey: queryKeys.search.workspace(companyId, normalized),
-    queryFn: () => WorkspaceSearchService.search(debounced, limitPerKind),
+    // The request text is the key text — one cache entry, one request string.
+    queryFn: () => WorkspaceSearchService.search(normalized, limitPerKind),
     enabled,
     placeholderData: keepPreviousData,
     staleTime: STALE_TIME_MS,
+    retry: RETRY_COUNT,
   });
 
   return {
-    result: query.data ?? null,
+    // `keepPreviousData` is not gated on `enabled`: a disabled query still sits
+    // in `pending`, so TanStack keeps substituting the last envelope. Without
+    // this guard the previous results survive a backspace below the minimum
+    // length and a palette close — presented as the answer to a query that is
+    // not running.
+    result: enabled ? (query.data ?? null) : null,
     activeQuery: normalized,
+    isPlaceholderData: query.isPlaceholderData,
     isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
