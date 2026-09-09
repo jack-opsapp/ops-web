@@ -14,8 +14,7 @@ export interface CopywritingReference {
   content: string;
 }
 
-function loadReference(path: string): CopywritingReference {
-  const content = readFileSync(join(process.cwd(), path), "utf8");
+function toReference(path: string, content: string): CopywritingReference {
   if (!content.trim()) throw new Error("COPYWRITING_REFERENCE_EMPTY");
   return {
     path,
@@ -24,12 +23,27 @@ function loadReference(path: string): CopywritingReference {
   };
 }
 
+// Each document is read with its literal path so the build tracer can also
+// see it; next.config.ts names the folder explicitly for every consumer route.
+
 /** The Sam Parr field guide: pacing, hooks, quiet thoughts, subtraction. */
 export function loadCopywritingReference(): CopywritingReference {
-  return loadReference(SAM_PARR_GUIDE_PATH);
+  return toReference(
+    SAM_PARR_GUIDE_PATH,
+    readFileSync(
+      join(process.cwd(), "docs/social/voice/sam-parr-field-guide.md"),
+      "utf8"
+    )
+  );
 }
 
 /** The OPS copywriter brief: the founder voice every post is written in. */
 export function loadOpsCopywriterBrief(): CopywritingReference {
-  return loadReference(OPS_COPYWRITER_BRIEF_PATH);
+  return toReference(
+    OPS_COPYWRITER_BRIEF_PATH,
+    readFileSync(
+      join(process.cwd(), "docs/social/voice/ops-copywriter-brief.md"),
+      "utf8"
+    )
+  );
 }
