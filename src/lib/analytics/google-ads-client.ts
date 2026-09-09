@@ -9,7 +9,7 @@
  */
 import { GoogleAuth } from "google-auth-library";
 import { unstable_cache } from "next/cache";
-import { parsePrivateKey } from "@/lib/firebase/parse-private-key";
+import { getServiceAccountCredentials } from "@/lib/google/service-account-credentials";
 import type {
   AdsDayRange,
   GoogleAdsAccountSummary,
@@ -30,29 +30,10 @@ let _auth: GoogleAuth | null = null;
 function getAuth(): GoogleAuth {
   if (_auth) return _auth;
 
-  // Support full JSON (same as GA4 client)
-  const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
-  if (serviceAccountJson) {
-    const credentials = JSON.parse(serviceAccountJson);
-    _auth = new GoogleAuth({
-      credentials,
-      scopes: ["https://www.googleapis.com/auth/adwords"],
-    });
-    return _auth;
-  }
-
-  // Construct from individual env vars (same as GA4 client)
-  const privateKey = parsePrivateKey(process.env.FIREBASE_ADMIN_PRIVATE_KEY);
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
-    ?? `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
-
-  if (!privateKey || !projectId) {
-    throw new Error("Missing FIREBASE_ADMIN_PRIVATE_KEY or NEXT_PUBLIC_FIREBASE_PROJECT_ID env var");
-  }
-
+  // Full JSON or key + email pair — one loader shared with the Data Manager
+  // and GA4 clients (src/lib/google/service-account-credentials.ts).
   _auth = new GoogleAuth({
-    credentials: { client_email: clientEmail, private_key: privateKey },
+    credentials: getServiceAccountCredentials(),
     scopes: ["https://www.googleapis.com/auth/adwords"],
   });
 
@@ -79,7 +60,18 @@ interface GoogleAdsRow {
   adGroup?: { name?: string };
   adGroupCriterion?: { keyword?: { text?: string; matchType?: string } };
   searchTermView?: { searchTerm?: string };
-  conversionAction?: { name?: string; category?: string; status?: string };
+  conversionAction?: {
+    resourceName?: string;
+    id?: string | number;
+    name?: string;
+    type?: string;
+    category?: string;
+    status?: string;
+    primaryForGoal?: boolean;
+    includeInConversionsMetric?: boolean;
+    countingType?: string;
+    clickThroughLookbackWindowDays?: string | number;
+  };
   segments?: { date?: string; conversionActionName?: string };
   metrics?: {
     costMicros?: string;
@@ -700,6 +692,58 @@ async function fetchConversionActionCategories(): Promise<Map<string, string>> {
   }
 
   return new Map([...byName].map(([name, v]) => [name, v.category]));
+}
+
+/**
+ * Every non-REMOVED conversion action with the fields the engine's planner
+ * reconciles (src/lib/ads/conversion-actions.ts). Live, never cached: the
+ * planner must see the account as it is right now.
+ */
+export async function listConversionActions(): Promise<
+  Array<{
+    resourceName: string;
+    id: string;
+    name: string;
+    type: string;
+    category: string;
+    status: string;
+    primaryForGoal: boolean;
+    includeInConversionsMetric: boolean;
+    countingType: string;
+    clickThroughLookbackWindowDays: number;
+  }>
+> {
+  const rows = await queryGoogleAds(`
+    SELECT
+      conversion_action.resource_name,
+      conversion_action.id,
+      conversion_action.name,
+      conversion_action.type,
+      conversion_action.category,
+      conversion_action.status,
+      conversion_action.primary_for_goal,
+      conversion_action.include_in_conversions_metric,
+      conversion_action.counting_type,
+      conversion_action.click_through_lookback_window_days
+    FROM conversion_action
+    WHERE conversion_action.status != 'REMOVED'
+  `);
+
+  return rows
+    .map((row) => row.conversionAction)
+    .filter((a): a is NonNullable<typeof a> => !!a && !!a.resourceName)
+    .map((a) => ({
+      resourceName: String(a.resourceName),
+      id: String(a.id ?? ""),
+      name: String(a.name ?? ""),
+      type: String(a.type ?? ""),
+      category: String(a.category ?? ""),
+      status: String(a.status ?? ""),
+      primaryForGoal: a.primaryForGoal === true,
+      includeInConversionsMetric: a.includeInConversionsMetric === true,
+      countingType: String(a.countingType ?? ""),
+      clickThroughLookbackWindowDays: Number(a.clickThroughLookbackWindowDays ?? 0),
+    }));
 }
 
 /**
