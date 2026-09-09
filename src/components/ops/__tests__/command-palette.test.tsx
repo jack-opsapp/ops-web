@@ -26,6 +26,15 @@ import {
   type WorkspaceSearchResult,
 } from "@/lib/types/workspace-search";
 
+/**
+ * Each keystroke re-renders the whole palette and makes cmdk re-score and
+ * re-append every command item, so a multi-character query is genuinely heavy
+ * render work. On a loaded machine that outruns the 5s default while the
+ * assertions themselves are deterministic — the budget is the flake, not the
+ * code.
+ */
+vi.setConfig({ testTimeout: 30_000 });
+
 const push = vi.fn();
 const openWindow = vi.fn();
 const openProjectWindow = vi.fn();
@@ -286,6 +295,15 @@ function setSearch(overrides: SearchStateOverrides = {}) {
   };
 }
 
+/**
+ * No inter-keystroke delay. The palette re-renders and cmdk re-sorts on every
+ * character, so the default per-key delay makes an eight-character query
+ * outrun the 5s test budget on a loaded machine.
+ */
+function setupUser() {
+  return userEvent.setup({ delay: null });
+}
+
 function renderPalette() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -304,10 +322,17 @@ async function openPalette() {
   return screen.getByPlaceholderText(/search or run a command/i);
 }
 
+function headingElements(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>("[cmdk-group-heading]"));
+}
+
+/**
+ * Heading text in DOM order. cmdk hides a filtered-out group with the `hidden`
+ * attribute rather than unmounting it, so this reads headings the operator
+ * cannot see too — pair it with `toBeVisible` whenever visibility is the claim.
+ */
 function headingsInDomOrder(): string[] {
-  return Array.from(document.querySelectorAll("[cmdk-group-heading]")).map((el) =>
-    (el.textContent ?? "").trim()
-  );
+  return headingElements().map((el) => (el.textContent ?? "").trim());
 }
 
 function selectedRowText(): string {
@@ -326,7 +351,7 @@ describe("CommandPalette — universal entity search", () => {
   });
 
   it("shows matching projects to the operator while they type", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -337,7 +362,7 @@ describe("CommandPalette — universal entity search", () => {
   });
 
   it("renders the five kinds as groups in the app's own order", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -351,10 +376,15 @@ describe("CommandPalette — universal entity search", () => {
       "Tasks",
       "Documents",
     ]);
+    // And they are on screen, not merely mounted: cmdk hides a group it has
+    // filtered out, which is exactly how bug fa5a9ff2 presented.
+    for (const heading of headingElements().slice(0, 5)) {
+      expect(heading).toBeVisible();
+    }
   });
 
   it("counts a group's heading only when rows were left behind", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -366,7 +396,7 @@ describe("CommandPalette — universal entity search", () => {
   });
 
   it("shows each kind's secondary line so duplicates can be told apart", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -382,7 +412,7 @@ describe("CommandPalette — universal entity search", () => {
   });
 
   it("tags every hit with its status, in the app's own words", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -411,7 +441,7 @@ describe("CommandPalette — universal entity search", () => {
         ],
       }),
     });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -423,7 +453,7 @@ describe("CommandPalette — universal entity search", () => {
   it("hides the Documents group from an operator who can see neither book", async () => {
     permissions.can = (permission: string) =>
       permission !== "invoices.view" && permission !== "estimates.view";
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -437,7 +467,7 @@ describe("CommandPalette — universal entity search", () => {
 
   it("shows the Documents group to an operator who can see only estimates", async () => {
     permissions.can = (permission: string) => permission !== "invoices.view";
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -447,7 +477,7 @@ describe("CommandPalette — universal entity search", () => {
   });
 
   it("never claims no matches while the envelope has hits", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -459,7 +489,7 @@ describe("CommandPalette — universal entity search", () => {
 
   it("still shows the empty state once a real search settles on nothing", async () => {
     setSearch({ result: emptyWorkspaceSearchResult(), activeQuery: "zzqzqzqx" });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -480,7 +510,7 @@ describe("CommandPalette — universal entity search", () => {
       activeQuery: "zzqzqzqx",
       isFetching: true,
     });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -491,7 +521,7 @@ describe("CommandPalette — universal entity search", () => {
 
   it("shows commands only below two characters — no empty state, no request", async () => {
     setSearch({ result: null, activeQuery: "h", enabled: false });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -503,7 +533,7 @@ describe("CommandPalette — universal entity search", () => {
 
   it("keeps the previous rows on screen while the next query loads", async () => {
     setSearch({ isFetching: true, isPlaceholderData: true, activeQuery: "hidden o" });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -514,7 +544,7 @@ describe("CommandPalette — universal entity search", () => {
 
   it("drops the heading count while the rows answer the previous query", async () => {
     setSearch({ isFetching: true, isPlaceholderData: true, activeQuery: "hidden o" });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -528,15 +558,17 @@ describe("CommandPalette — universal entity search", () => {
 
   it("offers a quiet retry when the search itself fails", async () => {
     setSearch({ result: null, isError: true });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
-    await user.type(input, "hidden");
+    // A command word, so the assertion below is about the outage and not about
+    // cmdk having filtered every command away.
+    await user.type(input, "sign out");
 
     expect(screen.getByText("// SEARCH UNAVAILABLE")).toBeVisible();
     // Commands stay usable through an outage.
-    expect(headingsInDomOrder()).toContain("System");
+    expect(screen.getByText("Sign Out")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: /retry/i }));
     expect(refetch).toHaveBeenCalledTimes(1);
@@ -544,7 +576,7 @@ describe("CommandPalette — universal entity search", () => {
 
   it("never shows the empty state on top of an error", async () => {
     setSearch({ result: null, isError: true, activeQuery: "zzqzqzqx" });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -554,7 +586,7 @@ describe("CommandPalette — universal entity search", () => {
   });
 
   it("opens the project workspace when the first result is selected", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -572,7 +604,7 @@ describe("CommandPalette — universal entity search", () => {
   });
 
   it("moves the highlight down across group boundaries with ArrowDown", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -609,7 +641,7 @@ describe("CommandPalette — universal entity search", () => {
         ],
       }),
     });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -638,7 +670,7 @@ describe("CommandPalette — universal entity search", () => {
         ],
       }),
     });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -671,7 +703,7 @@ describe("CommandPalette — universal entity search", () => {
         ],
       }),
     });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -701,7 +733,7 @@ describe("CommandPalette — universal entity search", () => {
         ],
       }),
     });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -729,7 +761,7 @@ describe("CommandPalette — search-in-flight cue", () => {
 
   it("dims the search glyph while a query is in flight", async () => {
     setSearch({ isFetching: true, isPlaceholderData: true });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -740,7 +772,7 @@ describe("CommandPalette — search-in-flight cue", () => {
   });
 
   it("restores the glyph once the search settles", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -751,7 +783,7 @@ describe("CommandPalette — search-in-flight cue", () => {
   });
 
   it("carries the design system's easing and honours reduced motion", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
@@ -767,7 +799,7 @@ describe("CommandPalette — search-in-flight cue", () => {
 
   it("leaves the glyph alone while the palette is not searching", async () => {
     setSearch({ result: null, activeQuery: "h", enabled: false, isFetching: false });
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPalette();
 
     const input = await openPalette();
