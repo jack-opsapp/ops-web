@@ -288,6 +288,8 @@ export interface OpenProposalRef {
   kind: ProposalKind;
   target: string;
   state: "proposed" | "approved";
+  /** The run that filed it; a resend from the same run is a replay. */
+  runId?: string | null;
   /** The stored payload, so term-level overlap can be filtered. */
   payload?: Record<string, unknown> | null;
 }
@@ -334,6 +336,8 @@ export interface ValidationIssue {
   code: string;
   field: string;
   message: string;
+  /** For DUPLICATE_PROPOSAL: the id of the open proposal it collides with. */
+  ref?: string;
 }
 
 export interface NormalizedProposal {

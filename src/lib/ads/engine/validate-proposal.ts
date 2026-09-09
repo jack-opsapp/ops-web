@@ -47,8 +47,8 @@ type Pass = {
   payload: Record<string, unknown>;
 };
 
-function fail(code: ValidationCode, field: string, message: string, extra: ValidationIssue[] = []): Fail {
-  return { ok: false, code, issues: [{ code, field, message }, ...extra] };
+function fail(code: ValidationCode, field: string, message: string, ref?: string): Fail {
+  return { ok: false, code, issues: [ref ? { code, field, message, ref } : { code, field, message }] };
 }
 
 function normalizeUrl(url: string): string {
@@ -146,12 +146,12 @@ function addNegatives(p: PayloadFor<"add_negatives">, ctx: ValidationContext): P
   if (!list) return fail("UNKNOWN_ENTITY", "payload.list", `No shared negative list named "${p.list}".`);
   const existing = new Set(list.members.map((m) => m.text.trim().toLowerCase()));
   const report = new Map(ctx.metrics28d.searchTerms.map((t) => [t.term.trim().toLowerCase(), t]));
-  const pending = new Set<string>();
+  const pending = new Map<string, string>();
   for (const open of ctx.openProposals) {
     if (open.kind !== "add_negatives" || !open.payload) continue;
     const terms = (open.payload as { terms?: Array<{ text?: unknown }> }).terms ?? [];
     for (const term of terms)
-      if (typeof term.text === "string") pending.add(term.text.trim().toLowerCase());
+      if (typeof term.text === "string") pending.set(term.text.trim().toLowerCase(), open.id);
   }
   const kept: Array<{ text: string; matchType: "BROAD" | "PHRASE" | "EXACT" }> = [];
   const seen = new Set<string>();
@@ -168,9 +168,9 @@ function addNegatives(p: PayloadFor<"add_negatives">, ctx: ValidationContext): P
     kept.push({ text: key, matchType: term.matchType });
   }
   if (kept.length === 0) {
-    const allPending = p.terms.every((t) => pending.has(t.text.trim().toLowerCase()) || existing.has(t.text.trim().toLowerCase()));
-    if (allPending && p.terms.some((t) => pending.has(t.text.trim().toLowerCase())))
-      return fail("DUPLICATE_PROPOSAL", "payload.terms", "Every term is already waiting in an open negatives proposal.");
+    const waiting = p.terms.map((t) => pending.get(t.text.trim().toLowerCase())).find((id) => id);
+    if (waiting)
+      return fail("DUPLICATE_PROPOSAL", "payload.terms", `Every term is already waiting in open proposal ${waiting}.`, waiting);
     return fail("ALREADY_APPLIED", "payload.terms", `Every term is already in "${list.name}".`);
   }
   const target = `negatives:${list.name}:${hash8(kept.map((t) => t.text).sort().join("\n"))}`;
@@ -509,7 +509,7 @@ export function validateProposal(input: unknown, ctx: ValidationContext): Valida
 
   const duplicate = ctx.openProposals.find((open) => open.target === outcome.target);
   if (duplicate)
-    return fail("DUPLICATE_PROPOSAL", "kind", `The same change is already waiting (${duplicate.state}, proposal ${duplicate.id}).`);
+    return fail("DUPLICATE_PROPOSAL", "kind", `The same change is already waiting (${duplicate.state}, proposal ${duplicate.id}).`, duplicate.id);
 
   const normalized: NormalizedProposal = {
     kind,
