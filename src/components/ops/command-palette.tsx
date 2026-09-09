@@ -441,21 +441,31 @@ export function CommandPalette() {
         onValueChange={setSearch}
       />
       <CommandList>
-        <CommandEmpty>
-          <div className="flex flex-col items-center gap-1 py-2">
-            <Search className="w-[24px] h-[24px] text-text-mute" />
-            <span>No results found</span>
-            <span className="text-[11px] text-text-mute">
-              Try a different search term
-            </span>
-          </div>
-        </CommandEmpty>
+        {/* cmdk counts only items REGISTERED with its filter store, and
+            forceMount entity items never register — so Empty would claim
+            "no results" on top of a full result set. Gate it on the entity
+            matches we compute ourselves. */}
+        {!hasEntityResults && (
+          <CommandEmpty>
+            <div className="flex flex-col items-center gap-1 py-2">
+              <Search className="w-[24px] h-[24px] text-text-mute" />
+              <span>No results found</span>
+              <span className="text-[11px] text-text-mute">
+                Try a different search term
+              </span>
+            </div>
+          </CommandEmpty>
+        )}
 
         {/* Entity search results */}
         {hasEntityResults && (
           <>
+            {/* forceMount on the GROUP too — cmdk hides any group missing
+                from `filtered.groups`, and that set is built only from
+                registered (non-forceMount) items, so these groups vanished
+                the instant the operator typed. Bug fa5a9ff2. */}
             {entityResults.projects.length > 0 && (
-              <CommandGroup heading="Projects">
+              <CommandGroup heading="Projects" forceMount>
                 {entityResults.projects.map((p) => (
                   <CommandItem
                     key={`project-${p.id}`}
@@ -480,7 +490,7 @@ export function CommandPalette() {
               </CommandGroup>
             )}
             {entityResults.clients.length > 0 && (
-              <CommandGroup heading="Clients">
+              <CommandGroup heading="Clients" forceMount>
                 {entityResults.clients.map((c) => (
                   <CommandItem
                     key={`client-${c.id}`}
@@ -500,7 +510,7 @@ export function CommandPalette() {
               </CommandGroup>
             )}
             {entityResults.tasks.length > 0 && (
-              <CommandGroup heading="Tasks">
+              <CommandGroup heading="Tasks" forceMount>
                 {entityResults.tasks.map((t) => (
                   <CommandItem
                     key={`task-${t.id}`}
@@ -515,11 +525,11 @@ export function CommandPalette() {
               </CommandGroup>
             )}
             {entityResults.opportunities.length > 0 && (
-              <CommandGroup heading="Opportunities">
+              <CommandGroup heading="Opportunities" forceMount>
                 {entityResults.opportunities.map((o) => (
                   <CommandItem
                     key={`opp-${o.id}`}
-                    value={`opp-${o.id} ${o.title}`}
+                    value={`opportunity ${o.title} ${o.contactName ?? ""}`}
                     onSelect={() => navigate(`/pipeline?opportunity=${o.id}`)}
                     forceMount
                   >
