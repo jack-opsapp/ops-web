@@ -1,8 +1,28 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EMPTY_WORKSPACE_SEARCH,
   parseWorkspaceSearchResult,
 } from "@/lib/types/workspace-search";
+
+// vi.mock is hoisted above the imports; vi.hoisted keeps the spy alive at that
+// point instead of hitting the module-scope temporal dead zone.
+const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
+
+vi.mock("@/lib/supabase/helpers", () => ({
+  requireSupabase: () => ({ rpc }),
+}));
+
+import { WorkspaceSearchService } from "@/lib/api/services/workspace-search-service";
+
+const ENVELOPE = {
+  query: "hidden",
+  tokens: ["hidden"],
+  projects: { total: 0, items: [] },
+  clients: { total: 0, items: [] },
+  leads: { total: 0, items: [] },
+  tasks: { total: 0, items: [] },
+  documents: { total: 0, items: [] },
+};
 
 describe("parseWorkspaceSearchResult", () => {
   it("returns the empty envelope for anything that is not an envelope", () => {
@@ -157,5 +177,45 @@ describe("parseWorkspaceSearchResult", () => {
       client_name: null,
       updated_at: null,
     });
+  });
+});
+
+describe("WorkspaceSearchService.search", () => {
+  beforeEach(() => {
+    rpc.mockReset();
+  });
+
+  it("calls search_workspace with the query and limit and parses the envelope", async () => {
+    rpc.mockResolvedValue({ data: ENVELOPE, error: null });
+    const result = await WorkspaceSearchService.search("Hidden", 8);
+    expect(rpc).toHaveBeenCalledWith("search_workspace", {
+      p_query: "Hidden",
+      p_limit_per_kind: 8,
+    });
+    expect(result.query).toBe("hidden");
+    expect(result.projects).toEqual({ total: 0, items: [] });
+  });
+
+  it("defaults the per-kind limit to 8", async () => {
+    rpc.mockResolvedValue({ data: ENVELOPE, error: null });
+    await WorkspaceSearchService.search("Hidden");
+    expect(rpc).toHaveBeenCalledWith("search_workspace", {
+      p_query: "Hidden",
+      p_limit_per_kind: 8,
+    });
+  });
+
+  it("throws the PostgREST message on error", async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message: "permission denied for function search_workspace", code: "42501" },
+    });
+    await expect(WorkspaceSearchService.search("x")).rejects.toThrow(/permission denied/);
+  });
+
+  it("returns the empty envelope when the RPC answers with no data", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    const result = await WorkspaceSearchService.search("x");
+    expect(result).toEqual(EMPTY_WORKSPACE_SEARCH);
   });
 });
