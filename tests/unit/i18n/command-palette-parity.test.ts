@@ -35,12 +35,62 @@ const REQUIRED_KEYS = [
   "footer.navigate",
   "footer.select",
   "footer.close",
+  // Singular, per row. A screen reader announces the row's kind before its
+  // text, and "Projects, Hidden Oaks Cres" reads as a group, not a job.
+  "row.project",
+  "row.client",
+  "row.lead",
+  "row.task",
   "row.invoice",
   "row.estimate",
   "system.sync",
   "system.reportBug",
   "system.shortcuts",
   "system.signOut",
+];
+
+/**
+ * Result rows tag every hit with its status. The keys are the RAW database
+ * values (`projects.status`, `opportunities.stage`, `project_tasks.status`,
+ * `invoices.status`, `estimates.status`) so the palette can label a hit without
+ * a second translation layer; wording mirrors `projects.json` / `pipeline.json`
+ * verbatim so the same state never reads two ways across the app. A value the
+ * database grows later falls back to the humanised raw string, so this list is
+ * a completeness guard, not a crash guard.
+ */
+const REQUIRED_STATUS_KEYS = [
+  ...["rfq", "estimated", "accepted", "in_progress", "completed", "closed", "archived"].map(
+    (s) => `status.project.${s}`,
+  ),
+  ...[
+    "new_lead",
+    "qualifying",
+    "quoting",
+    "quoted",
+    "follow_up",
+    "negotiation",
+    "won",
+    "lost",
+    "discarded",
+  ].map((s) => `status.lead.${s}`),
+  ...["active", "completed", "cancelled"].map((s) => `status.task.${s}`),
+  ...[
+    "draft",
+    "sent",
+    "awaiting_payment",
+    "partially_paid",
+    "paid",
+    "past_due",
+    "void",
+    "written_off",
+    "viewed",
+    "approved",
+    "changes_requested",
+    "converted",
+    "declined",
+    "expired",
+    "superseded",
+  ].map((s) => `status.document.${s}`),
 ];
 
 describe("command-palette dictionary", () => {
@@ -54,6 +104,13 @@ describe("command-palette dictionary", () => {
 
   it("carries every key the palette renders", () => {
     for (const key of REQUIRED_KEYS) {
+      expect(en, `en missing ${key}`).toHaveProperty([key]);
+      expect(es, `es missing ${key}`).toHaveProperty([key]);
+    }
+  });
+
+  it("labels every status a result row can carry", () => {
+    for (const key of REQUIRED_STATUS_KEYS) {
       expect(en, `en missing ${key}`).toHaveProperty([key]);
       expect(es, `es missing ${key}`).toHaveProperty([key]);
     }

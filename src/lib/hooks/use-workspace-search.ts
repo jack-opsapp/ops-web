@@ -10,8 +10,12 @@ import {
 } from "@/lib/api/services/workspace-search-service";
 import type { WorkspaceSearchResult } from "@/lib/types/workspace-search";
 
-/** Below two characters every workspace matches — that is noise, not a search. */
-const MIN_QUERY_LENGTH = 2;
+/**
+ * Below two characters every workspace matches — that is noise, not a search.
+ * Exported because the palette gates its empty state on the same threshold: a
+ * second copy would drift and claim "no matches" for a query never sent.
+ */
+export const MIN_QUERY_LENGTH = 2;
 
 /** One request per typing pause, not per keystroke. */
 const DEBOUNCE_MS = 150;

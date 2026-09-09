@@ -3,19 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { defaultFilter } from "cmdk";
 import { toast } from "@/components/ui/toast";
-import {
-  FolderKanban,
-  Users,
-  Settings,
-  Search,
-  LogOut,
-  Keyboard,
-  RefreshCw,
-  ClipboardList,
-  Target,
-  Bug,
-} from "lucide-react";
+import { Settings, LogOut, Keyboard, RefreshCw, Bug } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
@@ -34,10 +24,16 @@ import { useEdgeTabStore } from "@/stores/edge-tab-store";
 import { useBugReportStore } from "@/stores/bug-report-store";
 import { useQuickActions } from "@/lib/hooks/use-quick-actions";
 import { dispatchQuickAction } from "@/lib/quick-actions/dispatch";
-import { useProjects } from "@/lib/hooks/use-projects";
-import { useClients } from "@/lib/hooks/use-clients";
-import { useTasks } from "@/lib/hooks/use-tasks";
-import { useOpportunities } from "@/lib/hooks/use-opportunities";
+import { MIN_QUERY_LENGTH, useWorkspaceSearch } from "@/lib/hooks/use-workspace-search";
+import {
+  ClientRow,
+  DocumentRow,
+  HIT_VALUE_PREFIX,
+  LeadRow,
+  ProjectRow,
+  TaskRow,
+  type PaletteTranslate,
+} from "@/components/ops/command-palette-rows";
 import {
   CommandDialog,
   CommandInput,
@@ -59,6 +55,36 @@ interface CommandAction {
   requiredPermission?: string;
 }
 
+/**
+ * Server-ranked rows keep the order `search_workspace` returned them in.
+ *
+ * cmdk re-sorts every item in a group by this score on each keystroke. A hit
+ * row's value is opaque (`<prefix> <kind> <id>`), so scoring it against the
+ * operator's query ranks the group by coincidence — a query that happens to be
+ * a subsequence of one row's UUID hoists it over the rows the database ranked
+ * above it. A flat score for hit rows makes the sort a no-op for them
+ * (Array#sort is stable) while commands keep the fuzzy matching that makes them
+ * findable.
+ */
+const paletteFilter = (value: string, search: string, keywords?: string[]): number =>
+  value.startsWith(HIT_VALUE_PREFIX) ? 1 : defaultFilter(value, search, keywords);
+
+/** Fixed order. Predictable placement beats occasional cleverness. */
+const ENTITY_KINDS = ["projects", "clients", "leads", "tasks", "documents"] as const;
+
+/**
+ * English fallbacks for the result headings. The locale chunk loads
+ * asynchronously, and a heading is the first thing the operator reads — a raw
+ * `group.projects` on screen for even one frame is a broken palette.
+ */
+const GROUP_HEADING_FALLBACK: Record<(typeof ENTITY_KINDS)[number], string> = {
+  projects: "Projects",
+  clients: "Clients",
+  leads: "Leads",
+  tasks: "Tasks",
+  documents: "Documents",
+};
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -74,71 +100,58 @@ export function CommandPalette() {
   const flagsReady = useFeatureFlagsStore(selectFlagsReady);
   const { t: tNav } = useDictionary("navigation");
   const { t: tQuickActions } = useDictionary("quick-actions");
+  const { t } = useDictionary("command-palette");
+  const tPalette = t as PaletteTranslate;
   // The real, permission- + feature-filtered create catalog — the single
   // source the bottom-right Create menu also renders, so the palette's create
   // list can never drift to legacy routes again.
   const fabActions = useQuickActions();
 
-  // Entity data for search — scope-AGNOSTIC across the whole company so
-  // the palette acts as a universal lookup. Bug ab3ace6e — the legacy
-  // useScopedProjects path silently dropped projects the operator wasn't
-  // assigned to.
-  const { data: projectsData } = useProjects(undefined, { enabled: open });
-  const { data: clientsData } = useClients(undefined, { enabled: open });
-  const { data: tasksData } = useTasks(undefined, { enabled: open });
-  const { data: opportunitiesData } = useOpportunities(undefined, {
-    enabled: open,
-  });
+  // One ranked, permission-scoped round trip across every kind — the palette no
+  // longer downloads the company to filter it in the browser (bug fa5a9ff2).
+  // RLS inside `search_workspace` is the authority on what comes back, so the
+  // palette stays a universal lookup without a scope-agnostic client fetch
+  // (bug ab3ace6e).
+  const workspaceSearch = useWorkspaceSearch(search, { enabled: open });
+  const hits = workspaceSearch.result;
 
-  const entityResults = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (q.length < 2) {
-      return { projects: [], clients: [], tasks: [], opportunities: [] };
-    }
+  // RLS already returns nothing from the books this operator cannot read; the
+  // gate exists so the heading itself never appears above an empty group.
+  const canSeeDocuments = can("invoices.view") || can("estimates.view");
 
-    const projects = (projectsData?.projects ?? [])
-      .filter(
-        (p) =>
-          p.title?.toLowerCase().includes(q) ||
-          p.address?.toLowerCase().includes(q),
-      )
-      .slice(0, 6);
+  const visibleKinds = useMemo(
+    () =>
+      ENTITY_KINDS.filter((kind) => {
+        if (kind === "documents" && !canSeeDocuments) return false;
+        return (hits?.[kind].items.length ?? 0) > 0;
+      }),
+    [hits, canSeeDocuments],
+  );
 
-    const clients = (clientsData?.clients ?? [])
-      .filter(
-        (c) =>
-          c.name?.toLowerCase().includes(q) ||
-          c.email?.toLowerCase().includes(q) ||
-          c.phoneNumber?.toLowerCase().includes(q),
-      )
-      .slice(0, 6);
+  const hasEntityResults = visibleKinds.length > 0;
 
-    const tasks = (tasksData?.tasks ?? [])
-      .filter(
-        (t) =>
-          t.customTitle?.toLowerCase().includes(q) ||
-          t.taskNotes?.toLowerCase().includes(q),
-      )
-      .slice(0, 6);
+  /**
+   * A heading count is a claim about the query on screen. While the previous
+   * envelope is held over a newer query (`isPlaceholderData`), the rows are
+   * still worth showing — they were real answers a keystroke ago — but the
+   * count belongs to the older question, so the label stands alone until the
+   * number is true again. OPS numbers are never wrong.
+   */
+  const groupHeading = useCallback(
+    (kind: (typeof ENTITY_KINDS)[number]) => {
+      const label = t(`group.${kind}`, GROUP_HEADING_FALLBACK[kind]);
+      const group = hits?.[kind];
+      if (!group || workspaceSearch.isPlaceholderData) return label;
+      if (group.total <= group.items.length) return label;
+      return `${label} ${t("group.countSeparator", "·")} ${group.total}`;
+    },
+    [hits, t, workspaceSearch.isPlaceholderData],
+  );
 
-    const opportunities = (opportunitiesData ?? [])
-      .filter(
-        (o) =>
-          o.title?.toLowerCase().includes(q) ||
-          o.description?.toLowerCase().includes(q) ||
-          o.contactName?.toLowerCase().includes(q) ||
-          o.contactEmail?.toLowerCase().includes(q),
-      )
-      .slice(0, 6);
-
-    return { projects, clients, tasks, opportunities };
-  }, [search, projectsData, clientsData, tasksData, opportunitiesData]);
-
-  const hasEntityResults =
-    entityResults.projects.length > 0 ||
-    entityResults.clients.length > 0 ||
-    entityResults.tasks.length > 0 ||
-    entityResults.opportunities.length > 0;
+  const closeAnd = useCallback((run: () => void) => {
+    setOpen(false);
+    run();
+  }, []);
 
   // Toggle with Cmd+K / Ctrl+K or backslash
   useEffect(() => {
@@ -225,35 +238,35 @@ export function CommandPalette() {
   const settingsActions: CommandAction[] = ([
     {
       id: "settings-profile",
-      label: "Profile",
+      label: t("settings.profile"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=profile"),
       keywords: ["settings", "account", "name", "email", "avatar", "personal"],
     },
     {
       id: "settings-appearance",
-      label: "Appearance",
+      label: t("settings.appearance"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=appearance"),
       keywords: ["settings", "theme", "dark", "light", "accent", "color", "font", "compact"],
     },
     {
       id: "settings-notifications",
-      label: "Notifications",
+      label: t("settings.notifications"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=notifications"),
       keywords: ["settings", "alerts", "email", "push", "notify"],
     },
     {
       id: "settings-shortcuts",
-      label: "Keyboard Shortcuts",
+      label: t("settings.shortcuts"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=shortcuts"),
       keywords: ["settings", "keys", "hotkeys", "bindings"],
     },
     {
       id: "settings-company",
-      label: "Company Details",
+      label: t("settings.company"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=company"),
       keywords: ["settings", "organization", "business", "logo", "address"],
@@ -261,7 +274,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-team",
-      label: "Team Members",
+      label: t("settings.team"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=team"),
       keywords: ["settings", "crew", "staff", "employees", "invite", "members"],
@@ -269,7 +282,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-roles",
-      label: "Roles & Permissions",
+      label: t("settings.roles"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=roles"),
       keywords: ["settings", "permissions", "access", "admin", "roles"],
@@ -277,7 +290,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-task-types",
-      label: "Task Types",
+      label: t("settings.taskTypes"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=task-types"),
       keywords: ["settings", "categories", "task", "types", "operations"],
@@ -285,7 +298,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-inventory",
-      label: "Inventory",
+      label: t("settings.inventory"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=inventory"),
       keywords: ["settings", "materials", "stock", "supplies", "equipment"],
@@ -293,7 +306,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-expenses",
-      label: "Expenses",
+      label: t("settings.expenses"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=expenses"),
       keywords: ["settings", "expense", "categories", "receipts", "costs"],
@@ -301,14 +314,14 @@ export function CommandPalette() {
     },
     {
       id: "settings-quick-actions",
-      label: "Quick Actions",
+      label: t("settings.quickActions"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=quick-actions"),
       keywords: ["settings", "shortcuts", "actions", "automation"],
     },
     {
       id: "settings-subscription",
-      label: "Subscription",
+      label: t("settings.subscription"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=subscription"),
       keywords: ["settings", "plan", "billing", "upgrade", "pricing"],
@@ -316,7 +329,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-billing",
-      label: "Payment",
+      label: t("settings.billing"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=billing"),
       keywords: ["settings", "payment", "card", "invoice", "billing"],
@@ -324,7 +337,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-integrations",
-      label: "Email Integration",
+      label: t("settings.integrations"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=integrations"),
       keywords: ["settings", "email", "smtp", "integration", "connect"],
@@ -332,7 +345,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-portal",
-      label: "Client Portal",
+      label: t("settings.portal"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=portal"),
       keywords: ["settings", "portal", "branding", "client", "customer"],
@@ -340,7 +353,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-templates",
-      label: "Document Templates",
+      label: t("settings.templates"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=templates"),
       keywords: ["settings", "templates", "documents", "proposals", "contracts"],
@@ -348,7 +361,7 @@ export function CommandPalette() {
     },
     {
       id: "settings-accounting",
-      label: "Accounting Integration",
+      label: t("settings.accounting"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=accounting"),
       keywords: ["settings", "quickbooks", "xero", "accounting", "finance"],
@@ -356,21 +369,21 @@ export function CommandPalette() {
     },
     {
       id: "settings-preferences",
-      label: "General Preferences",
+      label: t("settings.preferences"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=preferences"),
       keywords: ["settings", "preferences", "general", "defaults", "dashboard"],
     },
     {
       id: "settings-map",
-      label: "Map Preferences",
+      label: t("settings.map"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=map"),
       keywords: ["settings", "map", "zoom", "traffic", "location", "gps"],
     },
     {
       id: "settings-data-privacy",
-      label: "Data & Privacy",
+      label: t("settings.dataPrivacy"),
       icon: Settings,
       onSelect: () => navigate("/settings?tab=data-privacy"),
       keywords: ["settings", "data", "privacy", "export", "delete", "gdpr"],
@@ -382,18 +395,18 @@ export function CommandPalette() {
   const systemActions: CommandAction[] = [
     {
       id: "system-sync",
-      label: "Sync Data",
+      label: t("system.sync"),
       icon: RefreshCw,
       onSelect: () => {
         setOpen(false);
         queryClient.invalidateQueries();
-        toast.success("Syncing all data...");
+        toast.success(t("system.sync.toast"));
       },
       keywords: ["refresh", "update", "fetch", "reload", "sync"],
     },
     {
       id: "system-report-bug",
-      label: "Report a bug",
+      label: t("system.reportBug"),
       icon: Bug,
       shortcut: "`",
       onSelect: () => {
@@ -408,13 +421,13 @@ export function CommandPalette() {
     },
     {
       id: "system-shortcuts",
-      label: "Keyboard Shortcuts",
+      label: t("system.shortcuts"),
       icon: Keyboard,
       shortcut: "?",
       onSelect: () => {
         setOpen(false);
-        toast.info("Keyboard Shortcuts", {
-          description: "1-9: Navigate pages \u2022 \u2318K: Search \u2022 \u2318\u21E7P: New Project \u2022 \u2318\u21E7C: New Client \u2022 Esc: Close",
+        toast.info(t("system.shortcuts"), {
+          description: t("system.shortcuts.toast"),
           duration: 8000,
         });
       },
@@ -422,7 +435,7 @@ export function CommandPalette() {
     },
     {
       id: "system-logout",
-      label: "Sign Out",
+      label: t("system.signOut"),
       icon: LogOut,
       onSelect: () => {
         setOpen(false);
@@ -434,128 +447,155 @@ export function CommandPalette() {
   ];
 
   return (
-    <CommandDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
+    <CommandDialog
+      open={open}
+      onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}
+      filter={paletteFilter}
+    >
       <CommandInput
-        placeholder="Search projects, clients, tasks, opportunities, or commands..."
+        placeholder={t("input.placeholder")}
         onClear={() => setOpen(false)}
         onValueChange={setSearch}
+        searching={workspaceSearch.isFetching && workspaceSearch.enabled}
       />
       <CommandList>
-        {/* cmdk counts only items REGISTERED with its filter store, and
-            forceMount entity items never register — so Empty would claim
-            "no results" on top of a full result set. Gate it on the entity
-            matches we compute ourselves. */}
-        {!hasEntityResults && (
-          <CommandEmpty>
-            <div className="flex flex-col items-center gap-1 py-2">
-              <Search className="w-[24px] h-[24px] text-text-mute" />
-              <span>No results found</span>
-              <span className="text-[11px] text-text-mute">
-                Try a different search term
-              </span>
-            </div>
-          </CommandEmpty>
+        {/* The search itself failed. One quiet line and a way to try again —
+            no toast, and the commands below stay usable through the outage. */}
+        {workspaceSearch.isError && (
+          // The list is a `role="listbox"`; only options belong to it. This row
+          // is a notice with an escape hatch, so it declares itself out of the
+          // option set rather than sitting there as an unnamed child.
+          <div
+            role="presentation"
+            className="flex items-center justify-between gap-1 px-1 py-1"
+          >
+            <span className="font-mono text-micro uppercase tracking-widest text-text-3">
+              {t("error.title", "// SEARCH UNAVAILABLE")}
+            </span>
+            <button
+              type="button"
+              onClick={() => void workspaceSearch.refetch()}
+              className="font-mono text-micro uppercase tracking-widest text-text-2 transition-colors hover:text-text"
+            >
+              {t("error.retry", "Retry")}
+            </button>
+          </div>
         )}
 
-        {/* Entity search results */}
+        {/* cmdk counts only items REGISTERED with its filter store, and
+            forceMount entity items never register — so Empty would claim
+            "no matches" on top of a full result set. It is kept out of the
+            tree entirely unless a real search settled on nothing: below two
+            characters nothing was asked, mid-flight nothing is known yet, and
+            an error already has its own line above. */}
+        {!hasEntityResults &&
+          workspaceSearch.activeQuery.length >= MIN_QUERY_LENGTH &&
+          !workspaceSearch.isFetching &&
+          !workspaceSearch.isError && (
+            <CommandEmpty>
+              <div className="flex flex-col gap-0.5">
+                <span className="font-mono text-micro uppercase tracking-widest text-text-3">
+                  {t("empty.title", "// NO MATCHES")}
+                </span>
+                <span className="font-mohave text-body-sm text-text-3">
+                  {t("empty.body", "Try fewer words, a phone number, or a document number.")}
+                </span>
+              </div>
+            </CommandEmpty>
+          )}
+
+        {/* forceMount on the GROUP too — cmdk hides any group missing from
+            `filtered.groups`, and that set is built only from registered
+            (non-forceMount) items, so these groups vanished the instant the
+            operator typed. Bug fa5a9ff2. */}
         {hasEntityResults && (
           <>
-            {/* forceMount on the GROUP too — cmdk hides any group missing
-                from `filtered.groups`, and that set is built only from
-                registered (non-forceMount) items, so these groups vanished
-                the instant the operator typed. Bug fa5a9ff2. */}
-            {entityResults.projects.length > 0 && (
-              <CommandGroup heading="Projects" forceMount>
-                {entityResults.projects.map((p) => (
-                  <CommandItem
-                    key={`project-${p.id}`}
-                    // cmdk scores on `value`. Including the UUID prefix
-                    // collapsed scores to 0 for matches mid-string, so the
-                    // item rendered hidden even with forceMount. Use only the
-                    // user-meaningful searchable text; cmdk dedupes by ref so
-                    // duplicate titles still render distinctly via React key.
-                    value={`project ${p.title} ${p.address ?? ""}`}
-                    onSelect={() => { setOpen(false); openProjectWindow({ projectId: p.id, mode: "viewing" }); }}
-                    forceMount
-                  >
-                    <FolderKanban className="w-[16px] h-[16px] text-text-3" />
-                    <span className="truncate">{p.title}</span>
-                    {p.address && (
-                      <span className="ml-auto text-[11px] text-text-mute truncate max-w-[180px]">
-                        {p.address}
-                      </span>
-                    )}
-                  </CommandItem>
-                ))}
+            {visibleKinds.map((kind) => (
+              <CommandGroup key={kind} heading={groupHeading(kind)} forceMount>
+                {kind === "projects" &&
+                  hits?.projects.items.map((hit) => (
+                    <ProjectRow
+                      key={hit.id}
+                      hit={hit}
+                      t={tPalette}
+                      onSelect={() =>
+                        closeAnd(() =>
+                          openProjectWindow({ projectId: hit.id, mode: "viewing" }),
+                        )
+                      }
+                    />
+                  ))}
+                {kind === "clients" &&
+                  hits?.clients.items.map((hit) => (
+                    <ClientRow
+                      key={hit.id}
+                      hit={hit}
+                      t={tPalette}
+                      onSelect={() =>
+                        closeAnd(() =>
+                          openClientWindow({ clientId: hit.id, mode: "viewing" }),
+                        )
+                      }
+                    />
+                  ))}
+                {kind === "leads" &&
+                  hits?.leads.items.map((hit) => (
+                    <LeadRow
+                      key={hit.id}
+                      hit={hit}
+                      t={tPalette}
+                      onSelect={() => navigate(`/pipeline?opportunity=${hit.id}`)}
+                    />
+                  ))}
+                {kind === "tasks" &&
+                  hits?.tasks.items.map((hit) => (
+                    <TaskRow
+                      key={hit.id}
+                      hit={hit}
+                      t={tPalette}
+                      // The project window has no task focus today, so a task
+                      // opens the job it belongs to.
+                      onSelect={() =>
+                        closeAnd(() => {
+                          if (hit.project_id) {
+                            openProjectWindow({
+                              projectId: hit.project_id,
+                              mode: "viewing",
+                            });
+                          }
+                        })
+                      }
+                    />
+                  ))}
+                {kind === "documents" &&
+                  hits?.documents.items.map((hit) => (
+                    <DocumentRow
+                      key={`${hit.kind}-${hit.id}`}
+                      hit={hit}
+                      t={tPalette}
+                      onSelect={() =>
+                        navigate(
+                          hit.kind === "invoice"
+                            ? `/books?segment=invoices&invoice=${hit.id}`
+                            : `/books?segment=estimates&estimate=${hit.id}`,
+                        )
+                      }
+                    />
+                  ))}
               </CommandGroup>
-            )}
-            {entityResults.clients.length > 0 && (
-              <CommandGroup heading="Clients" forceMount>
-                {entityResults.clients.map((c) => (
-                  <CommandItem
-                    key={`client-${c.id}`}
-                    value={`client ${c.name} ${c.email ?? ""}`}
-                    onSelect={() => { setOpen(false); openClientWindow({ clientId: c.id, mode: "viewing" }); }}
-                    forceMount
-                  >
-                    <Users className="w-[16px] h-[16px] text-text-3" />
-                    <span className="truncate">{c.name}</span>
-                    {c.email && (
-                      <span className="ml-auto text-[11px] text-text-mute truncate max-w-[180px]">
-                        {c.email}
-                      </span>
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-            {entityResults.tasks.length > 0 && (
-              <CommandGroup heading="Tasks" forceMount>
-                {entityResults.tasks.map((t) => (
-                  <CommandItem
-                    key={`task-${t.id}`}
-                    value={`task ${t.customTitle ?? ""} ${t.taskNotes ?? ""}`}
-                    onSelect={() => { setOpen(false); if (t.projectId) openProjectWindow({ projectId: t.projectId, mode: "viewing" }); }}
-                    forceMount
-                  >
-                    <ClipboardList className="w-[16px] h-[16px] text-text-3" />
-                    <span className="truncate">{t.customTitle || "Untitled Task"}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-            {entityResults.opportunities.length > 0 && (
-              <CommandGroup heading="Opportunities" forceMount>
-                {entityResults.opportunities.map((o) => (
-                  <CommandItem
-                    key={`opp-${o.id}`}
-                    value={`opportunity ${o.title} ${o.contactName ?? ""}`}
-                    onSelect={() => navigate(`/pipeline?opportunity=${o.id}`)}
-                    forceMount
-                  >
-                    <Target className="w-[16px] h-[16px] text-text-3" />
-                    <span className="truncate">{o.title}</span>
-                    {o.contactName && (
-                      <span className="ml-auto text-[11px] text-text-mute truncate max-w-[180px]">
-                        {o.contactName}
-                      </span>
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
+            ))}
             <CommandSeparator />
           </>
         )}
 
-        <CommandGroup heading="Create">
+        <CommandGroup heading={t("group.create")}>
           {quickActions.map((action) => (
             <CommandItem
               key={action.id}
               value={[action.label, ...(action.keywords || [])].join(" ")}
               onSelect={action.onSelect}
             >
-              <action.icon className="w-[16px] h-[16px] text-text-3" />
+              <action.icon className="h-icon-16 w-icon-16 text-text-3" />
               <span>{action.label}</span>
               {action.shortcut && (
                 <CommandShortcut>{action.shortcut}</CommandShortcut>
@@ -566,14 +606,14 @@ export function CommandPalette() {
 
         <CommandSeparator />
 
-        <CommandGroup heading="Navigation">
+        <CommandGroup heading={t("group.navigation")}>
           {navigationActions.map((action) => (
             <CommandItem
               key={action.id}
               value={[action.label, ...(action.keywords || [])].join(" ")}
               onSelect={action.onSelect}
             >
-              <action.icon className="w-[16px] h-[16px] text-text-3" />
+              <action.icon className="h-icon-16 w-icon-16 text-text-3" />
               <span>{action.label}</span>
               {action.shortcut && (
                 <CommandShortcut>{action.shortcut}</CommandShortcut>
@@ -584,14 +624,14 @@ export function CommandPalette() {
 
         <CommandSeparator />
 
-        <CommandGroup heading="Settings">
+        <CommandGroup heading={t("group.settings")}>
           {settingsActions.map((action) => (
             <CommandItem
               key={action.id}
               value={[action.label, ...(action.keywords || [])].join(" ")}
               onSelect={action.onSelect}
             >
-              <action.icon className="w-[16px] h-[16px] text-text-3" />
+              <action.icon className="h-icon-16 w-icon-16 text-text-3" />
               <span>{action.label}</span>
             </CommandItem>
           ))}
@@ -599,14 +639,14 @@ export function CommandPalette() {
 
         <CommandSeparator />
 
-        <CommandGroup heading="System">
+        <CommandGroup heading={t("group.system")}>
           {systemActions.map((action) => (
             <CommandItem
               key={action.id}
               value={[action.label, ...(action.keywords || [])].join(" ")}
               onSelect={action.onSelect}
             >
-              <action.icon className="w-[16px] h-[16px] text-text-3" />
+              <action.icon className="h-icon-16 w-icon-16 text-text-3" />
               <span>{action.label}</span>
               {action.shortcut && (
                 <CommandShortcut>{action.shortcut}</CommandShortcut>
@@ -619,26 +659,26 @@ export function CommandPalette() {
       {/* Footer */}
       <div className="flex items-center justify-between px-2 py-1 border-t border-border text-text-mute">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-[4px]">
-            <kbd className="font-mono text-micro px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
+          <div className="flex items-center gap-0.5">
+            <kbd className="font-mono text-micro px-0.5 py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               &uarr;
             </kbd>
-            <kbd className="font-mono text-micro px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
+            <kbd className="font-mono text-micro px-0.5 py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               &darr;
             </kbd>
-            <span className="font-mono text-micro">Navigate</span>
+            <span className="font-mono text-micro">{t("footer.navigate")}</span>
           </div>
-          <div className="flex items-center gap-[4px]">
-            <kbd className="font-mono text-micro px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
+          <div className="flex items-center gap-0.5">
+            <kbd className="font-mono text-micro px-0.5 py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               &crarr;
             </kbd>
-            <span className="font-mono text-micro">Select</span>
+            <span className="font-mono text-micro">{t("footer.select")}</span>
           </div>
-          <div className="flex items-center gap-[4px]">
+          <div className="flex items-center gap-0.5">
             <kbd className="font-mono text-micro px-[6px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               Esc
             </kbd>
-            <span className="font-mono text-micro">Close</span>
+            <span className="font-mono text-micro">{t("footer.close")}</span>
           </div>
         </div>
         <span className="font-mono text-micro text-text-mute">OPS v1.0</span>

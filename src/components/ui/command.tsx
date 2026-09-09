@@ -30,10 +30,17 @@ Command.displayName = CommandPrimitive.displayName;
 interface CommandDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * Scoring override for the whole palette. cmdk re-sorts every `[cmdk-item]`
+   * in a group by this score on each keystroke — `forceMount` rows included —
+   * so a surface that renders server-ranked rows has to hand back a constant
+   * score for them or watch its ranking get shuffled by fuzzy matching.
+   */
+  filter?: React.ComponentPropsWithoutRef<typeof CommandPrimitive>["filter"];
   children: React.ReactNode;
 }
 
-function CommandDialog({ open, onOpenChange, children }: CommandDialogProps) {
+function CommandDialog({ open, onOpenChange, filter, children }: CommandDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -45,6 +52,7 @@ function CommandDialog({ open, onOpenChange, children }: CommandDialogProps) {
           <DialogTitle>Command Palette</DialogTitle>
         </VisuallyHidden.Root>
         <Command
+          filter={filter}
           className={cn(
             "[&_[cmdk-group-heading]]:px-1 [&_[cmdk-group-heading]]:py-[6px]",
             "[&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-caption-sm",
@@ -63,10 +71,26 @@ const CommandInput = React.forwardRef<
   React.ComponentRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
     onClear?: () => void;
+    /**
+     * A query is in flight. The glyph recedes rather than spinning — the
+     * operator asked a question, not started a job, and a spinner would make a
+     * 150 ms round trip feel like work. Ambient by design: felt, not watched.
+     */
+    searching?: boolean;
   }
->(({ className, onClear, ...props }, ref) => (
+>(({ className, onClear, searching = false, ...props }, ref) => (
   <div className="flex items-center border-b border-border px-2" cmdk-input-wrapper="">
-    <Search className="mr-1 h-[18px] w-[18px] shrink-0 text-text-3" />
+    <Search
+      aria-hidden="true"
+      data-searching={searching ? "true" : "false"}
+      className={cn(
+        "mr-1 h-icon-16 w-icon-16 shrink-0",
+        // 200ms on the single OPS curve (`ease-smooth`). Reduced motion keeps
+        // the state change and drops only the tween.
+        "transition-colors duration-200 ease-smooth motion-reduce:transition-none",
+        searching ? "text-text-mute" : "text-text-3",
+      )}
+    />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
@@ -86,7 +110,7 @@ const CommandInput = React.forwardRef<
         className="ml-1 text-text-3 hover:text-text transition-colors"
         aria-label="Clear search"
       >
-        <X className="h-[16px] w-[16px]" />
+        <X className="h-icon-16 w-icon-16" />
       </button>
     )}
   </div>
@@ -112,7 +136,8 @@ const CommandEmpty = React.forwardRef<
   <CommandPrimitive.Empty
     ref={ref}
     className={cn(
-      "py-4 text-center text-body-sm text-text-3 font-mohave",
+      // Left-aligned: DESIGN.md allows no centred text anywhere in the product.
+      "px-1 py-2 text-left text-body-sm text-text-3 font-mohave",
       className
     )}
     {...props}
@@ -159,11 +184,11 @@ const CommandItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex cursor-pointer select-none items-center gap-1",
-      "rounded-chip px-1 py-[8px]",
+      "rounded-chip px-1 py-1",
       "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
-      "data-[selected=true]:bg-[rgba(255,255,255,0.04)] data-[selected=true]:text-text",
-      "data-[selected=true]:shadow-[inset_2px_0_0_0_#B5B5B5]",
+      "data-[selected=true]:bg-surface-input data-[selected=true]:text-text",
+      "data-[selected=true]:shadow-[inset_2px_0_0_0_theme(colors.text.2)]",
       "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
       className
     )}
