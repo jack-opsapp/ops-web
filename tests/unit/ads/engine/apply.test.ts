@@ -290,8 +290,7 @@ describe("applyProposal", () => {
       },
     });
     const outcome = await apply(proposal({ kind: "create_rsa_challenger", payload: { ad_group: R.crewScheduling, adGroupId: "22", adGroupName: "Crew scheduling", campaign: R.core, campaignId: "11", campaignKind: "core", controlAd: R.csControl, controlAdId: "203", hypothesis: "x", ...goodRsa() } }), r);
-    expect(outcome.state).toBe("failed");
-    expect(outcome.policyTopics).toEqual(["TRADEMARKS"]);
+    expect(outcome).toMatchObject({ state: "failed", policyTopics: ["TRADEMARKS"] });
     expect(r.calls).toHaveLength(1);
     expect(r.marks[0]).toMatchObject({
       state: "failed",

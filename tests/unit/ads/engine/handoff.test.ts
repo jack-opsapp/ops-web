@@ -124,9 +124,10 @@ function rig(options: { brief?: () => Promise<Brief>; initial?: Partial<EngineRu
     recordSubmission: async (id, token, index, detail) => {
       if (!owned(id, token)) return null;
       submissions.push({ index, detail });
-      const counts = { ...stored!.submission_counts, [index]: (stored!.submission_counts[index] ?? 0) + 1 };
+      const key = String(index);
+      const counts: Record<string, number> = { ...stored!.submission_counts, [key]: (stored!.submission_counts[key] ?? 0) + 1 };
       stored = { ...stored!, submission_counts: counts };
-      return counts[index];
+      return counts[key];
     },
     acceptProposal: async (id, token, normalized, index, mode) => {
       if (!owned(id, token)) return null;

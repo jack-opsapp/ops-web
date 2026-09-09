@@ -196,7 +196,7 @@ async function concludeTests(d: WorkerDependencies, settings: EngineSettings, sn
       days,
       rules: { ...rules, minDays: test.min_days, minImpressions: test.min_impressions, maxDays: test.max_days },
     });
-    const stats: TestStats & { reason: string; window: DateWindow } = { ...verdict.stats, computed_at: now.toISOString(), reason: verdict.reason, window };
+    const stats: Record<string, unknown> = { ...verdict.stats, computed_at: now.toISOString(), reason: verdict.reason, window };
     await d.repository.recordTestStats(test.id, verdict.state, stats, verdict.state === "running" ? null : now.toISOString());
     if (verdict.state === "running") continue;
     result.testsConcluded += 1;
