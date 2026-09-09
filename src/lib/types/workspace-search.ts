@@ -104,10 +104,6 @@ export function emptyWorkspaceSearchResult(): WorkspaceSearchResult {
   };
 }
 
-/** Reference empty envelope for comparisons and initial render. */
-export const EMPTY_WORKSPACE_SEARCH: WorkspaceSearchResult =
-  emptyWorkspaceSearchResult();
-
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -125,8 +121,9 @@ function id(value: unknown): string | null {
 }
 
 /**
- * Postgres `numeric` crosses PostgREST as a string to preserve precision, so
- * money is coerced here — never trusted as already-numeric.
+ * `jsonb_build_object` emits a `numeric` as a JSON number, but jsonb may carry
+ * it as either a number or a string (a `numeric` cast to text keeps its
+ * precision), so money is coerced here — never trusted as already-numeric.
  */
 function money(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -135,23 +132,35 @@ function money(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * A group count. `Number()` turns `null`, `""`, `[]` and `true` into finite
+ * numbers, so the type is checked before the coercion — the same guard `money`
+ * uses. Anything that is not a number or a numeric string falls back to the
+ * count of rows actually kept, so a heading can never claim hits it has no
+ * rows for.
+ */
+function count(value: unknown, fallback: number): number {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value !== "number" && typeof value !== "string") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 function parseGroup<T>(
   value: unknown,
   parseItem: (raw: UnknownRecord) => T | null,
 ): WorkspaceSearchGroup<T> {
   if (!isRecord(value)) return emptyGroup<T>();
-  const rawItems = Array.isArray(value.items) ? value.items : [];
+  // Without an items array there is nothing to render, and carrying the group's
+  // own `total` forward would print a heading above no rows.
+  if (!Array.isArray(value.items)) return emptyGroup<T>();
   const items: T[] = [];
-  for (const raw of rawItems) {
+  for (const raw of value.items) {
     if (!isRecord(raw)) continue;
     const item = parseItem(raw);
     if (item !== null) items.push(item);
   }
-  const total = Number(value.total);
-  return {
-    total: Number.isFinite(total) && total >= 0 ? total : items.length,
-    items,
-  };
+  return { total: count(value.total, items.length), items };
 }
 
 function parseProject(raw: UnknownRecord): WorkspaceProjectHit | null {

@@ -421,12 +421,12 @@ The functional smoke under `set local role authenticated` is done in Step 3 (rol
 `tests/unit/api/workspace-search-service.test.ts` — first describe block tests `parseWorkspaceSearchResult`:
 ```ts
 import { describe, it, expect } from "vitest";
-import { parseWorkspaceSearchResult, EMPTY_WORKSPACE_SEARCH } from "@/lib/types/workspace-search";
+import { parseWorkspaceSearchResult, emptyWorkspaceSearchResult } from "@/lib/types/workspace-search";
 
 describe("parseWorkspaceSearchResult", () => {
   it("returns the empty envelope for anything that is not an envelope", () => {
-    expect(parseWorkspaceSearchResult(null)).toEqual(EMPTY_WORKSPACE_SEARCH);
-    expect(parseWorkspaceSearchResult("nope")).toEqual(EMPTY_WORKSPACE_SEARCH);
+    expect(parseWorkspaceSearchResult(null)).toEqual(emptyWorkspaceSearchResult());
+    expect(parseWorkspaceSearchResult("nope")).toEqual(emptyWorkspaceSearchResult());
   });
   it("keeps well-formed items and drops malformed ones without throwing", () => {
     const parsed = parseWorkspaceSearchResult({
@@ -448,7 +448,7 @@ describe("parseWorkspaceSearchResult", () => {
 ```
 Run: `npx vitest run tests/unit/api/workspace-search-service.test.ts | grep -E "Test Files|Tests  "` → FAIL (module missing).
 
-Implement `src/lib/types/workspace-search.ts`: `WorkspaceSearchKind`, item interfaces (`WorkspaceProjectHit`, `WorkspaceClientHit`, `WorkspaceLeadHit`, `WorkspaceTaskHit`, `WorkspaceDocumentHit` with `kind: "invoice" | "estimate"`), `WorkspaceSearchGroup<T> = { total: number; items: T[] }`, `WorkspaceSearchResult`, `EMPTY_WORKSPACE_SEARCH`, and `parseWorkspaceSearchResult(json: unknown)` — every item validated field-by-field (`id` string required; numeric `total` coerced with `Number()` and `Number.isFinite`; nulls preserved as `null`), malformed items dropped, groups defaulted to empty. No external schema library unless the repo already uses `zod` in client code (it does under `src/lib/agent-control-plane`; using `zod` here is acceptable — pick one and be consistent).
+Implement `src/lib/types/workspace-search.ts`: `WorkspaceSearchKind`, item interfaces (`WorkspaceProjectHit`, `WorkspaceClientHit`, `WorkspaceLeadHit`, `WorkspaceTaskHit`, `WorkspaceDocumentHit` with `kind: "invoice" | "estimate"`), `WorkspaceSearchGroup<T> = { total: number; items: T[] }`, `WorkspaceSearchResult`, `emptyWorkspaceSearchResult()` (a fresh envelope per call — no shared mutable constant), and `parseWorkspaceSearchResult(json: unknown)` — every item validated field-by-field (`id` string required; `total` coerced only from a number or numeric string, else the kept item count; nulls preserved as `null`), malformed items dropped, groups defaulted to empty. No external schema library unless the repo already uses `zod` in client code (it does under `src/lib/agent-control-plane`; using `zod` here is acceptable — pick one and be consistent).
 
 Run the test → PASS. Commit: `feat(search): workspace search result types and parser`.
 

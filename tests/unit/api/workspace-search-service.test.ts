@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  EMPTY_WORKSPACE_SEARCH,
+  emptyWorkspaceSearchResult,
   parseWorkspaceSearchResult,
 } from "@/lib/types/workspace-search";
 
@@ -26,11 +26,11 @@ const ENVELOPE = {
 
 describe("parseWorkspaceSearchResult", () => {
   it("returns the empty envelope for anything that is not an envelope", () => {
-    expect(parseWorkspaceSearchResult(null)).toEqual(EMPTY_WORKSPACE_SEARCH);
-    expect(parseWorkspaceSearchResult(undefined)).toEqual(EMPTY_WORKSPACE_SEARCH);
-    expect(parseWorkspaceSearchResult("nope")).toEqual(EMPTY_WORKSPACE_SEARCH);
-    expect(parseWorkspaceSearchResult(42)).toEqual(EMPTY_WORKSPACE_SEARCH);
-    expect(parseWorkspaceSearchResult([])).toEqual(EMPTY_WORKSPACE_SEARCH);
+    expect(parseWorkspaceSearchResult(null)).toEqual(emptyWorkspaceSearchResult());
+    expect(parseWorkspaceSearchResult(undefined)).toEqual(emptyWorkspaceSearchResult());
+    expect(parseWorkspaceSearchResult("nope")).toEqual(emptyWorkspaceSearchResult());
+    expect(parseWorkspaceSearchResult(42)).toEqual(emptyWorkspaceSearchResult());
+    expect(parseWorkspaceSearchResult([])).toEqual(emptyWorkspaceSearchResult());
   });
 
   it("keeps well-formed items and drops malformed ones without throwing", () => {
@@ -136,11 +136,11 @@ describe("parseWorkspaceSearchResult", () => {
     });
     expect(parsed.leads.items[0]?.stage).toBe("quoted");
     expect(parsed.tasks.items[0]?.project_id).toBe("p9");
-    // Groups the envelope omitted default to empty, and the empty constant is
-    // never handed out for mutation.
+    // Groups the envelope omitted default to empty, and every call builds its
+    // own — there is no shared empty envelope for a caller to mutate.
     expect(parsed.projects).toEqual({ total: 0, items: [] });
     expect(parsed.documents).toEqual({ total: 0, items: [] });
-    expect(parsed.projects).not.toBe(EMPTY_WORKSPACE_SEARCH.projects);
+    expect(parsed.projects).not.toBe(parseWorkspaceSearchResult(null).projects);
   });
 
   it("drops documents with an unknown kind and non-finite totals become null", () => {
@@ -178,6 +178,65 @@ describe("parseWorkspaceSearchResult", () => {
       updated_at: null,
     });
   });
+
+  it("keeps the item count when the total is not a number or numeric string", () => {
+    const items = Array.from({ length: 8 }, (_, index) => ({
+      id: `p${index}`,
+      title: `Oak ${index}`,
+    }));
+    // `Number()` happily turns null, "", [] and true into finite numbers, so
+    // the coercion has to gate on the type first — otherwise a heading reads
+    // "Projects · 0" over eight visible rows.
+    for (const bogus of [null, undefined, "", [], true, false, {}, [4]]) {
+      const parsed = parseWorkspaceSearchResult({
+        query: "oak",
+        tokens: ["oak"],
+        projects: { total: bogus, items },
+      });
+      expect(parsed.projects.items).toHaveLength(8);
+      expect(parsed.projects.total).toBe(8);
+    }
+  });
+
+  it("accepts a total that jsonb carried across as a numeric string", () => {
+    const parsed = parseWorkspaceSearchResult({
+      query: "oak",
+      tokens: ["oak"],
+      projects: { total: "12", items: [{ id: "p1", title: "Oak" }] },
+    });
+    expect(parsed.projects.total).toBe(12);
+  });
+
+  it("treats a group whose items are not an array as empty", () => {
+    const parsed = parseWorkspaceSearchResult({
+      query: "oak",
+      tokens: ["oak"],
+      projects: { total: 3, items: "nope" },
+    });
+    // A heading claiming three hits above zero rows is exactly the half-built
+    // render the parser exists to prevent.
+    expect(parsed.projects).toEqual({ total: 0, items: [] });
+  });
+
+  it("treats a group that is not an object as empty", () => {
+    const parsed = parseWorkspaceSearchResult({
+      query: "oak",
+      tokens: ["oak"],
+      projects: [],
+      clients: "nope",
+      leads: 7,
+      tasks: null,
+    });
+    for (const group of [parsed.projects, parsed.clients, parsed.leads, parsed.tasks]) {
+      expect(group).toEqual({ total: 0, items: [] });
+    }
+  });
+
+  it("falls back to an empty string when the query is not a string", () => {
+    for (const bogus of [null, undefined, 42, ["oak"], { q: "oak" }, true]) {
+      expect(parseWorkspaceSearchResult({ query: bogus, tokens: [] }).query).toBe("");
+    }
+  });
 });
 
 describe("WorkspaceSearchService.search", () => {
@@ -205,17 +264,25 @@ describe("WorkspaceSearchService.search", () => {
     });
   });
 
-  it("throws the PostgREST message on error", async () => {
+  it("throws the PostgREST message with its code attached", async () => {
     rpc.mockResolvedValue({
       data: null,
       error: { message: "permission denied for function search_workspace", code: "42501" },
     });
-    await expect(WorkspaceSearchService.search("x")).rejects.toThrow(/permission denied/);
+    const thrown: unknown = await WorkspaceSearchService.search("x").then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toMatch(/permission denied/);
+    // The code rides along so a denied RPC is distinguishable from a dropped
+    // connection without parsing the message.
+    expect((thrown as Error & { code?: string }).code).toBe("42501");
   });
 
   it("returns the empty envelope when the RPC answers with no data", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
     const result = await WorkspaceSearchService.search("x");
-    expect(result).toEqual(EMPTY_WORKSPACE_SEARCH);
+    expect(result).toEqual(emptyWorkspaceSearchResult());
   });
 });
