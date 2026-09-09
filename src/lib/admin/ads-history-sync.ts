@@ -224,7 +224,7 @@ export async function syncGrains(startDate: Date, endDate: Date): Promise<GrainS
   };
 }
 
-/** Snapshot every structural resource on the account (nine searchStream calls). */
+/** Snapshot every structural resource on the account (ten searchStream calls). */
 export async function syncEntitySnapshot(): Promise<number> {
   const rows = await queryEntitySnapshot();
   await upsertEntitySnapshot(rows);

@@ -365,6 +365,29 @@ describe("google-ads-client request layer", () => {
     expect(campaignQuery).not.toMatch(/campaign\.end_date(?!_time)/);
   });
 
+  /**
+   * Negative-keyword lists are attached to campaigns through
+   * campaign_shared_set. Without those rows the snapshot holds the lists and
+   * the campaigns but nothing joining them, so the engine cannot tell which
+   * list guards which campaign.
+   */
+  it("reads campaign_shared_set attachments in the entity snapshot", async () => {
+    installFetch(
+      [customerClientRow(MANAGER_ID, 0, true), customerClientRow(CLIENT_ID, 1, false)],
+      []
+    );
+    const client = await importClient();
+    await client.queryEntitySnapshot();
+    const query = requests
+      .map((r) => String((r.body as { query?: string }).query ?? ""))
+      .find((q) => /FROM campaign_shared_set/.test(q));
+    expect(query).toBeDefined();
+    expect(query).toContain("campaign_shared_set.resource_name");
+    expect(query).toContain("campaign_shared_set.campaign");
+    expect(query).toContain("campaign_shared_set.shared_set");
+    expect(query).toContain("campaign_shared_set.status");
+  });
+
   it("reads reports through searchStream and merges chunks in order", async () => {
     installStreamFetch(
       [customerClientRow(MANAGER_ID, 0, true), customerClientRow(CLIENT_ID, 1, false)],

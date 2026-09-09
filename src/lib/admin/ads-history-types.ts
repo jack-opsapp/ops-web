@@ -106,6 +106,7 @@ export interface AdsEntity {
     | "negative_keyword"
     | "shared_set"
     | "shared_criterion"
+    | "campaign_shared_set"
     | "label";
   parent_resource_name: string | null;
   name: string;

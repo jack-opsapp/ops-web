@@ -152,6 +152,7 @@ describe("grain queries", () => {
   it("queryEntitySnapshot walks every structural resource and keys rows by resource name", async () => {
     install((query) => {
       if (/FROM campaign_budget/.test(query)) return [{ campaignBudget: { resourceName: "customers/1/campaignBudgets/5", name: "B", amountMicros: "1000000", status: "ENABLED" } }];
+      if (/FROM campaign_shared_set/.test(query)) return [{ campaignSharedSet: { resourceName: "customers/1/campaignSharedSets/9~4", campaign: "customers/1/campaigns/9", sharedSet: "customers/1/sharedSets/4", status: "ENABLED" } }];
       if (/FROM campaign\b/.test(query)) return [{ campaign: { resourceName: "customers/1/campaigns/9", id: "9", name: "Jobber alt", status: "PAUSED", campaignBudget: "customers/1/campaignBudgets/5" } }];
       if (/FROM ad_group_ad\b/.test(query)) return [{ adGroupAd: { resourceName: "customers/1/adGroupAds/1~22", status: "ENABLED", adGroup: "customers/1/adGroups/1", ad: { id: "22", responsiveSearchAd: { headlines: [{ text: "H", pinnedField: "HEADLINE_1" }] } }, labels: ["customers/1/labels/3"] } }];
       if (/FROM ad_group_criterion/.test(query)) return [{ adGroupCriterion: { resourceName: "customers/1/adGroupCriteria/1~7", adGroup: "customers/1/adGroups/1", status: "ENABLED", negative: false, keyword: { text: "jobber alternative", matchType: "PHRASE" } } }];
@@ -171,6 +172,7 @@ describe("grain queries", () => {
       "customers/1/adGroups/1",
       "customers/1/campaignBudgets/5",
       "customers/1/campaignCriteria/9~8",
+      "customers/1/campaignSharedSets/9~4",
       "customers/1/campaigns/9",
       "customers/1/labels/3",
       "customers/1/sharedCriteria/4~2",
@@ -182,6 +184,8 @@ describe("grain queries", () => {
     expect(byName["customers/1/adGroupCriteria/1~7"]).toMatchObject({ entity_type: "keyword", name: "jobber alternative" });
     expect(byName["customers/1/campaignCriteria/9~8"]).toMatchObject({ entity_type: "negative_keyword", parent_resource_name: "customers/1/campaigns/9", name: "free" });
     expect(byName["customers/1/sharedCriteria/4~2"]).toMatchObject({ entity_type: "shared_criterion", parent_resource_name: "customers/1/sharedSets/4" });
+    expect(byName["customers/1/campaignSharedSets/9~4"]).toMatchObject({ entity_type: "campaign_shared_set", parent_resource_name: "customers/1/campaigns/9", name: "customers/1/sharedSets/4", status: "ENABLED" });
+    expect(byName["customers/1/campaignSharedSets/9~4"].payload).toMatchObject({ campaignSharedSet: { sharedSet: "customers/1/sharedSets/4", campaign: "customers/1/campaigns/9" } });
     expect(byName["customers/1/labels/3"]).toMatchObject({ entity_type: "label", name: "engine" });
     expect(byName["customers/1/campaigns/9"].payload).toMatchObject({ campaign: { id: "9" } });
     for (const r of requests) expect(r.body).not.toHaveProperty("pageSize");

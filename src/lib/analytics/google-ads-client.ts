@@ -120,6 +120,7 @@ interface GoogleAdsRow {
   };
   sharedSet?: { resourceName?: string; name?: string; status?: string; [key: string]: unknown };
   sharedCriterion?: { resourceName?: string; sharedSet?: string; keyword?: { text?: string; matchType?: string }; [key: string]: unknown };
+  campaignSharedSet?: { resourceName?: string; campaign?: string; sharedSet?: string; status?: string; [key: string]: unknown };
   label?: { resourceName?: string; name?: string; status?: string; [key: string]: unknown };
   clickView?: {
     gclid?: string;
@@ -1552,6 +1553,7 @@ export type AdsEntityType =
   | "negative_keyword"
   | "shared_set"
   | "shared_criterion"
+  | "campaign_shared_set"
   | "label";
 
 export interface EntityRow {
@@ -1567,8 +1569,8 @@ export interface EntityRow {
 /**
  * One row per structural resource on the account — campaigns, budgets, ad
  * groups, ads (with full RSA assets and pins), keywords, negatives, shared
- * sets and their members, labels — keyed by Google resource name. Nine
- * searchStream calls.
+ * sets, their members and the campaigns they are attached to, labels — keyed
+ * by Google resource name. Ten searchStream calls.
  */
 export async function queryEntitySnapshot(): Promise<EntityRow[]> {
   const out: EntityRow[] = [];
@@ -1593,7 +1595,7 @@ export async function queryEntitySnapshot(): Promise<EntityRow[]> {
     });
   };
 
-  const [campaigns, budgets, adGroups, ads, keywords, negatives, sharedSets, sharedCriteria, labels] =
+  const [campaigns, budgets, adGroups, ads, keywords, negatives, sharedSets, sharedCriteria, campaignSharedSets, labels] =
     await Promise.all([
       queryGoogleAds(`
         SELECT campaign.resource_name, campaign.id, campaign.name, campaign.status,
@@ -1655,6 +1657,12 @@ export async function queryEntitySnapshot(): Promise<EntityRow[]> {
         FROM shared_criterion
       `),
       queryGoogleAds(`
+        SELECT campaign_shared_set.resource_name, campaign_shared_set.campaign,
+               campaign_shared_set.shared_set, campaign_shared_set.status
+        FROM campaign_shared_set
+        WHERE campaign_shared_set.status != 'REMOVED'
+      `),
+      queryGoogleAds(`
         SELECT label.resource_name, label.id, label.name, label.status
         FROM label
       `),
@@ -1685,6 +1693,12 @@ export async function queryEntitySnapshot(): Promise<EntityRow[]> {
   }
   for (const row of sharedCriteria) {
     push(row.sharedCriterion?.resourceName, "shared_criterion", row.sharedCriterion?.sharedSet, row.sharedCriterion?.keyword?.text, "", row);
+  }
+  for (const row of campaignSharedSets) {
+    // The attachment's two ends: the campaign is the parent, the list it
+    // attaches is the name, so the row reads without opening the payload.
+    const a = row.campaignSharedSet;
+    push(a?.resourceName, "campaign_shared_set", a?.campaign, a?.sharedSet, a?.status, row);
   }
   for (const row of labels) {
     push(row.label?.resourceName, "label", null, row.label?.name, row.label?.status, row);

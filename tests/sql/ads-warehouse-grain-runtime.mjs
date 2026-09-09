@@ -1,7 +1,10 @@
 // Runtime contract for the Google Ads warehouse extension
-// (20260909123000_ads_warehouse_grain.sql). Applies the outbox migration
-// first (the funnel view reads its tables), then the grain migration, on a
-// disposable PostgreSQL 17 cluster with production-shaped stubs.
+// (20260909123000_ads_warehouse_grain.sql) and the follow-up that admits
+// campaign_shared_set rows (20260909180000_ads_entities_campaign_shared_set.sql).
+// Applies the outbox migration first (the funnel view reads its tables), then
+// the grain migration, on a disposable PostgreSQL 17 cluster with
+// production-shaped stubs. The follow-up is applied mid-run, so the harness
+// proves the constraint both before and after it.
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, rmSync, mkdirSync } from "node:fs";
 import assert from "node:assert/strict";
@@ -137,14 +140,39 @@ try {
     "insert into public.ads_entities(resource_name, entity_type, parent_resource_name, name, status, payload, labels, snapshot_at) values ('customers/1/campaigns/1','campaign',null,'Jobber alt','ENABLED','{\"campaign\":{\"id\":\"1\"}}','{engine}',now()) on conflict (resource_name) do update set status=excluded.status, labels=excluded.labels, snapshot_at=excluded.snapshot_at"
   );
   assert.equal(sql("select status || '|' || array_to_string(labels, ',') from public.ads_entities"), "ENABLED|engine", "snapshot rows upsert by resource name");
-  assert.equal(sql("select count(*) from public.ads_entities where entity_type not in ('campaign','campaign_budget','ad_group','ad','keyword','negative_keyword','shared_set','shared_criterion','label')"), "0");
+  assert.equal(sql("select count(*) from public.ads_entities where entity_type not in ('campaign','campaign_budget','ad_group','ad','keyword','negative_keyword','shared_set','shared_criterion','campaign_shared_set','label')"), "0");
   assert.match(
     (() => { try { sql("insert into public.ads_entities(resource_name, entity_type, name, status, payload, labels, snapshot_at) values ('x','bogus','n','s','{}','{}',now())"); return ""; } catch (e) { return String(e.stderr ?? e.message); } })(),
     /check constraint/i,
     "entity_type is constrained"
   );
 
-  console.log("PASS: grain tables + keys + RLS + indexes, keyword table recreated, funnel view arithmetic, entity snapshot upsert");
+  // --- follow-up: campaign_shared_set joins a negative list to a campaign --
+  // Rejected by the shipped nine-value check, accepted once the follow-up
+  // migration widens it. Proving both sides keeps the follow-up load-bearing.
+  const attachment =
+    "insert into public.ads_entities(resource_name, entity_type, parent_resource_name, name, status, payload, labels, snapshot_at) values ('customers/1/campaignSharedSets/1~4','campaign_shared_set','customers/1/campaigns/1','customers/1/sharedSets/4','ENABLED','{\"campaignSharedSet\":{\"sharedSet\":\"customers/1/sharedSets/4\"}}','{}',now())";
+  assert.match(
+    (() => { try { sql(attachment); return ""; } catch (e) { return String(e.stderr ?? e.message); } })(),
+    /check constraint/i,
+    "campaign_shared_set is refused before the follow-up migration"
+  );
+  sql(migration("_ads_entities_campaign_shared_set.sql"));
+  sql(attachment);
+  assert.equal(
+    sql("select entity_type || '|' || parent_resource_name from public.ads_entities where resource_name = 'customers/1/campaignSharedSets/1~4'"),
+    "campaign_shared_set|customers/1/campaigns/1",
+    "campaign_shared_set is stored after the follow-up migration"
+  );
+  assert.match(
+    (() => { try { sql("insert into public.ads_entities(resource_name, entity_type, name, status, payload, labels, snapshot_at) values ('y','bogus','n','s','{}','{}',now())"); return ""; } catch (e) { return String(e.stderr ?? e.message); } })(),
+    /check constraint/i,
+    "the widened check still refuses an unknown entity_type"
+  );
+  // Re-running the follow-up is a no-op, not an error.
+  sql(migration("_ads_entities_campaign_shared_set.sql"));
+
+  console.log("PASS: grain tables + keys + RLS + indexes, keyword table recreated, funnel view arithmetic, entity snapshot upsert, campaign_shared_set admitted by the follow-up migration");
 } finally {
   try { run("pg_ctl", ["-D", `${cluster}/data`, "-m", "fast", "-w", "stop"]); } catch {}
   rmSync(cluster, { recursive: true, force: true });
