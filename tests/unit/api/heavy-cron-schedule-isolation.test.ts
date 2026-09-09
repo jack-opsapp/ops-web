@@ -31,7 +31,6 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/webhook-renewal", "4 6 * * *"],
   ["/api/cron/auto-send", "16-59/20 13-23,0-4 * * *"],
   ["/api/cron/email-send-reconciliation", "8-59/20 * * * *"],
-  ["/api/cron/ads-briefing", "34 12 * * 1"],
   ["/api/cron/ads-sync", "4 8 * * *"],
   // The Google Ads engine worker: once a day after the 08:04 sync and one
   // minute before the 15:00 UTC routine claims its brief. :59 at hour 14 is

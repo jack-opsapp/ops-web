@@ -69,10 +69,6 @@
       "schedule": "8-59/20 * * * *"
     },
     {
-      "path": "/api/cron/ads-briefing",
-      "schedule": "34 12 * * 1"
-    },
-    {
       "path": "/api/cron/ads-sync",
       "schedule": "4 8 * * *"
     },
