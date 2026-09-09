@@ -33,6 +33,12 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/email-send-reconciliation", "8-59/20 * * * *"],
   ["/api/cron/ads-briefing", "34 12 * * 1"],
   ["/api/cron/ads-sync", "4 8 * * *"],
+  // Hourly on purpose: conversion events must reach Google inside its
+  // click-through lookback windows, and the queue is tiny (a handful of
+  // companies a month). :41 shares the minute with unsnooze (business hours)
+  // and the spec_board_snapshot_refresh DB lane only — exactly at the
+  // three-lane budget; no once-a-day lane starts at :41.
+  ["/api/cron/ads-conversions", "41 * * * *"],
   ["/api/cron/app-store-sync", "4 9 * * *"],
   ["/api/cron/search-console-sync", "26 9 * * *"],
   ["/api/cron/ga4-acquisition-sync", "44 9 * * *"],

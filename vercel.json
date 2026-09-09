@@ -77,6 +77,10 @@
       "schedule": "4 8 * * *"
     },
     {
+      "path": "/api/cron/ads-conversions",
+      "schedule": "41 * * * *"
+    },
+    {
       "path": "/api/cron/app-store-sync",
       "schedule": "4 9 * * *"
     },
