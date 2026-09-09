@@ -43,6 +43,7 @@ import {
   type LeadFeedbackPriorDecision,
 } from "./lead-feedback-prior-service";
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
+import { currentEmailWorkBody, type EmailWorkIntent } from "@/lib/email/email-work-routing";
 
 export interface AIClassifiedLead {
   email: NormalizedEmail;
@@ -58,6 +59,8 @@ export interface AIClassifiedLead {
   estimatedValue: number | null;
   /** Model-reported classification confidence (0..1) for provenance. */
   confidence: number;
+  workIntent?: EmailWorkIntent;
+  newWorkEvidence?: string | null;
 }
 
 export interface AIReviewResult {
@@ -523,6 +526,7 @@ async function applyThreadContextReclassification(input: {
       indexById.set(email.id, index);
       items.push({
         id: email.id,
+        currentMessageBody: currentEmailWorkBody(email),
         subj: email.subject,
         participants: [...new Set([email.from, ...email.to])].slice(
           0,
@@ -617,7 +621,8 @@ async function applyThreadContextReclassification(input: {
           confidence: result.confidence,
         });
       }
-      return { ...classification, verdict, confidence: result.confidence };
+      return { ...classification, verdict, confidence: result.confidence,
+        workIntent: result.workIntent ?? "uncertain", newWorkEvidence: result.newWorkEvidence ?? null };
     }
     if (capped.has(index)) {
       return {
@@ -694,7 +699,7 @@ export const AISyncReviewer = {
       snippet: e.snippet,
       // Pass the cleaned body so the classifier can recover address/scope;
       // it is capped to 1500 chars inside classifySingleBatch.
-      body: e.bodyTextClean || e.bodyText || e.snippet,
+      body: currentEmailWorkBody(e),
       date: e.date.toISOString(),
       direction: resolvePersistedEmailAuthorship(e, operatorIdentity).direction,
     }));
@@ -786,6 +791,8 @@ export const AISyncReviewer = {
     // prior scored between the review floor and the threshold — now goes to a
     // human instead of being discarded with only a log line.
     const effectiveDecisions = priorDecisions.map((decision, index) => {
+      if (orderedClassifications[index].workIntent === "existing_job" ||
+          (orderedClassifications[index].verdict === "lead" && orderedClassifications[index].workIntent === "uncertain")) return decision;
       if (
         decision.outcome !== "not_lead" ||
         orderedClassifications[index].verdict !== "lead"
@@ -815,8 +822,13 @@ export const AISyncReviewer = {
       return decision;
     });
 
+    const needsWorkRouting = (classification: ClassificationResult) =>
+      classification.workIntent === "existing_job" ||
+      (classification.verdict === "lead" && classification.workIntent === "uncertain");
+    // Non-sales customer mail is retained even if it does not meet the sales
+    // confidence threshold. It must reach correspondence/review persistence.
     const leads = orderedClassifications.filter(
-      (_, index) => effectiveDecisions[index].outcome === "lead"
+      (classification, index) => needsWorkRouting(classification) || effectiveDecisions[index].outcome === "lead"
     );
 
     // Build classified leads with their source emails for persistence
@@ -836,19 +848,21 @@ export const AISyncReviewer = {
         terminalFlag: stageReview.terminalFlag,
         estimatedValue: c.estimatedValue,
         confidence: c.confidence,
+        workIntent: c.workIntent === "existing_job" && c.confidence < threshold ? "uncertain" : c.workIntent,
+        newWorkEvidence: c.newWorkEvidence ?? null,
       };
     });
 
     return {
-      newLeadsClassified: leads.length,
+      newLeadsClassified: classifiedLeads.filter((lead) => lead.workIntent === "new_work").length,
       classifiedLeads,
       stageChanges: 0,
       terminalFlags: [],
       duplicatesDetected: orderedClassifications.filter(
         (c) => c.duplicateOf.length > 0
       ).length,
-      deferredClassifications: orderedClassifications.flatMap((_, index) =>
-        effectiveDecisions[index].outcome === "defer"
+      deferredClassifications: orderedClassifications.flatMap((classification, index) =>
+        !needsWorkRouting(classification) && effectiveDecisions[index].outcome === "defer"
           ? [
               {
                 email: unmatchedEmails[index],

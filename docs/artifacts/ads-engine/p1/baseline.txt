@@ -1,0 +1,7 @@
+# tsc --noEmit baseline on pristine origin/main 5abad86ec (detached checkout, NODE_OPTIONS=--max-old-space-size=8192)
+# run 2026-09-09 ~02:31-03:24 UTC, exit 2
+error count: 3
+   2 src/lib/agent-control-plane/mcp/__tests__/catalog-candidate-protocol.test.ts
+   1 src/lib/agent-control-plane/mcp/__tests__/domain-dispatch.test.ts
+
+vitest baseline (tests/unit/analytics tests/unit/admin tests/unit/pmf) on pristine origin/main: 28 files, 299 tests, all passed

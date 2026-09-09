@@ -1,6 +1,7 @@
 import {
   MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V17,
+  MCP_EXPOSURE_V19,
 } from "../../registry/mcp-exposure-catalog";
 import { CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS } from "../../registry/mcp-scope-catalog";
 import "server-only";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   MCP_SCOPE_CONSENT_LABELS,
+  CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS,
   FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS,
   COLLECTIONS_MCP_SCOPE_CONSENT_LABELS,
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
@@ -36,7 +38,7 @@ export interface McpConsentCatalog {
   readonly registeredScopes: readonly RegisteredMcpScope[];
   readonly operations: Readonly<Record<RegisteredMcpScope, string>>;
   readonly consentLabels: Readonly<Partial<Record<LabelledMcpScope, string>>>;
-  readonly allowedOperations?: readonly ("read" | "prepare")[];
+  readonly allowedOperations?: readonly ("read" | "prepare" | "write")[];
 }
 
 export interface McpConsentSnapshot {
@@ -128,8 +130,18 @@ export const MCP_CONSENT_CATALOG_V12 = Object.freeze({
 export const ACTIVE_MCP_CONSENT_CATALOG_REVISION =
   MCP_CONSENT_CATALOG_V9.revision;
 
+/** Consent recognized only for exact-bound catalog trials, not public DCR. */
+export const MCP_CONSENT_CATALOG_V14 = Object.freeze({
+  revision: "2026-09-08.mcp-consent-catalog.v14",
+  registeredScopes: REGISTERED_MCP_SCOPES,
+  operations: MCP_SCOPE_OPERATION_BY_ID,
+  consentLabels: CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS,
+  allowedOperations: Object.freeze(["read", "prepare", "write"] as const),
+} as const satisfies McpConsentCatalog);
+
 export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
   Object.freeze({
+    [MCP_CONSENT_CATALOG_V14.revision]: MCP_CONSENT_CATALOG_V14,
     [MCP_CONSENT_CATALOG_V12.revision]: MCP_CONSENT_CATALOG_V12,
     [MCP_CONSENT_CATALOG_V1.revision]: MCP_CONSENT_CATALOG_V1,
     [MCP_CONSENT_CATALOG_V2.revision]: MCP_CONSENT_CATALOG_V2,
@@ -192,6 +204,7 @@ assertConsentCatalog(MCP_CONSENT_CATALOG_V7);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V8);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V9);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V12);
+assertConsentCatalog(MCP_CONSENT_CATALOG_V14);
 
 export function resolveMcpConsentCatalogRevision(
   revision: string
@@ -215,25 +228,27 @@ export function consentSnapshotForExposure(
   catalog: McpConsentCatalog
 ): McpConsentSnapshot {
   const requiredCatalogRevision =
-    exposure.revision === MCP_EXPOSURE_V17.revision
-      ? MCP_CONSENT_CATALOG_V12.revision
-      : exposure.revision === MCP_EXPOSURE_V14.revision
-        ? MCP_CONSENT_CATALOG_V9.revision
-        : exposure.revision === MCP_EXPOSURE_V13.revision
-          ? MCP_CONSENT_CATALOG_V8.revision
-          : exposure.revision === MCP_EXPOSURE_V12.revision
-            ? MCP_CONSENT_CATALOG_V7.revision
-            : exposure.revision === MCP_EXPOSURE_V11.revision
-              ? MCP_CONSENT_CATALOG_V6.revision
-              : exposure.revision === MCP_EXPOSURE_V10.revision
-                ? MCP_CONSENT_CATALOG_V5.revision
-                : exposure.revision === MCP_EXPOSURE_V9.revision
-                  ? MCP_CONSENT_CATALOG_V4.revision
-                  : exposure.revision === MCP_EXPOSURE_V4.revision
-                    ? MCP_CONSENT_CATALOG_V3.revision
-                    : exposure.revision === MCP_EXPOSURE_V3.revision
-                      ? MCP_CONSENT_CATALOG_V2.revision
-                      : null;
+    exposure.revision === MCP_EXPOSURE_V19.revision
+      ? MCP_CONSENT_CATALOG_V14.revision
+      : exposure.revision === MCP_EXPOSURE_V17.revision
+        ? MCP_CONSENT_CATALOG_V12.revision
+        : exposure.revision === MCP_EXPOSURE_V14.revision
+          ? MCP_CONSENT_CATALOG_V9.revision
+          : exposure.revision === MCP_EXPOSURE_V13.revision
+            ? MCP_CONSENT_CATALOG_V8.revision
+            : exposure.revision === MCP_EXPOSURE_V12.revision
+              ? MCP_CONSENT_CATALOG_V7.revision
+              : exposure.revision === MCP_EXPOSURE_V11.revision
+                ? MCP_CONSENT_CATALOG_V6.revision
+                : exposure.revision === MCP_EXPOSURE_V10.revision
+                  ? MCP_CONSENT_CATALOG_V5.revision
+                  : exposure.revision === MCP_EXPOSURE_V9.revision
+                    ? MCP_CONSENT_CATALOG_V4.revision
+                    : exposure.revision === MCP_EXPOSURE_V4.revision
+                      ? MCP_CONSENT_CATALOG_V3.revision
+                      : exposure.revision === MCP_EXPOSURE_V3.revision
+                        ? MCP_CONSENT_CATALOG_V2.revision
+                        : null;
   if (
     requiredCatalogRevision !== null &&
     catalog.revision !== requiredCatalogRevision

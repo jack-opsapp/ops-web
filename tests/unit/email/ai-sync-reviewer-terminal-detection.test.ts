@@ -998,6 +998,8 @@ describe("AISyncReviewer terminal stage guard", () => {
       {
         id: "message-1",
         verdict: "lead",
+        workIntent: "new_work",
+        newWorkEvidence: "Could you quote a new deck?",
         confidence: 0.95,
         stage: "new_lead",
         estimatedValue: 12000,

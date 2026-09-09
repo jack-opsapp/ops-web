@@ -1,4 +1,9 @@
 import {
+  CATALOG_AUTHORING_DEFINITIONS,
+  catalogAuthoringHasEffect,
+} from "./catalog-authoring-capability";
+import { CATALOG_AUTHORING_MANIFEST } from "../contracts/catalog-authoring";
+import {
   INSPECT_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
   PREPARE_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
   COMMIT_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
@@ -729,6 +734,38 @@ export function resolveFinancialDocumentCapabilityAuthorization(
   );
 }
 
+export const CATALOG_AUTHORING_CAPABILITY_MANIFEST = Object.freeze([
+  ...FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, CATALOG_AUTHORING_MANIFEST)
+  ),
+  ...CATALOG_AUTHORING_DEFINITIONS.map((entry) =>
+    mintImplementationEntry(entry, CATALOG_AUTHORING_MANIFEST)
+  ),
+]);
+assertCapabilityManifestInvariants(
+  CATALOG_AUTHORING_CAPABILITY_MANIFEST,
+  CATALOG_AUTHORING_MANIFEST
+);
+activateManifestPolicies(CATALOG_AUTHORING_CAPABILITY_MANIFEST);
+export function getCatalogAuthoringCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = CATALOG_AUTHORING_CAPABILITY_MANIFEST.find(
+    (entry) => entry.name === name
+  );
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+export function resolveCatalogAuthoringCapabilityAuthorization(
+  name: string,
+  input: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getCatalogAuthoringCapabilityManifestEntry(name),
+    input
+  );
+}
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -958,6 +995,9 @@ function selectorMatches(
       components.includes(selector.component)
     );
   }
+
+  if (selector.kind === "catalog_authoring_effect")
+    return catalogAuthoringHasEffect(parsedInput, selector.effect);
 
   if (selector.kind === "input_array_contains") {
     const values = parsedInput[selector.field];

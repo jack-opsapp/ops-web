@@ -20,6 +20,8 @@ import {
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
   MCP_EXPOSURE_CATALOG,
+  MCP_FINANCIAL_TRIAL_EXPOSURE,
+  MCP_CATALOG_TRIAL_EXPOSURE,
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
@@ -345,7 +347,12 @@ describe("immutable MCP exposure catalogue", () => {
     expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V13.revision]).toBe(
       MCP_EXPOSURE_V13
     );
+    expect(MCP_EXPOSURE_CATALOG[MCP_FINANCIAL_TRIAL_EXPOSURE.revision]).toBe(
+      MCP_FINANCIAL_TRIAL_EXPOSURE
+    );
     expect(Object.keys(MCP_EXPOSURE_CATALOG)).toEqual([
+      MCP_CATALOG_TRIAL_EXPOSURE.revision,
+      MCP_FINANCIAL_TRIAL_EXPOSURE.revision,
       MCP_EXPOSURE_V1.revision,
       MCP_EXPOSURE_V2.revision,
       MCP_EXPOSURE_V3.revision,
@@ -362,6 +369,7 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_EXPOSURE_V14.revision,
     ]);
     for (const exposure of [
+      MCP_FINANCIAL_TRIAL_EXPOSURE,
       MCP_EXPOSURE_V1,
       MCP_EXPOSURE_V2,
       MCP_EXPOSURE_V3,

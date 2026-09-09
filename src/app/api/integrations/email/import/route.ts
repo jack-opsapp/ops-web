@@ -1,3 +1,5 @@
+import { retainImportForWorkReview } from "@/lib/email/import-email-work-review";
+import { isEmailWorkRoutingReceipt } from "@/lib/email/email-work-routing";
 /**
  * OPS Web - Email Import Endpoint
  *
@@ -15,6 +17,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
+import { runEmailProviderMailboxOperation } from "@/lib/api/services/email-provider-mailbox-operation";
+import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import { EmailService } from "@/lib/api/services/email-service";
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
@@ -407,6 +411,7 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
   ) {
     throw new Error("Import mailbox authorization changed");
   }
+  const workReviewThreads = new Map<string, NormalizedEmail[]>();
   const authoritativeOperator = await fetchOperatorIdentity(
     companyId,
     connection
@@ -566,6 +571,39 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
           actorUserId: authorizedJob.actorUserId,
         },
       };
+
+      // Missing work-purpose evidence in an old scan is not permission to
+      // manufacture another sale for a customer with existing projects.
+      const reviewMessages = providerMessages.length > 0 ? providerMessages : (() => {
+        const messageId = logicalThreadKey.startsWith("contact-form-message:") ? logicalThreadKey.slice("contact-form-message:".length) : "";
+        const date = importDate(lead.lastMessageDate, "last message");
+        if (!messageId || !date) return [];
+        return [{ providerMessageId: messageId, providerThreadId, fromEmail: lead.clientEmail,
+          subject: lead.title || "Imported email", occurredAt: date, direction: "inbound" as const }];
+      })();
+      const workReview = await retainImportForWorkReview({ supabase, companyId, connectionId,
+        connectionEmail: connection.email, customerEmail: lead.clientEmail, messages: reviewMessages,
+        hydrateMessage: async (message) => {
+          let thread = workReviewThreads.get(message.providerThreadId);
+          if (!thread) {
+            thread = await runEmailProviderMailboxOperation({ supabase, connectionId,
+              context: "import-work-review-body", busyError: "IMPORT_WORK_REVIEW_MAILBOX_BUSY",
+              run: async () => EmailService.getProvider(connection).fetchThread(message.providerThreadId),
+            });
+            workReviewThreads.set(message.providerThreadId, thread);
+          }
+          const source = thread.find((email) => email.id === message.providerMessageId && email.threadId === message.providerThreadId);
+          if (!source) throw new Error("Imported correspondence source is no longer available");
+          return { ...message, fromEmail: source.from, subject: source.subject,
+            bodyText: source.bodyText, bodyTextClean: source.bodyTextClean,
+            toEmails: source.to, ccEmails: source.cc };
+        },
+      });
+      if (workReview.held) {
+        result.activitiesLogged += workReview.activitiesCreated;
+        result.correspondenceHeld = (result.correspondenceHeld ?? 0) + 1;
+        continue;
+      }
 
       // Use local variables to avoid mutating the payload object
       let effectiveAction = lead.action;
@@ -1218,7 +1256,7 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
           const { data: existingActivities, error: existingActivityError } =
             await supabase
               .from("activities")
-              .select("id, opportunity_id, client_id, is_read")
+              .select("id, opportunity_id, client_id, is_read, match_confidence")
               .eq("company_id", companyId)
               .eq("email_connection_id", connectionId)
               .eq("email_message_id", message.providerMessageId)
@@ -1236,8 +1274,11 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
                 opportunity_id: string | null;
                 client_id: string | null;
                 is_read: boolean | null;
+                match_confidence?: string | null;
               }
             | undefined;
+
+          if (isEmailWorkRoutingReceipt(existingActivity)) continue;
 
           if (
             existingActivity?.client_id &&
@@ -1267,7 +1308,7 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
               : adoptionQuery.is("client_id", null);
             const { data: adoptedActivity, error: adoptionError } =
               await adoptionQuery
-                .select("id, opportunity_id, client_id, is_read")
+                .select("id, opportunity_id, client_id, is_read, match_confidence")
                 .maybeSingle();
             if (adoptionError) {
               throw new Error(
@@ -1281,12 +1322,13 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
                 opportunity_id: string | null;
                 client_id: string | null;
                 is_read: boolean | null;
+                match_confidence?: string | null;
               };
             } else {
               const { data: racedActivity, error: racedActivityError } =
                 await supabase
                   .from("activities")
-                  .select("id, opportunity_id, client_id, is_read")
+                  .select("id, opportunity_id, client_id, is_read, match_confidence")
                   .eq("id", existingActivity.id)
                   .eq("company_id", companyId)
                   .eq("email_connection_id", connectionId)
@@ -1301,6 +1343,7 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
                 opportunity_id: string | null;
                 client_id: string | null;
                 is_read: boolean | null;
+                match_confidence?: string | null;
               };
             }
           }
@@ -1318,7 +1361,7 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
                 .eq("email_connection_id", connectionId)
                 .eq("opportunity_id", opportunityId)
                 .is("client_id", null)
-                .select("id, opportunity_id, client_id, is_read")
+                .select("id, opportunity_id, client_id, is_read, match_confidence")
                 .maybeSingle();
             if (adoptedClientError) {
               throw new Error(
@@ -1331,12 +1374,13 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
                 opportunity_id: string | null;
                 client_id: string | null;
                 is_read: boolean | null;
+                match_confidence?: string | null;
               };
             } else {
               const { data: racedClient, error: racedClientError } =
                 await supabase
                   .from("activities")
-                  .select("id, opportunity_id, client_id, is_read")
+                  .select("id, opportunity_id, client_id, is_read, match_confidence")
                   .eq("id", existingActivity.id)
                   .eq("company_id", companyId)
                   .eq("email_connection_id", connectionId)
@@ -1351,6 +1395,7 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
                 opportunity_id: string | null;
                 client_id: string | null;
                 is_read: boolean | null;
+                match_confidence?: string | null;
               };
             }
           }

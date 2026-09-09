@@ -269,8 +269,16 @@ export const InvoiceService = {
         .order("payment_date", { ascending: false }),
     ]);
 
+    // Carry the PostgREST status and code onto the error. The global retry
+    // policy (query-client.ts) only declines a 4xx it can see a `status` on, so
+    // a bare Error here would retry an invisible invoice twice with 1s + 2s
+    // backoff. The status is also how open-by-link tells "not found" (PGRST116
+    // → 406) apart from a network or 5xx failure worth keeping the link for.
     if (invoiceResult.error)
-      throw new Error(`Failed to fetch invoice: ${invoiceResult.error.message}`);
+      throw Object.assign(
+        new Error(`Failed to fetch invoice: ${invoiceResult.error.message}`),
+        { status: invoiceResult.status, code: invoiceResult.error.code }
+      );
     if (lineItemsResult.error)
       throw new Error(`Failed to fetch line items: ${lineItemsResult.error.message}`);
     if (paymentsResult.error)

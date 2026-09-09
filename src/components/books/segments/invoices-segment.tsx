@@ -40,7 +40,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { Tag, type TagProps } from "@/components/ui/tag";
+import { Tag } from "@/components/ui/tag";
+import { INVOICE_STATUS_TAG_VARIANT } from "@/lib/utils/status-tag-variant";
 import { SegmentControl } from "@/components/ui/segment-control";
 import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import {
@@ -52,6 +53,7 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
+import { useOpenDocumentFromUrl } from "../use-open-document-from-url";
 import { InvoiceFormModal } from "../modals/invoice-form-modal";
 import { RecordPaymentModal } from "../modals/record-payment-modal";
 import { FilterChips, DrillChip } from "../segment-toolbar";
@@ -63,19 +65,9 @@ export type InvoicesView = "list" | "aging";
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
-const STATUS_VARIANT: Record<InvoiceStatus, TagProps["variant"]> = {
-  [InvoiceStatus.Draft]: "dim",
-  [InvoiceStatus.Sent]: "neutral",
-  [InvoiceStatus.AwaitingPayment]: "neutral",
-  [InvoiceStatus.PartiallyPaid]: "tan",
-  [InvoiceStatus.Paid]: "olive",
-  [InvoiceStatus.PastDue]: "rose",
-  [InvoiceStatus.Void]: "dim",
-  [InvoiceStatus.WrittenOff]: "dim",
-};
-
 function StatusTag({ status, label }: { status: InvoiceStatus; label: string }) {
-  return <Tag variant={STATUS_VARIANT[status] ?? "neutral"}>{label}</Tag>;
+  // Shared with the ⌘K palette's document rows — one table, never two.
+  return <Tag variant={INVOICE_STATUS_TAG_VARIANT[status] ?? "neutral"}>{label}</Tag>;
 }
 
 function fmtDate(date: Date | null, locale: Locale): string {
@@ -174,6 +166,20 @@ export function InvoicesSegment({
   const { data: invoices = [], isLoading } = useInvoices();
   const { data: invoiceDetail, isLoading: isEditingDetailLoading } = useInvoice(editingInvoice?.id);
   const isEditingLoading = !!editingInvoice && (isEditingDetailLoading || !invoiceDetail);
+
+  // Universal search lands here as `?segment=invoices&invoice=<id>`: open that
+  // invoice's detail once, then drop the id from the URL.
+  useOpenDocumentFromUrl<Invoice>({
+    param: "invoice",
+    useDocument: useInvoice,
+    onOpen: setEditingInvoice,
+    notFoundMessage: tb("openByLink.invoiceNotFound", "// INVOICE NOT FOUND"),
+    openFailedMessage: tb(
+      "openByLink.invoiceOpenFailed",
+      "// COULDN'T OPEN INVOICE",
+    ),
+  });
+
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();

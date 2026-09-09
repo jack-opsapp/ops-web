@@ -98,6 +98,24 @@ function classificationResult(
 }
 
 describe("classifySingleBatch — address field", () => {
+  it("preserves existing-job purpose independently of a won sales-stage guess", async () => {
+    const results = await EmailAIClassifier.classifySingleBatch(
+      [{ ...classificationInput("damage"), body: "Your crew damaged the baby gate. How should we handle reimbursement?" }], context,
+      fakeOpenAI([{ ...classificationResult("damage"), stage: "won", workIntent: "existing_job", newWorkEvidence: null }], [])
+    );
+    expect(results[0]).toMatchObject({ workIntent: "existing_job", newWorkEvidence: null });
+  });
+
+  it("treats absent purpose as uncertain rather than new work", async () => {
+    const results = await EmailAIClassifier.classifySingleBatch([classificationInput("missing")], context, fakeOpenAI([classificationResult("missing")], []));
+    expect(results[0].workIntent).toBe("uncertain");
+  });
+
+  it("accepts only new-work evidence present in the source message", async () => {
+    const results = await EmailAIClassifier.classifySingleBatch([classificationInput("evidence")], context,
+      fakeOpenAI([{ ...classificationResult("evidence"), workIntent: "new_work", newWorkEvidence: "Please quote a different property." }], []));
+    expect(results[0]).toMatchObject({ workIntent: "uncertain", newWorkEvidence: null });
+  });
   it("maps the model's addr into client.address", async () => {
     const captured: CapturedCall[] = [];
     const client = fakeOpenAI(

@@ -9,7 +9,7 @@
  */
 import { GoogleAuth } from "google-auth-library";
 import { unstable_cache } from "next/cache";
-import { parsePrivateKey } from "@/lib/firebase/parse-private-key";
+import { getServiceAccountCredentials } from "@/lib/google/service-account-credentials";
 import type {
   AdsDayRange,
   GoogleAdsAccountSummary,
@@ -22,7 +22,7 @@ import type {
 
 // ─── Singleton auth client ────────────────────────────────────────────────────
 
-const ADS_API_VERSION = "v23";
+const ADS_API_VERSION = "v25";
 const ADS_BASE_URL = `https://googleads.googleapis.com/${ADS_API_VERSION}`;
 
 let _auth: GoogleAuth | null = null;
@@ -30,29 +30,10 @@ let _auth: GoogleAuth | null = null;
 function getAuth(): GoogleAuth {
   if (_auth) return _auth;
 
-  // Support full JSON (same as GA4 client)
-  const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
-  if (serviceAccountJson) {
-    const credentials = JSON.parse(serviceAccountJson);
-    _auth = new GoogleAuth({
-      credentials,
-      scopes: ["https://www.googleapis.com/auth/adwords"],
-    });
-    return _auth;
-  }
-
-  // Construct from individual env vars (same as GA4 client)
-  const privateKey = parsePrivateKey(process.env.FIREBASE_ADMIN_PRIVATE_KEY);
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
-    ?? `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
-
-  if (!privateKey || !projectId) {
-    throw new Error("Missing FIREBASE_ADMIN_PRIVATE_KEY or NEXT_PUBLIC_FIREBASE_PROJECT_ID env var");
-  }
-
+  // Full JSON or key + email pair — one loader shared with the Data Manager
+  // and GA4 clients (src/lib/google/service-account-credentials.ts).
   _auth = new GoogleAuth({
-    credentials: { client_email: clientEmail, private_key: privateKey },
+    credentials: getServiceAccountCredentials(),
     scopes: ["https://www.googleapis.com/auth/adwords"],
   });
 
@@ -74,12 +55,92 @@ function getDeveloperToken(): string {
 // ─── REST API query helper ────────────────────────────────────────────────────
 
 interface GoogleAdsRow {
-  customer?: { id?: string };
-  campaign?: { id?: string; name?: string; status?: string };
-  adGroup?: { name?: string };
-  adGroupCriterion?: { keyword?: { text?: string; matchType?: string } };
+  customer?: {
+    id?: string;
+    conversionTrackingSetting?: {
+      acceptedCustomerDataTerms?: boolean;
+      enhancedConversionsForLeadsEnabled?: boolean;
+      conversionTrackingStatus?: string;
+    };
+  };
+  customerUserAccess?: { userId?: string | number; emailAddress?: string; accessRole?: string };
+  campaign?: {
+    resourceName?: string;
+    id?: string | number;
+    name?: string;
+    status?: string;
+    labels?: string[];
+    [key: string]: unknown;
+  };
+  campaignBudget?: { resourceName?: string; name?: string; status?: string; [key: string]: unknown };
+  adGroup?: {
+    resourceName?: string;
+    id?: string | number;
+    name?: string;
+    status?: string;
+    campaign?: string;
+    labels?: string[];
+    [key: string]: unknown;
+  };
+  adGroupAd?: {
+    resourceName?: string;
+    status?: string;
+    adGroup?: string;
+    adStrength?: string;
+    labels?: string[];
+    policySummary?: { approvalStatus?: string; reviewStatus?: string };
+    ad?: { id?: string | number; type?: string; finalUrls?: string[]; [key: string]: unknown };
+    [key: string]: unknown;
+  };
+  adGroupAdAssetView?: {
+    adGroupAd?: string;
+    asset?: string;
+    fieldType?: string;
+    performanceLabel?: string;
+    pinnedField?: string;
+  };
+  asset?: { id?: string | number; textAsset?: { text?: string } };
+  adGroupCriterion?: {
+    resourceName?: string;
+    criterionId?: string | number;
+    adGroup?: string;
+    status?: string;
+    negative?: boolean;
+    labels?: string[];
+    keyword?: { text?: string; matchType?: string };
+    qualityInfo?: { qualityScore?: number };
+    [key: string]: unknown;
+  };
+  campaignCriterion?: {
+    resourceName?: string;
+    campaign?: string;
+    negative?: boolean;
+    keyword?: { text?: string; matchType?: string };
+    [key: string]: unknown;
+  };
+  sharedSet?: { resourceName?: string; name?: string; status?: string; [key: string]: unknown };
+  sharedCriterion?: { resourceName?: string; sharedSet?: string; keyword?: { text?: string; matchType?: string }; [key: string]: unknown };
+  campaignSharedSet?: { resourceName?: string; campaign?: string; sharedSet?: string; status?: string; [key: string]: unknown };
+  label?: { resourceName?: string; name?: string; status?: string; [key: string]: unknown };
+  clickView?: {
+    gclid?: string;
+    adGroupAd?: string;
+    keyword?: string;
+    keywordInfo?: { text?: string; matchType?: string };
+  };
   searchTermView?: { searchTerm?: string };
-  conversionAction?: { name?: string; category?: string; status?: string };
+  conversionAction?: {
+    resourceName?: string;
+    id?: string | number;
+    name?: string;
+    type?: string;
+    category?: string;
+    status?: string;
+    primaryForGoal?: boolean;
+    includeInConversionsMetric?: boolean;
+    countingType?: string;
+    clickThroughLookbackWindowDays?: string | number;
+  };
   segments?: { date?: string; conversionActionName?: string };
   metrics?: {
     costMicros?: string;
@@ -89,6 +150,7 @@ interface GoogleAdsRow {
     costPerConversion?: number;
     ctr?: number;
     historicalQualityScore?: number;
+    averageCpc?: string | number;
     searchBudgetLostImpressionShare?: number;
   };
 }
@@ -125,7 +187,7 @@ export class GoogleAdsApiError extends Error {
  *
  * Do NOT send pageSize: the API rejects it with PAGE_SIZE_NOT_SUPPORTED —
  * responses are fixed at 10,000 rows per page, paged via nextPageToken.
- * `search` (paginated) instead of `searchStream` (deprecated in v19).
+ * Kept for the tiny discovery query only; report reads use rawSearchStream.
  */
 async function rawSearch(
   accessToken: string,
@@ -169,6 +231,72 @@ async function rawSearch(
   } while (pageToken);
 
   return allRows;
+}
+
+/**
+ * Streaming GAQL read. `googleAds:searchStream` answers with a JSON ARRAY of
+ * chunks, each `{ results, fieldMask, requestId }`; the chunks are concatenated
+ * in order. One request per report — no paging, and never a pageSize.
+ * The request id of the failing call is logged so a Google support thread can
+ * be opened against it.
+ */
+async function rawSearchStream(
+  accessToken: string,
+  customerId: string,
+  gaql: string,
+  loginCustomerId?: string
+): Promise<GoogleAdsRow[]> {
+  const developerToken = getDeveloperToken();
+  const response = await fetch(
+    `${ADS_BASE_URL}/customers/${customerId}/googleAds:searchStream`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": developerToken,
+        "Content-Type": "application/json",
+        ...(loginCustomerId ? { "login-customer-id": loginCustomerId } : {}),
+      },
+      body: JSON.stringify({ query: gaql }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    const requestId = response.headers?.get?.("request-id") ?? extractRequestId(errorBody);
+    console.error(
+      `[google-ads-client] searchStream failed (${response.status})${requestId ? ` request-id=${requestId}` : ""}`
+    );
+    throw new GoogleAdsApiError(response.status, errorBody);
+  }
+
+  const chunks = (await response.json()) as unknown;
+  const list: Array<{ results?: GoogleAdsRow[]; requestId?: string }> = Array.isArray(chunks)
+    ? (chunks as Array<{ results?: GoogleAdsRow[]; requestId?: string }>)
+    : chunks && typeof chunks === "object"
+      ? [chunks as { results?: GoogleAdsRow[]; requestId?: string }]
+      : [];
+
+  const allRows: GoogleAdsRow[] = [];
+  for (const chunk of list) {
+    if (Array.isArray(chunk?.results)) allRows.push(...chunk.results);
+  }
+  return allRows;
+}
+
+/** Best-effort request id from a Google Ads error body (GoogleAdsFailure.requestId). */
+function extractRequestId(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body) as {
+      error?: { details?: Array<{ requestId?: string }> };
+    };
+    for (const detail of parsed.error?.details ?? []) {
+      if (detail?.requestId) return String(detail.requestId);
+    }
+  } catch {
+    // not JSON
+  }
+  return null;
 }
 
 // ─── Manager → serving-account resolution ─────────────────────────────────────
@@ -272,7 +400,213 @@ async function resolveServingCustomer(accessToken: string): Promise<ServingCusto
 async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
   const accessToken = await getAccessToken();
   const { servingId, loginId } = await resolveServingCustomer(accessToken);
-  return rawSearch(accessToken, servingId, gaql, loginId);
+  return rawSearchStream(accessToken, servingId, gaql, loginId);
+}
+
+/**
+ * The resolved serving customer id and (when access flows through a manager)
+ * the login customer id. Exported for sibling clients that address the same
+ * account through other Google APIs — the Data Manager client sends both as
+ * `operatingAccount` / `loginAccount`.
+ */
+export async function getServingCustomerIds(): Promise<{ servingId: string; loginId?: string }> {
+  const accessToken = await getAccessToken();
+  const { servingId, loginId } = await resolveServingCustomer(accessToken);
+  return { servingId, loginId };
+}
+
+// ─── Mutate (googleAds:mutate) ────────────────────────────────────────────────
+
+/**
+ * One GoogleAdsService.mutate operation, keyed by its service operation
+ * (`campaignBudgetOperation`, `conversionActionOperation`, …) with the
+ * create / update+updateMask / remove body inside.
+ */
+export interface MutateOperation {
+  [service: `${string}Operation`]: Record<string, unknown>;
+}
+
+/** A per-operation failure decoded from `partialFailureError`. */
+export interface MutateFailure {
+  /** Index into the submitted operations, or null when Google gave no location. */
+  index: number | null;
+  /** The enum name of the error, e.g. `POLICY_FINDING`, `ACTION_NOT_PERMITTED`. */
+  code: string;
+  message: string;
+}
+
+export interface MutateResult {
+  /** One entry per submitted operation, positionally (empty object on failure). */
+  results: Array<Record<string, unknown>>;
+  failures: MutateFailure[];
+  requestId?: string;
+}
+
+interface MutateResponseBody {
+  mutateOperationResponses?: Array<Record<string, unknown>>;
+  partialFailureError?: {
+    code?: number;
+    message?: string;
+    details?: Array<{
+      requestId?: string;
+      errors?: Array<{
+        errorCode?: Record<string, string>;
+        message?: string;
+        location?: { fieldPathElements?: Array<{ fieldName?: string; index?: number }> };
+      }>;
+    }>;
+  };
+}
+
+/**
+ * Decode `partialFailureError.details[].errors[]` positionally: the first
+ * fieldPathElement carries `index` = the failing operation's position in
+ * `mutateOperations`. The first key of `errorCode` names the error enum
+ * (`policyFindingError`), its value the member (`POLICY_FINDING`).
+ */
+function decodePartialFailures(body: MutateResponseBody): { failures: MutateFailure[]; requestId?: string } {
+  const failures: MutateFailure[] = [];
+  let requestId: string | undefined;
+  for (const detail of body.partialFailureError?.details ?? []) {
+    if (detail?.requestId && !requestId) requestId = String(detail.requestId);
+    for (const err of detail?.errors ?? []) {
+      const first = err?.location?.fieldPathElements?.[0];
+      const index = typeof first?.index === "number" ? first.index : null;
+      const entry = err?.errorCode ? Object.entries(err.errorCode)[0] : undefined;
+      failures.push({
+        index,
+        code: entry ? String(entry[1]) : "UNKNOWN",
+        message: String(err?.message ?? ""),
+      });
+    }
+  }
+  return { failures, requestId };
+}
+
+/**
+ * Write to the serving customer through GoogleAdsService.mutate.
+ *
+ * Defaults: `partialFailure: true` (one bad operation never voids the batch),
+ * `validateOnly: false`. Every caller in the engine runs with
+ * `validateOnly: true` first and re-sends only on a clean pass — that rule is
+ * enforced at the call sites, not here, so this stays a faithful transport.
+ * Throws GoogleAdsApiError on a non-2xx (whole-request) failure; per-operation
+ * failures come back decoded in `failures`.
+ */
+export async function mutateGoogleAds(
+  operations: MutateOperation[],
+  options: { validateOnly?: boolean; partialFailure?: boolean } = {}
+): Promise<MutateResult> {
+  const accessToken = await getAccessToken();
+  const { servingId, loginId } = await resolveServingCustomer(accessToken);
+  const developerToken = getDeveloperToken();
+
+  const response = await fetch(
+    `${ADS_BASE_URL}/customers/${servingId}/googleAds:mutate`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": developerToken,
+        "Content-Type": "application/json",
+        ...(loginId ? { "login-customer-id": loginId } : {}),
+      },
+      // No responseContentType: asking for MUTABLE_RESOURCE makes Google answer
+      // INTERNAL_ERROR on every real conversion-action operation while the
+      // validateOnly pass succeeds (requests 5AluX7K36qmzSSUNYDWf3Q and
+      // QP1iZPcJnISXeYM0YLDw-g, 2026-09-09). Resource names are enough.
+      body: JSON.stringify({
+        mutateOperations: operations,
+        partialFailure: options.partialFailure ?? true,
+        validateOnly: options.validateOnly ?? false,
+      }),
+    }
+  );
+
+  const headerRequestId = response.headers?.get?.("request-id") ?? null;
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    const requestId = headerRequestId ?? extractRequestId(errorBody);
+    console.error(
+      `[google-ads-client] mutate failed (${response.status})${requestId ? ` request-id=${requestId}` : ""}`
+    );
+    throw new GoogleAdsApiError(response.status, errorBody);
+  }
+
+  const body = (await response.json()) as MutateResponseBody;
+  const { failures, requestId: failureRequestId } = decodePartialFailures(body);
+  const results = (body.mutateOperationResponses ?? []).map((r) => r ?? {});
+  const requestId = headerRequestId ?? failureRequestId;
+  return requestId ? { results, failures, requestId } : { results, failures };
+}
+
+/**
+ * One ConversionActionService operation: `create`, `update` + `updateMask`,
+ * or `remove` (a resource name).
+ */
+export interface ConversionActionServiceOperation {
+  create?: Record<string, unknown>;
+  update?: Record<string, unknown>;
+  updateMask?: string;
+  remove?: string;
+}
+
+/**
+ * Write conversion actions through ConversionActionService
+ * (`customers/{id}/conversionActions:mutate`) rather than the bulk
+ * GoogleAdsService.mutate. Same contract as mutateGoogleAds: partialFailure
+ * on by default, validateOnly off by default, positional failure decoding,
+ * request id on every call. The bulk endpoint validates conversion-action
+ * batches cleanly but answers INTERNAL_ERROR on every real operation in a
+ * mixed create/update/remove batch (requests 5AluX7K36qmzSSUNYDWf3Q,
+ * QP1iZPcJnISXeYM0YLDw-g, hfFhllc6wBjKNxz0TJBlmg, 2026-09-09); the dedicated
+ * service is the path Google documents for this resource.
+ */
+export async function mutateConversionActions(
+  operations: ConversionActionServiceOperation[],
+  options: { validateOnly?: boolean; partialFailure?: boolean } = {}
+): Promise<MutateResult> {
+  const accessToken = await getAccessToken();
+  const { servingId, loginId } = await resolveServingCustomer(accessToken);
+  const developerToken = getDeveloperToken();
+
+  const response = await fetch(
+    `${ADS_BASE_URL}/customers/${servingId}/conversionActions:mutate`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": developerToken,
+        "Content-Type": "application/json",
+        ...(loginId ? { "login-customer-id": loginId } : {}),
+      },
+      body: JSON.stringify({
+        operations,
+        partialFailure: options.partialFailure ?? true,
+        validateOnly: options.validateOnly ?? false,
+      }),
+    }
+  );
+
+  const headerRequestId = response.headers?.get?.("request-id") ?? null;
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    const requestId = headerRequestId ?? extractRequestId(errorBody);
+    console.error(
+      `[google-ads-client] conversionActions:mutate failed (${response.status})${requestId ? ` request-id=${requestId}` : ""}`
+    );
+    throw new GoogleAdsApiError(response.status, errorBody);
+  }
+
+  const body = (await response.json()) as MutateResponseBody & {
+    results?: Array<Record<string, unknown>>;
+  };
+  const { failures, requestId: failureRequestId } = decodePartialFailures(body);
+  const results = (body.results ?? []).map((r) => r ?? {});
+  const requestId = headerRequestId ?? failureRequestId;
+  return requestId ? { results, failures, requestId } : { results, failures };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -500,6 +834,58 @@ async function fetchConversionActionCategories(): Promise<Map<string, string>> {
   }
 
   return new Map([...byName].map(([name, v]) => [name, v.category]));
+}
+
+/**
+ * Every non-REMOVED conversion action with the fields the engine's planner
+ * reconciles (src/lib/ads/conversion-actions.ts). Live, never cached: the
+ * planner must see the account as it is right now.
+ */
+export async function listConversionActions(): Promise<
+  Array<{
+    resourceName: string;
+    id: string;
+    name: string;
+    type: string;
+    category: string;
+    status: string;
+    primaryForGoal: boolean;
+    includeInConversionsMetric: boolean;
+    countingType: string;
+    clickThroughLookbackWindowDays: number;
+  }>
+> {
+  const rows = await queryGoogleAds(`
+    SELECT
+      conversion_action.resource_name,
+      conversion_action.id,
+      conversion_action.name,
+      conversion_action.type,
+      conversion_action.category,
+      conversion_action.status,
+      conversion_action.primary_for_goal,
+      conversion_action.include_in_conversions_metric,
+      conversion_action.counting_type,
+      conversion_action.click_through_lookback_window_days
+    FROM conversion_action
+    WHERE conversion_action.status != 'REMOVED'
+  `);
+
+  return rows
+    .map((row) => row.conversionAction)
+    .filter((a): a is NonNullable<typeof a> => !!a && !!a.resourceName)
+    .map((a) => ({
+      resourceName: String(a.resourceName),
+      id: String(a.id ?? ""),
+      name: String(a.name ?? ""),
+      type: String(a.type ?? ""),
+      category: String(a.category ?? ""),
+      status: String(a.status ?? ""),
+      primaryForGoal: a.primaryForGoal === true,
+      includeInConversionsMetric: a.includeInConversionsMetric === true,
+      countingType: String(a.countingType ?? ""),
+      clickThroughLookbackWindowDays: Number(a.clickThroughLookbackWindowDays ?? 0),
+    }));
 }
 
 /**
@@ -908,6 +1294,499 @@ export async function queryCampaignBudgetPacing(
     campaignName: String(row.campaign?.name ?? "Unknown"),
     lostShare: Number(row.metrics?.searchBudgetLostImpressionShare ?? 0),
   }));
+}
+
+// ─── Warehouse grain reports (ad group / ad / asset / keyword / click) ────────
+
+/** The part of a Google resource name after the last slash, split on `~`. */
+function resourceIds(resourceName: string | undefined): string[] {
+  if (!resourceName) return [];
+  const tail = resourceName.slice(resourceName.lastIndexOf("/") + 1);
+  return tail.split("~");
+}
+
+export interface DailyAdGroupRow {
+  date: string;
+  campaign_id: string;
+  campaign_name: string;
+  ad_group_id: string;
+  ad_group_name: string;
+  status: string;
+  spend: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  ctr: number;
+}
+
+export async function queryDailyAdGroupData(startDate: Date, endDate: Date): Promise<DailyAdGroupRow[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      campaign.id,
+      campaign.name,
+      ad_group.id,
+      ad_group.name,
+      ad_group.status,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.impressions,
+      metrics.conversions,
+      metrics.ctr
+    FROM ad_group
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+      AND ad_group.status != 'REMOVED'
+    ORDER BY segments.date ASC
+  `);
+  return rows.map((row) => ({
+    date: String(row.segments?.date ?? ""),
+    campaign_id: String(row.campaign?.id ?? ""),
+    campaign_name: String(row.campaign?.name ?? ""),
+    ad_group_id: String(row.adGroup?.id ?? ""),
+    ad_group_name: String(row.adGroup?.name ?? ""),
+    status: String(row.adGroup?.status ?? ""),
+    spend: microsToDollars(row.metrics?.costMicros),
+    clicks: Number(row.metrics?.clicks ?? 0),
+    impressions: Number(row.metrics?.impressions ?? 0),
+    conversions: Number(row.metrics?.conversions ?? 0),
+    ctr: Number(row.metrics?.ctr ?? 0),
+  }));
+}
+
+export interface DailyAdRow {
+  date: string;
+  ad_group_id: string;
+  ad_id: string;
+  ad_type: string;
+  status: string;
+  ad_strength: string | null;
+  approval_status: string | null;
+  review_status: string | null;
+  final_url: string | null;
+  spend: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  ctr: number;
+}
+
+export async function queryDailyAdData(startDate: Date, endDate: Date): Promise<DailyAdRow[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      ad_group.id,
+      ad_group_ad.ad.id,
+      ad_group_ad.ad.type,
+      ad_group_ad.status,
+      ad_group_ad.ad_strength,
+      ad_group_ad.policy_summary.approval_status,
+      ad_group_ad.policy_summary.review_status,
+      ad_group_ad.ad.final_urls,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.impressions,
+      metrics.conversions,
+      metrics.ctr
+    FROM ad_group_ad
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+      AND ad_group_ad.status != 'REMOVED'
+    ORDER BY segments.date ASC
+  `);
+  return rows.map((row) => ({
+    date: String(row.segments?.date ?? ""),
+    ad_group_id: String(row.adGroup?.id ?? ""),
+    ad_id: String(row.adGroupAd?.ad?.id ?? ""),
+    ad_type: String(row.adGroupAd?.ad?.type ?? ""),
+    status: String(row.adGroupAd?.status ?? ""),
+    ad_strength: row.adGroupAd?.adStrength ? String(row.adGroupAd.adStrength) : null,
+    approval_status: row.adGroupAd?.policySummary?.approvalStatus
+      ? String(row.adGroupAd.policySummary.approvalStatus)
+      : null,
+    review_status: row.adGroupAd?.policySummary?.reviewStatus
+      ? String(row.adGroupAd.policySummary.reviewStatus)
+      : null,
+    final_url: row.adGroupAd?.ad?.finalUrls?.[0] ? String(row.adGroupAd.ad.finalUrls[0]) : null,
+    spend: microsToDollars(row.metrics?.costMicros),
+    clicks: Number(row.metrics?.clicks ?? 0),
+    impressions: Number(row.metrics?.impressions ?? 0),
+    conversions: Number(row.metrics?.conversions ?? 0),
+    ctr: Number(row.metrics?.ctr ?? 0),
+  }));
+}
+
+export interface DailyAssetRow {
+  date: string;
+  ad_id: string;
+  asset_id: string;
+  field_type: string;
+  performance_label: string | null;
+  pinned_field: string | null;
+  text: string | null;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+}
+
+export async function queryDailyAssetData(startDate: Date, endDate: Date): Promise<DailyAssetRow[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      ad_group_ad_asset_view.ad_group_ad,
+      ad_group_ad_asset_view.asset,
+      ad_group_ad_asset_view.field_type,
+      ad_group_ad_asset_view.performance_label,
+      ad_group_ad_asset_view.pinned_field,
+      asset.id,
+      asset.text_asset.text,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.conversions
+    FROM ad_group_ad_asset_view
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+    ORDER BY segments.date ASC
+  `);
+  return rows.map((row) => {
+    const view = row.adGroupAdAssetView ?? {};
+    const adIds = resourceIds(view.adGroupAd);
+    return {
+      date: String(row.segments?.date ?? ""),
+      ad_id: adIds[1] ?? adIds[0] ?? "",
+      asset_id: String(row.asset?.id ?? resourceIds(view.asset)[0] ?? ""),
+      field_type: String(view.fieldType ?? ""),
+      performance_label: view.performanceLabel ? String(view.performanceLabel) : null,
+      pinned_field: view.pinnedField ? String(view.pinnedField) : null,
+      text: row.asset?.textAsset?.text ? String(row.asset.textAsset.text) : null,
+      impressions: Number(row.metrics?.impressions ?? 0),
+      clicks: Number(row.metrics?.clicks ?? 0),
+      conversions: Number(row.metrics?.conversions ?? 0),
+    };
+  });
+}
+
+export interface DailyKeywordRow {
+  date: string;
+  campaign_id: string;
+  campaign_name: string;
+  ad_group_id: string;
+  ad_group_name: string;
+  criterion_id: string;
+  keyword: string;
+  match_type: string;
+  status: string;
+  quality_score: number | null;
+  spend: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  average_cpc: number | null;
+}
+
+export async function queryDailyKeywordData(startDate: Date, endDate: Date): Promise<DailyKeywordRow[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      campaign.id,
+      campaign.name,
+      ad_group.id,
+      ad_group.name,
+      ad_group_criterion.criterion_id,
+      ad_group_criterion.keyword.text,
+      ad_group_criterion.keyword.match_type,
+      ad_group_criterion.status,
+      ad_group_criterion.quality_info.quality_score,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.impressions,
+      metrics.conversions,
+      metrics.average_cpc
+    FROM keyword_view
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+    ORDER BY segments.date ASC
+  `);
+  return rows.map((row) => ({
+    date: String(row.segments?.date ?? ""),
+    campaign_id: String(row.campaign?.id ?? ""),
+    campaign_name: String(row.campaign?.name ?? ""),
+    ad_group_id: String(row.adGroup?.id ?? ""),
+    ad_group_name: String(row.adGroup?.name ?? ""),
+    criterion_id: String(row.adGroupCriterion?.criterionId ?? ""),
+    keyword: String(row.adGroupCriterion?.keyword?.text ?? ""),
+    match_type: String(row.adGroupCriterion?.keyword?.matchType ?? ""),
+    status: String(row.adGroupCriterion?.status ?? ""),
+    quality_score:
+      row.adGroupCriterion?.qualityInfo?.qualityScore != null
+        ? Number(row.adGroupCriterion.qualityInfo.qualityScore)
+        : null,
+    spend: microsToDollars(row.metrics?.costMicros),
+    clicks: Number(row.metrics?.clicks ?? 0),
+    impressions: Number(row.metrics?.impressions ?? 0),
+    conversions: Number(row.metrics?.conversions ?? 0),
+    average_cpc: row.metrics?.averageCpc != null ? microsToDollars(row.metrics.averageCpc) : null,
+  }));
+}
+
+export interface ClickMapRow {
+  gclid: string;
+  click_date: string;
+  campaign_id: string | null;
+  ad_group_id: string | null;
+  ad_id: string | null;
+  criterion_id: string | null;
+  keyword: string | null;
+}
+
+/**
+ * gclid → campaign / ad group / ad / keyword for ONE day. click_view must be
+ * filtered to exactly one segments.date per query (Google rejects ranges).
+ */
+export async function queryClickMap(date: Date): Promise<ClickMapRow[]> {
+  const day = formatDate(date);
+  const rows = await queryGoogleAds(`
+    SELECT
+      click_view.gclid,
+      click_view.ad_group_ad,
+      click_view.keyword,
+      click_view.keyword_info.text,
+      campaign.id,
+      ad_group.id,
+      segments.date
+    FROM click_view
+    WHERE segments.date = '${day}'
+  `);
+  return rows
+    .filter((row) => !!row.clickView?.gclid)
+    .map((row) => {
+      const view = row.clickView ?? {};
+      const adIds = resourceIds(view.adGroupAd);
+      const keywordIds = resourceIds(view.keyword);
+      return {
+        gclid: String(view.gclid),
+        click_date: String(row.segments?.date ?? day),
+        campaign_id: row.campaign?.id != null ? String(row.campaign.id) : null,
+        ad_group_id: row.adGroup?.id != null ? String(row.adGroup.id) : adIds[0] ?? null,
+        ad_id: adIds[1] ?? null,
+        criterion_id: keywordIds[1] ?? null,
+        keyword: view.keywordInfo?.text ? String(view.keywordInfo.text) : null,
+      };
+    });
+}
+
+export type AdsEntityType =
+  | "campaign"
+  | "campaign_budget"
+  | "ad_group"
+  | "ad"
+  | "keyword"
+  | "negative_keyword"
+  | "shared_set"
+  | "shared_criterion"
+  | "campaign_shared_set"
+  | "label";
+
+export interface EntityRow {
+  resource_name: string;
+  entity_type: AdsEntityType;
+  parent_resource_name: string | null;
+  name: string;
+  status: string;
+  payload: Record<string, unknown>;
+  labels: string[];
+}
+
+/**
+ * One row per structural resource on the account — campaigns, budgets, ad
+ * groups, ads (with full RSA assets and pins), keywords, negatives, shared
+ * sets, their members and the campaigns they are attached to, labels — keyed
+ * by Google resource name. Ten searchStream calls.
+ */
+export async function queryEntitySnapshot(): Promise<EntityRow[]> {
+  const out: EntityRow[] = [];
+  const push = (
+    resourceName: string | undefined,
+    entity_type: AdsEntityType,
+    parent: string | undefined | null,
+    name: unknown,
+    status: unknown,
+    payload: GoogleAdsRow,
+    labels?: string[]
+  ) => {
+    if (!resourceName) return;
+    out.push({
+      resource_name: String(resourceName),
+      entity_type,
+      parent_resource_name: parent ? String(parent) : null,
+      name: name == null ? "" : String(name),
+      status: status == null ? "" : String(status),
+      payload: payload as Record<string, unknown>,
+      labels: Array.isArray(labels) ? labels.map(String) : [],
+    });
+  };
+
+  const [campaigns, budgets, adGroups, ads, keywords, negatives, sharedSets, sharedCriteria, campaignSharedSets, labels] =
+    await Promise.all([
+      queryGoogleAds(`
+        SELECT campaign.resource_name, campaign.id, campaign.name, campaign.status,
+               campaign.serving_status, campaign.advertising_channel_type, campaign.campaign_budget,
+               campaign.bidding_strategy_type, campaign.start_date_time, campaign.end_date_time, campaign.labels,
+               campaign.network_settings.target_google_search, campaign.network_settings.target_search_network,
+               campaign.network_settings.target_content_network, campaign.network_settings.target_partner_search_network,
+               campaign.target_spend.cpc_bid_ceiling_micros
+        FROM campaign
+        WHERE campaign.status != 'REMOVED'
+      `),
+      queryGoogleAds(`
+        SELECT campaign_budget.resource_name, campaign_budget.id, campaign_budget.name, campaign_budget.status,
+               campaign_budget.amount_micros, campaign_budget.delivery_method, campaign_budget.explicitly_shared,
+               campaign_budget.period
+        FROM campaign_budget
+        WHERE campaign_budget.status != 'REMOVED'
+      `),
+      queryGoogleAds(`
+        SELECT ad_group.resource_name, ad_group.id, ad_group.name, ad_group.status, ad_group.campaign,
+               ad_group.type, ad_group.cpc_bid_micros, ad_group.labels
+        FROM ad_group
+        WHERE ad_group.status != 'REMOVED'
+      `),
+      queryGoogleAds(`
+        SELECT ad_group_ad.resource_name, ad_group_ad.status, ad_group_ad.ad_group, ad_group_ad.labels,
+               ad_group_ad.ad_strength, ad_group_ad.policy_summary.approval_status, ad_group_ad.policy_summary.review_status,
+               ad_group_ad.ad.id, ad_group_ad.ad.type, ad_group_ad.ad.final_urls,
+               ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions,
+               ad_group_ad.ad.responsive_search_ad.path1, ad_group_ad.ad.responsive_search_ad.path2
+        FROM ad_group_ad
+        WHERE ad_group_ad.status != 'REMOVED'
+      `),
+      queryGoogleAds(`
+        SELECT ad_group_criterion.resource_name, ad_group_criterion.criterion_id, ad_group_criterion.ad_group,
+               ad_group_criterion.status, ad_group_criterion.negative, ad_group_criterion.type,
+               ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
+               ad_group_criterion.cpc_bid_micros, ad_group_criterion.quality_info.quality_score,
+               ad_group_criterion.labels
+        FROM ad_group_criterion
+        WHERE ad_group_criterion.type = 'KEYWORD' AND ad_group_criterion.status != 'REMOVED'
+      `),
+      queryGoogleAds(`
+        SELECT campaign_criterion.resource_name, campaign_criterion.criterion_id, campaign_criterion.campaign,
+               campaign_criterion.negative, campaign_criterion.type, campaign_criterion.status,
+               campaign_criterion.keyword.text, campaign_criterion.keyword.match_type
+        FROM campaign_criterion
+        WHERE campaign_criterion.type = 'KEYWORD' AND campaign_criterion.negative = TRUE
+      `),
+      queryGoogleAds(`
+        SELECT shared_set.resource_name, shared_set.id, shared_set.name, shared_set.type, shared_set.status,
+               shared_set.member_count
+        FROM shared_set
+        WHERE shared_set.status != 'REMOVED'
+      `),
+      queryGoogleAds(`
+        SELECT shared_criterion.resource_name, shared_criterion.shared_set, shared_criterion.criterion_id,
+               shared_criterion.type, shared_criterion.keyword.text, shared_criterion.keyword.match_type
+        FROM shared_criterion
+      `),
+      queryGoogleAds(`
+        SELECT campaign_shared_set.resource_name, campaign_shared_set.campaign,
+               campaign_shared_set.shared_set, campaign_shared_set.status
+        FROM campaign_shared_set
+        WHERE campaign_shared_set.status != 'REMOVED'
+      `),
+      queryGoogleAds(`
+        SELECT label.resource_name, label.id, label.name, label.status
+        FROM label
+      `),
+    ]);
+
+  for (const row of campaigns) {
+    push(row.campaign?.resourceName, "campaign", null, row.campaign?.name, row.campaign?.status, row, row.campaign?.labels);
+  }
+  for (const row of budgets) {
+    push(row.campaignBudget?.resourceName, "campaign_budget", null, row.campaignBudget?.name, row.campaignBudget?.status, row);
+  }
+  for (const row of adGroups) {
+    push(row.adGroup?.resourceName, "ad_group", row.adGroup?.campaign, row.adGroup?.name, row.adGroup?.status, row, row.adGroup?.labels);
+  }
+  for (const row of ads) {
+    push(row.adGroupAd?.resourceName, "ad", row.adGroupAd?.adGroup, row.adGroupAd?.ad?.id, row.adGroupAd?.status, row, row.adGroupAd?.labels);
+  }
+  for (const row of keywords) {
+    const c = row.adGroupCriterion;
+    push(c?.resourceName, c?.negative ? "negative_keyword" : "keyword", c?.adGroup, c?.keyword?.text, c?.status, row, c?.labels);
+  }
+  for (const row of negatives) {
+    const c = row.campaignCriterion;
+    push(c?.resourceName, "negative_keyword", c?.campaign, c?.keyword?.text, (c as { status?: unknown } | undefined)?.status, row);
+  }
+  for (const row of sharedSets) {
+    push(row.sharedSet?.resourceName, "shared_set", null, row.sharedSet?.name, row.sharedSet?.status, row);
+  }
+  for (const row of sharedCriteria) {
+    push(row.sharedCriterion?.resourceName, "shared_criterion", row.sharedCriterion?.sharedSet, row.sharedCriterion?.keyword?.text, "", row);
+  }
+  for (const row of campaignSharedSets) {
+    // The attachment's two ends: the campaign is the parent, the list it
+    // attaches is the name, so the row reads without opening the payload.
+    const a = row.campaignSharedSet;
+    push(a?.resourceName, "campaign_shared_set", a?.campaign, a?.sharedSet, a?.status, row);
+  }
+  for (const row of labels) {
+    push(row.label?.resourceName, "label", null, row.label?.name, row.label?.status, row);
+  }
+  return out;
+}
+
+// ─── Readiness probe reads ───────────────────────────────────────────────────
+
+/** customer.conversion_tracking_setting on the serving account. Absent flags read as false. */
+export async function getConversionTrackingSetting(): Promise<{
+  acceptedCustomerDataTerms: boolean;
+  enhancedConversionsForLeadsEnabled: boolean;
+  conversionTrackingStatus: string | null;
+}> {
+  const rows = await queryGoogleAds(`
+    SELECT
+      customer.conversion_tracking_setting.accepted_customer_data_terms,
+      customer.conversion_tracking_setting.enhanced_conversions_for_leads_enabled,
+      customer.conversion_tracking_setting.conversion_tracking_status
+    FROM customer
+  `);
+  const setting = rows[0]?.customer?.conversionTrackingSetting ?? {};
+  return {
+    acceptedCustomerDataTerms: setting.acceptedCustomerDataTerms === true,
+    enhancedConversionsForLeadsEnabled: setting.enhancedConversionsForLeadsEnabled === true,
+    conversionTrackingStatus: setting.conversionTrackingStatus ? String(setting.conversionTrackingStatus) : null,
+  };
+}
+
+/**
+ * The service account's access role on the account that grants access — the
+ * manager when access flows through one (login customer), else the serving
+ * account itself.
+ */
+export async function getServiceAccountAccessRole(
+  serviceAccountEmail: string
+): Promise<{ role: string | null; present: boolean; customerId: string }> {
+  const accessToken = await getAccessToken();
+  const { servingId, loginId } = await resolveServingCustomer(accessToken);
+  const customerId = loginId ?? servingId;
+  const rows = await rawSearch(
+    accessToken,
+    customerId,
+    `SELECT customer_user_access.user_id, customer_user_access.email_address,
+            customer_user_access.access_role
+     FROM customer_user_access`,
+    loginId
+  );
+  const self = rows
+    .map((row) => row.customerUserAccess)
+    .find((a) => String(a?.emailAddress ?? "").toLowerCase() === serviceAccountEmail.toLowerCase());
+  return { role: self?.accessRole ? String(self.accessRole) : null, present: !!self, customerId };
 }
 
 // ─── Cached Exports (5-min TTL, matching existing admin query pattern) ────────

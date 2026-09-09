@@ -56,6 +56,38 @@ describe("durable MCP rate-limit adapter", () => {
     });
   });
 
+  it.each([
+    "inspect_catalog_changes",
+    "prepare_catalog_changes",
+    "prepare_inventory_adjustment",
+  ])("routes %s to the isolated catalog quota", async (capabilityId) => {
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          allowed: true,
+          remaining_units: 5,
+          reset_at: "2026-09-08T23:00:00.000Z",
+        },
+      ],
+      error: null,
+    }));
+    await createDurableMcpRateLimiter({ rpc }).consume({
+      ...IDENTITY,
+      capabilityId,
+      bucket: capabilityId.startsWith("inspect")
+        ? "evidence_search"
+        : "prepare",
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "consume_catalog_prepare_rate_limit_as_system",
+      expect.objectContaining({
+        p_policy_id: "mcp-catalog-prepare:2026-09-08.v1",
+        p_capability_id: capabilityId,
+        p_requested_units: 1,
+      })
+    );
+  });
+
   it("maps the lightweight bucket to its immutable database policy", async () => {
     const rpc = vi.fn(
       async (

@@ -1,10 +1,12 @@
 import {
   MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V17,
+  MCP_EXPOSURE_V19,
 } from "../../registry/mcp-exposure-catalog";
 import {
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
   FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS,
+  CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS,
 } from "../../registry/mcp-scope-catalog";
 import "server-only";
 
@@ -77,25 +79,27 @@ export function resolveRequestedScopes<const Exposure extends McpExposure>(
   | readonly Extract<Exposure["grantableScopes"][number], LabelledMcpScope>[]
   | null {
   const consentLabels =
-    exposure.revision === MCP_EXPOSURE_V17.revision
-      ? FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
-      : exposure.revision === MCP_EXPOSURE_V14.revision
-        ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
-        : exposure.revision === MCP_EXPOSURE_V13.revision
-          ? DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
-          : exposure.revision === MCP_EXPOSURE_V12.revision
-            ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
-            : exposure.revision === MCP_EXPOSURE_V11.revision
-              ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
-              : exposure.revision === MCP_EXPOSURE_V10.revision
-                ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
-                : exposure.revision === MCP_EXPOSURE_V9.revision
-                  ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
-                  : exposure.revision === MCP_EXPOSURE_V4.revision
-                    ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
-                    : exposure.revision === MCP_EXPOSURE_V3.revision
-                      ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
-                      : MCP_SCOPE_CONSENT_LABELS;
+    exposure.revision === MCP_EXPOSURE_V19.revision
+      ? CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS
+      : exposure.revision === MCP_EXPOSURE_V17.revision
+        ? FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
+        : exposure.revision === MCP_EXPOSURE_V14.revision
+          ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+          : exposure.revision === MCP_EXPOSURE_V13.revision
+            ? DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
+            : exposure.revision === MCP_EXPOSURE_V12.revision
+              ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
+              : exposure.revision === MCP_EXPOSURE_V11.revision
+                ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
+                : exposure.revision === MCP_EXPOSURE_V10.revision
+                  ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
+                  : exposure.revision === MCP_EXPOSURE_V9.revision
+                    ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
+                    : exposure.revision === MCP_EXPOSURE_V4.revision
+                      ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
+                      : exposure.revision === MCP_EXPOSURE_V3.revision
+                        ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
+                        : MCP_SCOPE_CONSENT_LABELS;
   if (rawScope == null || rawScope.trim() === "") {
     return exposure.grantableScopes as readonly Extract<
       Exposure["grantableScopes"][number],

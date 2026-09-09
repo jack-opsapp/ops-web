@@ -3,6 +3,8 @@
 // Implements the 12-step flow from spec Section 4C.
 
 import { randomUUID } from "node:crypto";
+import { decideEmailWorkRouting, isEmailWorkRoutingReceipt, loadEmailCustomerContext, currentEmailWorkBody, type EmailCustomerContext, type EmailWorkRouting } from "@/lib/email/email-work-routing";
+import { persistEmailWorkRouting } from "@/lib/email/persist-email-work-routing";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { persistCapturedProviderDeliveryTurn } from "@/lib/agent-control-plane/memory/persist-captured-provider-delivery-turn";
@@ -2201,8 +2203,18 @@ async function recordActivityCorrespondenceEvent(
   activityId: string | null,
   direction: "inbound" | "outbound"
 ): Promise<void> {
-  if (!opportunityId) return;
   const supabase = requireSupabase();
+  if (!opportunityId) {
+    if (activityId) {
+      try {
+        await persistCapturedProviderDeliveryTurn({ supabase, companyId: connection.companyId,
+          connectionId: connection.id, providerMessageId: email.id, sourceActivityId: activityId });
+      } catch (error) {
+        console.error(`[sync-engine] delivered turn persistence failed (non-fatal): ${email.id}`, error);
+      }
+    }
+    return;
+  }
   let linkedContactKind: "high_confidence_related_contact" | null = null;
   if (direction === "inbound") {
     const { data: exactThreadRows, error: exactThreadError } = await supabase
@@ -2282,6 +2294,8 @@ async function recordActivityCorrespondenceEvent(
 }
 
 interface ActivityPersistenceOptions {
+  clientId?: string | null;
+  projectId?: string | null;
   matchNeedsReview?: boolean;
   suggestedClientId?: string | null;
   matchConfidence?: string;
@@ -2497,6 +2511,8 @@ async function createActivity(
       email_message_id: normalizedEmail.id,
       email_thread_id: normalizedEmail.threadId,
       opportunity_id: opportunityId,
+      client_id: extra?.clientId ?? null,
+      project_id: extra?.projectId ?? null,
       direction,
       provider_mutations_disabled: executionPolicy.providerMutationsDisabled,
       from_email: fromEmail,
@@ -3164,6 +3180,9 @@ async function markConnectionNeedsReconnect(
 }
 
 interface ExistingProviderActivity {
+  client_id?: string | null;
+  project_id?: string | null;
+  match_confidence?: string | null;
   id?: string | null;
   opportunity_id?: string | null;
   email_connection_id?: string | null;
@@ -3268,7 +3287,7 @@ async function findExistingProviderActivity(
   const { data, error } = await supabase
     .from("activities")
     .select(
-      "id, opportunity_id, email_connection_id, email_thread_id, email_message_id, type, direction, subject, content, body_text, body_text_clean, from_email, to_emails, cc_emails, is_read, has_attachments, attachment_count, created_at, draft_history_id, created_by"
+      "id, opportunity_id, client_id, project_id, match_confidence, email_connection_id, email_thread_id, email_message_id, type, direction, subject, content, body_text, body_text_clean, from_email, to_emails, cc_emails, is_read, has_attachments, attachment_count, created_at, draft_history_id, created_by"
     )
     .eq("company_id", connection.companyId)
     .eq("email_message_id", providerMessageId);
@@ -3708,6 +3727,7 @@ function inboundRoutingIdentity(
 // ─── Inbound / Outbound Processors ─────────────────────────────────────────
 
 interface UnmatchedInboundContext {
+  customerContext?: EmailCustomerContext;
   email: NormalizedEmail;
   effectiveEmail: NormalizedEmail;
   routingIdentity: LeadRoutingIdentity;
@@ -3715,6 +3735,36 @@ interface UnmatchedInboundContext {
   enrichmentFacts: LeadEnrichmentFacts;
   resolvedContact: ResolvedContact;
   existingOrphanActivity: ExistingProviderActivity | null;
+}
+
+async function retainEmailWorkCorrespondence(input: {
+  email: NormalizedEmail; connection: EmailConnection;
+  routing: Exclude<EmailWorkRouting, { action: "sales" }>;
+  direction: "inbound" | "outbound"; mayProjectThread: boolean;
+  existingActivity?: ExistingProviderActivity | null;
+  executionPolicy?: EmailIngestionExecutionPolicy;
+}): Promise<boolean> {
+  const supabase = requireSupabase();
+  const policy = input.executionPolicy ?? NORMAL_EMAIL_INGESTION_POLICY;
+  let activity = input.existingActivity ?? await findExistingProviderActivity(supabase, input.connection, input.email.id, input.email.threadId);
+  let created = false;
+  if (!activity) {
+    created = await createActivity(input.email, input.connection, null, input.direction,
+      { skipThreadState: true, matchConfidence: "work_routing_pending", matchNeedsReview: true, clientId: input.routing.clientId, projectId: input.routing.projectId }, policy);
+    activity = await findExistingProviderActivity(supabase, input.connection, input.email.id, input.email.threadId);
+  }
+  if (!activity?.id) throw new LifecyclePersistenceError("Email correspondence has no durable source activity");
+  if (input.mayProjectThread && !policy.suppressThreadState) {
+    await EmailThreadService.upsertFromEmail({ companyId: input.connection.companyId,
+      connectionId: input.connection.id, providerThreadId: input.email.threadId,
+      email: input.email, direction: input.direction, clientId: input.routing.clientId,
+      markClassificationDirty: false });
+  }
+  await persistEmailWorkRouting({ supabase, companyId: input.connection.companyId,
+    connectionId: input.connection.id, activityId: activity.id,
+    providerMessageId: input.email.id, providerThreadId: input.email.threadId, routing: input.routing });
+  await recordActivityCorrespondenceEvent(input.email, input.connection, null, activity.id, input.direction);
+  return created;
 }
 
 /** Returns the sanitized context only when no deterministic branch claimed it. */
@@ -3768,6 +3818,10 @@ async function processInboundEmail(
           email.threadId
         )
       : preloadedExistingActivity;
+  if (isEmailWorkRoutingReceipt(existingActivity)) {
+    await recordActivityCorrespondenceEvent(email, connection, null, existingActivity?.id ?? null, "inbound");
+    return null;
+  }
   if (
     isRecruitingProviderNoise({
       fromEmail: extractSenderEmail(email.from),
@@ -3922,6 +3976,16 @@ async function processInboundEmail(
     );
   }
 
+  if (existingActivity?.match_confidence === "work_routing_pending") {
+    const routing: Exclude<EmailWorkRouting, { action: "sales" }> = existingActivity.project_id && existingActivity.client_id
+      ? { action: "project", clientId: existingActivity.client_id, projectId: existingActivity.project_id, reason: "existing_job" }
+      : { action: "review", clientId: existingActivity.client_id ?? null, projectId: null, reason: "uncertain_work_intent" };
+    await retainEmailWorkCorrespondence({ email: effectiveEmail, connection, routing, direction: "inbound",
+      mayProjectThread: routingIdentity.mayInheritProviderThread, existingActivity, executionPolicy });
+    if (routing.action === "review") result.needsReview++; else result.matched++;
+    return null;
+  }
+
   // A website-created lead may carry an authenticated, mailbox-bound marker in
   // the platform's real notification email. Resolve it before every generic
   // thread/contact matcher. The marker is only a capability to revalidate the
@@ -4035,6 +4099,10 @@ async function processInboundEmail(
     return null;
   }
 
+  const customerContext = await loadEmailCustomerContext({ supabase,
+    companyId: connection.companyId, contactEmails: [inboundEnrichmentFacts.contactEmail ?? extractSenderEmail(effectiveEmail.from)] });
+  const requiresWorkIntent = customerContext.projects.length > 0 || customerContext.clientIds.length > 1;
+
   // Pattern matching
   const senderEmail = extractSenderEmail(email.from);
   const isPatternMatch = matchesPattern(email, profile);
@@ -4045,10 +4113,10 @@ async function processInboundEmail(
     ) && isFormSubmissionSubject(email.subject);
 
   if (
-    isPatternMatch ||
+    !requiresWorkIntent && (isPatternMatch ||
     isPlatformMatch ||
     isForwarderMatch ||
-    routingIdentity.isContactFormSubmission
+    routingIdentity.isContactFormSubmission)
   ) {
     const matchResult = await EmailMatchingServiceV2.match(
       connection.companyId,
@@ -4356,6 +4424,7 @@ async function processInboundEmail(
       enrichmentFacts: inboundEnrichmentFacts,
       resolvedContact: resolvedInboundContact,
       existingOrphanActivity,
+      customerContext,
     };
   }
 
@@ -4368,6 +4437,7 @@ async function processInboundEmail(
       enrichmentFacts: inboundEnrichmentFacts,
       resolvedContact: resolvedInboundContact,
       existingOrphanActivity,
+      customerContext,
     };
   }
 
@@ -4392,6 +4462,7 @@ async function processInboundEmail(
     enrichmentFacts: inboundEnrichmentFacts,
     resolvedContact: resolvedInboundContact,
     existingOrphanActivity,
+    customerContext,
   };
 }
 
@@ -4422,7 +4493,10 @@ async function persistAIClassifiedUnmatchedInbound(input: {
   // model verdict can never discard one: the reviewer keeps only what it
   // scores as a lead, and the mailbox cursor then advances past the rest.
   const { deterministicContexts, aiCandidateContexts } =
-    partitionUnmatchedLeadContexts(input.contexts);
+    partitionUnmatchedLeadContexts(input.contexts.filter((context) =>
+      !context.customerContext?.projects.length && (context.customerContext?.clientIds.length ?? 0) <= 1));
+  aiCandidateContexts.push(...input.contexts.filter((context) =>
+    Boolean(context.customerContext?.projects.length) || (context.customerContext?.clientIds.length ?? 0) > 1));
 
   const deterministicLeads = deterministicContexts.flatMap((context) => {
     const lead = buildDeterministicContactFormLead(context);
@@ -4517,7 +4591,6 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       aiClassified: true,
     })),
   ];
-  let reviewDiverted = 0;
 
   for (const { classified, aiClassified } of persistenceQueue) {
     await input.providerLockCheckpoint();
@@ -4547,6 +4620,25 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         classified.stage,
         classified.terminalFlag
       );
+
+      if (aiClassified) {
+        const customerContext = context.customerContext ?? await loadEmailCustomerContext({
+          supabase: requireSupabase(), companyId: input.connection.companyId,
+          contactEmails: [deterministicFacts.contactEmail ?? extractSenderEmail(effectiveEmail.from)] });
+        const workRouting = decideEmailWorkRouting({ context: customerContext,
+          intent: classified.workIntent, newWorkEvidence: classified.newWorkEvidence,
+          body: currentEmailWorkBody(effectiveEmail), address: deterministicFacts.address ?? classified.address });
+        if (workRouting.action !== "sales") {
+          const created = await retainEmailWorkCorrespondence({ email: effectiveEmail,
+            connection: input.connection, routing: workRouting, direction: "inbound",
+            mayProjectThread: routingIdentity.mayInheritProviderThread,
+            existingActivity: existingOrphanActivity, executionPolicy: input.executionPolicy });
+          if (created) input.result.activitiesCreated++;
+          if (workRouting.action === "review") input.result.needsReview++;
+          else input.result.matched++;
+          continue;
+        }
+      }
 
       const matchResult = await EmailMatchingServiceV2.match(
         input.connection.companyId,
@@ -4619,7 +4711,6 @@ async function persistAIClassifiedUnmatchedInbound(input: {
           syncLockOwner: input.syncLockOwner,
           contactFormRecipient: contactFormSubmitter?.email ?? null,
         });
-        reviewDiverted += 1;
         if (reviewPersistence.persisted) {
           input.result.needsReview += 1;
           if (reviewPersistence.created) input.result.activitiesCreated++;
@@ -4758,6 +4849,7 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         input.executionPolicy
       );
       if (activityPersistence.created) input.result.activitiesCreated++;
+      if (opportunityCreated) input.result.newLeads++;
     } catch (err) {
       throw new LifecyclePersistenceError(
         `[sync-engine] failed to persist AI-classified lead ${classified.clientEmail}: ${err instanceof Error ? err.message : "unknown error"}`
@@ -4765,11 +4857,6 @@ async function persistAIClassifiedUnmatchedInbound(input: {
     }
   }
 
-  // Leads diverted to review created nothing, so they are not new leads.
-  input.result.newLeads += Math.max(
-    0,
-    aiResult.newLeadsClassified - reviewDiverted
-  );
 }
 
 async function processSentEmail(
@@ -4842,6 +4929,18 @@ async function processSentEmail(
   // queue write fails, the sync checkpoint must not advance; replay then
   // repairs the same provider identity without double-learning.
   await learnFromOutboundEmail(email, connection, existingActivity);
+  if (isEmailWorkRoutingReceipt(existingActivity)) {
+    await recordActivityCorrespondenceEvent(email, connection, null, existingActivity?.id ?? null, "outbound");
+    return;
+  }
+  if (existingActivity?.match_confidence === "work_routing_pending") {
+    const routing: Exclude<EmailWorkRouting, { action: "sales" }> = existingActivity.project_id && existingActivity.client_id
+      ? { action: "project", clientId: existingActivity.client_id, projectId: existingActivity.project_id, reason: "existing_job" }
+      : { action: "review", clientId: existingActivity.client_id ?? null, projectId: null, reason: "uncertain_work_intent" };
+    await retainEmailWorkCorrespondence({ email, connection, routing, direction: "outbound", mayProjectThread: true, existingActivity });
+    if (routing.action === "review") result.needsReview++;
+    return;
+  }
   if (existingActivity) {
     if (existingActivity.opportunity_id) {
       await linkThread(
@@ -4952,6 +5051,18 @@ async function processSentEmail(
     connection,
     profile,
   });
+  const outboundCustomerContext = await loadEmailCustomerContext({ supabase,
+    companyId: connection.companyId, contactEmails: externalRecipients.map(extractSenderEmail) });
+  if (outboundCustomerContext.projects.length > 0 || outboundCustomerContext.clientIds.length > 1) {
+    const workRouting = decideEmailWorkRouting({ context: outboundCustomerContext, intent: "uncertain", body: currentEmailWorkBody(email) });
+    if (workRouting.action !== "sales") {
+      const created = await retainEmailWorkCorrespondence({ email, connection, direction: "outbound",
+        routing: workRouting, mayProjectThread: true });
+      if (created) result.activitiesCreated++;
+      result.needsReview++;
+      return;
+    }
+  }
   const matchResult = await EmailMatchingServiceV2.match(
     connection.companyId,
     recipientEmail,
@@ -5117,7 +5228,7 @@ async function reconcileUnlinkedOutboundEmail(
     email.id,
     email.threadId
   );
-  if (!existingActivity || existingActivity.opportunity_id) return;
+  if (!existingActivity || existingActivity.opportunity_id || isEmailWorkRoutingReceipt(existingActivity) || existingActivity.match_confidence === "work_routing_pending") return;
   if (!existingActivity.id) {
     throw new LifecyclePersistenceError(
       "[sync-engine] unlinked outbound activity has no durable identity"

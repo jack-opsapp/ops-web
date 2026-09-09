@@ -857,6 +857,15 @@ export const queryKeys = {
     instagramConnection: () =>
       [...queryKeys.socialPublishing.all, "instagramConnection"] as const,
   },
+
+  // Universal search (the command palette's search_workspace RPC).
+  // The query text is part of the key, so TanStack — not the component — is
+  // what guarantees a settled response always belongs to the query on screen.
+  search: {
+    all: ["search"] as const,
+    workspace: (companyId: string, query: string) =>
+      [...queryKeys.search.all, "workspace", companyId, query] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────

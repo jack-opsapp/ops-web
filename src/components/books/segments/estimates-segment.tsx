@@ -47,7 +47,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
-import { Tag, type TagProps } from "@/components/ui/tag";
+import { Tag } from "@/components/ui/tag";
+import { ESTIMATE_STATUS_TAG_VARIANT } from "@/lib/utils/status-tag-variant";
 import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import {
   RegisterTable,
@@ -58,6 +59,7 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
+import { useOpenDocumentFromUrl } from "../use-open-document-from-url";
 import { EstimateFormModal } from "../modals/estimate-form-modal";
 import {
   FilterChips,
@@ -71,18 +73,9 @@ type FilterStatus = "all" | EstimateStatus;
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
-const STATUS_VARIANT: Partial<Record<EstimateStatus, TagProps["variant"]>> = {
-  [EstimateStatus.Draft]: "dim",
-  [EstimateStatus.Sent]: "neutral",
-  [EstimateStatus.Viewed]: "neutral",
-  [EstimateStatus.Approved]: "olive",
-  [EstimateStatus.Converted]: "olive",
-  [EstimateStatus.Declined]: "rose",
-  [EstimateStatus.Expired]: "tan",
-};
-
 function StatusTag({ status, label }: { status: EstimateStatus; label: string }) {
-  return <Tag variant={STATUS_VARIANT[status] ?? "neutral"}>{label}</Tag>;
+  // Shared with the ⌘K palette's document rows — one table, never two.
+  return <Tag variant={ESTIMATE_STATUS_TAG_VARIANT[status] ?? "neutral"}>{label}</Tag>;
 }
 
 function fmtDate(date: Date | null, locale: Locale): string {
@@ -147,6 +140,20 @@ export function EstimatesSegment({
     editingEstimate?.id,
   );
   const isEditingLoading = !!editingEstimate && (isEditingDetailLoading || !estimateDetail);
+
+  // Universal search lands here as `?segment=estimates&estimate=<id>`: open that
+  // estimate's detail once, then drop the id from the URL.
+  useOpenDocumentFromUrl<Estimate>({
+    param: "estimate",
+    useDocument: useEstimate,
+    onOpen: setEditingEstimate,
+    notFoundMessage: tb("openByLink.estimateNotFound", "// ESTIMATE NOT FOUND"),
+    openFailedMessage: tb(
+      "openByLink.estimateOpenFailed",
+      "// COULDN'T OPEN ESTIMATE",
+    ),
+  });
+
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();

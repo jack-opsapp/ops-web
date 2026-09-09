@@ -28,6 +28,8 @@ export async function GET(request: NextRequest) {
     if (!access.allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    // CalibrationService binds its own service-role context, nested reads
+    // included — see the note above `CalibrationService` in calibration-service.ts.
     const state = await CalibrationService.getDeckState(
       auth.companyId,
       auth.id,

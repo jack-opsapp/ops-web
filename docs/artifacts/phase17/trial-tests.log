@@ -1,0 +1,49 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17
+
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/grants.test.ts (175 tests) 15ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/clients.test.ts (121 tests) 7ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/manifest.test.ts (37 tests) 32ms
+ ✓ src/lib/agent-control-plane/registry/__tests__/mcp-exposure-catalog.test.ts (20 tests) 6ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scope-catalog.test.ts (13 tests) 5ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scopes.test.ts (35 tests) 5ms
+ ✓ src/lib/api/services/__tests__/catalog-approval.test.ts (18 tests) 10ms
+stderr | tests/integration/inbox/feature-flags-route.test.ts > GET /api/feature-flags — per-company synthetic flags > fails closed for all synthetic flags when the override check throws
+[feature-flags] Failed to check company overrides: Error: DB timeout
+    at /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/tests/integration/inbox/feature-flags-route.test.ts:270:40
+    at file:///Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/node_modules/@vitest/runner/dist/index.js:146:14
+    at file:///Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/node_modules/@vitest/runner/dist/index.js:533:11
+    at runWithTimeout (file:///Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/node_modules/@vitest/runner/dist/index.js:39:7)
+    at runTest (file:///Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/node_modules/@vitest/runner/dist/index.js:1056:17)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at runSuite (file:///Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runSuite (file:///Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-catalog-web-p17/node_modules/@vitest/runner/dist/index.js:1271:3)
+
+ ✓ tests/integration/inbox/feature-flags-route.test.ts (16 tests) 14ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/tokens.test.ts (40 tests) 5ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/durable-rate-limit.test.ts (17 tests) 9ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/canary.test.ts (17 tests) 6ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/bearer.test.ts (4 tests) 8ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/config.test.ts (36 tests) 6ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/pkce.test.ts (50 tests) 4ms
+ ✓ src/lib/agent-control-plane/services/catalog-authoring/__tests__/catalog-domain.test.ts (15 tests) 17ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/runtime.test.ts (4 tests) 1974ms
+   ✓ MCP production runtime > preserves Supabase cancellation through the composed authority adapter 1459ms
+ ✓ src/components/agent/__tests__/catalog-changes-preview.test.tsx (4 tests) 62ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/catalog-canary.test.ts (8 tests) 5ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/catalog-authoring.test.ts (11 tests) 5ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/financial-canary.test.ts (5 tests) 4ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/authorization-response.test.ts (4 tests) 4ms
+ ✓ tests/unit/feature-flags/feature-flags-store-actor-binding.test.ts (2 tests) 2ms
+ ✓ tests/unit/feature-flags/catalog-review-route.test.ts (3 tests) 2ms
+ ✓ src/app/api/agent/queue/__tests__/request-isolation.test.ts (7 tests) 8ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/catalog-candidate-protocol.test.ts (5 tests) 42ms
+
+ Test Files  25 passed (25)
+      Tests  667 passed (667)
+   Start at  21:38:43
+   Duration  6.92s (transform 1.37s, setup 1.78s, collect 3.62s, tests 2.26s, environment 3.46s, prepare 511ms)
+

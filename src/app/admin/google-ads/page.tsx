@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { AdminPageHeader } from "../_components/admin-page-header";
 import { GoogleAdsContent } from "./_components/google-ads-content";
+import { ReadinessLedger } from "./_components/readiness-ledger";
 import { SyncStatusBar } from "./_components/sync-status";
 import { BriefingHero } from "./briefings/_components/briefing-hero";
 import { EngineConsole } from "./_components/engine/engine-console";
@@ -54,6 +55,13 @@ export default async function GoogleAdsPage() {
       <div className="px-8 pt-4">
         <SyncStatusBar />
       </div>
+      {initialPreset === "all" && (
+        // The account is dark (no activity in 30 days): the engine's
+        // readiness is the only thing this page has to say right now.
+        <div className="px-8 pt-4">
+          <ReadinessLedger />
+        </div>
+      )}
       <div className="pt-4">
         <EngineConsole section="top" live={live} />
       </div>
