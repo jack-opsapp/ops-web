@@ -1,4 +1,6 @@
-"use client";
+import { CatalogChangesPreview } from "./catalog-changes-preview";
+import { CatalogPreviewSchema } from "@/lib/agent-control-plane/contracts/catalog-authoring";
+("use client");
 
 import { FinancialDocumentPreview } from "./financial-document-preview";
 import { FinancialDocumentPreviewSchema } from "@/lib/agent-control-plane/contracts/financial-document";
@@ -503,6 +505,16 @@ export const ActionDetail = memo(function ActionDetail({
   }, [action.id]); // eslint-disable-line react-hooks/exhaustive-deps -- data is derived from action, so action.id is sufficient
 
   // ── Build edited action_data for approval ──
+  const catalogPreview =
+    action.actionType === "approve_catalog_changes"
+      ? CatalogPreviewSchema.safeParse(action.actionData.proposal)
+      : null;
+  const catalogPreviewInvalid =
+    catalogPreview !== null &&
+    (!catalogPreview.success ||
+      !catalogPreview.data.ready ||
+      !action.expiresAt ||
+      action.expiresAt.getTime() <= Date.now());
   const financialPreview =
     action.actionType === "approve_financial_document"
       ? FinancialDocumentPreviewSchema.safeParse(action.actionData.proposal)
@@ -537,6 +549,21 @@ export const ActionDetail = memo(function ActionDetail({
       new Date(customerMessagePreview.data.approval.expires_at).getTime() <=
         Date.now());
   const handleApproveWithEdits = useCallback(() => {
+    if (action.actionType === "approve_catalog_changes") {
+      const parsed = CatalogPreviewSchema.safeParse(action.actionData.proposal);
+      if (
+        !parsed.success ||
+        !parsed.data.ready ||
+        !action.expiresAt ||
+        action.expiresAt.getTime() <= Date.now()
+      )
+        return;
+      onApprove(action.id, {
+        preview_sha256: action.actionData.preview_sha256,
+        change_set_id: action.actionData.change_set_id,
+      });
+      return;
+    }
     if (action.actionType === "approve_financial_document") {
       const preview = FinancialDocumentPreviewSchema.safeParse(
         action.actionData.proposal
@@ -1129,6 +1156,12 @@ export const ActionDetail = memo(function ActionDetail({
           </div>
         )}
 
+        {action.actionType === "approve_catalog_changes" && (
+          <CatalogChangesPreview
+            proposal={action.actionData.proposal}
+            expiresAt={action.expiresAt}
+          />
+        )}
         {action.actionType === "approve_financial_document" && (
           <FinancialDocumentPreview proposal={action.actionData.proposal} />
         )}
@@ -3110,6 +3143,7 @@ export const ActionDetail = memo(function ActionDetail({
               size="sm"
               onClick={handleApproveWithEdits}
               disabled={
+                catalogPreviewInvalid ||
                 financialPreviewInvalid ||
                 schedulePreviewInvalid ||
                 customerPreviewInvalid ||

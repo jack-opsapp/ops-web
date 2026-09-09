@@ -1,3 +1,4 @@
+import { createCatalogAuthoringService } from "../services/catalog-authoring/catalog-authoring-service";
 import {
   createFinancialDocumentService,
   type FinancialDocumentService,
@@ -362,6 +363,10 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const catalogAuthoring = createCatalogAuthoringService({
+    rpc: rpcClient.rpc.bind(rpcClient),
+    authorityRepository,
+  });
   const financialDocument = createFinancialDocumentService({
     repository: createFinancialDocumentRepository({
       rpc: rpcClient.rpc.bind(rpcClient),
@@ -405,6 +410,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       customerUpdate,
       scheduleChange,
       financialDocument,
+      catalogAuthoring,
       customerMessage,
     }),
     dayCloseout,

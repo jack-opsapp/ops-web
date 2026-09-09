@@ -399,6 +399,26 @@ export const MCP_EXPOSURE_V16 = Object.freeze({
 
 /** Full Phase15 candidate remains unselected. Phase16 selects only its narrow
  * financial trial below, with v12 consent and an exact live subject binding. */
+/** Phase17 candidate only. No active catalog entry or consent enrollment. */
+export const MCP_EXPOSURE_V19 = Object.freeze({
+  revision: "2026-09-08.mcp-exposure.v19",
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V14.toolIds,
+    "inspect_catalog_changes",
+    "prepare_catalog_changes",
+    "prepare_inventory_adjustment",
+  ] as const),
+  grantableScopes: Object.freeze(
+    [
+      ...MCP_EXPOSURE_V14.grantableScopes,
+      "ops.catalog.prepare",
+      "ops.catalog_prices.write",
+      "ops.catalog_costs.write",
+      "ops.inventory.adjust",
+    ].sort()
+  ),
+} as const satisfies McpExposure);
+
 export const MCP_EXPOSURE_V17 = Object.freeze({
   revision: "2026-09-07.mcp-exposure.v17",
   toolIds: Object.freeze([

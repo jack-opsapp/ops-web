@@ -10,6 +10,9 @@ export const REGISTERED_MCP_SCOPES = Object.freeze([
   "ops.catalog.read",
   "ops.catalog.write",
   "ops.catalog_costs.read",
+  "ops.catalog_prices.write",
+  "ops.catalog_costs.write",
+  "ops.inventory.adjust",
   "ops.communications.prepare",
   "ops.communications.send",
   "ops.company.read",
@@ -53,6 +56,9 @@ export const MCP_SCOPE_OPERATION_BY_ID = Object.freeze({
   "ops.catalog.read": "read",
   "ops.catalog.write": "write",
   "ops.catalog_costs.read": "read",
+  "ops.catalog_prices.write": "write",
+  "ops.catalog_costs.write": "write",
+  "ops.inventory.adjust": "write",
   "ops.communications.prepare": "prepare",
   "ops.communications.send": "send",
   "ops.company.read": "read",
@@ -167,10 +173,24 @@ export const FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
     "Inspect pricing sources and prepare private estimates or change orders for exact approval in OPS; never send or issue documents",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
+/** Candidate labels only; existing clients and grants retain their exact revision. */
+export const CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS,
+  "ops.catalog.prepare":
+    "Inspect source rows and prepare exact catalog changes for named operator approval in OPS",
+  "ops.catalog_prices.write":
+    "Prepare catalog price changes for exact approval in OPS; never change stock",
+  "ops.catalog_costs.write":
+    "Prepare catalog cost changes for exact approval in OPS",
+  "ops.inventory.adjust":
+    "Prepare separate stock count adjustments for exact approval in OPS; never record purchases",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
 export type LabelledMcpScope =
   | keyof typeof DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
   | keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
-  | keyof typeof FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS;
+  | keyof typeof FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
+  | keyof typeof CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,
