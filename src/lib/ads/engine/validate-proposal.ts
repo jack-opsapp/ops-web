@@ -204,7 +204,9 @@ function pauseKeyword(p: PayloadFor<"pause_keyword">, ctx: ValidationContext, lo
       text: keyword.text,
       matchType: keyword.matchType,
       adGroup: owner.adGroup.resourceName,
+      adGroupName: owner.adGroup.name,
       campaign: owner.campaign.resourceName,
+      campaignName: owner.campaign.name,
       metrics: {
         clicks: metric.clicks,
         spend: metric.spend,
@@ -240,7 +242,9 @@ function addKeywords(p: PayloadFor<"add_keywords">, ctx: ValidationContext, look
     target: `keywords:${owner.adGroup.resourceName}:${hash8(kept.map((t) => `${t.text}|${t.matchType}`).sort().join("\n"))}`,
     payload: {
       ad_group: owner.adGroup.resourceName,
+      adGroupName: owner.adGroup.name,
       campaign: owner.campaign.resourceName,
+      campaignName: owner.campaign.name,
       terms: kept,
     },
   };
@@ -272,6 +276,7 @@ function createChallenger(p: PayloadFor<"create_rsa_challenger">, ctx: Validatio
       adGroupName: owner.adGroup.name,
       campaign: owner.campaign.resourceName,
       campaignId: owner.campaign.id,
+      campaignName: owner.campaign.name,
       campaignKind: owner.campaign.kind,
       controlAd: control.resourceName,
       controlAdId: control.id,
@@ -304,8 +309,10 @@ function promoteChallenger(p: PayloadFor<"promote_challenger">, ctx: ValidationC
       loser: loser.resourceName,
       adGroup: owner.adGroup.resourceName,
       adGroupId: owner.adGroup.id,
+      adGroupName: owner.adGroup.name,
       campaign: owner.campaign.resourceName,
       campaignId: owner.campaign.id,
+      campaignName: owner.campaign.name,
     },
   };
 }
@@ -325,8 +332,10 @@ function pauseAd(p: PayloadFor<"pause_ad">, ctx: ValidationContext, look: Lookup
       adId: owner.ad.id,
       adGroup: owner.adGroup.resourceName,
       adGroupId: owner.adGroup.id,
+      adGroupName: owner.adGroup.name,
       campaign: owner.campaign.resourceName,
       campaignId: owner.campaign.id,
+      campaignName: owner.campaign.name,
       reason: p.reason,
     },
   };
