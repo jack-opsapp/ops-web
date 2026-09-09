@@ -35,6 +35,12 @@ const REQUIRED_KEYS = [
   "footer.navigate",
   "footer.select",
   "footer.close",
+  // Singular, per row. A screen reader announces the row's kind before its
+  // text, and "Projects, Hidden Oaks Cres" reads as a group, not a job.
+  "row.project",
+  "row.client",
+  "row.lead",
+  "row.task",
   "row.invoice",
   "row.estimate",
   "system.sync",

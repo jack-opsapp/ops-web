@@ -1,5 +1,6 @@
 /**
- * OPS Web — status/stage → `Tag` variant. The single mapping.
+ * OPS Web — status/stage → `Tag` variant. The single mapping onto the `Tag`
+ * primitive.
  *
  * DESIGN.md § Tags: earth tones ONLY when the colour carries meaning. Neutral
  * is a live state with no charge, olive is work that moved or landed, tan is
@@ -17,7 +18,12 @@
  * keyed by string rather than by those enums.
  *
  * Consumers: the ⌘K palette result rows and the Books invoice/estimate
- * registers. A second copy of any of these tables is a bug.
+ * registers. A second copy of any of these tables against `Tag` is a bug.
+ *
+ * Not the only status colouring in the app: `components/ops/status-badge` maps
+ * project and task statuses onto `ui/badge`'s `status-*` palette (Cake Mono,
+ * 2.5px radius) for the projects table. That is the pre-spec-v2 mapping the P4
+ * conformance sweep retires onto `Tag` — not a duplicate to reconcile here.
  */
 
 import type { TagProps } from "@/components/ui/tag";

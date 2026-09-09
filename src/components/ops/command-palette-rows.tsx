@@ -18,11 +18,12 @@
  * - Every row AND its group carries `forceMount`. cmdk only keeps a group
  *   visible while `filtered.groups` holds it, and that set is built from
  *   REGISTERED items — which forceMount rows never become (bug fa5a9ff2).
- * - cmdk re-sorts each group's items by fuzzy score on every keystroke.
- *   These rows arrive ranked by the database, and a hit matched on a field the
- *   row does not show (a project note, an invoice subject) scores zero — so
- *   every row value carries `HIT_VALUE_PREFIX` and the palette's filter hands
- *   those a flat score, which leaves the server's order intact.
+ * - cmdk re-sorts each group's items by fuzzy score on every keystroke. These
+ *   rows arrive ranked by the database and their values are opaque
+ *   (`<prefix> <kind> <id>`), so scoring them against the query would reorder
+ *   them by accident. Every row value carries `HIT_VALUE_PREFIX` and the
+ *   palette's filter hands those a flat score, which leaves the server's order
+ *   intact.
  */
 
 import type { LucideIcon } from "lucide-react";
@@ -60,8 +61,10 @@ export type PaletteTranslate = (key: string, fallback?: string) => string;
 /** Design rule: an absent value is an em dash, never "N/A" and never blank. */
 const EMPTY = "—";
 
-function hitValue(parts: Array<string | null | undefined>): string {
-  return [HIT_VALUE_PREFIX, ...parts.filter(Boolean)].join(" ");
+// The filter short-circuits on the prefix, so nothing here is ever matched against
+// the query — the id is only so two identically titled rows hold distinct values.
+function hitValue(kind: string, id: string): string {
+  return [HIT_VALUE_PREFIX, kind, id].join(" ");
 }
 
 function statusLabel(t: PaletteTranslate, kind: StatusTagKind, raw: string | null): string | null {
@@ -133,10 +136,8 @@ export function ProjectRow({
   return (
     <PaletteRow
       glyph={FolderKanban}
-      kindLabel={t("group.projects")}
-      // The client name never renders (the address disambiguates better) but a
-      // project can come back for a client-name query, so it belongs in the value.
-      value={hitValue(["project", hit.title, hit.address, hit.client_name, hit.id])}
+      kindLabel={t("row.project", "Project")}
+      value={hitValue("project", hit.id)}
       onSelect={onSelect}
       primary={<Primary>{hit.title || EMPTY}</Primary>}
       meta={[
@@ -163,8 +164,8 @@ export function ClientRow({
   return (
     <PaletteRow
       glyph={Users}
-      kindLabel={t("group.clients")}
-      value={hitValue(["client", hit.name, hit.phone, hit.email, hit.address, hit.id])}
+      kindLabel={t("row.client", "Client")}
+      value={hitValue("client", hit.id)}
       onSelect={onSelect}
       primary={<Primary>{hit.name || EMPTY}</Primary>}
       // A phone number is what an operator dials from a search result; the email
@@ -187,8 +188,8 @@ export function LeadRow({
   return (
     <PaletteRow
       glyph={Target}
-      kindLabel={t("group.leads")}
-      value={hitValue(["lead", hit.title, hit.contact_name, hit.address, hit.id])}
+      kindLabel={t("row.lead", "Lead")}
+      value={hitValue("lead", hit.id)}
       onSelect={onSelect}
       primary={<Primary>{hit.title || EMPTY}</Primary>}
       meta={[
@@ -216,8 +217,8 @@ export function TaskRow({
   return (
     <PaletteRow
       glyph={ClipboardList}
-      kindLabel={t("group.tasks")}
-      value={hitValue(["task", hit.title, hit.project_title, hit.task_type, hit.id])}
+      kindLabel={t("row.task", "Task")}
+      value={hitValue("task", hit.id)}
       onSelect={onSelect}
       primary={<Primary>{hit.title || EMPTY}</Primary>}
       // Tasks repeat across jobs — the project is the only thing that tells
@@ -244,22 +245,15 @@ export function DocumentRow({
   onSelect: () => void;
 }) {
   const status = statusLabel(t, "document", hit.status);
-  const kindLabel = hit.kind === "invoice" ? t("row.invoice") : t("row.estimate");
+  const kindLabel =
+    hit.kind === "invoice" ? t("row.invoice", "Invoice") : t("row.estimate", "Estimate");
   return (
     <PaletteRow
       glyph={hit.kind === "invoice" ? FileText : FileSpreadsheet}
       kindLabel={kindLabel}
-      value={hitValue([
-        hit.kind,
-        hit.number,
-        hit.title,
-        hit.client_name,
-        // Number without its punctuation. The database is what matches
-        // `inv1042` to `INV-1042`; this only keeps the row's cmdk value honest
-        // about what it represents.
-        hit.number?.replace(/[^a-zA-Z0-9]/g, ""),
-        hit.id,
-      ])}
+      // Invoices and estimates are separate tables — the kind is what keeps two
+      // ids from colliding inside the unified `documents` group.
+      value={hitValue(hit.kind, hit.id)}
       onSelect={onSelect}
       primary={
         <>

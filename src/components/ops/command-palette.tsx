@@ -24,7 +24,7 @@ import { useEdgeTabStore } from "@/stores/edge-tab-store";
 import { useBugReportStore } from "@/stores/bug-report-store";
 import { useQuickActions } from "@/lib/hooks/use-quick-actions";
 import { dispatchQuickAction } from "@/lib/quick-actions/dispatch";
-import { useWorkspaceSearch } from "@/lib/hooks/use-workspace-search";
+import { MIN_QUERY_LENGTH, useWorkspaceSearch } from "@/lib/hooks/use-workspace-search";
 import {
   ClientRow,
   DocumentRow,
@@ -58,12 +58,13 @@ interface CommandAction {
 /**
  * Server-ranked rows keep the order `search_workspace` returned them in.
  *
- * cmdk re-sorts every item in a group by this score on each keystroke, and a
- * hit matched on a field the row does not display (a project's notes, an
- * invoice's subject) scores zero — so the rows the database ranked highest
- * would sink to the bottom of their group. A flat score for hit rows makes the
- * sort a no-op for them (Array#sort is stable) while commands keep the fuzzy
- * matching that makes them findable.
+ * cmdk re-sorts every item in a group by this score on each keystroke. A hit
+ * row's value is opaque (`<prefix> <kind> <id>`), so scoring it against the
+ * operator's query ranks the group by coincidence — a query that happens to be
+ * a subsequence of one row's UUID hoists it over the rows the database ranked
+ * above it. A flat score for hit rows makes the sort a no-op for them
+ * (Array#sort is stable) while commands keep the fuzzy matching that makes them
+ * findable.
  */
 const paletteFilter = (value: string, search: string, keywords?: string[]): number =>
   value.startsWith(HIT_VALUE_PREFIX) ? 1 : defaultFilter(value, search, keywords);
@@ -71,8 +72,18 @@ const paletteFilter = (value: string, search: string, keywords?: string[]): numb
 /** Fixed order. Predictable placement beats occasional cleverness. */
 const ENTITY_KINDS = ["projects", "clients", "leads", "tasks", "documents"] as const;
 
-/** Mirrors the hook's gate: below this, nothing was asked of the database. */
-const MIN_SEARCH_LENGTH = 2;
+/**
+ * English fallbacks for the result headings. The locale chunk loads
+ * asynchronously, and a heading is the first thing the operator reads — a raw
+ * `group.projects` on screen for even one frame is a broken palette.
+ */
+const GROUP_HEADING_FALLBACK: Record<(typeof ENTITY_KINDS)[number], string> = {
+  projects: "Projects",
+  clients: "Clients",
+  leads: "Leads",
+  tasks: "Tasks",
+  documents: "Documents",
+};
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -128,11 +139,11 @@ export function CommandPalette() {
    */
   const groupHeading = useCallback(
     (kind: (typeof ENTITY_KINDS)[number]) => {
-      const label = t(`group.${kind}`);
+      const label = t(`group.${kind}`, GROUP_HEADING_FALLBACK[kind]);
       const group = hits?.[kind];
       if (!group || workspaceSearch.isPlaceholderData) return label;
       if (group.total <= group.items.length) return label;
-      return `${label} ${t("group.countSeparator")} ${group.total}`;
+      return `${label} ${t("group.countSeparator", "·")} ${group.total}`;
     },
     [hits, t, workspaceSearch.isPlaceholderData],
   );
@@ -451,16 +462,22 @@ export function CommandPalette() {
         {/* The search itself failed. One quiet line and a way to try again —
             no toast, and the commands below stay usable through the outage. */}
         {workspaceSearch.isError && (
-          <div className="flex items-center justify-between gap-1 px-1 py-1">
+          // The list is a `role="listbox"`; only options belong to it. This row
+          // is a notice with an escape hatch, so it declares itself out of the
+          // option set rather than sitting there as an unnamed child.
+          <div
+            role="presentation"
+            className="flex items-center justify-between gap-1 px-1 py-1"
+          >
             <span className="font-mono text-micro uppercase tracking-widest text-text-3">
-              {t("error.title")}
+              {t("error.title", "// SEARCH UNAVAILABLE")}
             </span>
             <button
               type="button"
               onClick={() => void workspaceSearch.refetch()}
               className="font-mono text-micro uppercase tracking-widest text-text-2 transition-colors hover:text-text"
             >
-              {t("error.retry")}
+              {t("error.retry", "Retry")}
             </button>
           </div>
         )}
@@ -472,16 +489,16 @@ export function CommandPalette() {
             characters nothing was asked, mid-flight nothing is known yet, and
             an error already has its own line above. */}
         {!hasEntityResults &&
-          workspaceSearch.activeQuery.length >= MIN_SEARCH_LENGTH &&
+          workspaceSearch.activeQuery.length >= MIN_QUERY_LENGTH &&
           !workspaceSearch.isFetching &&
           !workspaceSearch.isError && (
             <CommandEmpty>
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono text-micro uppercase tracking-widest text-text-3">
-                  {t("empty.title")}
+                  {t("empty.title", "// NO MATCHES")}
                 </span>
                 <span className="font-mohave text-body-sm text-text-3">
-                  {t("empty.body")}
+                  {t("empty.body", "Try fewer words, a phone number, or a document number.")}
                 </span>
               </div>
             </CommandEmpty>

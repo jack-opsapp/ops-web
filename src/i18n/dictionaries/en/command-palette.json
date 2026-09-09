@@ -22,6 +22,10 @@
   "footer.select": "Select",
   "footer.close": "Close",
 
+  "row.project": "Project",
+  "row.client": "Client",
+  "row.lead": "Lead",
+  "row.task": "Task",
   "row.invoice": "Invoice",
   "row.estimate": "Estimate",
 
