@@ -15,6 +15,12 @@
  * 2. `CommandEmpty` is gated on `filtered.count === 0`, which forceMount rows
  *    never raise — so it must be kept out of the tree entirely whenever the
  *    envelope has hits, or it claims "no matches" on top of a full result set.
+ * 3. cmdk re-sorts every rendered `[cmdk-item]` on each keystroke — forceMount
+ *    rows included — and re-appends them into their group in score order. A
+ *    forceMount row's score is fixed the moment its value is registered, i.e.
+ *    when the envelope lands, so the palette's `filter` has to hand those rows
+ *    a flat score or the database's ranking is decided by a fuzzy match against
+ *    an opaque value.
  */
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -167,9 +173,13 @@ vi.mock("@/lib/quick-actions/dispatch", () => ({
   dispatchQuickAction: vi.fn(),
 }));
 
-vi.mock("@/lib/hooks/use-workspace-search", () => ({
-  useWorkspaceSearch: () => searchState.current,
-}));
+// Only the hook is faked. `MIN_QUERY_LENGTH` comes through untouched — the
+// palette's empty-state gate has to be the same number the hook refuses to
+// search below, and a mocked copy could drift from it silently.
+vi.mock("@/lib/hooks/use-workspace-search", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, useWorkspaceSearch: () => searchState.current };
+});
 
 // Imported after the mocks so the component picks them up.
 import { CommandPalette } from "@/components/ops/command-palette";
@@ -308,11 +318,29 @@ function renderPalette() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const tree = () => (
     <QueryClientProvider client={queryClient}>
       <CommandPalette />
     </QueryClientProvider>
   );
+  const view = render(tree());
+  return {
+    ...view,
+    /**
+     * The envelope lands for a query the operator has already typed — the real
+     * sequence, and the only one that reproduces cmdk's scoring. cmdk scores an
+     * item's value ONCE, when the value is first registered, against whatever
+     * is in the search box at that instant; an envelope present before the
+     * first keystroke gets every row scored against an empty query, which is a
+     * tie no sort can disturb.
+     */
+    async landEnvelope(overrides: SearchStateOverrides) {
+      setSearch(overrides);
+      await act(async () => {
+        view.rerender(tree());
+      });
+    },
+  };
 }
 
 async function openPalette() {
@@ -333,6 +361,19 @@ function headingElements(): HTMLElement[] {
  */
 function headingsInDomOrder(): string[] {
   return headingElements().map((el) => (el.textContent ?? "").trim());
+}
+
+/**
+ * Every `[cmdk-item]` inside the group under `heading`, in the order the
+ * operator reads them. cmdk reorders rows by moving the DOM nodes themselves,
+ * so DOM order IS the rendered order.
+ */
+function rowsInGroup(heading: string): HTMLElement[] {
+  const group = headingElements()
+    .find((el) => (el.textContent ?? "").trim().startsWith(heading))
+    ?.closest<HTMLElement>("[cmdk-group]");
+  if (!group) throw new Error(`no group headed "${heading}"`);
+  return Array.from(group.querySelectorAll<HTMLElement>('[cmdk-item=""]'));
 }
 
 function selectedRowText(): string {
@@ -743,6 +784,96 @@ describe("CommandPalette — universal entity search", () => {
     await user.keyboard("{Enter}");
 
     expect(push).toHaveBeenCalledWith("/books?segment=estimates&estimate=e1");
+  });
+});
+
+describe("CommandPalette — the database's ranking survives cmdk", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    permissions.can = () => true;
+  });
+
+  /** Titles in the order `search_workspace` ranked them, against three ids. */
+  function rankedProjects(ids: [string, string, string]): WorkspaceSearchResult {
+    const titles = ["Alpha shed", "Beta fence", "Hidden Oaks Cres"];
+    const addresses = ["12 Ranger Rd", "34 Falcon Way", "3556 Oaks Cres"];
+    return onlyKind("projects", {
+      total: 3,
+      items: ids.map((id, index) => ({
+        id,
+        title: titles[index],
+        address: addresses[index],
+        status: "in_progress",
+        client_name: "Fightertown Hangars",
+        updated_at: UPDATED,
+      })),
+    });
+  }
+
+  /** The rows the operator reads, top to bottom, inside the Projects group. */
+  function projectRowOrder(): string[] {
+    return rowsInGroup("Projects").map((row) => row.textContent ?? "");
+  }
+
+  function expectServerOrder(rows: string[]) {
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toContain("Alpha shed");
+    expect(rows[1]).toContain("Beta fence");
+    expect(rows[2]).toContain("Hidden Oaks Cres");
+  }
+
+  /**
+   * Only the last title contains the query. The row's cmdk value carries no
+   * title — that is the point of `hitValue` — so nothing the operator can read
+   * reaches the scorer, and the database's order stands. Put a title back into
+   * the value and this row jumps the queue.
+   */
+  it("does not hoist the row whose title matches the query", async () => {
+    setSearch({ result: emptyWorkspaceSearchResult(), activeQuery: "hidden", isFetching: true });
+    const user = setupUser();
+    const palette = renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "hidden");
+    await palette.landEnvelope({
+      result: rankedProjects([
+        "77ccbbaa-eeff-4aaa-8ccc-bbbbeeeeffff",
+        "88ffeecc-bbaa-4fff-9eee-ccccaaaabbbb",
+        "1b0c4d2e-aaaa-4bbb-8ccc-ddddeeeeffff",
+      ]),
+      activeQuery: "hidden",
+    });
+
+    await waitFor(() => expectServerOrder(projectRowOrder()));
+  });
+
+  /**
+   * What is left in the value — `<prefix> project <uuid>` — is still scoreable,
+   * and a UUID is hex: a numeric fragment an operator types to find a document
+   * or a lot number can be a subsequence of one row's id and not another's.
+   * `1042` scores 0 / 0 / 0.004 across these three, so without the palette's
+   * flat score the third row is hoisted for a reason nothing on screen
+   * explains. This is the assertion that fails when `filter={paletteFilter}`
+   * comes off the dialog.
+   */
+  it("does not hoist the row whose id happens to match the query", async () => {
+    setSearch({ result: emptyWorkspaceSearchResult(), activeQuery: "1042", isFetching: true });
+    const user = setupUser();
+    const palette = renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "1042");
+    await palette.landEnvelope({
+      result: rankedProjects([
+        "77ccbbaa-eeff-4aaa-8ccc-bbbbeeeeffff",
+        "88ffeecc-bbaa-4fff-9eee-ccccaaaabbbb",
+        // 1, 0, 4, 2 in order — the only one of the three "1042" matches.
+        "1b0c4d2e-aaaa-4bbb-8ccc-ddddeeeeffff",
+      ]),
+      activeQuery: "1042",
+    });
+
+    await waitFor(() => expectServerOrder(projectRowOrder()));
   });
 });
 
