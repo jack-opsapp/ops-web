@@ -144,7 +144,10 @@ Rewrite the entity section of `command-palette.tsx`; the command sections (Creat
 ### 5.4 Books open-by-link
 `src/components/books/books-page.tsx` already resolves `?segment=`. Extend the invoices and estimates segments:
 - On mount and when `searchParams` change, read `invoice` (invoices segment) / `estimate` (estimates segment). If present: fetch by id with the existing `useInvoice(id)` / `useEstimate(id)`; when it resolves, set `editingInvoice` / `editingEstimate` (the same state the row click sets) so the existing detail modal opens; then remove the param from the URL with `router.replace` (keeping `segment` and any other params) so closing the modal does not reopen it and the back button behaves.
-- If the id is not visible to the user (query returns null or errors): show the existing toast primitive with `// INVOICE NOT FOUND` / `// ESTIMATE NOT FOUND` (copy in the books dictionary through ops-copywriter) and clear the param.
+- Two failure outcomes, distinguished by the fetch error's status (the invoice/estimate services attach the PostgREST `status` to the error they throw so the global retry policy declines to retry 4xx):
+  - **Not found / not visible** (PGRST116 → 406, or 404, or a null document): toast `// INVOICE NOT FOUND` / `// ESTIMATE NOT FOUND` (books dictionary, through ops-copywriter) and clear the param — there is nothing to retry.
+  - **Any other failure** (network, 5xx, paused offline): toast a distinct line (`// COULDN'T OPEN INVOICE` / `// COULDN'T OPEN ESTIMATE`, through ops-copywriter) and **keep the param** so a reload retries. An offline/paused query (`data === undefined`, not loading, not errored) is "not settled yet" — never treated as an answer.
+- A link to a segment the operator cannot see (`invoices.view` / `estimates.view` gates in `books-page.tsx`) never mounts the segment; `BooksPage` itself must toast the not-found line and strip the stray param in that case.
 - The param is the whole contract: nothing else changes in Books.
 
 ## 6. Errors and edge cases
