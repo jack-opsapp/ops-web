@@ -452,6 +452,57 @@ describe("google-ads-client request layer", () => {
     expect(failure.status).toBe(403);
   });
 
+  it("mutateConversionActions uses ConversionActionService with the same validateOnly + partial-failure contract", async () => {
+    requests = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        requests.push({ url: String(url), loginCustomerId: headers["login-customer-id"], body });
+        const u = String(url);
+        const payload = u.endsWith("conversionActions:mutate")
+          ? {
+              results: [{ resourceName: "customers/1/conversionActions/9" }, {}],
+              partialFailureError: {
+                details: [
+                  {
+                    requestId: "ca-req-1",
+                    errors: [
+                      {
+                        errorCode: { conversionActionError: "DUPLICATE_NAME" },
+                        message: "dup",
+                        location: { fieldPathElements: [{ fieldName: "operations", index: 1 }] },
+                      },
+                    ],
+                  },
+                ],
+              },
+            }
+          : { results: [customerClientRow(MANAGER_ID, 0, true), customerClientRow(CLIENT_ID, 1, false)] };
+        return { ok: true, status: 200, json: async () => payload, text: async () => JSON.stringify(payload) } as unknown as Response;
+      })
+    );
+    const client = await importClient();
+    const result = await client.mutateConversionActions(
+      [{ create: { name: "a" } }, { update: { resourceName: "customers/1/conversionActions/2", primaryForGoal: false }, updateMask: "primaryForGoal" }],
+      { validateOnly: true }
+    );
+    const req = requests.find((r) => r.url.endsWith("conversionActions:mutate"))!;
+    expect(req.url).toBe(`https://googleads.googleapis.com/v25/customers/${CLIENT_ID}/conversionActions:mutate`);
+    expect(req.loginCustomerId).toBe(MANAGER_ID);
+    expect(req.body).toEqual({
+      operations: [{ create: { name: "a" } }, { update: { resourceName: "customers/1/conversionActions/2", primaryForGoal: false }, updateMask: "primaryForGoal" }],
+      partialFailure: true,
+      validateOnly: true,
+    });
+    expect(req.body).not.toHaveProperty("mutateOperations");
+    expect(req.body).not.toHaveProperty("responseContentType");
+    expect(result.results[0]).toEqual({ resourceName: "customers/1/conversionActions/9" });
+    expect(result.failures).toEqual([{ index: 1, code: "DUPLICATE_NAME", message: "dup" }]);
+    expect(result.requestId).toBe("ca-req-1");
+  });
+
   it("exposes the resolved serving and login ids for sibling clients", async () => {
     installFetch(
       [customerClientRow(MANAGER_ID, 0, true), customerClientRow(CLIENT_ID, 1, false)],

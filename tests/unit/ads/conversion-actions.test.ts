@@ -73,7 +73,6 @@ describe("planConversionActionOperations", () => {
       type: "UPLOAD_CLICKS",
       category: "SIGNUP",
       primaryForGoal: true,
-      includeInConversionsMetric: true,
       countingType: "ONE_PER_CLICK",
       clickThroughLookbackWindowDays: 30,
       status: "ENABLED",
@@ -81,15 +80,17 @@ describe("planConversionActionOperations", () => {
     expect(ops[1].conversionActionOperation.create).toMatchObject({
       category: "QUALIFIED_LEAD",
       primaryForGoal: false,
-      includeInConversionsMetric: false,
       clickThroughLookbackWindowDays: 30,
     });
     expect(ops[2].conversionActionOperation.create).toMatchObject({
       category: "SUBSCRIBE_PAID",
       primaryForGoal: false,
-      includeInConversionsMetric: false,
       clickThroughLookbackWindowDays: 90,
     });
+    // Read-only on Google's side (IMMUTABLE_FIELD): never sent.
+    for (const op of ops) {
+      expect(op.conversionActionOperation.create).not.toHaveProperty("includeInConversionsMetric");
+    }
   });
 
   it("is idempotent once the actions exist with the right settings", () => {
@@ -124,13 +125,11 @@ describe("planConversionActionOperations", () => {
       ["7395116875", "7395296151", "7395299889"].map((id) => `${CUSTOMER}/conversionActions/${id}`)
     );
     for (const op of updates) {
-      expect(op.conversionActionOperation.update).toMatchObject({
+      expect(op.conversionActionOperation.update).toEqual({
+        resourceName: op.conversionActionOperation.update?.resourceName,
         primaryForGoal: false,
-        includeInConversionsMetric: false,
       });
-      expect(op.conversionActionOperation.updateMask).toBe(
-        "primaryForGoal,includeInConversionsMetric"
-      );
+      expect(op.conversionActionOperation.updateMask).toBe("primaryForGoal");
     }
     expect(removes.map((o) => o.conversionActionOperation.remove).sort()).toEqual(
       ["7048105860", "7049099216", "7049322928"].map((id) => `${CUSTOMER}/conversionActions/${id}`)
@@ -146,9 +145,10 @@ describe("planConversionActionOperations", () => {
   });
 
   it("is idempotent after the demotions and removals have landed", () => {
+    // includeInConversionsMetric is whatever Google derives; it never drives a plan.
     const after = [
       ...opsActionsAsLive(),
-      existing({ id: "7395116875", name: "OPS APP First open", type: "FIREBASE_IOS_FIRST_OPEN", category: "DOWNLOAD", countingType: "ONE_PER_CLICK", primaryForGoal: false, includeInConversionsMetric: false }),
+      existing({ id: "7395116875", name: "OPS APP First open", type: "FIREBASE_IOS_FIRST_OPEN", category: "DOWNLOAD", countingType: "ONE_PER_CLICK", primaryForGoal: false, includeInConversionsMetric: true }),
       existing({ id: "7395296151", name: "ops-ios-app - co.opsapp.ops.OPS (iOS) sign_up", type: "FIREBASE_IOS_CUSTOM", primaryForGoal: false, includeInConversionsMetric: false }),
       existing({ id: "7395299889", name: "ops-ios-app - co.opsapp.ops.OPS (iOS) login", type: "FIREBASE_IOS_CUSTOM", primaryForGoal: false, includeInConversionsMetric: false }),
     ];
@@ -217,6 +217,7 @@ describe("ensureConversionActions", () => {
       ],
     });
     const out = await ensureConversionActions({ validateOnly: false }, deps);
+    // One validate pass, then one apply phase (the plan is creates only).
     expect(deps.mutate).toHaveBeenCalledTimes(2);
     expect(deps.mutate.mock.calls[0][1]).toEqual({ validateOnly: true });
     expect(deps.mutate.mock.calls[1][1]).toEqual({ validateOnly: false });
@@ -228,6 +229,37 @@ describe("ensureConversionActions", () => {
       { kind: "trial_activated", resourceName: `${CUSTOMER}/conversionActions/9001`, googleId: "9001", name: "OPS · Trial activated" },
       { kind: "paid", resourceName: `${CUSTOMER}/conversionActions/9002`, googleId: "9002", name: "OPS · Paid subscription" },
     ]);
+  });
+
+  it("applies creates, updates, and removes as separate phases and re-indexes failures", async () => {
+    const deps = fakeDeps({
+      listings: [LIVE_ACCOUNT, [...opsActionsAsLive()]],
+      mutateResults: [
+        { results: [{}, {}, {}, {}, {}, {}, {}, {}, {}], failures: [], requestId: "validate-3" },
+        { results: [{ resourceName: "c1" }, { resourceName: "c2" }, { resourceName: "c3" }], failures: [], requestId: "creates" },
+        { results: [{}, {}, {}], failures: [{ index: 1, code: "INTERNAL_ERROR", message: "x" }], requestId: "updates" },
+        { results: [{}, {}, {}], failures: [], requestId: "removes" },
+      ],
+    });
+    const out = await ensureConversionActions({ validateOnly: false }, deps);
+    expect(deps.mutate).toHaveBeenCalledTimes(4);
+    expect(deps.mutate.mock.calls[0][0]).toHaveLength(9);
+    expect(deps.mutate.mock.calls[0][1]).toEqual({ validateOnly: true });
+    const phases = deps.mutate.mock.calls.slice(1).map(([ops]) =>
+      (ops as Array<{ conversionActionOperation: Record<string, unknown> }>).map((o) =>
+        o.conversionActionOperation.create ? "create" : o.conversionActionOperation.update ? "update" : "remove"
+      )
+    );
+    expect(phases).toEqual([
+      ["create", "create", "create"],
+      ["update", "update", "update"],
+      ["remove", "remove", "remove"],
+    ]);
+    // The second update sits at position 4 in the original plan (3 creates first).
+    expect(out.result.failures).toEqual([{ index: 4, code: "INTERNAL_ERROR", message: "x" }]);
+    expect(out.result.results[0]).toEqual({ resourceName: "c1" });
+    expect(out.result.requestId).toBe("removes");
+    expect(out.recorded).toHaveLength(3);
   });
 
   it("refuses to apply when the validateOnly pass reports a failure", async () => {

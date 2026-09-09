@@ -440,11 +440,14 @@ export async function mutateGoogleAds(
         "Content-Type": "application/json",
         ...(loginId ? { "login-customer-id": loginId } : {}),
       },
+      // No responseContentType: asking for MUTABLE_RESOURCE makes Google answer
+      // INTERNAL_ERROR on every real conversion-action operation while the
+      // validateOnly pass succeeds (requests 5AluX7K36qmzSSUNYDWf3Q and
+      // QP1iZPcJnISXeYM0YLDw-g, 2026-09-09). Resource names are enough.
       body: JSON.stringify({
         mutateOperations: operations,
         partialFailure: options.partialFailure ?? true,
         validateOnly: options.validateOnly ?? false,
-        responseContentType: "MUTABLE_RESOURCE",
       }),
     }
   );
@@ -463,6 +466,74 @@ export async function mutateGoogleAds(
   const body = (await response.json()) as MutateResponseBody;
   const { failures, requestId: failureRequestId } = decodePartialFailures(body);
   const results = (body.mutateOperationResponses ?? []).map((r) => r ?? {});
+  const requestId = headerRequestId ?? failureRequestId;
+  return requestId ? { results, failures, requestId } : { results, failures };
+}
+
+/**
+ * One ConversionActionService operation: `create`, `update` + `updateMask`,
+ * or `remove` (a resource name).
+ */
+export interface ConversionActionServiceOperation {
+  create?: Record<string, unknown>;
+  update?: Record<string, unknown>;
+  updateMask?: string;
+  remove?: string;
+}
+
+/**
+ * Write conversion actions through ConversionActionService
+ * (`customers/{id}/conversionActions:mutate`) rather than the bulk
+ * GoogleAdsService.mutate. Same contract as mutateGoogleAds: partialFailure
+ * on by default, validateOnly off by default, positional failure decoding,
+ * request id on every call. The bulk endpoint validates conversion-action
+ * batches cleanly but answers INTERNAL_ERROR on every real operation in a
+ * mixed create/update/remove batch (requests 5AluX7K36qmzSSUNYDWf3Q,
+ * QP1iZPcJnISXeYM0YLDw-g, hfFhllc6wBjKNxz0TJBlmg, 2026-09-09); the dedicated
+ * service is the path Google documents for this resource.
+ */
+export async function mutateConversionActions(
+  operations: ConversionActionServiceOperation[],
+  options: { validateOnly?: boolean; partialFailure?: boolean } = {}
+): Promise<MutateResult> {
+  const accessToken = await getAccessToken();
+  const { servingId, loginId } = await resolveServingCustomer(accessToken);
+  const developerToken = getDeveloperToken();
+
+  const response = await fetch(
+    `${ADS_BASE_URL}/customers/${servingId}/conversionActions:mutate`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": developerToken,
+        "Content-Type": "application/json",
+        ...(loginId ? { "login-customer-id": loginId } : {}),
+      },
+      body: JSON.stringify({
+        operations,
+        partialFailure: options.partialFailure ?? true,
+        validateOnly: options.validateOnly ?? false,
+      }),
+    }
+  );
+
+  const headerRequestId = response.headers?.get?.("request-id") ?? null;
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    const requestId = headerRequestId ?? extractRequestId(errorBody);
+    console.error(
+      `[google-ads-client] conversionActions:mutate failed (${response.status})${requestId ? ` request-id=${requestId}` : ""}`
+    );
+    throw new GoogleAdsApiError(response.status, errorBody);
+  }
+
+  const body = (await response.json()) as MutateResponseBody & {
+    results?: Array<Record<string, unknown>>;
+  };
+  const { failures, requestId: failureRequestId } = decodePartialFailures(body);
+  const results = (body.results ?? []).map((r) => r ?? {});
   const requestId = headerRequestId ?? failureRequestId;
   return requestId ? { results, failures, requestId } : { results, failures };
 }

@@ -10,8 +10,9 @@
  * The planner is pure: given the live (non-REMOVED) actions it returns the
  * mutate operations that move the account to the target state and nothing
  * else — creates for missing OPS actions, minimal-mask updates for drifted
- * ones, demotions for the three enabled Firebase iOS actions that pollute the
- * Conversions column (login counted as a conversion), and removals for the
+ * ones, demotions (primary → secondary) for the three enabled Firebase iOS
+ * actions that pollute the Conversions column (login counted as a
+ * conversion), and removals for the
  * three Bubble-era page actions whose pages 301 to /plans. Run twice, the
  * second plan is empty.
  *
@@ -21,7 +22,7 @@
  */
 import {
   listConversionActions,
-  mutateGoogleAds,
+  mutateConversionActions,
   type MutateOperation,
   type MutateResult,
 } from "@/lib/analytics/google-ads-client";
@@ -109,12 +110,18 @@ export interface ConversionActionOperation extends MutateOperation {
   };
 }
 
-/** Fields compared for drift on an OPS action, in mask order. */
+/**
+ * Fields compared for drift on an OPS action, in mask order.
+ * `includeInConversionsMetric` is deliberately absent: Google marks it
+ * read-only (a validateOnly mutate on 2026-09-09 answered IMMUTABLE_FIELD for
+ * every operation carrying it, request GhT3wJ45mMH3_pUEC-vqOw). It follows
+ * `primaryForGoal` under the account's default conversion goals, so demoting
+ * an action to secondary is what removes it from the Conversions column.
+ */
 const DRIFT_FIELDS = [
   "type",
   "category",
   "primaryForGoal",
-  "includeInConversionsMetric",
   "countingType",
   "clickThroughLookbackWindowDays",
   "status",
@@ -146,7 +153,6 @@ export function planConversionActionOperations(
             category: target.category,
             status: target.status,
             primaryForGoal: target.primaryForGoal,
-            includeInConversionsMetric: target.includeInConversionsMetric,
             countingType: target.countingType,
             clickThroughLookbackWindowDays: target.clickThroughLookbackWindowDays,
           },
@@ -178,18 +184,14 @@ export function planConversionActionOperations(
       removes.push({ conversionActionOperation: { remove: action.resourceName } });
       continue;
     }
-    if (
-      isDemotionCandidate(action) &&
-      (action.primaryForGoal || action.includeInConversionsMetric)
-    ) {
+    if (isDemotionCandidate(action) && action.primaryForGoal) {
       updates.push({
         conversionActionOperation: {
           update: {
             resourceName: action.resourceName,
             primaryForGoal: false,
-            includeInConversionsMetric: false,
           },
-          updateMask: "primaryForGoal,includeInConversionsMetric",
+          updateMask: "primaryForGoal",
         },
       });
     }
@@ -247,7 +249,12 @@ async function recordConversionActionsInDatabase(rows: RecordedConversionAction[
 
 const defaultDeps: EnsureConversionActionsDeps = {
   listExisting: listConversionActions,
-  mutate: (operations, options) => mutateGoogleAds(operations, options),
+  // ConversionActionService, not the bulk mutate — see mutateConversionActions.
+  mutate: (operations, options) =>
+    mutateConversionActions(
+      operations.map((op) => (op as ConversionActionOperation).conversionActionOperation),
+      options
+    ),
   recordActions: recordConversionActionsInDatabase,
 };
 
@@ -304,9 +311,52 @@ export async function ensureConversionActions(
     return { operations, result: validation, validated, recorded: [], unresolved: [] };
   }
 
-  const applied = await deps.mutate(operations, { validateOnly: false });
+  const applied = await applyInPhases(operations, deps);
   const after = await deps.listExisting();
   const { recorded, unresolved } = resolveRecordedActions(after);
   if (recorded.length > 0) await deps.recordActions(recorded);
   return { operations, result: applied, validated, recorded, unresolved };
+}
+
+type OperationPhase = "create" | "update" | "remove";
+
+function phaseOf(op: ConversionActionOperation): OperationPhase {
+  if (op.conversionActionOperation.create) return "create";
+  if (op.conversionActionOperation.update) return "update";
+  return "remove";
+}
+
+/**
+ * Apply creates, then updates, then removes as separate requests so one
+ * broken phase never voids the others, and so a failure report names the
+ * phase. Failures are re-indexed to the caller's operation positions; the
+ * request id kept is the last phase's (each phase logs its own).
+ */
+async function applyInPhases(
+  operations: ConversionActionOperation[],
+  deps: EnsureConversionActionsDeps
+): Promise<MutateResult> {
+  const results: Array<Record<string, unknown>> = operations.map(() => ({}));
+  const failures: MutateResult["failures"] = [];
+  let requestId: string | undefined;
+  for (const phase of ["create", "update", "remove"] as const) {
+    const positions = operations
+      .map((op, index) => ({ op, index }))
+      .filter(({ op }) => phaseOf(op) === phase);
+    if (positions.length === 0) continue;
+    const outcome = await deps.mutate(
+      positions.map(({ op }) => op),
+      { validateOnly: false }
+    );
+    outcome.results.forEach((result, i) => {
+      const position = positions[i];
+      if (position) results[position.index] = result;
+    });
+    for (const failure of outcome.failures) {
+      const original = failure.index === null ? null : positions[failure.index]?.index ?? null;
+      failures.push({ ...failure, index: original });
+    }
+    if (outcome.requestId) requestId = outcome.requestId;
+  }
+  return requestId ? { results, failures, requestId } : { results, failures };
 }
