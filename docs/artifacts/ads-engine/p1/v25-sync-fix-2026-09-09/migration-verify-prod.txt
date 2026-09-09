@@ -1,0 +1,32 @@
+# Production verification — 20260909180000_ads_entities_campaign_shared_set.sql
+# Project ijeekuhbatykdomumfjx, applied via Supabase MCP apply_migration
+# (name ads_entities_campaign_shared_set) on 2026-09-09 20:36 UTC on Jackson's
+# explicit go. Verified BY OBJECT and BY BEHAVIOUR.
+
+ledger   20260909203603 ads_entities_campaign_shared_set
+         statements = 1
+         md5(statements[1]) = 82c8a1bb9523ea236ee1db1b68e5240e
+         (equals the md5 of the repo file with its trailing newline stripped,
+          and of the bible archive migrations/20260909203603_*.sql)
+         NOTE the ledger version is the apply-time stamp, not the repo
+         filename 20260909180000 — version keys never answer "is this
+         applied", objects do.
+
+before   CHECK (entity_type = ANY (ARRAY['campaign','campaign_budget','ad_group',
+           'ad','keyword','negative_keyword','shared_set','shared_criterion','label']))
+         public.ads_entities: 0 rows
+
+after    CHECK (entity_type = ANY (ARRAY['campaign','campaign_budget','ad_group',
+           'ad','keyword','negative_keyword','shared_set','shared_criterion',
+           'campaign_shared_set','label']))
+         convalidated = true   (a real check, not NOT VALID)
+         public.ads_entities: 0 rows — unchanged, nothing dropped
+
+behaviour
+         insert entity_type 'campaign_shared_set'  -> accepted, then deleted
+         insert entity_type 'bogus'                -> refused, 23514
+         public.ads_entities: 0 rows, 0 probe rows remaining
+
+risk     One DDL statement on an empty, server-only table. DROP + ADD CONSTRAINT
+         each take ACCESS EXCLUSIVE, and the validating scan of 0 rows is
+         instant, so the lock is held for microseconds. No downtime, no cost.

@@ -117,9 +117,20 @@ used to abort the route before it was reached.
 | `node tests/sql/ads-warehouse-grain-runtime.mjs` | PASS |
 | `GET /api/cron/ads-sync` (live account, disposable database) | HTTP 200, 1678 entity rows, twice |
 
+## The follow-up migration is applied
+
+`20260909180000_ads_entities_campaign_shared_set.sql` was applied to production
+on 2026-09-09 on Jackson's go, as ledger version `20260909203603` — the
+apply-time stamp, not the repo filename. `migration-verify-prod.txt` has the
+before/after. The check now carries ten values and is validated; the table
+still holds 0 rows; production accepted a `campaign_shared_set` row (removed
+again straight after) and still refuses an unknown type with `23514`. The
+archive copy in the bible is byte-identical to the ledger SQL.
+
 ## Still owed
 
-The follow-up migration `20260909180000_ads_entities_campaign_shared_set.sql`
-is **not applied to production**. It is a one-statement constraint widening on
-a table holding 0 rows, and it must land before the daily sync writes an
-attachment. Jackson's call, with the push.
+`feat/ads-engine-p1` is **not pushed** — the three commits above live only on
+this Mac, so the fixed sync is not yet running for customers. Pushing and
+deploying are Jackson's calls. The database is already ahead of the deployed
+code, which is the safe order: the widened check accepts rows the current
+production build never writes.
