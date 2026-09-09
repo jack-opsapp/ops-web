@@ -12,6 +12,7 @@ import type { AdminChangeRow, AdminProposalRow, AdminRunRow, EngineSettingsPatch
 import type { ApplyOutcome } from "@/lib/ads/engine/apply";
 import type { FunnelRow } from "@/lib/ads/engine/brief";
 import type { ProposalKind, ProposalState, TestRecord } from "@/lib/ads/engine/types";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 export const ADS_ENGINE_KEYS = {
   all: ["ads-engine"] as const,
@@ -63,13 +64,13 @@ export interface HealthResponse {
 }
 
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: { accept: "application/json" } });
+  const response = await authedFetch(url, { headers: { accept: "application/json" } });
   if (!response.ok) throw new Error(`${response.status}`);
   return (await response.json()) as T;
 }
 
 async function sendJson<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
-  const response = await fetch(url, { method, headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) });
+  const response = await authedFetch(url, { method, headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) });
   const payload = (await response.json().catch(() => ({}))) as T & { code?: string; issues?: Array<{ field: string; message: string }> };
   if (!response.ok) {
     const detail = payload.issues?.map((issue) => issue.message).join(" ") ?? payload.code ?? `${response.status}`;
@@ -109,7 +110,11 @@ export function useReviewProposal() {
   return useMutation({
     mutationFn: ({ id, decision, notes }: { id: string; decision: "approve" | "reject"; notes?: string }) =>
       sendJson<ReviewResponse>(`${BASE}/proposals/${id}`, "POST", notes ? { decision, notes } : { decision }),
-    onSettled: () => client.invalidateQueries({ queryKey: ADS_ENGINE_KEYS.all }),
+    // Refresh everything the decision can change, but never make the verdict
+    // wait on those refetches: the card shows the outcome the moment OPS answers.
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ADS_ENGINE_KEYS.all });
+    },
   });
 }
 
