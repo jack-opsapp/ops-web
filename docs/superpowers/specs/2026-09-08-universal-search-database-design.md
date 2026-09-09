@@ -190,6 +190,13 @@ Rewrite the entity section of `command-palette.tsx`; the command sections (Creat
 - Bible chapter that documents the OPS-Web command palette (`02_USER_EXPERIENCE_AND_WORKFLOWS.md` ⌘K section; `07` if that is where web shortcuts live — executor checks which is clean of sibling WIP and commits only that file): what universal search covers, matching and ranking in one paragraph, the Books open-by-link contract.
 - Migration archive mirror (bible `migrations/`), same session as apply.
 
+### 4.9 As built (ledgers `20260909051424` v1, `20260909055047` v2)
+- Measured on the largest company: v1 778/786 ms → v2 **204 ms** (broad `bc`) / **51 ms** (`hidden oaks cres`). 33 of 35 persona/query envelopes byte-identical between v1 and v2; the two differences are the intended typographic folding (`o'callaghan` finds `O’Callaghan`; a U+2026 ellipsis matches `...`).
+- `private.search_workspace_candidates(p_company, p_query, p_frags, p_phones, p_doc_keys)` — takes the whole normalized query too (tiers 0/1 cannot be rebuilt from de-duplicated tokens). Internal kinds are `invoices`/`estimates` (two id spaces); the client-facing `kind` stays `invoice`/`estimate`.
+- `private.search_norm` adds `btrim` and deliberately carries **no `SET search_path`**: a SQL function with a SET clause cannot be inlined and pays a GUC save/restore per call (~8,000 calls per search: 108 ms vs 66 ms). It is SECURITY INVOKER, every name is schema-qualified, and the migration proves the output is identical under `search_path = pg_temp`. Cost: one entry in the Supabase advisor's `function_search_path_mutable` WARN group — accepted for a feature whose point is speed.
+- Residual exposure, accepted: the candidate helper must be executable by the API roles, so a caller invoking it directly learns the opaque ids of matching rows in **their own company** that their row scope would hide. No content crosses (every field the client sees is read back under RLS) and no other company is reachable.
+- `private.agent_normalize_discovery_phone` is `PARALLEL UNSAFE`, so the candidate scan cannot parallelize; changing that shared helper is outside this feature.
+
 ## 9. Decisions log
 - One RPC over five client fetches: single round trip, consistent ranking, RLS authority, reuses production indexes/normalizers.
 - SECURITY INVOKER: authorization is RLS; no actor parameter; the helper-ACL rule is asserted in the migration.
