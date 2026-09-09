@@ -218,6 +218,7 @@
   "source.appointment_reminder_cron": "Visit reminder cron",
   "source.day_before_reminder_cron": "Visit reminder cron",
   "source.inbound_email": "Inbound email",
+  "source.catalog": "Catalog",
   "source.subcontractor_coordination": "Subcontractor coordination",
   "source.overdue_invoice": "Overdue invoice",
   "source.payment_analysis": "Payment analysis",

@@ -220,6 +220,7 @@
   "source.appointment_reminder_cron": "Cron de recordatorio de visita",
   "source.day_before_reminder_cron": "Cron de recordatorio de visita",
   "source.inbound_email": "Correo entrante",
+  "source.catalog": "Catálogo",
   "source.subcontractor_coordination": "Coordinación de subcontratista",
   "reminder.level": "Nivel de recordatorio",
   "reminder.level1": "Recordatorio amistoso",
