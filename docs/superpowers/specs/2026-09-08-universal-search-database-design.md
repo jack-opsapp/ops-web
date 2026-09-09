@@ -197,6 +197,9 @@ Rewrite the entity section of `command-palette.tsx`; the command sections (Creat
 - Residual exposure, accepted: the candidate helper must be executable by the API roles, so a caller invoking it directly learns the opaque ids of matching rows in **their own company** that their row scope would hide. No content crosses (every field the client sees is read back under RLS) and no other company is reachable.
 - `private.agent_normalize_discovery_phone` is `PARALLEL UNSAFE`, so the candidate scan cannot parallelize; changing that shared helper is outside this feature.
 
+### 5.5 Keyboard anchoring (as built, `67cf2448a`)
+cmdk highlights the first *registered* item whenever the search text changes; result rows are force-mounted (unregistered) and arrive after the RPC, so without intervention the highlight sits on a command (observed live: "detail" → Catalog) and Enter goes there. The palette therefore drives cmdk's controlled `value`: when a settled envelope (not placeholder) renders, the value is set to the first result row in group order (`hitValue(kind, id)`, exported from the rows module); when the envelope has no hits, to the first non-disabled `[cmdk-item]` in list order (cmdk's own default), because leaving the value on an unmounted row highlights nothing. Manual ArrowDown/ArrowUp/hover updates the value normally; a new query's envelope re-anchors. Proven with four RTL cases (envelope landing after the keystroke, no-hits fallback, re-anchor after manual movement, hits→no-hits transition) and in a real browser. Lesson recorded: jsdom passed while the browser was wrong — keyboard anchoring of force-mounted rows is browser-verified, always.
+
 ## 9. Decisions log
 - One RPC over five client fetches: single round trip, consistent ranking, RLS authority, reuses production indexes/normalizers.
 - SECURITY INVOKER: authorization is RLS; no actor parameter; the helper-ACL rule is asserted in the migration.
