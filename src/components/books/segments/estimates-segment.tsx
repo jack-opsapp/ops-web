@@ -47,7 +47,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
-import { Tag, type TagProps } from "@/components/ui/tag";
+import { Tag } from "@/components/ui/tag";
+import { ESTIMATE_STATUS_TAG_VARIANT } from "@/lib/utils/status-tag-variant";
 import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import {
   RegisterTable,
@@ -71,18 +72,9 @@ type FilterStatus = "all" | EstimateStatus;
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
-const STATUS_VARIANT: Partial<Record<EstimateStatus, TagProps["variant"]>> = {
-  [EstimateStatus.Draft]: "dim",
-  [EstimateStatus.Sent]: "neutral",
-  [EstimateStatus.Viewed]: "neutral",
-  [EstimateStatus.Approved]: "olive",
-  [EstimateStatus.Converted]: "olive",
-  [EstimateStatus.Declined]: "rose",
-  [EstimateStatus.Expired]: "tan",
-};
-
 function StatusTag({ status, label }: { status: EstimateStatus; label: string }) {
-  return <Tag variant={STATUS_VARIANT[status] ?? "neutral"}>{label}</Tag>;
+  // Shared with the ⌘K palette's document rows — one table, never two.
+  return <Tag variant={ESTIMATE_STATUS_TAG_VARIANT[status] ?? "neutral"}>{label}</Tag>;
 }
 
 function fmtDate(date: Date | null, locale: Locale): string {

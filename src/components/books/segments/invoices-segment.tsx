@@ -40,7 +40,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { Tag, type TagProps } from "@/components/ui/tag";
+import { Tag } from "@/components/ui/tag";
+import { INVOICE_STATUS_TAG_VARIANT } from "@/lib/utils/status-tag-variant";
 import { SegmentControl } from "@/components/ui/segment-control";
 import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import {
@@ -63,19 +64,9 @@ export type InvoicesView = "list" | "aging";
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
-const STATUS_VARIANT: Record<InvoiceStatus, TagProps["variant"]> = {
-  [InvoiceStatus.Draft]: "dim",
-  [InvoiceStatus.Sent]: "neutral",
-  [InvoiceStatus.AwaitingPayment]: "neutral",
-  [InvoiceStatus.PartiallyPaid]: "tan",
-  [InvoiceStatus.Paid]: "olive",
-  [InvoiceStatus.PastDue]: "rose",
-  [InvoiceStatus.Void]: "dim",
-  [InvoiceStatus.WrittenOff]: "dim",
-};
-
 function StatusTag({ status, label }: { status: InvoiceStatus; label: string }) {
-  return <Tag variant={STATUS_VARIANT[status] ?? "neutral"}>{label}</Tag>;
+  // Shared with the ⌘K palette's document rows — one table, never two.
+  return <Tag variant={INVOICE_STATUS_TAG_VARIANT[status] ?? "neutral"}>{label}</Tag>;
 }
 
 function fmtDate(date: Date | null, locale: Locale): string {
