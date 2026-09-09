@@ -15,6 +15,7 @@ declare
   v_client_id uuid := p_client_id;
   v_project_id uuid := p_project_id;
   v_needs_review boolean := p_needs_review;
+  v_recipient_user_id text;
 begin
   if current_user <> 'service_role' then
     raise exception 'email_work_routing_service_role_required' using errcode = '42501';
@@ -102,10 +103,13 @@ begin
     where company_id = p_company_id and connection_id = p_connection_id
       and provider_thread_id = p_provider_thread_id and opportunity_id is null
       and last_message_at <= v_activity.created_at;
-  if v_activity.direction = 'inbound' then
+  v_recipient_user_id := coalesce(nullif(v_connection.user_id, ''), v_connection.default_intake_owner_id::text);
+  -- A shared mailbox may have no assigned recipient. Retain its correspondence
+  -- in the authorized timeline/review queue without inventing a notification user.
+  if v_activity.direction = 'inbound' and v_recipient_user_id is not null then
     insert into public.notifications(company_id, user_id, type, title, body,
       project_id, action_url, action_label, persistent, dedupe_key)
-    values (p_company_id::text, coalesce(nullif(v_connection.user_id, ''), v_connection.default_intake_owner_id::text), 'email_correspondence',
+    values (p_company_id::text, v_recipient_user_id, 'email_correspondence',
       case when v_needs_review then 'Email needs review' else 'Project email received' end,
       case when v_needs_review then 'New work could not be confirmed. Review the customer email.' else 'Customer correspondence was added to the project.' end,
       v_project_id::text,

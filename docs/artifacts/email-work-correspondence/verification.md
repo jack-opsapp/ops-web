@@ -21,7 +21,7 @@ This fix preserves archived-sales eligibility rules and forwarded-message isolat
 ## Evidence
 
 - **333 distinct Vitest tests passed across 11 affected suites.** Three suites: 134 passed. Eight other suites: 198 passed; the project-activity suite was then extended and rerun at 12 passed, replacing its earlier 11 tests. Covers sync/recovery, classification and evidence parsing, relationship matching, imports, route authorization, Phase C suppression and project activity visibility/body fallback.
-- **20 PostgreSQL 17 checks passed**, including concurrent replay, exact source/tenant checks, subcontact/project attachment without a sale, immutable receipts, acknowledgement replay, deleted pending project, changed pending contact, and rejection of NULL-marker legacy recovery. Run `bash tests/sql/email-work-correspondence-run-runtime.sh` to reproduce against its disposable local cluster.
+- **21 PostgreSQL 17 checks passed**, including concurrent replay, exact source/tenant checks, subcontact/project attachment without a sale, immutable receipts, acknowledgement replay, deleted pending project, changed pending contact, rejection of NULL-marker legacy recovery, and an unassigned shared mailbox under production notification nullability/uniqueness constraints. Run `bash tests/sql/email-work-correspondence-run-runtime.sh` to reproduce against its disposable local cluster.
 - Focused TypeScript check: exit 0. Its checked-in `tsconfig.json` covers every changed TypeScript source and reachable dependencies.
 - ESLint over all changed TypeScript sources: exit 0, no errors; 14 pre-existing console warnings.
 - Independent read-only review completed. Findings about quoted forwards, interrupted inbound/outbound persistence, counters, Stage B bounds, import body hydration, stale-parent recovery, SQL NULL semantics and Microsoft365 action coverage were corrected and regression checked.
@@ -36,3 +36,7 @@ No new paid service/subscription is introduced. Classification uses the existing
 After explicit approval: verify the then-current deployment/main state, apply the additive migration, release the web code, verify the production RPC permissions and UI, and perform an authorized controlled mailbox canary. The existing incorrect lead is intentionally unchanged; this implementation contains no historical deletion or reparenting script.
 
 Primary source: `supabase/migrations/20260909051427_email_existing_job_correspondence.sql` and `src/lib/email/email-work-routing.ts`. Bible updates describe the same behavior and mark the migration unapplied under `migrations/pending/`.
+
+## Approved release preflight
+
+Jackson approved the production migration and release. Origin/main refreshed at `27ee6d8ad` and merged without email-path changes. The final notification recipient guard was verified against current production nullability and dedupe indexes; mailboxes without a recipient retain authorized timeline/review visibility and do not attempt a null-user notification. All 21 isolated PostgreSQL checks passed after a transient host process-exhaustion retry.

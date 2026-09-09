@@ -11,8 +11,10 @@ create table public.activities(id uuid primary key default gen_random_uuid(),com
  match_confidence text,match_needs_review boolean,suggested_client_id uuid,is_read boolean,subject text,created_at timestamptz);
 create table public.email_threads(company_id uuid,connection_id uuid,provider_thread_id text,opportunity_id uuid,client_id uuid,
  routing text,routing_reasons text[],lead_scan_pending_at timestamptz,phase_c_extracted_at timestamptz,last_message_at timestamptz);
-create table public.notifications(id uuid primary key default gen_random_uuid(),company_id text,user_id text,type text,title text,body text,
- project_id text,action_url text,action_label text,persistent boolean,dedupe_key text);
+create table public.notifications(id uuid primary key default gen_random_uuid(),company_id text not null,user_id text not null,type text,title text,body text,
+ project_id text,action_url text,action_label text,persistent boolean,dedupe_key text,is_read boolean not null default false,resolved_at timestamptz);
+create unique index notifications_unread_title_dedup_without_key on public.notifications(user_id,company_id,type,title) where not is_read and dedupe_key is null;
+create unique index idx_notifications_unread_dedup on public.notifications(user_id,company_id,type,coalesce(dedupe_key,title)) where not is_read and resolved_at is null;
 grant usage on schema public to service_role;
 grant all on all tables in schema public to service_role;
 \ir ../../supabase/migrations/20260909051427_email_existing_job_correspondence.sql
@@ -26,7 +28,7 @@ insert into sub_clients values('00000000-0000-0000-0000-000000000011','00000000-
 insert into projects values('00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000010',null,'in_progress');
 insert into email_connections values('00000000-0000-0000-0000-000000000030','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000040',null,'active',true);
 insert into activities(id,company_id,email_connection_id,email_message_id,email_thread_id,type,direction,from_email,match_confidence,subject,created_at)
- select ('00000000-0000-0000-0000-00000000005'||n)::uuid,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000030','msg-'||n,'thread-'||n,'email','inbound','subcontact@example.com','work_routing_pending','Damaged gate','2026-09-09T04:00:00Z' from generate_series(0,6) n;
+ select ('00000000-0000-0000-0000-00000000005'||n)::uuid,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000030','msg-'||n,'thread-'||n,'email','inbound','subcontact@example.com','work_routing_pending','Damaged gate','2026-09-09T04:00:00Z' from generate_series(0,7) n;
 insert into email_threads(company_id,connection_id,provider_thread_id,last_message_at,lead_scan_pending_at) values
  ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000030','thread-0','2026-09-09T04:00:00Z',now());
 select runtime.assert(not has_function_privilege('anon','public.route_email_work_correspondence_as_system(uuid,uuid,uuid,text,text,uuid,uuid,boolean)','execute'),'anonymous cannot route correspondence');
@@ -89,4 +91,8 @@ do $$ begin
  end;
 end $$;
 select runtime.assert((select match_confidence is null and client_id is not null and project_id is not null from activities where email_message_id='msg-6') and (select count(*)=0 from notifications where dedupe_key='email-work-routing:00000000-0000-0000-0000-000000000056'),'null-marker legacy row is not pending recovery and remains unchanged');
+update email_connections set user_id=null,default_intake_owner_id=null where id='00000000-0000-0000-0000-000000000030';
+select route_email_work_correspondence_as_system('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000030','00000000-0000-0000-0000-000000000057','msg-7','thread-7',null,null,true);
+select runtime.assert((select match_confidence='work_intent_review' and opportunity_id is null from activities where email_message_id='msg-7') and (select count(*)=0 from notifications where dedupe_key='email-work-routing:00000000-0000-0000-0000-000000000057'),'shared mailbox without recipient retains review without a null-user notification');
+update email_connections set user_id='00000000-0000-0000-0000-000000000040' where id='00000000-0000-0000-0000-000000000030';
 reset role;
