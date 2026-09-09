@@ -32,9 +32,8 @@ The gate is green only when all four are true:
 |---|---|---|---|---|---|---|
 | 2026-09-08 22:00 | 403 `authorizationError.ACTION_NOT_PERMITTED` | false | false | not probed | READ_ONLY on manager, absent on client | (planning session) |
 | 2026-09-09 01:19 | 403 `authorizationError.ACTION_NOT_PERMITTED` | false | false | 403 `PERMISSION_DENIED` / `SERVICE_DISABLED` | READ_ONLY on manager, absent on client | `probe-2026-09-09T01-19-21-347Z.json` |
+| 2026-09-09 02:29 | 200 (request `QCYqbPFiwG1aTXuks8zlYQ`) | true | true | 200 (request `v-560ef1a6-7d56-4d57-826b-b65798607b51`) | STANDARD on manager, absent on client | `probe-2026-09-09T02-29-40-415Z.json` |
 
-**Status: BLOCKED.** All four account actions are still missing as of the
-latest probe. Everything that needs no write access (client upgrade, planner,
-outbox, migrations, click-id capture, warehouse, readiness console) proceeds;
-the live conversion-action apply (Task 3 step 5) and the live Data Manager
-rehearsal (Task 5 step 5) wait for a green probe.
+**Status: GREEN as of 2026-09-09 02:29 UTC.** All four account actions have
+landed. The live conversion-action apply and the Data Manager rehearsal are
+unblocked; their artifacts are listed under "What each artifact proves".
