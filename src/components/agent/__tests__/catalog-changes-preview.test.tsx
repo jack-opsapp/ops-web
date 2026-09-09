@@ -3,6 +3,9 @@ import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { writeFileSync } from "node:fs";
 import { CatalogChangesPreview } from "../catalog-changes-preview";
 import { LanguageProvider } from "@/i18n/client";
+import { ActionDetail } from "../action-detail";
+import type { AgentAction } from "@/lib/types/approval-queue";
+import english from "@/i18n/dictionaries/en/agent-queue.json";
 const HASH = "sha256:" + "a".repeat(64);
 const proposal = {
   operation: "catalog",
@@ -72,6 +75,48 @@ const proposal = {
   content_kind: "untrusted_business_data",
 };
 describe("exact catalog review presentation", () => {
+  it.each(["pending", "executed", "rejected"] as const)(
+    "keeps %s catalog reviews readable without raw sealed data",
+    async (status) => {
+      const action = {
+        id: "33333333-3333-4333-8333-333333333333",
+        actionType: "approve_catalog_changes",
+        actionData: {
+          proposal,
+          change_set_id: "44444444-4444-4444-8444-444444444444",
+          preview_sha256: HASH,
+        },
+        status,
+        contextSource: "catalog",
+        contextSummary: "Catalog changes ready for review",
+        expiresAt: new Date("2099-01-01T00:00:00Z"),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as unknown as AgentAction;
+      const view = render(
+        <LanguageProvider locale="en">
+          <ActionDetail
+            action={action}
+            t={(key) => (english as Record<string, string>)[key] ?? key}
+            onApprove={() => {}}
+            onReject={() => {}}
+          />
+        </LanguageProvider>
+      );
+      await screen.findByText(
+        "September supplier price sheet",
+        {},
+        { timeout: 10000 }
+      );
+      await waitFor(() =>
+        expect(view.container.textContent).not.toContain("source.catalog")
+      );
+      expect(view.container.querySelector("pre")).toBeNull();
+      expect(view.container.textContent).not.toContain("preview_sha256");
+      expect(view.container.textContent).not.toContain("44444444");
+      cleanup();
+    }
+  );
   it("shows actual localized changes, skips, and the stock boundary", async () => {
     const view = render(
       <LanguageProvider locale="en">

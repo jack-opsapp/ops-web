@@ -3098,6 +3098,7 @@ export const ActionDetail = memo(function ActionDetail({
           !isDayCloseout &&
           !isCollectionsDraft &&
           !isDispatchConfirmation &&
+          action.actionType !== "approve_catalog_changes" &&
           !isPending && (
             <div>
               <span className="font-mono text-[11px] uppercase text-text-3">
