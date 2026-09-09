@@ -156,14 +156,13 @@ export interface EntitySnapshot {
 // ─── Metrics (trailing 3 days always excluded) ──────────────────────────────
 
 export interface CampaignMetric {
-  campaignId: string;
+  /** Resolved from the snapshot by name; the daily campaign table has no id. */
+  campaignId: string | null;
   campaignName: string;
   clicks: number;
   impressions: number;
   spend: number;
   conversions: number;
-  /** Days in the window on which the campaign was capped by budget. */
-  budgetLostDays: number;
   days: number;
 }
 
@@ -186,6 +185,8 @@ export interface AdMetric {
   ctr: number;
   approvalStatus: string | null;
   adStrength: string | null;
+  /** First warehouse day with a row for this ad (any window). */
+  firstSeen: string | null;
   days: number;
 }
 

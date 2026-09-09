@@ -184,14 +184,14 @@ export function metrics28d(): MetricsWindow {
     from: "2026-09-20",
     to: "2026-10-17",
     campaigns: [
-      { campaignId: "11", campaignName: "CORE · CA", clicks: 280, impressions: 9000, spend: 620, conversions: 2, budgetLostDays: 0, days: 28 },
-      { campaignId: "12", campaignName: "BRAND · CA", clicks: 40, impressions: 500, spend: 40, conversions: 1, budgetLostDays: 0, days: 28 },
-      { campaignId: "13", campaignName: "COMPETITOR · CA", clicks: 90, impressions: 2100, spend: 300, conversions: 0, budgetLostDays: 4, days: 28 },
+      { campaignId: "11", campaignName: "CORE · CA", clicks: 280, impressions: 9000, spend: 620, conversions: 2, days: 28 },
+      { campaignId: "12", campaignName: "BRAND · CA", clicks: 40, impressions: 500, spend: 40, conversions: 1, days: 28 },
+      { campaignId: "13", campaignName: "COMPETITOR · CA", clicks: 90, impressions: 2100, spend: 300, conversions: 0, days: 28 },
     ],
     adGroups: [],
     ads: [
-      { adId: "201", adGroupId: "21", clicks: 120, impressions: 4200, spend: 300, conversions: 1, ctr: 120 / 4200, approvalStatus: "APPROVED", adStrength: "GOOD", days: 28 },
-      { adId: "202", adGroupId: "21", clicks: 160, impressions: 4300, spend: 320, conversions: 1, ctr: 160 / 4300, approvalStatus: "APPROVED", adStrength: "GOOD", days: 28 },
+      { adId: "201", adGroupId: "21", clicks: 120, impressions: 4200, spend: 300, conversions: 1, ctr: 120 / 4200, approvalStatus: "APPROVED", adStrength: "GOOD", firstSeen: "2026-09-01", days: 28 },
+      { adId: "202", adGroupId: "21", clicks: 160, impressions: 4300, spend: 320, conversions: 1, ctr: 160 / 4300, approvalStatus: "APPROVED", adStrength: "GOOD", firstSeen: "2026-09-01", days: 28 },
     ],
     keywords: [
       { criterionId: "101", adGroupId: "21", text: "job management app", matchType: "PHRASE", clicks: 40, impressions: 1500, spend: 180, conversions: 0, qualityScore: 6, firstSeen: "2026-09-05", days: 28 },
