@@ -8,8 +8,14 @@
  *   → one ingest request per kind (≤ 2,000 events) → persist per event.
  *
  * States: queued → sent (with Google's requestId) | skipped (no identifier at
- * all, or no conversion action recorded yet) | failed (after MAX_ATTEMPTS,
- * with the last error). Failures back off 15 min · 2^attempts. A `failed`
+ * all, no conversion action recorded yet, or an identifier Google rejects) |
+ * failed (after MAX_ATTEMPTS, with the last error). Failures back off
+ * 15 min · 2^attempts. When Google rejects a request with per-event field
+ * violations (a stale or fabricated gclid answers "Resource not found"), the
+ * violating events are re-sent once with the click id dropped — hashed email
+ * only — and skipped as invalid_identifier when they have no email; the other
+ * events in that request are re-sent untouched, so one bad click id never
+ * poisons a batch. A `failed`
  * transition raises one persistent ADS CONVERSIONS FAILING notification; the
  * next fully clean run resolves it. Nothing here is ever deleted — requeue by
  * flipping `state` back to `queued` (see docs/ads/runbook.md).
@@ -24,6 +30,7 @@ import { getOptionalPmfOperatorIdentity } from "@/lib/pmf/recipients";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import type { ConversionEventKind } from "./conversion-actions";
 import {
+  DataManagerApiError,
   ingestEvents,
   type DataManagerEvent,
   type IngestEventsRequest,
@@ -74,7 +81,7 @@ export interface IngestAccounts {
   loginAccountId?: string;
 }
 
-export type SkipReason = "no_identifier" | "no_conversion_action";
+export type SkipReason = "no_identifier" | "no_conversion_action" | "invalid_identifier";
 
 export interface OutboxRepository {
   selectReady(now: Date, limit: number): Promise<OutboxEvent[]>;
@@ -268,38 +275,115 @@ export async function processOutbox(
   }
 
   let failedThisRun = 0;
-  for (const built of requests) {
+
+  const recordSent = async (eventIds: string[], response: IngestEventsResponse) => {
+    if (response.requestId) result.requestIds.push(response.requestId);
+    if (response.fieldWarnings.length > 0) result.warnings.push(...response.fieldWarnings);
+    result.sent += eventIds.length;
+    if (!validateOnly) await deps.repo.markSent(eventIds, response.requestId ?? null, now);
+  };
+
+  const recordFailure = async (eventIds: string[], message: string) => {
+    for (const id of eventIds) {
+      const event = byId.get(id);
+      if (!event) continue;
+      const attempts = event.attempts + 1;
+      const failed = attempts >= MAX_ATTEMPTS;
+      if (failed) {
+        result.failed += 1;
+        failedThisRun += 1;
+      } else {
+        result.retried += 1;
+      }
+      if (!validateOnly) {
+        await deps.repo.markFailure(id, {
+          attempts,
+          nextAttemptAt: nextAttemptAt(event.attempts, now),
+          lastError: message,
+          failed,
+        });
+      }
+    }
+  };
+
+  const recordSkipped = async (eventId: string, reason: SkipReason) => {
+    result.skipped += 1;
+    if (!validateOnly) await deps.repo.markSkipped(eventId, reason);
+  };
+
+  const send = async (built: BuiltIngestRequest): Promise<void> => {
     try {
       const response = await deps.ingest(built.request, { validateOnly });
-      if (response.requestId) result.requestIds.push(response.requestId);
-      if (response.fieldWarnings.length > 0) result.warnings.push(...response.fieldWarnings);
-      result.sent += built.eventIds.length;
-      if (!validateOnly) {
-        await deps.repo.markSent(built.eventIds, response.requestId ?? null, now);
-      }
+      await recordSent(built.eventIds, response);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(
         `[ads-conversions] ingest failed for ${built.kind} (${built.eventIds.length} events): ${message}`
       );
-      for (const id of built.eventIds) {
-        const event = byId.get(id);
-        if (!event) continue;
-        const attempts = event.attempts + 1;
-        const failed = attempts >= MAX_ATTEMPTS;
-        if (failed) {
-          result.failed += 1;
-          failedThisRun += 1;
-        } else {
-          result.retried += 1;
+      await recordFailure(built.eventIds, message);
+    }
+  };
+
+  for (const built of requests) {
+    try {
+      const response = await deps.ingest(built.request, { validateOnly });
+      await recordSent(built.eventIds, response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const violated = error instanceof DataManagerApiError && error.status === 400
+        ? [...new Set(error.fieldViolations.map((v) => v.eventIndex).filter((i): i is number => i !== null))]
+        : [];
+      if (violated.length === 0) {
+        console.error(
+          `[ads-conversions] ingest failed for ${built.kind} (${built.eventIds.length} events): ${message}`
+        );
+        await recordFailure(built.eventIds, message);
+        continue;
+      }
+
+      // Google named the events it rejects. Re-send the rest untouched, and
+      // the rejected ones without their click ids (hashed email only) — a
+      // fabricated or expired gclid cannot be fixed, but the email can still
+      // match a signed-in click. No email left → skipped, not retried forever.
+      console.warn(
+        `[ads-conversions] ${built.kind}: Google rejected ${violated.length} of ${built.eventIds.length} events (${
+          error instanceof DataManagerApiError ? error.requestId ?? "no request id" : "no request id"
+        }); re-sending the rest`
+      );
+      const rejected = new Set(violated);
+      const keptIds: string[] = [];
+      const keptEvents: DataManagerEvent[] = [];
+      const emailOnlyIds: string[] = [];
+      const emailOnlyEvents: DataManagerEvent[] = [];
+      built.request.events.forEach((event, index) => {
+        const id = built.eventIds[index];
+        if (!rejected.has(index)) {
+          keptIds.push(id);
+          keptEvents.push(event);
+          return;
         }
-        if (!validateOnly) {
-          await deps.repo.markFailure(id, {
-            attempts,
-            nextAttemptAt: nextAttemptAt(event.attempts, now),
-            lastError: message,
-            failed,
-          });
+        if (event.adIdentifiers && event.userData) {
+          const { adIdentifiers: _dropped, ...withoutClick } = event;
+          void _dropped;
+          emailOnlyIds.push(id);
+          emailOnlyEvents.push(withoutClick);
+        }
+      });
+      for (const index of rejected) {
+        const id = built.eventIds[index];
+        if (id && !emailOnlyIds.includes(id)) await recordSkipped(id, "invalid_identifier");
+      }
+      if (keptIds.length > 0) {
+        await send({ kind: built.kind, eventIds: keptIds, request: { ...built.request, events: keptEvents } });
+      }
+      if (emailOnlyIds.length > 0) {
+        try {
+          const response = await deps.ingest({ ...built.request, events: emailOnlyEvents }, { validateOnly });
+          await recordSent(emailOnlyIds, response);
+        } catch (retryError) {
+          const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+          console.error(`[ads-conversions] ${built.kind}: email-only re-send failed: ${retryMessage}`);
+          for (const id of emailOnlyIds) await recordSkipped(id, "invalid_identifier");
         }
       }
     }

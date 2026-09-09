@@ -239,6 +239,58 @@ describe("processOutbox", () => {
     expect(out).toEqual({ validateOnly: true, sent: 1, retried: 0, failed: 0, skipped: 0, requestIds: ["v-1"], warnings: [{ field: "x" }] });
   });
 
+  it("re-sends the rest of a batch and retries a rejected click id as email-only, skipping it when no email exists", async () => {
+    const { DataManagerApiError } = await import("@/lib/ads/data-manager-client");
+    const badClickWithEmail = event({ company_id: "c-bad" });
+    const badClickNoEmail = event({ company_id: "c-bad2" });
+    const good = event({ company_id: "c-good" });
+    const identifiers = new Map<string, CompanyIdentifiers>([
+      ["c-bad", { gclid: "FAKE", emailSha256: sha("bad@example.com") }],
+      ["c-bad2", { gclid: "FAKE2" }],
+      ["c-good", { gclid: "REAL", emailSha256: sha("good@example.com") }],
+    ]);
+    const repo = fakeRepo([badClickWithEmail, badClickNoEmail, good], identifiers);
+    const violation = JSON.stringify({
+      error: {
+        code: 400,
+        status: "INVALID_ARGUMENT",
+        details: [
+          { "@type": "type.googleapis.com/google.rpc.RequestInfo", requestId: "t-1" },
+          {
+            "@type": "type.googleapis.com/google.rpc.BadRequest",
+            fieldViolations: [
+              { field: "events.events[0].destination_references", description: "Resource not found.", reason: "NOT_FOUND" },
+              { field: "events.events[1].destination_references", description: "Resource not found.", reason: "NOT_FOUND" },
+            ],
+          },
+        ],
+      },
+    });
+    const ingest = vi.fn(async (request: { events: Array<{ adIdentifiers?: unknown }> }) => {
+      if (request.events.some((e) => (e.adIdentifiers as { gclid?: string } | undefined)?.gclid?.startsWith("FAKE"))) {
+        throw new DataManagerApiError(400, violation);
+      }
+      return { requestId: `ok-${ingest.mock.calls.length}`, fieldWarnings: [] };
+    });
+    const out = await processOutbox({ validateOnly: false, now: NOW }, { repo, ingest, accounts: async () => ACCOUNTS });
+
+    // 1: the batch (rejected) · 2: the good event alone · 3: the bad one email-only.
+    expect(ingest).toHaveBeenCalledTimes(3);
+    const secondBatch = ingest.mock.calls[1][0] as { events: Array<{ transactionId: string }> };
+    expect(secondBatch.events.map((e) => e.transactionId)).toEqual([good.transaction_id]);
+    const emailOnly = ingest.mock.calls[2][0] as { events: Array<{ transactionId: string; adIdentifiers?: unknown; userData?: unknown }> };
+    expect(emailOnly.events).toHaveLength(1);
+    expect(emailOnly.events[0].transactionId).toBe(badClickWithEmail.transaction_id);
+    expect(emailOnly.events[0].adIdentifiers).toBeUndefined();
+    expect(emailOnly.events[0].userData).toEqual({ userIdentifiers: [{ emailAddress: sha("bad@example.com") }] });
+
+    expect(repo.markSent).toHaveBeenCalledWith([good.id], "ok-2", NOW);
+    expect(repo.markSent).toHaveBeenCalledWith([badClickWithEmail.id], "ok-3", NOW);
+    expect(repo.markSkipped).toHaveBeenCalledWith(badClickNoEmail.id, "invalid_identifier");
+    expect(repo.markFailure).not.toHaveBeenCalled();
+    expect(out).toMatchObject({ sent: 2, skipped: 1, retried: 0, failed: 0, requestIds: ["ok-2", "ok-3"] });
+  });
+
   it("does nothing when the outbox is empty", async () => {
     const repo = fakeRepo([], new Map());
     const ingest = vi.fn();

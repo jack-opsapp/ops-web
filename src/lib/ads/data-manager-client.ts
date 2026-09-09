@@ -57,6 +57,15 @@ export interface IngestEventsResponse {
   fieldWarnings: unknown[];
 }
 
+/** A google.rpc.BadRequest field violation, with the event index it points at. */
+export interface DataManagerFieldViolation {
+  field: string;
+  description: string;
+  reason: string | null;
+  /** Index into the request's `events` when the field path names one. */
+  eventIndex: number | null;
+}
+
 export class DataManagerApiError extends Error {
   readonly status: number;
   readonly body: string;
@@ -64,6 +73,10 @@ export class DataManagerApiError extends Error {
   readonly errorStatus: string | null;
   /** ErrorInfo.reason when present (SERVICE_DISABLED, …). */
   readonly reason: string | null;
+  /** google.rpc.RequestInfo.requestId when present. */
+  readonly requestId: string | null;
+  /** BadRequest.fieldViolations, each resolved to the event it names. */
+  readonly fieldViolations: DataManagerFieldViolation[];
   constructor(status: number, body: string) {
     super(`Data Manager API error (${status}): ${body}`);
     this.name = "DataManagerApiError";
@@ -71,17 +84,41 @@ export class DataManagerApiError extends Error {
     this.body = body;
     let errorStatus: string | null = null;
     let reason: string | null = null;
+    let requestId: string | null = null;
+    const violations: DataManagerFieldViolation[] = [];
     try {
       const parsed = JSON.parse(body) as {
-        error?: { status?: string; details?: Array<{ reason?: string }> };
+        error?: {
+          status?: string;
+          details?: Array<{
+            reason?: string;
+            requestId?: string;
+            fieldViolations?: Array<{ field?: string; description?: string; reason?: string }>;
+          }>;
+        };
       };
       errorStatus = parsed.error?.status ?? null;
-      reason = parsed.error?.details?.find((d) => d?.reason)?.reason ?? null;
+      for (const detail of parsed.error?.details ?? []) {
+        if (detail?.reason && !reason) reason = detail.reason;
+        if (detail?.requestId && !requestId) requestId = detail.requestId;
+        for (const v of detail?.fieldViolations ?? []) {
+          const field = String(v?.field ?? "");
+          const match = field.match(/events\.events\[(\d+)\]/) ?? field.match(/events\[(\d+)\]/);
+          violations.push({
+            field,
+            description: String(v?.description ?? ""),
+            reason: v?.reason ? String(v.reason) : null,
+            eventIndex: match ? Number(match[1]) : null,
+          });
+        }
+      }
     } catch {
       // non-JSON body
     }
     this.errorStatus = errorStatus;
     this.reason = reason;
+    this.requestId = requestId;
+    this.fieldViolations = violations;
   }
 }
 

@@ -92,6 +92,34 @@ describe("data-manager-client", () => {
     expect(out).toEqual({ requestId: "req-v", fieldWarnings: [] });
   });
 
+  it("resolves BadRequest field violations to event indexes", async () => {
+    const body = {
+      error: {
+        code: 400,
+        status: "INVALID_ARGUMENT",
+        details: [
+          { "@type": "type.googleapis.com/google.rpc.RequestInfo", requestId: "t-9" },
+          {
+            "@type": "type.googleapis.com/google.rpc.BadRequest",
+            fieldViolations: [
+              { field: "events.events[3].destination_references", description: "Resource not found.", reason: "NOT_FOUND" },
+              { field: "destinations", description: "x" },
+            ],
+          },
+        ],
+      },
+    };
+    stubFetch(400, body);
+    const mod = await import("@/lib/ads/data-manager-client");
+    const failure = await mod.ingestEvents(sampleRequest).catch((e) => e);
+    expect(failure).toBeInstanceOf(mod.DataManagerApiError);
+    expect(failure.requestId).toBe("t-9");
+    expect(failure.fieldViolations).toEqual([
+      { field: "events.events[3].destination_references", description: "Resource not found.", reason: "NOT_FOUND", eventIndex: 3 },
+      { field: "destinations", description: "x", reason: null, eventIndex: null },
+    ]);
+  });
+
   it("throws a typed DataManagerApiError on a non-2xx", async () => {
     const body = { error: { code: 403, status: "PERMISSION_DENIED", message: "Data Manager API has not been used" } };
     stubFetch(403, body);
