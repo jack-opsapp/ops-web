@@ -1,0 +1,5 @@
+upsert campaign_shared_set -> HTTP 201
+[{"resource_name":"customers/4454506598/campaignSharedSets/22263645060~11814032032","entity_type":"campaign_shared_set","parent_resource_name":"customers/4454506598/campaigns/22263645060","name":"customers/4454506598/sharedSets/11814032032","status":"ENABLED","payload":{"campaignSharedSet": {"status": "ENABLED", "campaign": "customers/4454506598/campaigns/22263645060", "sharedSet": "customers/4454506598/sharedSets/11814032032", "resourceName": "customers/4454506598/campaignSharedSets/22263645060~11814032032"}},"labels":[],"snapshot_at":"2026-09-09T10:41:07.576-07:00"}]
+
+upsert entity_type 'bogus' -> HTTP 400 (must be a 4xx)
+{"code":"23514","details":"Failing row contains (customers/1/bogus/1, bogus, customers/4454506598/campaigns/22263645060, customers/4454506598/sharedSets/11814032032, ENABLED, {\"campaignSharedSet\": {\"status\": \"ENABLED\", \"campaign\": \"custome..., {}, 2026-09-09 10:41:07.576-07).","hint":null,"

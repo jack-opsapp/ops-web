@@ -1,0 +1,4 @@
+shared set        : Competitors (jobber)
+attached campaigns: ["customers/4454506598/campaigns/22263645060"]
+
+PASS: the engine sees which campaign the negative list guards
