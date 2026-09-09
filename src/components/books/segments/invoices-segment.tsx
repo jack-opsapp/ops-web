@@ -182,7 +182,11 @@ export function InvoicesSegment({
     param: "invoice",
     useDocument: useInvoice,
     onOpen: setEditingInvoice,
-    notFoundMessage: tb("openByLink.invoiceNotFound"),
+    notFoundMessage: tb("openByLink.invoiceNotFound", "// INVOICE NOT FOUND"),
+    openFailedMessage: tb(
+      "openByLink.invoiceOpenFailed",
+      "// COULDN'T OPEN INVOICE",
+    ),
   });
 
   const { data: clientsData } = useClients();

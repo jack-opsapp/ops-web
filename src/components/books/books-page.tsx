@@ -12,10 +12,11 @@
  *         &action=new
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { toast } from "@/components/ui/toast";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -92,6 +93,7 @@ export function BooksPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const can = usePermissionStore((s) => s.can);
+  const permissionsInitialized = usePermissionStore((s) => s.initialized);
   const reducedMotion = useReducedMotion();
 
   // ── Visible segments ──────────────────────────────────────────────────
@@ -150,6 +152,47 @@ export function BooksPage() {
     },
     [router, searchParams]
   );
+
+  // ── Stray document links ──────────────────────────────────────────────
+  // Universal search hands Books `?invoice=<id>` / `?estimate=<id>`, and the
+  // segment that owns the document answers it (use-open-document-from-url).
+  // A segment the operator has no permission for never mounts, so nobody is
+  // listening — the link would sit in the URL doing nothing. Say it here
+  // instead, once, and strip the stray param.
+  //
+  // Gated on `initialized`: an unhydrated permission store grants nothing, and
+  // stripping the link on that frame would destroy a good deep link before the
+  // operator's grants ever landed.
+  const strayDocument = useMemo<{
+    param: "invoice" | "estimate";
+    id: string;
+  } | null>(() => {
+    if (!permissionsInitialized) return null;
+    const invoiceId = searchParams.get("invoice");
+    if (invoiceId && !visibleSegments.includes("invoices"))
+      return { param: "invoice", id: invoiceId };
+    const estimateId = searchParams.get("estimate");
+    if (estimateId && !visibleSegments.includes("estimates"))
+      return { param: "estimate", id: estimateId };
+    return null;
+  }, [permissionsInitialized, searchParams, visibleSegments]);
+
+  const strayReportedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!strayDocument) {
+      strayReportedRef.current = null;
+      return;
+    }
+    const key = `${strayDocument.param}:${strayDocument.id}`;
+    if (strayReportedRef.current === key) return;
+    strayReportedRef.current = key;
+    toast.error(
+      strayDocument.param === "invoice"
+        ? t("openByLink.invoiceNotFound", "// INVOICE NOT FOUND")
+        : t("openByLink.estimateNotFound", "// ESTIMATE NOT FOUND")
+    );
+    updateParams({ [strayDocument.param]: null });
+  }, [strayDocument, t, updateParams]);
 
   // ── Period (iOS PeriodPill parity, persisted) ─────────────────────────
   const [period, setPeriod] = useState<BooksPeriod>("30d");

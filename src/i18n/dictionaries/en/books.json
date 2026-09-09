@@ -350,5 +350,7 @@
   "expenses.reject.approving": "APPROVING",
   "expenses.reject.noDate": "No date",
   "openByLink.invoiceNotFound": "// INVOICE NOT FOUND",
-  "openByLink.estimateNotFound": "// ESTIMATE NOT FOUND"
+  "openByLink.estimateNotFound": "// ESTIMATE NOT FOUND",
+  "openByLink.invoiceOpenFailed": "// COULDN'T OPEN INVOICE",
+  "openByLink.estimateOpenFailed": "// COULDN'T OPEN ESTIMATE"
 }

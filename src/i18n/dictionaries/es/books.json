@@ -350,5 +350,7 @@
   "expenses.reject.approving": "APROBANDO",
   "expenses.reject.noDate": "Sin fecha",
   "openByLink.invoiceNotFound": "// FACTURA NO ENCONTRADA",
-  "openByLink.estimateNotFound": "// COTIZACIÓN NO ENCONTRADA"
+  "openByLink.estimateNotFound": "// COTIZACIÓN NO ENCONTRADA",
+  "openByLink.invoiceOpenFailed": "// NO SE PUDO ABRIR LA FACTURA",
+  "openByLink.estimateOpenFailed": "// NO SE PUDO ABRIR LA COTIZACIÓN"
 }

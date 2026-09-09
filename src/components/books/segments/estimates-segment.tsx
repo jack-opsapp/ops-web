@@ -155,7 +155,11 @@ export function EstimatesSegment({
     param: "estimate",
     useDocument: useEstimate,
     onOpen: setEditingEstimate,
-    notFoundMessage: tb("openByLink.estimateNotFound"),
+    notFoundMessage: tb("openByLink.estimateNotFound", "// ESTIMATE NOT FOUND"),
+    openFailedMessage: tb(
+      "openByLink.estimateOpenFailed",
+      "// COULDN'T OPEN ESTIMATE",
+    ),
   });
 
   const { data: clientsData } = useClients();
