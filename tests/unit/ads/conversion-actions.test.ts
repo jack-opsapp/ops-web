@@ -10,8 +10,9 @@ import {
   ensureConversionActions,
   OPS_CONVERSION_ACTION_TARGETS,
   type ExistingConversionAction,
+  type RecordedConversionAction,
 } from "@/lib/ads/conversion-actions";
-import type { MutateResult } from "@/lib/analytics/google-ads-client";
+import type { MutateOperation, MutateResult } from "@/lib/analytics/google-ads-client";
 
 const CUSTOMER = "customers/4454506598";
 
@@ -172,9 +173,12 @@ describe("ensureConversionActions", () => {
   }) {
     const listings = [...opts.listings];
     const results = [...(opts.mutateResults ?? [])];
-    const mutate = vi.fn(async () => results.shift() ?? { results: [], failures: [] });
-    const listExisting = vi.fn(async () => listings.shift() ?? []);
-    const recordActions = vi.fn(async () => {});
+    const mutate = vi.fn(
+      async (_operations: MutateOperation[], _options: { validateOnly: boolean }): Promise<MutateResult> =>
+        results.shift() ?? { results: [], failures: [] }
+    );
+    const listExisting = vi.fn(async (): Promise<ExistingConversionAction[]> => listings.shift() ?? []);
+    const recordActions = vi.fn(async (_rows: RecordedConversionAction[]) => {});
     return { mutate, listExisting, recordActions };
   }
 
@@ -246,9 +250,10 @@ describe("ensureConversionActions", () => {
     expect(deps.mutate.mock.calls[0][0]).toHaveLength(9);
     expect(deps.mutate.mock.calls[0][1]).toEqual({ validateOnly: true });
     const phases = deps.mutate.mock.calls.slice(1).map(([ops]) =>
-      (ops as Array<{ conversionActionOperation: Record<string, unknown> }>).map((o) =>
-        o.conversionActionOperation.create ? "create" : o.conversionActionOperation.update ? "update" : "remove"
-      )
+      ops.map((o) => {
+        const op = (o as { conversionActionOperation: Record<string, unknown> }).conversionActionOperation;
+        return op.create ? "create" : op.update ? "update" : "remove";
+      })
     );
     expect(phases).toEqual([
       ["create", "create", "create"],

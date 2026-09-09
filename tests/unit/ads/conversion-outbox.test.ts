@@ -20,7 +20,9 @@ import {
   type OutboxRepository,
 } from "@/lib/ads/conversion-outbox";
 import type { ConversionEventKind } from "@/lib/ads/conversion-actions";
-import type { IngestEventsResponse } from "@/lib/ads/data-manager-client";
+import type { IngestEventsRequest, IngestEventsResponse } from "@/lib/ads/data-manager-client";
+
+type IngestFn = (request: IngestEventsRequest, options: { validateOnly: boolean }) => Promise<IngestEventsResponse>;
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const NOW = new Date("2026-09-08T18:00:00.000Z");
@@ -179,7 +181,7 @@ describe("processOutbox", () => {
     const e1 = event({ company_id: "c1" });
     const e2 = event({ company_id: "c2", kind: "paid", value: 1680 });
     const repo = fakeRepo([e1, e2], new Map([["c1", { gclid: "G1" }], ["c2", { gclid: "G2" }]]));
-    const ingest = vi.fn(async (): Promise<IngestEventsResponse> => ({ requestId: `req-${ingest.mock.calls.length}`, fieldWarnings: [] }));
+    const ingest = vi.fn<IngestFn>(async () => ({ requestId: `req-${ingest.mock.calls.length}`, fieldWarnings: [] }));
     const out = await processOutbox({ validateOnly: false, now: NOW }, { repo, ingest, accounts: async () => ACCOUNTS });
     expect(ingest).toHaveBeenCalledTimes(2);
     expect(ingest.mock.calls[0][1]).toEqual({ validateOnly: false });
@@ -194,7 +196,7 @@ describe("processOutbox", () => {
     const fresh = event({ company_id: "c1", attempts: 0 });
     const last = event({ company_id: "c2", attempts: MAX_ATTEMPTS - 1, kind: "paid", value: 10 });
     const repo = fakeRepo([fresh, last], new Map([["c1", { gclid: "G1" }], ["c2", { gclid: "G2" }]]), { failedRemaining: 1 });
-    const ingest = vi.fn(async () => {
+    const ingest = vi.fn<IngestFn>(async () => {
       throw Object.assign(new Error("Data Manager API error (503): upstream"), { status: 503 });
     });
     const out = await processOutbox({ validateOnly: false, now: NOW }, { repo, ingest, accounts: async () => ACCOUNTS });
@@ -218,7 +220,7 @@ describe("processOutbox", () => {
   it("marks events without any identifier as skipped with no_identifier", async () => {
     const e = event({ company_id: "c-none" });
     const repo = fakeRepo([e], new Map([["c-none", {}]]));
-    const ingest = vi.fn(async () => ({ requestId: "x", fieldWarnings: [] }));
+    const ingest = vi.fn<IngestFn>(async () => ({ requestId: "x", fieldWarnings: [] }));
     const out = await processOutbox({ validateOnly: false, now: NOW }, { repo, ingest, accounts: async () => ACCOUNTS });
     expect(ingest).not.toHaveBeenCalled();
     expect(repo.markSkipped).toHaveBeenCalledWith(e.id, "no_identifier");
@@ -228,7 +230,7 @@ describe("processOutbox", () => {
   it("validateOnly sends with validateOnly and persists nothing", async () => {
     const e = event({ company_id: "c1" });
     const repo = fakeRepo([e], new Map([["c1", { gclid: "G1" }]]));
-    const ingest = vi.fn(async () => ({ requestId: "v-1", fieldWarnings: [{ field: "x" }] }));
+    const ingest = vi.fn<IngestFn>(async () => ({ requestId: "v-1", fieldWarnings: [{ field: "x" }] }));
     const out = await processOutbox({ validateOnly: true, now: NOW }, { repo, ingest, accounts: async () => ACCOUNTS });
     expect(ingest.mock.calls[0][1]).toEqual({ validateOnly: true });
     expect(repo.markSent).not.toHaveBeenCalled();
@@ -266,8 +268,8 @@ describe("processOutbox", () => {
         ],
       },
     });
-    const ingest = vi.fn(async (request: { events: Array<{ adIdentifiers?: unknown }> }) => {
-      if (request.events.some((e) => (e.adIdentifiers as { gclid?: string } | undefined)?.gclid?.startsWith("FAKE"))) {
+    const ingest = vi.fn<IngestFn>(async (request) => {
+      if (request.events.some((e) => e.adIdentifiers?.gclid?.startsWith("FAKE"))) {
         throw new DataManagerApiError(400, violation);
       }
       return { requestId: `ok-${ingest.mock.calls.length}`, fieldWarnings: [] };
@@ -293,7 +295,7 @@ describe("processOutbox", () => {
 
   it("does nothing when the outbox is empty", async () => {
     const repo = fakeRepo([], new Map());
-    const ingest = vi.fn();
+    const ingest = vi.fn<IngestFn>();
     const out = await processOutbox({ validateOnly: false, now: NOW }, { repo, ingest, accounts: async () => ACCOUNTS });
     expect(ingest).not.toHaveBeenCalled();
     expect(repo.loadActions).not.toHaveBeenCalled();
