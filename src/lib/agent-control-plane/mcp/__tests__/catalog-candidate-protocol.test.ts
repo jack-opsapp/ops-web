@@ -22,6 +22,7 @@ import {
 } from "../../registry/mcp-exposure-catalog";
 import type { ScheduleChangeRpcClient } from "../../services/schedule-change/schedule-change-repository";
 import type { OpsAgentCapabilityService } from "../../services/capability-service";
+import { CATALOG_AUTHORING_DEFINITIONS } from "../../registry/catalog-authoring-capability";
 
 async function fixture() {
   const { actor, authorityClient } = await actorFixture();
@@ -97,6 +98,16 @@ async function fixture() {
   };
 }
 describe("catalog MCP candidate and restricted trial protocol", () => {
+  it("does not give internal commits the prepare request instructions", () => {
+    const commits = CATALOG_AUTHORING_DEFINITIONS.filter(
+      (d) => d.operation === "commit"
+    );
+    expect(commits).toHaveLength(2);
+    for (const commit of commits) {
+      expect(commit.description).not.toContain("Request JSON Schema:");
+      expect(commit.description).not.toContain("nested row fields");
+    }
+  });
   it("selects only the restricted trial, never the full candidate or public activation", async () => {
     const f = await fixture();
     expect(resolveMcpExposure(MCP_EXPOSURE_V19.revision)).toBe(
@@ -126,6 +137,56 @@ describe("catalog MCP candidate and restricted trial protocol", () => {
     expect(f.rpc).toHaveBeenCalledOnce();
     expect(JSON.stringify(result)).toContain("approval_required");
     expect(JSON.stringify(result)).toContain("untrusted");
+  });
+  it("includes the exact nested request reference when host declarations hide row alternatives", async () => {
+    const f = await fixture();
+    const result = await f.call("tools/list", {});
+    for (const name of [
+      "inspect_catalog_changes",
+      "prepare_catalog_changes",
+      "prepare_inventory_adjustment",
+    ]) {
+      const tool = result.result.tools.find(
+        (t: { name: string }) => t.name === name
+      );
+      const reference = tool.description.match(
+        /Request JSON Schema:\n(\{.*\})$/
+      )?.[1];
+      expect(reference).toBeDefined();
+      const schema = JSON.parse(reference);
+      // The reference is delivered by the actual SDK, not a separate test prompt.
+      expect(schema).toEqual(tool.inputSchema);
+      const rows = schema.properties.rows.items.oneOf;
+      expect(
+        rows.map(
+          (r: { properties: { entity: { const: string } } }) =>
+            r.properties.entity.const
+        )
+      ).toEqual([
+        "unit",
+        "category",
+        "family",
+        "product",
+        "variant",
+        "recipe",
+        "stock",
+      ]);
+      const product = rows[3];
+      expect(product.properties.values.properties.pricing_unit.enum).toContain(
+        "flat_rate"
+      );
+      expect(product.properties.values.properties.taxable.type).toBe("boolean");
+      expect(product.properties.values.properties.price.pattern).toBe(
+        "^(0|[1-9][0-9]{0,9})\\.[0-9]{2}$"
+      );
+      expect(
+        rows.every(
+          (option: { additionalProperties: boolean }) =>
+            option.additionalProperties === false
+        )
+      ).toBe(true);
+    }
+    expect(f.rpc).not.toHaveBeenCalled();
   });
   it("accepts the inspection request schema and returns an unpersisted preview", async () => {
     const f = await fixture();
@@ -159,6 +220,69 @@ describe("catalog MCP candidate and restricted trial protocol", () => {
     const result = await f.call("tools/call", {
       name: "prepare_catalog_changes",
       arguments: { ...REQUEST, approved: true },
+    });
+    expect(result.error || result.result?.isError).toBeTruthy();
+    expect(f.rpc).not.toHaveBeenCalled();
+  });
+  it.each([
+    [
+      "stock fields on a product",
+      {
+        ...REQUEST,
+        rows: [
+          {
+            ...REQUEST.rows[0],
+            values: { ...REQUEST.rows[0].values, quantity: "5" },
+          },
+        ],
+      },
+    ],
+    [
+      "unreviewed inventory in a catalog request",
+      {
+        ...REQUEST,
+        rows: [
+          {
+            ...REQUEST.rows[0],
+            entity: "stock",
+            values: { quantity: "5", reason: "Counted" },
+          },
+        ],
+      },
+    ],
+    [
+      "an imprecise price",
+      {
+        ...REQUEST,
+        rows: [
+          {
+            ...REQUEST.rows[0],
+            values: { ...REQUEST.rows[0].values, price: "12.555" },
+          },
+        ],
+      },
+    ],
+    [
+      "a missing current record version",
+      {
+        ...REQUEST,
+        rows: [
+          {
+            ...REQUEST.rows[0],
+            existing_id: "10000000-0000-4000-8000-000000000001",
+          },
+        ],
+      },
+    ],
+    [
+      "a duplicate source identity",
+      { ...REQUEST, rows: [REQUEST.rows[0], REQUEST.rows[0]] },
+    ],
+  ])("rejects %s before a business call", async (_label, input) => {
+    const f = await fixture();
+    const result = await f.call("tools/call", {
+      name: "prepare_catalog_changes",
+      arguments: input,
     });
     expect(result.error || result.result?.isError).toBeTruthy();
     expect(f.rpc).not.toHaveBeenCalled();
