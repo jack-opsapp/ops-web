@@ -8,15 +8,27 @@
 import {
   getAccountSummaryForRange,
   getCampaignPerformanceForRange,
+  queryClickMap,
   queryDailyAccountData,
+  queryDailyAdData,
+  queryDailyAdGroupData,
+  queryDailyAssetData,
   queryDailyCampaignData,
+  queryDailyKeywordData,
   queryDailySearchTermData,
+  queryEntitySnapshot,
 } from "@/lib/analytics/google-ads-client";
 import {
+  upsertClickMap,
   upsertDailyAccount,
   upsertDailyAccountBatch,
+  upsertDailyAdGroups,
+  upsertDailyAds,
+  upsertDailyAssets,
   upsertDailyCampaigns,
+  upsertDailyKeywords,
   upsertDailySearchTerms,
+  upsertEntitySnapshot,
   updateSyncStatus,
 } from "./ads-history-queries";
 
@@ -158,4 +170,93 @@ export async function syncDateRange(
   }
 
   return { synced, failed, firstError };
+}
+
+// ─── Warehouse extension: grains, click map, entity snapshot ─────────────────
+
+export interface GrainSyncSummary {
+  adGroups: number;
+  ads: number;
+  assets: number;
+  keywords: number;
+  clicks: number;
+  /** searchStream calls made: four range reports + one click_view query per day. */
+  apiCalls: number;
+}
+
+function utcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/**
+ * Sync the ad-group, ad, asset, and keyword grains for a date range (one
+ * report each) and the click map for every day in it (click_view accepts a
+ * single day per query). Account, campaign, and search-term grains are the
+ * existing syncDay / syncChunk path.
+ */
+export async function syncGrains(startDate: Date, endDate: Date): Promise<GrainSyncSummary> {
+  const [adGroups, ads, assets, keywords] = await Promise.all([
+    queryDailyAdGroupData(startDate, endDate),
+    queryDailyAdData(startDate, endDate),
+    queryDailyAssetData(startDate, endDate),
+    queryDailyKeywordData(startDate, endDate),
+  ]);
+  await upsertDailyAdGroups(adGroups);
+  await upsertDailyAds(ads);
+  await upsertDailyAssets(assets);
+  await upsertDailyKeywords(keywords);
+
+  const clicks: Awaited<ReturnType<typeof queryClickMap>> = [];
+  let days = 0;
+  for (let day = utcDay(startDate); day <= utcDay(endDate); day = new Date(day.getTime() + 86_400_000)) {
+    clicks.push(...(await queryClickMap(day)));
+    days += 1;
+  }
+  await upsertClickMap(clicks);
+
+  return {
+    adGroups: adGroups.length,
+    ads: ads.length,
+    assets: assets.length,
+    keywords: keywords.length,
+    clicks: clicks.length,
+    apiCalls: 4 + days,
+  };
+}
+
+/** Snapshot every structural resource on the account (nine searchStream calls). */
+export async function syncEntitySnapshot(): Promise<number> {
+  const rows = await queryEntitySnapshot();
+  await upsertEntitySnapshot(rows);
+  return rows.length;
+}
+
+/**
+ * The window the daily sync re-syncs: the trailing three days ending
+ * yesterday, widened to thirty on Mondays because Google restates metrics
+ * inside its lookback window.
+ */
+export function trailingGrainWindow(now: Date): { start: Date; end: Date; days: number } {
+  const end = utcDay(now);
+  end.setUTCDate(end.getUTCDate() - 1);
+  const days = now.getUTCDay() === 1 ? 30 : 3;
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  return { start, end, days };
+}
+
+/** Everything the daily sync adds on top of syncDay: snapshot + trailing grains. */
+export async function runWarehouseExtension(now: Date = new Date()): Promise<{
+  window: { start: string; end: string; days: number };
+  grains: GrainSyncSummary;
+  entityRows: number;
+}> {
+  const window = trailingGrainWindow(now);
+  const entityRows = await syncEntitySnapshot();
+  const grains = await syncGrains(window.start, window.end);
+  return {
+    window: { start: fmt(window.start), end: fmt(window.end), days: window.days },
+    grains,
+    entityRows,
+  };
 }

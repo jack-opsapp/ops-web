@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncDay } from "@/lib/admin/ads-history-sync";
+import { runWarehouseExtension, syncDay } from "@/lib/admin/ads-history-sync";
 import { getSyncStatus, updateSyncStatus } from "@/lib/admin/ads-history-queries";
 import { dispatchBackfillChunk } from "@/lib/admin/ads-backfill-dispatch";
 import {
@@ -76,6 +76,10 @@ export async function GET(request: NextRequest) {
           yesterday.setDate(yesterday.getDate() - 1);
           await syncDay(yesterday);
 
+          // Entity snapshot + trailing 3 days (30 on Mondays) of the ad-group,
+          // ad, asset, keyword, and click grains. ~16 searchStream calls a day.
+          const extension = await runWarehouseExtension(new Date());
+
           const dateStr = yesterday.toISOString().split("T")[0];
           await updateSyncStatus("daily-sync", {
             status: "complete",
@@ -84,7 +88,7 @@ export async function GET(request: NextRequest) {
           });
 
           await reportAdsProviderHealth(supabase, { blocked: false });
-          return { date: dateStr, degraded: null as string | null };
+          return { date: dateStr, extension, degraded: null as string | null };
         } catch (error) {
           if (error instanceof CronDatabaseOperationError) {
             throw error;
@@ -144,6 +148,7 @@ export async function GET(request: NextRequest) {
       status: "synced",
       ran: true,
       date: controlled.value.date,
+      warehouse: controlled.value.extension ?? null,
       revivedBackfill,
     });
   } catch (err) {
