@@ -445,6 +445,7 @@ export function CommandPalette() {
         placeholder={t("input.placeholder")}
         onClear={() => setOpen(false)}
         onValueChange={setSearch}
+        searching={workspaceSearch.isFetching && workspaceSearch.enabled}
       />
       <CommandList>
         {/* The search itself failed. One quiet line and a way to try again —

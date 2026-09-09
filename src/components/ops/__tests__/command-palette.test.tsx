@@ -713,3 +713,66 @@ describe("CommandPalette — universal entity search", () => {
     expect(push).toHaveBeenCalledWith("/books?segment=estimates&estimate=e1");
   });
 });
+
+describe("CommandPalette — search-in-flight cue", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    permissions.can = () => true;
+    setSearch();
+  });
+
+  function glyph(): HTMLElement {
+    const element = document.querySelector<HTMLElement>("[data-searching]");
+    if (!element) throw new Error("search glyph not rendered");
+    return element;
+  }
+
+  it("dims the search glyph while a query is in flight", async () => {
+    setSearch({ isFetching: true, isPlaceholderData: true });
+    const user = userEvent.setup();
+    renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "hidden");
+
+    expect(glyph()).toHaveAttribute("data-searching", "true");
+    expect(glyph().getAttribute("class")).toContain("text-text-mute");
+  });
+
+  it("restores the glyph once the search settles", async () => {
+    const user = userEvent.setup();
+    renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "hidden");
+
+    expect(glyph()).toHaveAttribute("data-searching", "false");
+    expect(glyph().getAttribute("class")).toContain("text-text-3");
+  });
+
+  it("carries the design system's easing and honours reduced motion", async () => {
+    const user = userEvent.setup();
+    renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "hidden");
+
+    const className = glyph().getAttribute("class") ?? "";
+    expect(className).toContain("transition-colors");
+    expect(className).toContain("duration-200");
+    // `ease-smooth` is the tailwind token for cubic-bezier(0.22, 1, 0.36, 1).
+    expect(className).toContain("ease-smooth");
+    expect(className).toContain("motion-reduce:transition-none");
+  });
+
+  it("leaves the glyph alone while the palette is not searching", async () => {
+    setSearch({ result: null, activeQuery: "h", enabled: false, isFetching: false });
+    const user = userEvent.setup();
+    renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "h");
+
+    expect(glyph()).toHaveAttribute("data-searching", "false");
+  });
+});

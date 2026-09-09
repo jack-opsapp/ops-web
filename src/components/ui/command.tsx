@@ -71,10 +71,26 @@ const CommandInput = React.forwardRef<
   React.ComponentRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
     onClear?: () => void;
+    /**
+     * A query is in flight. The glyph recedes rather than spinning — the
+     * operator asked a question, not started a job, and a spinner would make a
+     * 150 ms round trip feel like work. Ambient by design: felt, not watched.
+     */
+    searching?: boolean;
   }
->(({ className, onClear, ...props }, ref) => (
+>(({ className, onClear, searching = false, ...props }, ref) => (
   <div className="flex items-center border-b border-border px-2" cmdk-input-wrapper="">
-    <Search aria-hidden="true" className="mr-1 h-icon-16 w-icon-16 shrink-0 text-text-3" />
+    <Search
+      aria-hidden="true"
+      data-searching={searching ? "true" : "false"}
+      className={cn(
+        "mr-1 h-icon-16 w-icon-16 shrink-0",
+        // 200ms on the single OPS curve (`ease-smooth`). Reduced motion keeps
+        // the state change and drops only the tween.
+        "transition-colors duration-200 ease-smooth motion-reduce:transition-none",
+        searching ? "text-text-mute" : "text-text-3",
+      )}
+    />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
