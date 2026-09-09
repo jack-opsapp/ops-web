@@ -13,7 +13,7 @@ const CAMPAIGN_KEYS = [
   "utm_content",
   "utm_term",
 ] as const;
-const CLICK_ID_KEYS = ["gclid", "fbclid"] as const;
+const CLICK_ID_KEYS = ["gclid", "gbraid", "wbraid", "fbclid"] as const;
 
 export interface FirstTouch {
   version: typeof FIRST_TOUCH_VERSION;
@@ -27,6 +27,8 @@ export interface FirstTouch {
   utm_content?: string;
   utm_term?: string;
   gclid?: string;
+  gbraid?: string;
+  wbraid?: string;
   fbclid?: string;
 }
 
@@ -248,6 +250,8 @@ function cookieSafeTouch(touch: FirstTouch): FirstTouch {
   };
   const prioritized = [
     ["gclid", 256],
+    ["gbraid", 256],
+    ["wbraid", 256],
     ["fbclid", 256],
     ["utm_source", 128],
     ["utm_medium", 128],
