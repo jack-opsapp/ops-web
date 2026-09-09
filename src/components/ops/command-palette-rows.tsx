@@ -61,9 +61,19 @@ export type PaletteTranslate = (key: string, fallback?: string) => string;
 /** Design rule: an absent value is an em dash, never "N/A" and never blank. */
 const EMPTY = "—";
 
-// The filter short-circuits on the prefix, so nothing here is ever matched against
-// the query — the id is only so two identically titled rows hold distinct values.
-function hitValue(kind: string, id: string): string {
+/**
+ * A row's cmdk value — the string the palette hands cmdk to say "highlight this
+ * one", and the one cmdk compares against `data-value` to decide. Exported so
+ * the palette names a row through this function instead of spelling the format
+ * a second time: two spellings is a highlight pointing at nothing.
+ *
+ * The filter short-circuits on the prefix, so nothing here is ever matched
+ * against the query — the id is only so two identically titled rows hold
+ * distinct values. cmdk trims both sides before comparing (`useValue`, and the
+ * controlled-value effect), and U+2063 is a format character rather than
+ * whitespace, so the prefix survives the trim on both.
+ */
+export function hitValue(kind: string, id: string): string {
   return [HIT_VALUE_PREFIX, kind, id].join(" ");
 }
 

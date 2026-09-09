@@ -183,6 +183,7 @@ vi.mock("@/lib/hooks/use-workspace-search", async (importOriginal) => {
 
 // Imported after the mocks so the component picks them up.
 import { CommandPalette } from "@/components/ops/command-palette";
+import { HIT_VALUE_PREFIX } from "@/components/ops/command-palette-rows";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -379,6 +380,19 @@ function rowsInGroup(heading: string): HTMLElement[] {
 function selectedRowText(): string {
   return (
     document.querySelector('[cmdk-item=""][aria-selected="true"]')?.textContent ?? ""
+  );
+}
+
+/**
+ * The highlighted row's cmdk value. A result row's value carries
+ * `HIT_VALUE_PREFIX`; a command's is its label and keywords — so this tells the
+ * two apart without depending on which command happens to score highest.
+ */
+function selectedRowValue(): string | null {
+  return (
+    document
+      .querySelector('[cmdk-item=""][aria-selected="true"]')
+      ?.getAttribute("data-value") ?? null
   );
 }
 
@@ -937,5 +951,133 @@ describe("CommandPalette — search-in-flight cue", () => {
     await user.type(input, "h");
 
     expect(glyph()).toHaveAttribute("data-searching", "false");
+  });
+});
+
+/**
+ * The palette answers a question the operator asked mid-keystroke. cmdk anchors
+ * the highlight the instant the search text changes — which is 150 ms of
+ * debounce plus a round trip BEFORE the answer exists, so it anchors on a
+ * command and never looks again (`selectFirstItem` is scheduled from the search
+ * change and from item registration, and forceMount rows never register).
+ * Enter then ran a navigation command while the operator was looking at the job
+ * they searched for. These tests hold the envelope back the way the network
+ * does — an in-flight state first, `landEnvelope` second — because a fixture
+ * that is already on screen when the first key lands never reproduces it.
+ */
+describe("CommandPalette — the highlight follows the results", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    permissions.can = () => true;
+    setSearch();
+  });
+
+  it("highlights the first result when the envelope lands after the keystroke", async () => {
+    setSearch({ result: emptyWorkspaceSearchResult(), activeQuery: "hidden", isFetching: true });
+    const user = setupUser();
+    const palette = renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "hidden");
+    await palette.landEnvelope({ result: fullEnvelope(), activeQuery: "hidden" });
+
+    await waitFor(() => expect(selectedRowText()).toContain("Hidden Oaks Cres"));
+
+    // No ArrowDown. The operator typed a job name and pressed Enter — that is
+    // the whole interaction, and it has to open the job.
+    await user.keyboard("{Enter}");
+    expect(openProjectWindow).toHaveBeenCalledWith({
+      projectId: "p1",
+      mode: "viewing",
+    });
+  });
+
+  it("leaves the highlight on a command when the search settles on nothing", async () => {
+    setSearch({ result: emptyWorkspaceSearchResult(), activeQuery: "sync", isFetching: true });
+    const user = setupUser();
+    const palette = renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "sync");
+    await palette.landEnvelope({
+      result: emptyWorkspaceSearchResult(),
+      activeQuery: "sync",
+    });
+
+    // Nothing was found, so cmdk's own first item is the answer and the
+    // palette must not hold a result row over it. A result row would carry the
+    // hit prefix; a command does not.
+    await waitFor(() => expect(selectedRowValue()).not.toBeNull());
+    expect(selectedRowValue()).not.toContain(HIT_VALUE_PREFIX);
+    expect(selectedRowText()).not.toBe("");
+  });
+
+  it("re-anchors on the new first result after the operator moved the highlight", async () => {
+    setSearch({ result: emptyWorkspaceSearchResult(), activeQuery: "hidden", isFetching: true });
+    const user = setupUser();
+    const palette = renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "hidden");
+    await palette.landEnvelope({ result: fullEnvelope(), activeQuery: "hidden" });
+    await waitFor(() => expect(selectedRowText()).toContain("Hidden Oaks Cres"));
+
+    // The operator walks down a row. Their choice owns the highlight...
+    await user.keyboard("{ArrowDown}");
+    await waitFor(() => expect(selectedRowText()).toContain("Fightertown Hangars"));
+
+    // ...until they ask a different question, and the answer to that one takes
+    // it back.
+    await user.type(input, " stairs");
+    await palette.landEnvelope({
+      result: onlyKind("tasks", {
+        total: 1,
+        items: [
+          {
+            id: "t1",
+            title: "Frame stairs",
+            project_id: "p1",
+            project_title: "Hidden Oaks Cres",
+            task_type: "Framing",
+            status: "active",
+            updated_at: UPDATED,
+          },
+        ],
+      }),
+      activeQuery: "hidden stairs",
+    });
+
+    await waitFor(() => expect(selectedRowText()).toContain("Frame stairs"));
+
+    await user.keyboard("{Enter}");
+    expect(openProjectWindow).toHaveBeenCalledWith({
+      projectId: "p1",
+      mode: "viewing",
+    });
+  });
+
+  it("hands the highlight back to a command when a found query is replaced by a barren one", async () => {
+    const user = setupUser();
+    const palette = renderPalette();
+
+    const input = await openPalette();
+    await user.type(input, "hidden");
+    await waitFor(() => expect(selectedRowText()).toContain("Hidden Oaks Cres"));
+
+    // A different question, and this one finds nothing. The row the highlight
+    // was sitting on leaves the screen a round trip after the keystroke that
+    // asked — long after cmdk's own anchor last ran — so nothing but the
+    // palette can put the highlight back on something real. Left alone it
+    // points at a row that no longer exists and Enter does nothing.
+    await user.clear(input);
+    await user.type(input, "sync");
+    await palette.landEnvelope({
+      result: emptyWorkspaceSearchResult(),
+      activeQuery: "sync",
+    });
+
+    await waitFor(() => expect(selectedRowValue()).not.toBeNull());
+    expect(selectedRowValue()).not.toContain(HIT_VALUE_PREFIX);
+    expect(selectedRowText()).not.toBe("");
   });
 });

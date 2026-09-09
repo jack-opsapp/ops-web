@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { defaultFilter } from "cmdk";
@@ -29,6 +29,7 @@ import {
   ClientRow,
   DocumentRow,
   HIT_VALUE_PREFIX,
+  hitValue,
   LeadRow,
   ProjectRow,
   TaskRow,
@@ -85,9 +86,28 @@ const GROUP_HEADING_FALLBACK: Record<(typeof ENTITY_KINDS)[number], string> = {
   documents: "Documents",
 };
 
+/**
+ * Group name → the singular kind the rows of that group write into their value.
+ * Documents are absent on purpose: an invoice and an estimate share the group
+ * but not the table, so a document row's kind comes off the hit itself.
+ */
+const ROW_KIND = {
+  projects: "project",
+  clients: "client",
+  leads: "lead",
+  tasks: "task",
+} as const;
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  /**
+   * Which item is highlighted, by cmdk value. `undefined` means the palette has
+   * no opinion and cmdk's own first-item default stands.
+   */
+  const [selectedValue, setSelectedValue] = useState<string | undefined>(undefined);
+  /** The rendered option list — read only to recover cmdk's own first item. */
+  const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
   const beginSignOut = useSignOutStore((s) => s.begin);
@@ -129,6 +149,68 @@ export function CommandPalette() {
   );
 
   const hasEntityResults = visibleKinds.length > 0;
+
+  /**
+   * The row the operator was reaching for: first group with hits in the fixed
+   * order, first row in the database's ranking. `undefined` when the envelope
+   * has nothing to point at.
+   */
+  const firstHitValue = useMemo(() => {
+    const kind = visibleKinds[0];
+    if (!kind || !hits) return undefined;
+    if (kind === "documents") {
+      const hit = hits.documents.items[0];
+      return hit ? hitValue(hit.kind, hit.id) : undefined;
+    }
+    const hit = hits[kind].items[0];
+    return hit ? hitValue(ROW_KIND[kind], hit.id) : undefined;
+  }, [visibleKinds, hits]);
+
+  /**
+   * The identity of the answer on screen. A placeholder envelope answers the
+   * previous question, so it is not an answer yet — re-anchoring on it would
+   * yank the highlight out from under an operator mid-word.
+   */
+  const settledQuery = workspaceSearch.isPlaceholderData
+    ? null
+    : workspaceSearch.activeQuery;
+
+  /**
+   * The moment a settled envelope renders, its first row owns the highlight.
+   *
+   * cmdk anchors on the search text changing — which is 150 ms of debounce plus
+   * a round trip before the answer exists — and for `forceMount` rows nothing
+   * ever re-runs that anchor, so it was still holding whichever command it
+   * picked while the request was in flight. The operator typed a job name and
+   * pressed Enter, and the palette navigated somewhere else (bug: "detail"
+   * highlighted Catalog).
+   *
+   * Keyed on the settled envelope, so an operator who has walked the highlight
+   * down with ArrowDown keeps it until they ask a different question.
+   */
+  useEffect(() => {
+    if (settledQuery === null) return;
+    if (firstHitValue) {
+      setSelectedValue(firstHitValue);
+      return;
+    }
+    // Nothing was found, so the commands are the whole list and cmdk's own
+    // first item is the right answer. Naming it rather than passing `undefined`
+    // is what repairs the case where the highlight was sitting on a row that
+    // has just left the screen: cmdk re-anchors only when the search text
+    // changes, and the text that produced this envelope changed a round trip
+    // ago — hand it back untouched and the highlight is left pointing at a row
+    // that no longer exists, so Enter does nothing at all.
+    //
+    // Read exactly the way cmdk reads it (`selectFirstItem`): first
+    // non-disabled item in the list, in DOM order, which cmdk has already
+    // re-sorted by score in this same commit's layout phase.
+    setSelectedValue(
+      listRef.current
+        ?.querySelector('[cmdk-item=""]:not([aria-disabled="true"])')
+        ?.getAttribute("data-value") ?? undefined,
+    );
+  }, [settledQuery, firstHitValue]);
 
   /**
    * A heading count is a claim about the query on screen. While the previous
@@ -449,8 +531,19 @@ export function CommandPalette() {
   return (
     <CommandDialog
       open={open}
-      onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}
+      // A closed palette keeps no opinion: the next open starts on cmdk's own
+      // first item, the way it does today, not on a row from a query the
+      // operator has since walked away from.
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) {
+          setSearch("");
+          setSelectedValue(undefined);
+        }
+      }}
       filter={paletteFilter}
+      value={selectedValue}
+      onValueChange={setSelectedValue}
     >
       <CommandInput
         placeholder={t("input.placeholder")}
@@ -458,7 +551,7 @@ export function CommandPalette() {
         onValueChange={setSearch}
         searching={workspaceSearch.isFetching && workspaceSearch.enabled}
       />
-      <CommandList>
+      <CommandList ref={listRef}>
         {/* The search itself failed. One quiet line and a way to try again —
             no toast, and the commands below stay usable through the outage. */}
         {workspaceSearch.isError && (

@@ -37,10 +37,29 @@ interface CommandDialogProps {
    * score for them or watch its ranking get shuffled by fuzzy matching.
    */
   filter?: React.ComponentPropsWithoutRef<typeof CommandPrimitive>["filter"];
+  /**
+   * The highlighted item, by cmdk value — controlled.
+   *
+   * cmdk anchors the highlight the instant the search text changes and, for
+   * `forceMount` rows, never looks again: nothing re-runs `selectFirstItem`
+   * when they arrive. A surface whose rows land a round trip after the
+   * keystroke therefore has to name the row itself. `undefined` hands the
+   * choice back to cmdk's own first-item default.
+   */
+  value?: string;
+  /** cmdk's own moves — ArrowDown/ArrowUp, hover, its first-item anchor. */
+  onValueChange?: (value: string) => void;
   children: React.ReactNode;
 }
 
-function CommandDialog({ open, onOpenChange, filter, children }: CommandDialogProps) {
+function CommandDialog({
+  open,
+  onOpenChange,
+  filter,
+  value,
+  onValueChange,
+  children,
+}: CommandDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -53,6 +72,8 @@ function CommandDialog({ open, onOpenChange, filter, children }: CommandDialogPr
         </VisuallyHidden.Root>
         <Command
           filter={filter}
+          value={value}
+          onValueChange={onValueChange}
           className={cn(
             "[&_[cmdk-group-heading]]:px-1 [&_[cmdk-group-heading]]:py-[6px]",
             "[&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-caption-sm",
