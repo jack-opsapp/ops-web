@@ -128,7 +128,7 @@ Define the envelope types in `src/lib/types/workspace-search.ts` (`WorkspaceSear
 Rewrite the entity section of `command-palette.tsx`; the command sections (Create / Navigation / Settings / System) stay.
 - Remove `useProjects/useClients/useTasks/useOpportunities` and `entityResults`; use `useWorkspaceSearch(search, { enabled: open })`.
 - Groups in fixed order: **Projects, Clients, Leads, Tasks, Documents** (the app's own nouns; "Leads" for opportunities). A group renders only when it has items; every entity `CommandGroup` keeps `forceMount` (cmdk hides unregistered groups — see `reference_cmdk_forcemount_group_hidden`). Group heading = label, plus ` · <total>` when `total > items.length`.
-- Row anatomy (two lines max, no wrapping; secondary in `text-text-mute`; status rendered with the existing `Tag` primitive from `src/components/ui/tag.tsx` in its smallest size and the variant the app already maps for that status — reuse the status→variant mapping the projects table / pipeline use, never a new one):
+- Row anatomy (two lines max, no wrapping; primary `font-mohave text-body-sm text-text`, secondary `font-mono text-micro text-text-3` — never `text-text-mute`, which the design system reserves for decorative marks; status rendered with the existing `Tag` primitive from `src/components/ui/tag.tsx` in its smallest size and the variant the app already maps for that status — reuse the status→variant mapping the projects table / pipeline use, never a new one):
   - project: `title` — `address` · status
   - client: `name` — `phone` if present else `email`
   - lead: `title` — `contact_name` · stage
