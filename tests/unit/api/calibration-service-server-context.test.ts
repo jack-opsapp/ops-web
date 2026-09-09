@@ -125,7 +125,9 @@ const access: AllowedEmailInboxListAccess = {
   pipelineScope: "all",
   ownPersonalConnectionIds: [],
   assignedOpportunityIds: [],
-} as AllowedEmailInboxListAccess;
+  usedLegacyPipelineManage: false,
+  usedLegacyInboxViewCompany: false,
+};
 
 /**
  * One invocation per exported read. Typed against the service's own keys, so
