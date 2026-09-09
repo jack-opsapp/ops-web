@@ -1,0 +1,208 @@
+{
+  "claim_token": "458633fb-7cb3-4eda-b35b-fc47b30d3907",
+  "proposals": [
+    {
+      "index": 0,
+      "kind": "add_negatives",
+      "rationale": "Two terms in the 28-day report are people looking for work, not people running a crew. 'job management jobs' took 5 clicks and $22.00. 'jobber careers' took 3 clicks and $14.10 out of the COMPETITOR budget. No trial between them. The Job seekers list already carries 'jobs' broad and both terms still cleared spend inside this window, so block the exact phrases and stop guessing. $36.10 in 28 days, on a budget where a trial costs $150.",
+      "evidence": [
+        {
+          "term": "job management jobs",
+          "campaign": "CORE \u00b7 CA",
+          "ad_group": "Job management",
+          "clicks": 5,
+          "impressions": 191,
+          "spend": 22,
+          "conversions": 0,
+          "window": "2026-08-10..2026-09-06"
+        },
+        {
+          "term": "jobber careers",
+          "campaign": "COMPETITOR \u00b7 CA",
+          "ad_group": "Jobber alternative",
+          "clicks": 3,
+          "impressions": 129,
+          "spend": 14.1,
+          "conversions": 0,
+          "window": "2026-08-10..2026-09-06"
+        }
+      ],
+      "payload": {
+        "list": "NEG \u00b7 Job seekers",
+        "classification": "job_seeker",
+        "terms": [
+          {
+            "text": "job management jobs",
+            "matchType": "PHRASE"
+          },
+          {
+            "text": "jobber careers",
+            "matchType": "PHRASE"
+          }
+        ]
+      }
+    },
+    {
+      "index": 1,
+      "kind": "add_negatives",
+      "rationale": "'electrician near me' is a homeowner looking for an electrician. We sell to the electrician. 6 clicks, $19.20, no trial, and it is running against the Job management ad group where our only trials come from. The Homeowner list carries 'near me' broad and this term still spent inside the window, so block the exact phrase.",
+      "evidence": [
+        {
+          "term": "electrician near me",
+          "campaign": "CORE \u00b7 CA",
+          "ad_group": "Job management",
+          "clicks": 6,
+          "impressions": 291,
+          "spend": 19.2,
+          "conversions": 0,
+          "window": "2026-08-10..2026-09-06"
+        }
+      ],
+      "payload": {
+        "list": "NEG \u00b7 Homeowner intent",
+        "classification": "homeowner",
+        "terms": [
+          {
+            "text": "electrician near me",
+            "matchType": "PHRASE"
+          }
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "kind": "add_negatives",
+      "rationale": "'job management course' is somebody studying the subject, not somebody running jobs. 3 clicks, $11.70, no trial. Small money, but it is the same dollar that buys a trial start.",
+      "evidence": [
+        {
+          "term": "job management course",
+          "campaign": "CORE \u00b7 CA",
+          "ad_group": "Job management",
+          "clicks": 3,
+          "impressions": 163,
+          "spend": 11.7,
+          "conversions": 0,
+          "window": "2026-08-10..2026-09-06"
+        }
+      ],
+      "payload": {
+        "list": "NEG \u00b7 Training",
+        "classification": "student",
+        "terms": [
+          {
+            "text": "job management course",
+            "matchType": "PHRASE"
+          }
+        ]
+      }
+    },
+    {
+      "index": 3,
+      "kind": "add_negatives",
+      "rationale": "'free job management app' is shopping for free forever. OPS is free to start and then it is paid, so this click is never going to end anywhere good. 7 clicks, $24.50, no trial, the largest waste line in the report. 'free' is on the Generic waste hint list and is not in the list yet.",
+      "evidence": [
+        {
+          "term": "free job management app",
+          "campaign": "CORE \u00b7 CA",
+          "ad_group": "Job management",
+          "clicks": 7,
+          "impressions": 392,
+          "spend": 24.5,
+          "conversions": 0,
+          "window": "2026-08-10..2026-09-06"
+        }
+      ],
+      "payload": {
+        "list": "NEG \u00b7 Generic waste",
+        "classification": "irrelevant",
+        "terms": [
+          {
+            "text": "free job management app",
+            "matchType": "PHRASE"
+          }
+        ]
+      }
+    },
+    {
+      "index": 4,
+      "kind": "observation",
+      "rationale": "The one paying customer in this account came out of the campaign Google says produced nothing. That gap decides whether we keep spending there, so it goes in front of you rather than into a pause.",
+      "evidence": [
+        {
+          "row": "campaign_28d",
+          "campaign": "COMPETITOR \u00b7 CA",
+          "clicks": 95,
+          "spend": 451.47,
+          "google_conversions": 0
+        },
+        {
+          "row": "funnel_by_keyword",
+          "keyword": "jobber alternative",
+          "clicks": 66,
+          "trials": 1,
+          "activated": 1,
+          "paid": 1,
+          "spend": 340.2,
+          "cost_per_trial": 340.2,
+          "target_cost_per_trial": 150
+        },
+        {
+          "row": "keyword_28d",
+          "keyword": "jobber alternative",
+          "match_type": "EXACT",
+          "clicks": 62,
+          "spend": 305.31,
+          "google_conversions": 0,
+          "quality_score": 8
+        }
+      ],
+      "payload": {
+        "text": "COMPETITOR \u00b7 CA spent $451.47 over the last 28 days and Google reports zero conversions on it. Our warehouse funnel says the opposite: 'jobber alternative' produced 1 trial, 1 activation and the only paying customer in the whole account, at $340.20. Two things follow. First, do not judge that campaign on the Google conversion column, and do not let anyone pause the keyword on it: by the 28-day click rule it looks like a dead keyword and it is the only line that has ever produced revenue. Second, the conversion import for that campaign is worth an hour of somebody's time, because every automated decision downstream of it, bidding included, is being made on a number that is wrong. Cost per paid customer of $340.20 against a $150 target cost per trial is expensive but it is not zero, and zero is what Google is telling us."
+      }
+    },
+    {
+      "index": 5,
+      "kind": "observation",
+      "rationale": "Cheapest trials in the account are running into a $3 a day ceiling. Bidding is not a duty this run so I am not proposing the change, I am putting the number in front of you for the run that is.",
+      "evidence": [
+        {
+          "row": "campaign_28d",
+          "campaign": "BRAND \u00b7 CA",
+          "daily_budget": 3,
+          "clicks": 95,
+          "impressions": 907,
+          "spend": 77.95,
+          "google_conversions": 1
+        },
+        {
+          "row": "funnel_by_keyword",
+          "keyword": "opsapp",
+          "clicks": 60,
+          "trials": 2,
+          "activated": 1,
+          "paid": 0,
+          "spend": 51.4,
+          "cost_per_trial": 25.7,
+          "target_cost_per_trial": 150
+        },
+        {
+          "row": "ad_28d",
+          "ad_id": "206",
+          "ctr": 0.104741,
+          "ad_strength": "EXCELLENT"
+        },
+        {
+          "row": "month_to_date",
+          "spend": 389.5,
+          "monthly_cap": 1500,
+          "days_left": 23,
+          "daily_cap": 60,
+          "sum_of_daily_budgets": 50
+        }
+      ],
+      "payload": {
+        "text": "BRAND \u00b7 CA is capped at $3 a day and it is the best money in the account. 2 trials at $25.70 each against a $150 target, a 10.5% click-through rate, and the only ad rated EXCELLENT. It spent $77.95 in 28 days, which is the budget line, not demand running out. Meanwhile month-to-date spend is $389.50 against a $1,500 monthly cap with 23 days left, and the three live campaigns add up to $50 a day against a $60 daily ceiling. There is room. I am not filing a budget change this run because the bidding ladder is not one of today's duties and the ledger has no prior change to measure a cooldown against. When bidding is named, brand is the first rung, and it is a small one: brand traffic is finite and the ceiling should move by a few dollars, not double."
+      }
+    }
+  ]
+}

@@ -1,0 +1,469 @@
+OPS ADMIN
+
+PMF
+SPEC
+OVERVIEW
+GROWTH
+ACQUISITION
+GOOGLE ADS
+APP STORE
+A/B TESTING
+ONBOARDING
+USERS
+COMPANIES
+DATA SETUP
+ENGAGEMENT
+FEEDBACK
+ANALYTICS
+APP ANALYTICS
+ANALYTICS
+REVENUE
+PLATFORM HEALTH
+CONTENT
+BLOG
+SOCIAL
+EMAIL
+APP MESSAGES
+FEATURE RELEASES
+PRODUCTS
+OPS LEARN
+SHOP
+SYSTEM
+SYSTEM
+GOOGLE ADS
+
+[near real-time · 5 min cache]
+
+[synced through 2026-09-07]
+History imported
+// PROPOSALS
+3
+CHALLENGER AD
+Challenger for Jobber alternative
+
+47m ago
+
+// ENGINE
+
+COMPETITOR is the most expensive line we run: $451.47 in 28 days, and the only paying customer this account has ever produced came out of it at $340.20. That buys the ad group a better ad, not a pause. The control is 39 days old and leads with the switch itself, which is the same thing every comparison page says. This one leads with the reason a switch sticks: crews quit software they cannot use, and that is the whole reason OPS exists. It says the price out loud on a page where the competition asks you to book a demo first, and it names the crew size we actually serve instead of pretending we serve everyone. One competitor mention, in the approved form, in the only campaign allowed to carry it.
+
+try.opsapp.co › jobber › compare
+
+Tired of Jobber?[1] | Your crew opens it and goes[1] | Nobody used the old one
+
+Crews quit software they cannot use. OPS opens to today's jobs. No manual. It works offline. A dead signal in a basement does not stop the job.
+
+No training required
+Free, then $90 a month
+No credit card to start
+Built by trades, for trades
+Works offline on site
+Crews of one to ten
+
+HYPOTHESIS Control leads with the switch itself. This one leads with the proof of why a switch sticks: the crew opens it, there is nothing to learn, and the price is said out loud instead of quoted after a demo.
+
+// EVIDENCE
+
+NOTE	SOURCE	AD GROUP	SPEND	CLICKS	CAMPAIGN	CONVERSIONS	IMPRESSIONS
+challenger due, control 39 days old	duty_notes.creative	Jobber alternative	—	—	—	—	—
+—	metrics28d.campaigns	—	451.47	95	COMPETITOR - CA	0	3085
+—	metrics28d.ads	—	451.47	—	—	0	—
+—	funnel.by_keyword	—	340.20	66	—	—	—
+—	metrics28d.keywords	—	305.31	62	—	0	—
+—	settings	—	—	—	—	—	—
+—	editor	—	—	—	—	—	—
+
+[expires in 14 days]
+
+REJECT
+APPROVE
+CHALLENGER AD
+Challenger for Crew scheduling
+
+47m ago
+
+// ENGINE
+
+Crew scheduling has taken 95 clicks and $311.81 in 28 days and produced one trial at $231.80 against a $150 target. The control is 39 days old and it leads with the crew knowing where to be, which is the promise every other ad in this account already makes. This challenger leads with the part of the day that actually breaks: no signal. The schedule holds, and the edits sync when the phone finds the tower again. Same offer, different reason to click. I left 'Every feature, every tier' out of the headline set on purpose. Google marked that exact asset LOW in the ad group next door, so it does not get a seat here.
+
+try.opsapp.co › scheduling › offline
+
+Scheduling that works offline[1] | Changes sync when back online[1] | Today's jobs, on every phone
+
+The schedule works offline. Changes sync the moment the phone finds signal again. Move a job and the crew sees it. No group text, no calls asking for the address.
+
+Dispatch from the truck
+The whole week in one place
+No training required
+Built by trades, for trades
+Free to start
+Crews of one to ten
+
+HYPOTHESIS Control leads with the crew knowing where to be. This one leads with the offline promise: the schedule and the changes survive a basement, a backroad and a dead bar of signal. Same offer, different reason to click.
+
+// EVIDENCE
+
+NOTE	SOURCE	AD GROUP	SPEND	CLICKS	CONVERSIONS	IMPRESSIONS	CTR
+challenger due, control 39 days old	duty_notes.creative	Crew scheduling	—	—	—	—	—
+—	metrics28d.adGroups	Crew scheduling	311.81	95	0	3248	—
+—	metrics28d.ads	—	311.81	95	0	—	0.03
+—	funnel.by_keyword	—	231.80	70	—	—	—
+—	settings	—	—	—	—	—	—
+—	metrics28d.assets	—	—	—	—	—	—
+—	metrics28d.assets	—	—	—	—	—	—
+—	editor	—	—	—	—	—	—
+
+[expires in 14 days]
+
+REJECT
+APPROVE
+NOTE
+COMPETITOR · CA spent $451.47 over the last 28 days and Google reports zero conversions on it. Our warehouse funnel says the opposite: 'jobb
+
+1h ago
+
+// ENGINE
+
+The one paying customer in this account came out of the campaign Google says produced nothing. That gap decides whether we keep spending there, so it goes in front of you rather than into a pause.
+
+COMPETITOR · CA spent $451.47 over the last 28 days and Google reports zero conversions on it. Our warehouse funnel says the opposite: 'jobber alternative' produced 1 trial, 1 activation and the only paying customer in the whole account, at $340.20. Two things follow. First, do not judge that campaign on the Google conversion column, and do not let anyone pause the keyword on it: by the 28-day click rule it looks like a dead keyword and it is the only line that has ever produced revenue. Second, the conversion import for that campaign is worth an hour of somebody's time, because every automated decision downstream of it, bidding included, is being made on a number that is wrong. Cost per paid customer of $340.20 against a $150 target cost per trial is expensive but it is not zero, and zero is what Google is telling us.
+
+// EVIDENCE
+
+ROW	SPEND	CLICKS	CAMPAIGN	GOOGLE CONVERSIONS	PAID	TRIALS	KEYWORD
+campaign_28d	451.47	95	COMPETITOR · CA	0	—	—	—
+funnel_by_keyword	340.20	66	—	—	1	1	jobber alternative
+keyword_28d	305.31	62	—	0	—	—	jobber alternative
+
+[expires in 14 days]
+
+REJECT
+NOTED
+NEGATIVES
+NEG · Job seekers · 2 terms
+
+1h ago
+
+// ENGINE
+
+Two terms in the 28-day report are people looking for work, not people running a crew. 'job management jobs' took 5 clicks and $22.00. 'jobber careers' took 3 clicks and $14.10 out of the COMPETITOR budget. No trial between them. The Job seekers list already carries 'jobs' broad and both terms still cleared spend inside this window, so block the exact phrases and stop guessing. $36.10 in 28 days, on a budget where a trial costs $150.
+
+JOB MANAGEMENT JOBS
+P
+JOBBER CAREERS
+P
+
+// EVIDENCE
+
+TERM	SPEND	CLICKS	WINDOW	AD GROUP	CAMPAIGN	CONVERSIONS	IMPRESSIONS
+job management jobs	22	5	2026-08-10..2026-09-06	Job management	CORE · CA	0	191
+jobber careers	14.10	3	2026-08-10..2026-09-06	Jobber alternative	COMPETITOR · CA	0	129
+FAILED
+
+Google refused this change (400 RESOURCE_NOT_FOUND): Resource was not found · mutate_operations[0].shared_criterion_operation.create.shared_set · request jFPdimSECNSI2ARjGs-xug
+
+// FUNNEL BY KEYWORD
+KEYWORD	CLICKS	TRIALS	ACTIVATED	PAID	SPEND	PER TRIAL	PER PAYING
+
+
+jobber alternative
+
+COMPETITOR · CA · Jobber alternative
+
+	66	1	1	1	$340.20	$340.20	$340.20
+
+
+crew scheduling app
+
+CORE · CA · Crew scheduling
+
+	70	1	—	—	$231.80	$231.80	—
+
+
+job management app
+
+CORE · CA · Job management
+
+	72	3	1	—	$220.40	$73.47	—
+
+
+job management software for trades
+
+CORE · CA · Job management
+
+	38	—	—	—	$152.10	—	—
+
+
+work order app
+
+CORE · CA · Job management
+
+	36	—	—	—	$150.30	—	—
+
+
+opsapp
+
+BRAND · CA · Brand
+
+	60	2	1	—	$51.40	$25.70	—
+// TESTS
+1
+Job management
+RUNNING
+
+day 12 of 14 · p 0.048
+
+CONTROL
+
+Job management for trades
+
+2.66% CTR · 1,015 impr. · 27 clicks · 2 trials
+
+CHALLENGER
+
+Job management for crews
+
+4.28% CTR · 957 impr. · 41 clicks · 0 trials
+
+LATEST INTELLIGENCE BRIEFING
+GENERATE BRIEFING NOW
+
+No briefings yet. Generate your first one to get started.
+
+7D
+30D
+90D
+12M
+ALL
+REFRESH
+
+TOTAL SPEND
+
+$1,594
+
+[last 30 days]
+
+COST PER SIGNUP
+
+—
+
+[no signups this range]
+
+COST PER INSTALL
+
+—
+
+[no installs this range]
+
+AVG CTR
+
+3.5%
+
+[503 clicks]
+
+CAMPAIGN PERFORMANCE
+CAMPAIGN	STATUS	IMPR.	CLICKS	CTR	COST
+↓
+	CONV.	CPA
+CORE · CA	ENABLED	10,404	301	2.9%	$1,047.07	3.0	$349.02
+COMPETITOR · CA	ENABLED	3,188	98	3.1%	$466.48	0.0	$0.00
+BRAND · CA	ENABLED	937	98	10.5%	$80.54	2.0	$40.27
+OPS Join_Ops Page US	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS Quiz NA	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS Index Page	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS Quiz UK	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS Join_Ops Page Aus	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS Quiz Aus	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+Performance Max- Join Ops USA/UK	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS Join_Ops Page UK	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+Performance Max- Join Ops CA	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+Performance Max- Join Ops CA (Competitor SIgnal)	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS Join_Ops Page CA	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+Performance Max- Join Ops CA #2	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS SEARCH CAMPAIGN CANADA	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS SEARCH CAMPAIGN UK	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS APP LAUNCH	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS iOS APP PROMOTION 2025	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+OPS APP - Hire OPS - Performance Max - Primary	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+HIRE OPS - WEB	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+Black Friday Home PAge	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+iOS APP 2026	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+TRY OPS 2026	PAUSED	0	0	0.0%	$0.00	0.0	$0.00
+KEYWORD PERFORMANCE
+KEYWORD	MATCH	IMPR.	CLICKS	COST
+↓
+	CONV.	QS
+electrical contractor software	[BROAD]	0	0	$0.00	0.0	—
+job management software	[BROAD]	0	0	$0.00	0.0	—
+job tracking software	[BROAD]	0	0	$0.00	0.0	—
+field service management software	[BROAD]	0	0	$0.00	0.0	—
+painting contractor software	[BROAD]	0	0	$0.00	0.0	—
+crew scheduling software	[BROAD]	0	0	$0.00	0.0	—
+crew management software	[BROAD]	0	0	$0.00	0.0	—
+job dispatch software	[BROAD]	0	0	$0.00	0.0	—
+work order app	[BROAD]	0	0	$0.00	0.0	—
+field service management app	[BROAD]	0	0	$0.00	0.0	—
+field reporting app	[BROAD]	0	0	$0.00	0.0	—
+best job management software	[BROAD]	0	0	$0.00	0.0	—
+construction scheduling software	[BROAD]	0	0	$0.00	0.0	—
+contractor scheduling software	[BROAD]	0	0	$0.00	0.0	—
+mobile timesheet app	[BROAD]	0	0	$0.00	0.0	—
+best software for contractors	[BROAD]	0	0	$0.00	0.0	—
+mobile job management	[BROAD]	0	0	$0.00	0.0	—
+field crew tracking	[BROAD]	0	0	$0.00	0.0	—
+small business job management	[BROAD]	0	0	$0.00	0.0	—
+construction job management	[BROAD]	0	0	$0.00	0.0	—
+insulation contractor software	[BROAD]	0	0	$0.00	0.0	—
+jobber alternative	[BROAD]	0	0	$0.00	0.0	—
+job site management tools	[BROAD]	0	0	$0.00	0.0	—
+trade business software	[BROAD]	0	0	$0.00	0.0	—
+field worker management	[BROAD]	0	0	$0.00	0.0	—
+contractor billing app	[BROAD]	0	0	$0.00	0.0	—
+field staff scheduling	[BROAD]	0	0	$0.00	0.0	—
+plumbing job management	[BROAD]	0	0	$0.00	0.0	—
+job assignment app	[BROAD]	0	0	$0.00	0.0	—
+how to track job progress	[BROAD]	0	0	$0.00	0.0	—
+mobile job assignments	[BROAD]	0	0	$0.00	0.0	—
+field expense tracking	[BROAD]	0	0	$0.00	0.0	—
+roofing job management	[BROAD]	0	0	$0.00	0.0	—
+electrician job management	[BROAD]	0	0	$0.00	0.0	—
+construction crew tracking	[BROAD]	0	0	$0.00	0.0	—
+contractor job tracking	[BROAD]	0	0	$0.00	0.0	—
+FieldEdge alternative	[BROAD]	0	0	$0.00	0.0	—
+Housecall Pro alternative	[BROAD]	0	0	$0.00	0.0	—
+Jobber alternative	[BROAD]	0	0	$0.00	0.0	—
+ServiceTitan alternative	[BROAD]	0	0	$0.00	0.0	—
+carpenter job management	[BROAD]	0	0	$0.00	0.0	—
+concrete contractor app	[BROAD]	0	0	$0.00	0.0	—
+drywall contractor app	[BROAD]	0	0	$0.00	0.0	—
+general contractor job management	[BROAD]	0	0	$0.00	0.0	—
+glazier job management	[BROAD]	0	0	$0.00	0.0	—
+contractor job management	[BROAD]	0	0	$0.00	0.0	—
+job management for trades	[BROAD]	0	0	$0.00	0.0	—
+plumber job management	[BROAD]	0	0	$0.00	0.0	—
+field technician management	[BROAD]	0	0	$0.00	0.0	—
+job progress tracking	[BROAD]	0	0	$0.00	0.0	—
+SEARCH TERMS
+SEARCH TERM	CAMPAIGN	AD GROUP	IMPR.
+↓
+	CLICKS	COST	CONV.
+crew scheduling app	CORE · CA	Crew scheduling	1,678	58	$161.09	0.0
+job management app	CORE · CA	Job management	1,614	58	$171.16	3.0
+free job management app	CORE · CA	Job management	405	7	$24.50	0.0
+electrician near me	CORE · CA	Job management	301	6	$19.20	0.0
+job management jobs	CORE · CA	Job management	197	5	$22.00	0.0
+job management course	CORE · CA	Job management	168	3	$11.70	0.0
+jobber careers	COMPETITOR · CA	Jobber alternative	133	3	$14.10	0.0
+// CHANGE LEDGER
+
+Nothing applied yet.
+
+// ENGINE
+
+STATE
+
+CHECKED IN
+REHEARSAL
+
+LAST RUN
+
+Sep 08, 21:36 · hygiene, creative · done
+FILED create_rsa_challenger Crew scheduling adGroups/22
+
+NEXT RUN
+
+in 9h · Sep 09, 08:00
+
+LAST CHECK-IN
+
+1h ago
+
+GOOGLE
+
+reachable
+
+SNAPSHOT
+
+21h ago
+
+// MODES
+
+Negative keywords
+
+PROPOSE
+AUTO
+OFF
+
+Pause keyword
+
+PROPOSE
+AUTO
+OFF
+
+New keywords
+
+PROPOSE
+AUTO
+OFF
+
+Challenger ad
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+Promote challenger
+
+PROPOSE
+AUTO
+OFF
+
+Pause ad
+
+PROPOSE
+AUTO
+OFF
+
+Budget
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+CPC cap
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+Bidding
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+New ad group
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+Observation
+
+PROPOSE
+AUTO
+OFF
+
+// CAPS
+
+MONTHLY CAP
+DAILY CAP
+MAX CHANGE %
+COOLDOWN DAYS
+STRUCTURAL PER RUN
+TARGET COST PER TRIAL

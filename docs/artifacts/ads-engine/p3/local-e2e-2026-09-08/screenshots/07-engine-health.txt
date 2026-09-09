@@ -1,0 +1,109 @@
+// ENGINE
+
+STATE
+
+CHECKED IN
+REHEARSAL
+
+LAST RUN
+
+Sep 08, 21:36 · hygiene, creative · done
+FILED create_rsa_challenger Crew scheduling adGroups/22
+
+NEXT RUN
+
+in 9h · Sep 09, 08:00
+
+LAST CHECK-IN
+
+56m ago
+
+GOOGLE
+
+reachable
+
+SNAPSHOT
+
+21h ago
+
+// MODES
+
+Negative keywords
+
+PROPOSE
+AUTO
+OFF
+
+Pause keyword
+
+PROPOSE
+AUTO
+OFF
+
+New keywords
+
+PROPOSE
+AUTO
+OFF
+
+Challenger ad
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+Promote challenger
+
+PROPOSE
+AUTO
+OFF
+
+Pause ad
+
+PROPOSE
+AUTO
+OFF
+
+Budget
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+CPC cap
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+Bidding
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+New ad group
+
+[stays with you in this version]
+
+PROPOSE
+OFF
+
+Observation
+
+PROPOSE
+AUTO
+OFF
+
+// CAPS
+
+MONTHLY CAP
+DAILY CAP
+MAX CHANGE %
+COOLDOWN DAYS
+STRUCTURAL PER RUN
+TARGET COST PER TRIAL

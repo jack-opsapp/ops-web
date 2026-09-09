@@ -1,0 +1,49 @@
+{
+  "ad_group": "customers/4454506598/adGroups/31",
+  "hypothesis": "Control leads with the switch itself. This one leads with the proof of why a switch sticks: the crew opens it, there is nothing to learn, and the price is said out loud instead of quoted after a demo.",
+  "headlines": [
+    {
+      "text": "Tired of Jobber?",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Your crew opens it and goes",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Nobody used the old one"
+    },
+    {
+      "text": "No training required"
+    },
+    {
+      "text": "Free, then $90 a month"
+    },
+    {
+      "text": "No credit card to start"
+    },
+    {
+      "text": "Built by trades, for trades"
+    },
+    {
+      "text": "Works offline on site"
+    },
+    {
+      "text": "Crews of one to ten"
+    }
+  ],
+  "descriptions": [
+    {
+      "text": "Crews quit software they cannot use. OPS opens to today's jobs. No manual."
+    },
+    {
+      "text": "It works offline. A dead signal in a basement does not stop the job."
+    },
+    {
+      "text": "Nothing held back on the cheap tier. $90 a month, $140 when the crew grows."
+    }
+  ],
+  "path1": "jobber",
+  "path2": "compare",
+  "final_url": "https://try.opsapp.co/compare/jobber"
+}

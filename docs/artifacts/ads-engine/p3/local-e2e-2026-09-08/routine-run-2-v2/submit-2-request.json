@@ -1,0 +1,117 @@
+{
+  "claim_token": "9ee86b88-4cc6-47b5-901a-6501996eb617",
+  "proposals": [
+    {
+      "index": 1,
+      "kind": "create_rsa_challenger",
+      "rationale": "Quotes & invoices is the only ad group in the account that has never produced a trial: 62 clicks, $211.12, nothing. Its control is the weakest ad we run, AVERAGE strength and the lowest click-through of the six at 2.7%, and it is 39 days old. It leads with the workflow, quote it and invoice it. Somebody typing 'quote and invoice app' is comparing prices, so this one leads with price and says the whole ladder out loud: free to start, no credit card, then $90 a month, and $140 when the crew grows. Every tier has every feature, so there is nothing to hide behind a demo. If price is what stops them, we lose the click cheaply. If it is what sells them, we stop paying for browsers.",
+      "evidence": [
+        {
+          "source": "duty_notes.creative",
+          "ad_group": "Quotes & invoices",
+          "note": "challenger due, control 39 days old"
+        },
+        {
+          "source": "metrics28d.adGroups",
+          "ad_group": "Quotes & invoices",
+          "clicks": 62,
+          "impressions": 2273,
+          "spend": 211.12,
+          "conversions": 0
+        },
+        {
+          "source": "metrics28d.ads",
+          "ad_id": "205",
+          "role": "control",
+          "ctr": 0.027277,
+          "spend": 211.12,
+          "conversions": 0,
+          "ad_strength": "AVERAGE",
+          "first_seen": "2026-08-01"
+        },
+        {
+          "source": "metrics28d.keywords",
+          "keyword": "invoicing app for trades",
+          "clicks": 28,
+          "spend": 139.67,
+          "conversions": 0,
+          "quality_score": 6
+        },
+        {
+          "source": "metrics28d.keywords",
+          "keyword": "quote and invoice app",
+          "clicks": 28,
+          "spend": 71.45,
+          "conversions": 0,
+          "quality_score": 7
+        },
+        {
+          "source": "funnel.by_keyword",
+          "ad_group": "Quotes & invoices",
+          "trials": 0,
+          "note": "neither keyword appears in the funnel; zero trials in the window"
+        },
+        {
+          "source": "metrics28d.assets",
+          "ad_id": "201",
+          "asset": "Every feature, every tier",
+          "performance_label": "LOW"
+        },
+        {
+          "source": "editor",
+          "rounds": 2,
+          "verdict": "approved"
+        }
+      ],
+      "payload": {
+        "ad_group": "customers/4454506598/adGroups/23",
+        "hypothesis": "Control leads with the workflow, quote it and invoice it. This one leads with price: free to start, then $90 a month, every feature on every tier and the next rung named out loud.",
+        "headlines": [
+          {
+            "text": "Free, then $90 a month",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Quotes and invoices for crews",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "$140 when the crew grows"
+          },
+          {
+            "text": "No credit card to start"
+          },
+          {
+            "text": "Send the quote from the truck"
+          },
+          {
+            "text": "Invoice before you leave site"
+          },
+          {
+            "text": "No training required"
+          },
+          {
+            "text": "Built by trades, for trades"
+          },
+          {
+            "text": "Works offline"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Free to start, no credit card. Every feature, every tier, from the first quote."
+          },
+          {
+            "text": "Quote on site, invoice from the truck. Paperwork done before you drive off."
+          },
+          {
+            "text": "$140 when the crew grows past starter. No feature held back to sell you up."
+          }
+        ],
+        "path1": "quotes",
+        "path2": "pricing",
+        "final_url": "https://try.opsapp.co/quotes-invoices"
+      }
+    }
+  ]
+}
