@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-09",
+  "authority": "Jackson approved application/database release and a temporary MAVERICK-only trial. Every production business save still requires his exact approval in OPS.",
+  "application_tests": { "passed": 639, "files": 21, "exit_code": 0 },
+  "sql_trial": { "authorization_oauth_approval_replay_assertions": 30, "current_authority_expiry_rls_assertions": 10, "exit_code": 0, "database": "catalog_p17_trial_20260909d" },
+  "real_local_postgrest": { "version": "16.2", "pool_size": 2, "timeout_http_status": 503, "timeout_code": "PGRST001", "elapsed_ms": 2783, "rollback_independently_verified": true, "same_key_retry_saved_once": true, "immutable_receipt_readback_verified": true },
+  "production_preflight": { "postgres_version": "170006", "maverick_families": 35, "maverick_variants": 67, "maverick_products": 20, "catalog_migration_applied": false, "catalog_trial_binding_table_present": false },
+  "limits": ["Local PostgREST proof is not production pool or native-host authoring acceptance.", "No production catalog or inventory save was performed.", "Application deployment and migration execution are not yet recorded in this checkpoint."],
+  "public_contract": "V14 exposure / V9 consent unchanged; only exact subject-bound V19 clients can select the six-tool catalog trial.",
+  "cost": "No new paid service or API was enabled. Uses existing OPS deployment and database infrastructure."
+}

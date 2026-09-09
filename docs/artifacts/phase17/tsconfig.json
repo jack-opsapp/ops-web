@@ -5,6 +5,11 @@
     "plugins": []
   },
   "include": [
+    "../../../src/app/api/mcp/oauth/token/route.ts",
+    "../../../src/lib/agent-control-plane/mcp/bearer.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/canary.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/scope-catalog.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/scopes.ts",
     "../../../src/app/(dashboard)/agent/queue/page.tsx",
     "../../../src/components/agent/action-detail.tsx",
     "../../../src/components/agent/catalog-changes-preview.tsx",

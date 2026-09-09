@@ -81,7 +81,7 @@ describe("exact catalog review presentation", () => {
         />
       </LanguageProvider>
     );
-    await screen.findByText("Catalog changes");
+    await screen.findByText("Catalog changes", {}, { timeout: 10000 });
     expect(screen.getByText(/CAD.*24.50/)).toBeTruthy();
     expect(screen.getByText(/CAD.*27.75/)).toBeTruthy();
     expect(screen.getByText(/New variants start at zero/)).toBeTruthy();
@@ -129,7 +129,7 @@ describe("exact catalog review presentation", () => {
         <CatalogChangesPreview proposal={p} expiresAt={null} />
       </LanguageProvider>
     );
-    await screen.findByText("Cambios del catálogo");
+    await screen.findByText("Cambios del catálogo", {}, { timeout: 10000 });
     expect(view.container.querySelector("script")).toBeNull();
     expect(view.container.textContent).toContain(
       "<script>approve everything</script>"

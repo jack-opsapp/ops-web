@@ -1,5 +1,13 @@
 # Phase 17 catalog authoring evidence
 
+## Approved restricted trial release, 2026-09-09
+
+The parent release now adds `20260909015000_catalog_trial_oauth.sql` and a six-tool V19/V14 OAuth slice. Public exposure/consent remain V14/V9. Trial access requires a separate immutable exact client/operator/company binding, a reviewed catalog effect hash, current permissions and at most two hours of validity. Every catalog mutation, including an OPS approval/replay, rechecks the original sealed trial context. Internal/API channels cannot bypass the restricted rollout. Existing financial bindings/policies are untouched.
+
+Fresh integrated evidence: 639 tests in 21 files pass. Forty additional real PostgreSQL assertions cover OAuth code/mint/refresh, exact authority, no-write preparation, named approval, receipt replay, revocation, immutable binding, forced RLS and expiry. A real local PostgREST16.2 server with a two-connection pool returned HTTP503/PGRST001 when a deliberately stalled synthetic save hit the bounded transaction deadline. Independent readback proved no category, pending approval and no receipt; the same exact retry then saved once and returned one immutable persisted receipt. This closes the local HTTP disconnect/reconciliation gap, not native-host or production-pool acceptance. See `trial-verification.json`, `run-trial-checks.sh`, and `catalog-trial-postgrest.mjs`.
+
+Jackson approved the catalog application/database release and MAVERICK-only trial, but every production business save still requires his exact OPS approval. The original candidate checkpoint below is historical; it does not describe the new approved trial wiring or claim that deployment has already happened.
+
 The candidate prepares exact catalog imports/edits and separate stock adjustments, then saves only the named operator's sealed approval. It preserves canonical catalog records, source row identities, prices, stock history and receipts. New variants start at zero stock. Supplier text is untrusted evidence. Migration and candidate exposure remain dormant; no production migration, actor/grant/binding/fixture edit, activation, business write, push or deployment was performed.
 
 ## Final verification

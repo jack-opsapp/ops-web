@@ -16,6 +16,8 @@ import {
 } from "../../services/catalog-authoring/__tests__/fixtures";
 import {
   MCP_EXPOSURE_V19,
+  MCP_CATALOG_TRIAL_EXPOSURE,
+  resolveActiveMcpExposure,
   resolveMcpExposure,
 } from "../../registry/mcp-exposure-catalog";
 import type { ScheduleChangeRpcClient } from "../../services/schedule-change/schedule-change-repository";
@@ -94,11 +96,16 @@ async function fixture() {
     },
   };
 }
-describe("dormant catalog MCP protocol", () => {
-  it("cannot be selected through the production server", async () => {
+describe("catalog MCP candidate and restricted trial protocol", () => {
+  it("selects only the restricted trial, never the full candidate or public activation", async () => {
     const f = await fixture();
-    expect(() => resolveMcpExposure(MCP_EXPOSURE_V19.revision)).toThrow();
-    expect(() => createOpsMcpServer(f.input)).toThrow();
+    expect(resolveMcpExposure(MCP_EXPOSURE_V19.revision)).toBe(
+      MCP_CATALOG_TRIAL_EXPOSURE
+    );
+    expect(() => createOpsMcpServer(f.input)).not.toThrow();
+    expect(resolveActiveMcpExposure().toolIds).not.toContain(
+      "prepare_catalog_changes"
+    );
   });
   it("lists inspect and prepare tools but never commit tools", async () => {
     const f = await fixture();

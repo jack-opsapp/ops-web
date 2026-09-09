@@ -21,6 +21,7 @@ import {
 import {
   MCP_EXPOSURE_CATALOG,
   MCP_FINANCIAL_TRIAL_EXPOSURE,
+  MCP_CATALOG_TRIAL_EXPOSURE,
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
@@ -350,6 +351,7 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_FINANCIAL_TRIAL_EXPOSURE
     );
     expect(Object.keys(MCP_EXPOSURE_CATALOG)).toEqual([
+      MCP_CATALOG_TRIAL_EXPOSURE.revision,
       MCP_FINANCIAL_TRIAL_EXPOSURE.revision,
       MCP_EXPOSURE_V1.revision,
       MCP_EXPOSURE_V2.revision,
