@@ -333,5 +333,3 @@ grant execute on function public.revoke_mcp_oauth_token_as_system(text) to servi
 revoke all on function public.rotate_mcp_oauth_refresh_token_as_system(text, uuid, text[], text, text, timestamp with time zone, timestamp with time zone) from public,anon,authenticated,service_role;
 grant execute on function public.rotate_mcp_oauth_refresh_token_as_system(text, uuid, text[], text, text, timestamp with time zone, timestamp with time zone) to service_role;
 revoke all on function public.rotate_mcp_oauth_refresh_token_without_v3_canary(text, uuid, text[], text, text, timestamp with time zone, timestamp with time zone) from public,anon,authenticated,service_role;
-
-

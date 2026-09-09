@@ -1,7 +1,7 @@
+"use client";
+
 import { CatalogChangesPreview } from "./catalog-changes-preview";
 import { CatalogPreviewSchema } from "@/lib/agent-control-plane/contracts/catalog-authoring";
-("use client");
-
 import { FinancialDocumentPreview } from "./financial-document-preview";
 import { FinancialDocumentPreviewSchema } from "@/lib/agent-control-plane/contracts/financial-document";
 import { ScheduleChangePreview } from "./schedule-change-preview";

@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 NODE=/Users/jacksonsweet/.nvm/versions/node/v22.22.3/bin/node
+$NODE --test tests/build/catalog-client-boundary.test.mjs > docs/artifacts/phase17/trial-build-boundaries.log 2>&1
 $NODE node_modules/vitest/vitest.mjs run \
   src/lib/agent-control-plane/contracts/__tests__/catalog-authoring.test.ts \
   src/lib/agent-control-plane/services/catalog-authoring/__tests__/catalog-domain.test.ts \
