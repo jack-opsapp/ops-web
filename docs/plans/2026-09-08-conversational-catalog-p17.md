@@ -53,3 +53,8 @@ Files: existing approval queue service and action-detail component, isolated cat
 - Independent review of authority, stale/identity locking, side effects and exact receipt; fix findings and repeat affected checks.
 - Update Bible chapters 03,04,07,09 with actual contract, unactivated state and exact migration/activation plan. Do not archive an unapplied migration as applied.
 - Commit code first, Bible second. Send parent exact commits, tests, shared-file list and release gates before integration. Do not mutate Phase16 policy/effect seal/grants/records.
+
+## Approved release verification findings (2026-09-09)
+
+- The production compiler rejected the review component's misplaced client directive. Restore the directive and add a real installed Next SWC boundary regression, because TypeScript/Vitest do not enforce that rule.
+- Actual signed-in MAVERICK review returned 404: Phase C gated the shared queue. Do not enable the company's automation flag. Add a service-only read hint derived from a currently consented exact catalog trial; allow only `/agent/queue` under that hint, retaining independent `agent.review` RBAC and every queue/save authorization. Test absent/revoked/wrong-subject/effect-stale consent, failed API reads, actor switches and adjacent automation routes. No visual redesign or new business authority.

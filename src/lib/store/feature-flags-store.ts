@@ -99,6 +99,12 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>()((set, get) => ({
   },
 
   isRouteUnlocked: (pathname: string): boolean => {
+    // A real current catalog trial may reach this one shared review screen
+    // without enrolling the company into Phase C automation. Never use the
+    // unknown-slug default here. RBAC and server queue/save gates still apply.
+    if (pathname === "/agent/queue" && get().flags.get("mcp_catalog_review")?.enabled === true) {
+      return true;
+    }
     for (const [slug, flag] of get().flags.entries()) {
       for (const route of flag.routes) {
         if (pathname === route || pathname.startsWith(route + "/")) {

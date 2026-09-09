@@ -5,6 +5,8 @@
     "plugins": []
   },
   "include": [
+    "../../../src/app/api/feature-flags/route.ts",
+    "../../../src/lib/store/feature-flags-store.ts",
     "../../../src/app/api/mcp/oauth/token/route.ts",
     "../../../src/lib/agent-control-plane/mcp/bearer.ts",
     "../../../src/lib/agent-control-plane/mcp/oauth/canary.ts",
