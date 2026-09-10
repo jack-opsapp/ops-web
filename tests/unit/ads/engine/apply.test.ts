@@ -213,7 +213,7 @@ describe("planOperations", () => {
     expect(budget.before).toEqual({ dailyBudget: 32 });
     expect(budget.after).toEqual({ dailyBudget: 36 });
     expect(planOperations(proposal({ kind: "adjust_cpc_cap", payload: { campaign: R.core, campaignId: "11", campaignName: "CORE · CA", currentCpcCap: 8, new_cpc_cap: 9, reason: "x" } }), snapshot(), labels, CUSTOMER, NOW).operations).toEqual([
-      { campaignOperation: { update: { resourceName: R.core, maximizeClicks: { cpcBidCeilingMicros: "9000000" } }, updateMask: "maximizeClicks.cpcBidCeilingMicros" } },
+      { campaignOperation: { update: { resourceName: R.core, targetSpend: { cpcBidCeilingMicros: "9000000" } }, updateMask: "target_spend.cpc_bid_ceiling_micros" } },
     ]);
     expect(planOperations(proposal({ kind: "set_bidding_strategy", payload: { campaign: R.core, campaignId: "11", campaignName: "CORE · CA", currentStrategy: "MAXIMIZE_CLICKS", strategy: "MAXIMIZE_CONVERSIONS", target_cpa: null, cpcCeiling: 8 } }), snapshot(), labels, CUSTOMER, NOW).operations).toEqual([
       { campaignOperation: { update: { resourceName: R.core, maximizeConversions: {} }, updateMask: "maximizeConversions" } },

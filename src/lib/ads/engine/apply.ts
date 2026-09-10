@@ -335,7 +335,7 @@ export function planOperations(
       operations.push({ campaignBudgetOperation: { update: { resourceName: str(p.budgetResourceName), amountMicros: micros(Number(p.new_daily_amount)) }, updateMask: "amountMicros" } });
       return { ...empty, before: { dailyBudget: Number(p.currentDailyAmount) }, after: { dailyBudget: Number(p.new_daily_amount) }, campaignId: str(p.campaignId) || null };
     case "adjust_cpc_cap":
-      operations.push({ campaignOperation: { update: { resourceName: str(p.campaign), maximizeClicks: { cpcBidCeilingMicros: micros(Number(p.new_cpc_cap)) } }, updateMask: "maximizeClicks.cpcBidCeilingMicros" } });
+      operations.push({ campaignOperation: { update: { resourceName: str(p.campaign), targetSpend: { cpcBidCeilingMicros: micros(Number(p.new_cpc_cap)) } }, updateMask: "target_spend.cpc_bid_ceiling_micros" } });
       return { ...empty, before: { cpcCeiling: Number(p.currentCpcCap) }, after: { cpcCeiling: Number(p.new_cpc_cap) }, campaignId: str(p.campaignId) || null };
     case "set_bidding_strategy": {
       const strategy = str(p.strategy);
@@ -344,7 +344,7 @@ export function planOperations(
       else if (strategy === "MAXIMIZE_CONVERSIONS")
         operations.push({ campaignOperation: { update: { resourceName: str(p.campaign), maximizeConversions: {} }, updateMask: "maximizeConversions" } });
       else
-        operations.push({ campaignOperation: { update: { resourceName: str(p.campaign), maximizeClicks: p.cpcCeiling != null ? { cpcBidCeilingMicros: micros(Number(p.cpcCeiling)) } : {} }, updateMask: "maximizeClicks" } });
+        operations.push({ campaignOperation: { update: { resourceName: str(p.campaign), targetSpend: p.cpcCeiling != null ? { cpcBidCeilingMicros: micros(Number(p.cpcCeiling)) } : {} }, updateMask: "target_spend" } });
       return { ...empty, before: { strategy: str(p.currentStrategy) }, after: { strategy, targetCpa: p.target_cpa ?? null }, campaignId: str(p.campaignId) || null };
     }
     case "add_ad_group": {

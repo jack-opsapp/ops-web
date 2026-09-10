@@ -25,6 +25,25 @@ function rows(): EntityRow[] {
 }
 
 describe("mapEntitySnapshot", () => {
+  it("reads the Maximize Clicks bid ceiling off target_spend, as Google sends it", () => {
+    const live = rows().map((row) =>
+      row.resource_name.endsWith("/campaigns/11")
+        ? {
+            ...row,
+            payload: {
+              ...(row.payload as Record<string, unknown>),
+              biddingStrategyType: "TARGET_SPEND",
+              maximizeClicks: undefined,
+              targetSpend: { cpcBidCeilingMicros: "9000000" },
+            },
+          }
+        : row
+    );
+    const campaign = mapEntitySnapshot(live).campaigns.find((c) => c.id === "11")!;
+    expect(campaign.biddingStrategy).toBe("MAXIMIZE_CLICKS");
+    expect(campaign.cpcCeiling).toBe(9);
+  });
+
   it("normalises campaigns with their budget, bidding and kind", () => {
     const snapshot = mapEntitySnapshot(rows());
     expect(snapshot.snapshotAt).toBe("2026-10-20T08:10:00.000Z");
@@ -45,7 +64,9 @@ describe("mapEntitySnapshot", () => {
       kind: "legacy",
       labels: ["legacy"],
       dailyBudget: null,
-      biddingStrategy: "OTHER",
+      // Google names Maximize Clicks TARGET_SPEND. Reading that as OTHER is
+      // how a capped campaign looked uncapped to the engine's guardrails.
+      biddingStrategy: "MAXIMIZE_CLICKS",
     });
   });
 

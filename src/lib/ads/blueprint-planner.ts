@@ -308,6 +308,12 @@ export function planBlueprint(
                 positiveGeoTargetType: campaign.geo.positiveGeoTargetType,
                 negativeGeoTargetType: "PRESENCE",
               },
+              // A required self-declaration on every v25 campaign create
+              // (campaign.proto:955). OPS sells job management to trades
+              // crews; none of it is political advertising, in the EU or
+              // anywhere else. Google rejects the whole create without it.
+              containsEuPoliticalAdvertising:
+                "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
               ...biddingFields(campaign),
             },
           },
