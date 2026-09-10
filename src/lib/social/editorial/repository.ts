@@ -1,5 +1,6 @@
 import "server-only";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { isJournalHeroUrl } from "../../journal/editorial/hero-url";
 import type { EditorialKind, EditorialSource } from "./policy";
 import type {
   EditorialAssignmentRecord,
@@ -36,9 +37,13 @@ function source(row: Record<string, unknown>): EditorialSource {
     slug: String(row.slug),
     published_at: String(row.published_at),
     is_live: row.is_live === true,
+    // An OPS-rendered journal plate is typography, not a photograph: the
+    // carousel cover would stack its own headline on top of it, so the
+    // article is adapted as if it had no image.
     thumbnail_url:
       typeof row.thumbnail_url === "string" &&
-      row.thumbnail_url.startsWith("https://")
+      row.thumbnail_url.startsWith("https://") &&
+      !isJournalHeroUrl(row.thumbnail_url)
         ? row.thumbnail_url
         : null,
     text: String(row.content)
