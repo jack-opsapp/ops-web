@@ -1,0 +1,3998 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~10081890",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "electrical contractor software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~10081890"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "59420000",
+   "impressions": "252"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~10513850",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job management software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~10513850"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "19430000",
+   "impressions": "39"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~19381551",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job tracking software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~19381551"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "124031830",
+   "impressions": "583"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~21674801",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "field service management software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~21674801"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~94926711",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "painting contractor software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~94926711"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "38700000",
+   "impressions": "104"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~313807718",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "crew scheduling software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~313807718"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~33309876951",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "work order app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~33309876951"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~37052052219",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "field service management app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~37052052219"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "1620000",
+   "impressions": "119"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~297797632981",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "construction scheduling software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~297797632981"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "8"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~298742636070",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "best software for contractors"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~298742636070"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~329086533265",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "construction job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~329086533265"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~342329429970",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "trade business software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~342329429970"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "77"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~344407772101",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "contractor billing app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~344407772101"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "20"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~364061668068",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "field staff scheduling"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~364061668068"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~597101200023",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "construction crew tracking"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~597101200023"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "6"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~736642988392",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "Jobber alternative"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~736642988392"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~790808594116",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "contractor job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~790808594116"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "28980000",
+   "impressions": "16"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~865972036282",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job management for trades"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~865972036282"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~956181928473",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job status tracking"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~956181928473"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "36660000",
+   "impressions": "112"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~964240465915",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "subcontractor management tool"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~964240465915"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~1639183628638",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "blue collar team management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~1639183628638"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~2383104749889",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "mobile job management app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~2383104749889"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "12"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~2411579554685",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "handyman job scheduling"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~2411579554685"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/172617484690~2411579554765",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "mobile clock in out app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/172617484690~2411579554765"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "10"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~10022030",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "asset management software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~10022030"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "167"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~10235670",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job costing software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~10235670"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "72"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~21993121",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "service call management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~21993121"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "21811317",
+   "impressions": "153"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~27734770",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small moving company"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~27734770"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "21"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~92369799",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "water softener installation"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~92369799"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~99610325",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "parts inventory management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~99610325"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "1520000",
+   "impressions": "111"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~138811418",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "quality control service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~138811418"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~181442324",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "online booking service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~181442324"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "129"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~375381203",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "emergency appliance repair"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~375381203"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "51"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~377810160",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "gps tracking service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~377810160"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "610000",
+   "impressions": "322"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~552314779",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "emergency garage door service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~552314779"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "7470000",
+   "impressions": "460"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~608667856",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "same day appliance repair"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~608667856"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "55"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~830640024",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "PHRASE",
+    "text": "water softener installation"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~830640024"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "16"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1313998645",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "inspection management software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1313998645"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1446321274",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "retaining wall installation"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1446321274"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "16",
+   "conversions": 0,
+   "costMicros": "38740000",
+   "impressions": "583"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1793468610",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "same day cleaning service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1793468610"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "19"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~4395178471",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "glass shower door installation"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~4395178471"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "85",
+   "conversions": 3,
+   "costMicros": "296448921",
+   "impressions": "806"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~25667620528",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "electronic signature app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~25667620528"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~77754988876",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "cleaning business scheduling app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~77754988876"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "11",
+   "conversions": 3,
+   "costMicros": "108996316",
+   "impressions": "1277"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~295021504942",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "service business crm"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~295021504942"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~295238954142",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "compliance management service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~295238954142"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "133"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~295876123582",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "technician scheduling software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~295876123582"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "500000",
+   "impressions": "496"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~296201883320",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "route optimization software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~296201883320"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "costMicros": "239250000",
+   "impressions": "565"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~296843337046",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "mobile service business software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~296843337046"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "99"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297081391600",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "commercial cleaning software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297081391600"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "1060000",
+   "impressions": "809"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297139966523",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "fleet management service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297139966523"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "67"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297244326923",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "quote generation software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297244326923"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "1660000",
+   "impressions": "188"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297400155308",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small lawn care business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297400155308"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "6"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297467157101",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small welding shop"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297467157101"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "costMicros": "28760000",
+   "impressions": "1110"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297506890949",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "service contractor software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297506890949"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "11",
+   "conversions": 0,
+   "costMicros": "41143322",
+   "impressions": "529"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297670759428",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small cleaning business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297670759428"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297873983488",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "contract management service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297873983488"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "9050000",
+   "impressions": "412"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~297950461104",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "unified communication service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~297950461104"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "360000",
+   "impressions": "86"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~298110260305",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small appliance repair shop"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~298110260305"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~301214608450",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "calendar sync service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~301214608450"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "5570000",
+   "impressions": "232"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~301411770209",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "service business management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~301411770209"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~301935947641",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "commercial roofing software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~301935947641"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "19"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~303620950549",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "technician management software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~303620950549"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~304182039735",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "service reminder software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~304182039735"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "6"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~306260768860",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "net promoter score service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~306260768860"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "29"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~306531802296",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small handyman business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~306531802296"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "24",
+   "conversions": 0,
+   "costMicros": "53277802",
+   "impressions": "1566"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~308042786853",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "same day handyman service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~308042786853"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "44"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~320929673470",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "lead management service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~320929673470"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "55"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~325439189964",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "PHRASE",
+    "text": "glass shower door installation"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~325439189964"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "138"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~329661887964",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "work order management app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~329661887964"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "18"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~332634880212",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "subcontractor coordination"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~332634880212"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~351747631159",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "residential hvac software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~351747631159"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~355493954847",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small plumbing company"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~355493954847"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~362103184079",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "commercial painting software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~362103184079"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~367934817725",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "commercial janitorial software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~367934817725"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~372096652440",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "handyman work order app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~372096652440"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~381656151326",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "commercial electrical software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~381656151326"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~382957281340",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "same day electrical service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~382957281340"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "110380000",
+   "impressions": "100"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~383917071515",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "handyman scheduling software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~383917071515"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "9"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~404003199009",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "paperwork automation"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~404003199009"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "3"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~413417730237",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "PHRASE",
+    "text": "landscape maintenance management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~413417730237"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~429125665645",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "commercial hvac software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~429125665645"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "6970000",
+   "impressions": "292"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~465165584782",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "construction work app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~465165584782"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "10160776",
+   "impressions": "163"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~491942416065",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small tree service company"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~491942416065"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~520972415417",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "storage building installation"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~520972415417"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "148"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~582045728280",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "employee scheduling service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~582045728280"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~697139871732",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "family owned tree service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~697139871732"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~816017155635",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "mobile service technician app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~816017155635"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~824665026423",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "commercial plumbing software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~824665026423"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "2350000",
+   "impressions": "36"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~826918449034",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "customer notification app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~826918449034"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "5130000",
+   "impressions": "31"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~831540483743",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small security company"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~831540483743"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~868323426370",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "PHRASE",
+    "text": "garage door maintenance app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~868323426370"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~894251012296",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "subscription service management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~894251012296"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~972107733057",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "same day locksmith service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~972107733057"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1011015042912",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "independent snow removal"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1011015042912"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1049696344049",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "simple hvac software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1049696344049"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "102"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1072800372460",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "client appointment booking"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1072800372460"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "1260000",
+   "impressions": "36"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1211955454295",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small junk removal business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1211955454295"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1620215390554",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "simple plumbing software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1620215390554"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1645648901669",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "thumbtack integration"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1645648901669"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~1653894333341",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "digital forms service"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~1653894333341"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "50"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2187898377242",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small auto detailing business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2187898377242"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2429911263585",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job site photos app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2429911263585"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810403816",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "EXACT",
+    "text": "commercial snow removal software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810403816"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810408136",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "PHRASE",
+    "text": "handyman job tracking app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810408136"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810452296",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "website scheduling integration"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810452296"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "44"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810453216",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "chatbot service business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810453216"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "5"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810503656",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "time tracking service app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810503656"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "12"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810531016",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "simple electrical software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810531016"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810668016",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small garage door company"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810668016"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810668056",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small gutter cleaning business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810668056"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "10"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810668536",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small tinting business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810668536"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "6"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810668696",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small phone repair business"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810668696"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "5435503",
+   "impressions": "60"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810668736",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "small snow removal company"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810668736"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810672096",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "trades service software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810672096"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "6"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184254155901~2444810673056",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "local service business app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184254155901~2444810673056"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "9"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~10081890",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "electrical contractor software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~10081890"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "18410000",
+   "impressions": "59"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~19381551",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job tracking software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~19381551"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "14"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~21674801",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "field service management software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~21674801"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~1268881728",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "crew management software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~1268881728"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "9"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~1352748224",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job dispatch software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~1352748224"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "27"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~37052052219",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "field service management app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~37052052219"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~296272403660",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "field reporting app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~296272403660"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "22410000",
+   "impressions": "50"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~297797632981",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "construction scheduling software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~297797632981"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "24"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~298136199075",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "contractor scheduling software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~298136199075"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~298742636070",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "best software for contractors"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~298742636070"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "19690000",
+   "impressions": "27"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~300513966921",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "mobile job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~300513966921"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "1220000",
+   "impressions": "39"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~329086533265",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "construction job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~329086533265"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "20"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~342329429970",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "trade business software"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~342329429970"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "10"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~364061668068",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "field staff scheduling"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~364061668068"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~370333569482",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "plumbing job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~370333569482"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "29220000",
+   "impressions": "15"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~424307002939",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job assignment app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~424307002939"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~469865950798",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "roofing job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~469865950798"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "5"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~476093262649",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "electrician job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~476093262649"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~597101200023",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "construction crew tracking"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~597101200023"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "7"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~769322182939",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "carpenter job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~769322182939"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "13"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~790808594116",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "contractor job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~790808594116"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "9500000",
+   "impressions": "16"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~865972036282",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job management for trades"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~865972036282"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~893518314611",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job progress tracking"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~893518314611"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "10949824",
+   "impressions": "39"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~905126011127",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "simple job management"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~905126011127"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "8"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~956181928473",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job status tracking"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~956181928473"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "18"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~964240465915",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "subcontractor management tool"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~964240465915"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "22"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~1020085911837",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "simple job tracking"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~1020085911837"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~1413508930486",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "job scheduling app for contractors"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~1413508930486"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "11"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~1656718403213",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "ServiceM8 alternative"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~1656718403213"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~2383104749889",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "mobile job management app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~2383104749889"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "5"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~2400758079569",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "project tracking for contractors"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~2400758079569"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "5"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~2411579554685",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "handyman job scheduling"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~2411579554685"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupCriterion": {
+   "resourceName": "customers/4454506598/adGroupCriteria/184818794544~2411579554765",
+   "status": "ENABLED",
+   "keyword": {
+    "matchType": "BROAD",
+    "text": "mobile clock in out app"
+   }
+  },
+  "keywordView": {
+   "resourceName": "customers/4454506598/keywordViews/184818794544~2411579554765"
+  }
+ }
+]

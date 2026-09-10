@@ -31,8 +31,18 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/webhook-renewal", "4 6 * * *"],
   ["/api/cron/auto-send", "16-59/20 13-23,0-4 * * *"],
   ["/api/cron/email-send-reconciliation", "8-59/20 * * * *"],
-  ["/api/cron/ads-briefing", "34 12 * * 1"],
   ["/api/cron/ads-sync", "4 8 * * *"],
+  // The Google Ads engine worker: once a day after the 08:04 sync and one
+  // minute before the 15:00 UTC routine claims its brief. :59 at hour 14 is
+  // the only minute at that hour with no other lane, so this once-a-day cron
+  // never collides with an infrequent neighbour.
+  ["/api/cron/ads-engine", "59 14 * * *"],
+  // Hourly on purpose: conversion events must reach Google inside its
+  // click-through lookback windows, and the queue is tiny (a handful of
+  // companies a month). :41 shares the minute with unsnooze (business hours)
+  // and the spec_board_snapshot_refresh DB lane only — exactly at the
+  // three-lane budget; no once-a-day lane starts at :41.
+  ["/api/cron/ads-conversions", "41 * * * *"],
   ["/api/cron/app-store-sync", "4 9 * * *"],
   ["/api/cron/search-console-sync", "26 9 * * *"],
   ["/api/cron/ga4-acquisition-sync", "44 9 * * *"],

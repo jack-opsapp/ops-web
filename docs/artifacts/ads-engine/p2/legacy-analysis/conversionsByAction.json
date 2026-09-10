@@ -1,0 +1,268 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "conversions": 45,
+   "allConversions": 46
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "conversions": 4,
+   "allConversions": 4
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Quiz Signup v2"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "metrics": {
+   "conversions": 6,
+   "allConversions": 6
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Quiz Signup v2"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "conversions": 6,
+   "allConversions": 6
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Homepage Signup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "conversions": 1,
+   "allConversions": 1
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Quiz Signup v2"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271202912",
+   "name": "OPS Join_Ops Page Aus"
+  },
+  "metrics": {
+   "conversions": 1,
+   "allConversions": 1
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "conversions": 25,
+   "allConversions": 25
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "conversions": 1,
+   "allConversions": 1
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Quiz Signup v2"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "conversions": 34,
+   "allConversions": 34
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "conversions": 22,
+   "allConversions": 22
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "conversions": 21,
+   "allConversions": 21
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "conversions": 5,
+   "allConversions": 5
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Quiz Signup v2"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "name": "OPS Join_Ops Page CA"
+  },
+  "metrics": {
+   "conversions": 33,
+   "allConversions": 33
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "conversions": 15,
+   "allConversions": 15
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "conversions": 1,
+   "allConversions": 1
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Quiz Signup v2"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "conversions": 91,
+   "allConversions": 91
+  },
+  "segments": {
+   "conversionActionCategory": "DOWNLOAD",
+   "conversionActionName": "OPS APP First open"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "conversions": 7,
+   "allConversions": 7
+  },
+  "segments": {
+   "conversionActionCategory": "DOWNLOAD",
+   "conversionActionName": "OPS APP First open"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "conversions": 6,
+   "allConversions": 6
+  },
+  "segments": {
+   "conversionActionCategory": "SIGNUP",
+   "conversionActionName": "Join Ops SIgnup"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "conversions": 31,
+   "allConversions": 31
+  },
+  "segments": {
+   "conversionActionCategory": "DOWNLOAD",
+   "conversionActionName": "OPS APP First open"
+  }
+ }
+]

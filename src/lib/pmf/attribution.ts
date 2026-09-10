@@ -14,6 +14,9 @@ export interface AttributionInput {
   utm_medium?: string | null;
   utm_campaign?: string | null;
   gclid?: string | null;
+  /** Google click id variants issued when gclid is unavailable (iOS app-to-web / web-to-web). */
+  gbraid?: string | null;
+  wbraid?: string | null;
   fbclid?: string | null;
   landing_path?: string | null;
   referrer_domain?: string | null;
@@ -71,8 +74,8 @@ export function classifyAttribution(
   const referrerDomain = normalizeDomain(input);
   const externalReferrer = referrerDomain && !OPS_DOMAIN.test(referrerDomain);
 
-  if (input.gclid) {
-    return decision("google_ads", "verified_click_id", 1, "gclid_present");
+  if (input.gclid || input.gbraid || input.wbraid) {
+    return decision("google_ads", "verified_click_id", 1, "google_click_id_present");
   }
   if (input.fbclid) {
     return decision("meta_ads", "verified_click_id", 1, "fbclid_present");

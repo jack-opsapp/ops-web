@@ -56,6 +56,15 @@ describe("captureFirstTouchFromUrl", () => {
     expect(touch!.fbclid).toBe("IwAR1");
   });
 
+  it("extracts gbraid and wbraid as Google click ids", () => {
+    const touch = captureFirstTouchFromUrl(
+      "https://app.opsapp.co/register?gbraid=gb-1&wbraid=wb-1",
+      ""
+    );
+    expect(touch).toMatchObject({ gbraid: "gb-1", wbraid: "wb-1" });
+    expect(touch!.gclid).toBeUndefined();
+  });
+
   it("stores only an external referrer domain", () => {
     const touch = captureFirstTouchFromUrl(
       "https://app.opsapp.co/?utm_source=newsletter",
@@ -226,6 +235,36 @@ describe("writeCookieFirstTouch / readCookieFirstTouch", () => {
     const raw = document.cookie;
     expect(raw).toContain(COOKIE + "=");
     expect(readCookieFirstTouch()).toEqual(value);
+  });
+
+  it("keeps gbraid and wbraid right behind gclid when bounding an oversized payload", () => {
+    const oversized = touch({
+      utm_source: "s".repeat(256),
+      utm_medium: "m".repeat(256),
+      utm_campaign: "c".repeat(256),
+      utm_content: "x".repeat(256),
+      utm_term: "t".repeat(256),
+      referrer_domain: `${"r".repeat(240)}.example.com`,
+      gclid: "g".repeat(512),
+      gbraid: "b".repeat(512),
+      wbraid: "w".repeat(512),
+      fbclid: "f".repeat(512),
+    });
+    expect(encodeURIComponent(JSON.stringify(oversized)).length).toBeGreaterThan(
+      FIRST_TOUCH_MAX_ENCODED_BYTES
+    );
+    const encoded = encodeFirstTouchPayload(oversized);
+    expect(encoded.length).toBeLessThanOrEqual(FIRST_TOUCH_MAX_ENCODED_BYTES);
+    const parsed = parseFirstTouchValue(encoded)!;
+    expect(parsed.gclid).toBe("g".repeat(256));
+    expect(parsed.gbraid).toBe("b".repeat(256));
+    expect(parsed.wbraid).toBe("w".repeat(256));
+  });
+
+  it("reads gbraid and wbraid back from the server cookie header", () => {
+    const value = encodeFirstTouchPayload(touch({ gbraid: "gb-2", wbraid: "wb-2" }));
+    const parsed = readServerFirstTouch(`${COOKIE}=${value}`);
+    expect(parsed).toMatchObject({ gbraid: "gb-2", wbraid: "wb-2" });
   });
 
   it("bounds pathological campaign payloads below the cookie ceiling", () => {

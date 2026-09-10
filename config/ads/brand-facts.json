@@ -1,0 +1,64 @@
+{
+  "version": "2026-09-09-v2",
+  "numbers": [
+    { "token": "$90", "context": "Starter tier, per month, CAD" },
+    { "token": "$140", "context": "Team tier, per month, CAD" },
+    { "token": "$190", "context": "Business tier, per month, CAD" },
+    { "token": "90", "context": "Starter tier price without the sign" },
+    { "token": "140", "context": "Team tier price without the sign" },
+    { "token": "190", "context": "Business tier price without the sign" },
+    { "token": "1", "context": "Crews of one" },
+    { "token": "10", "context": "Crews of up to ten" },
+    { "token": "30", "context": "Thirty-day trial and lookback windows" }
+  ],
+  "phrases": [
+    "every feature, every tier",
+    "no credit card",
+    "free to start",
+    "built by trades, for trades",
+    "crews of one to ten",
+    "works offline"
+  ],
+  "competitors": {
+    "names": ["Jobber", "Housecall Pro", "ServiceTitan"],
+    "forms": ["{brand} alternative", "Switching from {brand}?", "Tired of {brand}?"]
+  },
+  "bannedWords": [
+    "leverage",
+    "synergy",
+    "paradigm",
+    "ecosystem",
+    "revolutionary",
+    "disruptive",
+    "cutting-edge",
+    "state-of-the-art",
+    "best-in-class",
+    "world-class",
+    "enterprise-grade",
+    "seamless",
+    "frictionless",
+    "holistic",
+    "empower",
+    "solution",
+    "platform",
+    "stakeholders",
+    "facilitate",
+    "optimize",
+    "maximize",
+    "robust"
+  ],
+  "audienceWords": {
+    "banned": ["contractor", "contractors"],
+    "approved": ["subtrades", "trades", "crews", "owner-operators", "business owners"]
+  },
+  "allowedFinalUrls": [
+    "https://try.opsapp.co/",
+    "https://try.opsapp.co/job-management",
+    "https://try.opsapp.co/compare/jobber",
+    "https://try.opsapp.co/compare/housecall-pro",
+    "https://try.opsapp.co/compare/servicetitan",
+    "https://try.opsapp.co/for/cleaning",
+    "https://try.opsapp.co/for/landscaping",
+    "https://try.opsapp.co/for/roofing"
+  ]
+}

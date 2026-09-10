@@ -1,0 +1,5 @@
+{
+  "approved": false,
+  "reason": "weak_copy",
+  "notes": "Both pinned HEADLINE_1 assets must work as the first line alone. \"Changes sync when you're back\" drops the word that carries it: \"back\" reads as back from a trip, and the mechanism is the phone finding signal, not the person returning. Use \"Changes sync when back online\" (29 chars). Everything else passes: limits, voice, supported facts, URL, spread."
+}

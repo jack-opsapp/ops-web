@@ -19,6 +19,8 @@ export async function recordTrialAttribution(
     utm_medium: touch.utm_medium,
     utm_campaign: touch.utm_campaign,
     gclid: touch.gclid,
+    gbraid: touch.gbraid,
+    wbraid: touch.wbraid,
     fbclid: touch.fbclid,
     landing_path: touch.landing_path,
     referrer_domain: touch.referrer_domain,

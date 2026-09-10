@@ -17,7 +17,12 @@ import {
 
 export type NotificationEventDispatchResult =
   | { ok: true; notified: number; pushed: number; emailed: 0 }
-  | { ok: false; status: 403 | 404 | 409 | 500; reason: string };
+  | {
+      ok: false;
+      status: 403 | 404 | 409 | 500;
+      reason: string;
+      code?: "push_no_subscribed_recipients";
+    };
 
 /**
  * Canonical server execution seam shared by the authenticated HTTP route and
@@ -105,10 +110,27 @@ export async function dispatchNotificationEvent(params: {
       ...(isDurablePushEvent ? { idempotencyKey: durablePushEventId } : {}),
     });
     if (isDurablePushEvent && !result.ok) {
+      const providerError = result.error as {
+        id?: unknown;
+        errors?: unknown;
+      } | null;
+      // Classify only the exact, successful-HTTP subscription rejection.
+      // Unknown replies, invalid aliases, auth errors, and transport failures
+      // retain retry semantics. Mention delivery keeps its existing contract.
+      const noSubscribedRecipients =
+        params.request.eventType === "project_status_change" &&
+        result.status === 200 &&
+        providerError?.id === "" &&
+        Array.isArray(providerError.errors) &&
+        providerError.errors.length === 1 &&
+        providerError.errors[0] === "All included players are not subscribed";
       return {
         ok: false,
         status: 500,
         reason: "Notification push failed",
+        ...(noSubscribedRecipients
+          ? { code: "push_no_subscribed_recipients" as const }
+          : {}),
       };
     }
     pushed = result.ok ? result.recipients : 0;

@@ -62,8 +62,23 @@ describe("recordTrialAttribution", () => {
       channel: "google_ads",
       basis: "verified_click_id",
       confidence: 1,
-      reason: "gclid_present",
+      reason: "google_click_id_present",
       landing_path: "/plans",
+    });
+  });
+
+  it("passes gbraid and wbraid through to the RPC and classifies them as Google", async () => {
+    await recordTrialAttribution(
+      db(),
+      "company-1",
+      touch({ gbraid: "gb-1", wbraid: "wb-1", utm_source: "newsletter" })
+    );
+    expect(payload()).toMatchObject({
+      gbraid: "gb-1",
+      wbraid: "wb-1",
+      channel: "google_ads",
+      basis: "verified_click_id",
+      reason: "google_click_id_present",
     });
   });
 

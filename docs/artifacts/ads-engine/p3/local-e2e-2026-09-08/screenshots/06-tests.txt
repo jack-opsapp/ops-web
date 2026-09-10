@@ -1,0 +1,18 @@
+// TESTS
+1
+Job management
+RUNNING
+
+day 12 of 14 · p 0.048
+
+CONTROL
+
+Job management for trades
+
+2.66% CTR · 1,015 impr. · 27 clicks · 2 trials
+
+CHALLENGER
+
+Job management for crews
+
+4.28% CTR · 957 impr. · 41 clicks · 0 trials
