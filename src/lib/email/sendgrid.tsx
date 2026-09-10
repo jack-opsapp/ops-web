@@ -903,8 +903,9 @@ export async function sendBlogNewsletter(params: {
     unique.push({ email: lower, first_name: r.first_name });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://opsapp.co";
-  const postUrl = `${appUrl}/blog/${params.post.slug}`;
+  // The journal lives on the marketing site; the app's own /blog route is not
+  // the canonical article, so the newsletter always links the public page.
+  const postUrl = `https://opsapp.co/journal/${params.post.slug}`;
   const subject = params.post.title;
   const bodyContent = params.post.email_content ?? params.post.content;
 
