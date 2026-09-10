@@ -5,16 +5,20 @@ import {
   type McpConsentCatalog,
 } from "./scope-catalog";
 import { resolveRequestedScopes, scopesToParameter } from "./scopes";
-import type { McpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  MCP_EXPOSURE_V2,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 /**
  * Dynamic client registration policy (RFC 7591) for the MCP mount.
  *
- * The MCP mount accepts public authorization-code clients from three connector
+ * The MCP mount accepts public authorization-code clients from four connector
  * families. Claude uses its two exact hosted HTTPS callbacks, ChatGPT uses
  * its exact RFC 9207 stable callback, and Codex DCR binds an ephemeral port
- * before registering one literal IPv4 loopback callback. Every URI is stored
- * and compared byte-for-byte for the rest of the grant. CIMD and redirect
+ * before registering one literal IPv4 loopback callback. Canpro cloud sources
+ * use one exact HTTPS callback with an explicit frozen read-only ceiling.
+ * Every URI is stored and compared byte-for-byte for the rest of the grant. CIMD and redirect
  * equivalence are deliberately not offered.
  */
 
@@ -22,12 +26,17 @@ export const REDIRECT_URI_ALLOWLIST = Object.freeze([
   "https://claude.ai/api/mcp/auth_callback",
   "https://claude.com/api/mcp/auth_callback",
   "https://chatgpt.com/connector_platform_oauth_redirect",
+  "https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth",
 ] as const);
 
 const CLAUDE_REDIRECT_URI_SET: ReadonlySet<string> = new Set(
   REDIRECT_URI_ALLOWLIST.slice(0, 2)
 );
 const CHATGPT_REDIRECT_URI = REDIRECT_URI_ALLOWLIST[2];
+const CANPRO_REDIRECT_URI = REDIRECT_URI_ALLOWLIST[3];
+const CANPRO_READ_SCOPE_SET: ReadonlySet<string> = new Set(
+  MCP_EXPOSURE_V2.grantableScopes
+);
 
 const MAX_REDIRECT_URI_LENGTH = 2_048;
 const CODEX_LOOPBACK_REDIRECT_PATTERN =
@@ -42,13 +51,14 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
 const MAX_CLIENT_NAME_LENGTH = 256;
 const MAX_SOFTWARE_FIELD_LENGTH = 128;
 
-type ConnectorCallbackFamily = "claude" | "chatgpt" | "codex";
+type ConnectorCallbackFamily = "claude" | "chatgpt" | "codex" | "canpro";
 
 function connectorCallbackFamily(
   value: string
 ): ConnectorCallbackFamily | null {
   if (CLAUDE_REDIRECT_URI_SET.has(value)) return "claude";
   if (value === CHATGPT_REDIRECT_URI) return "chatgpt";
+  if (value === CANPRO_REDIRECT_URI) return "canpro";
 
   // Validate raw text rather than a parsed URL. URL parsers normalize unsafe
   // numeric aliases such as 127.1 and 2130706433 into the loopback address.
@@ -230,6 +240,23 @@ export function validateClientRegistration(
   const scopeValue = record.scope;
   if (scopeValue !== undefined && typeof scopeValue !== "string") {
     return reject("invalid_client_metadata", "scope must be a string.");
+  }
+  // Cloud source connections must never inherit a new active prepare scope
+  // through the generic omitted-scope default. Keep the ceiling explicit and
+  // pinned to the twenty known read-only v2 scopes.
+  if (
+    callbackFamily === "canpro" &&
+    (typeof scopeValue !== "string" ||
+      scopeValue.trim() === "" ||
+      scopeValue
+        .trim()
+        .split(/\s+/)
+        .some((scope) => !CANPRO_READ_SCOPE_SET.has(scope)))
+  ) {
+    return reject(
+      "invalid_client_metadata",
+      "Canpro cloud registration requires explicit read-only scopes."
+    );
   }
   const exposureSnapshot = consentSnapshotForExposure(exposure, consentCatalog);
   const resolvedScopes = resolveRequestedScopes(
