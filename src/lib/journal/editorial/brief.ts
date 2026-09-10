@@ -16,7 +16,8 @@ export const JOURNAL_LIMITS = {
   summary: 300,
   teaser: 200,
   topic_angle: 300,
-  hero_line: 70,
+  // Three rows of the hero plate inside the band every public crop keeps.
+  hero_line: 60,
   body_words: [1000, 1400],
   block_text: 1600,
   list_items: [2, 8],
