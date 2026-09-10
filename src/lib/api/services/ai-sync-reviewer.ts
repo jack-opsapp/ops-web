@@ -20,6 +20,8 @@ import { EmailService } from "./email-service";
 import { getSyncOpenAI } from "./openai-clients";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
 import {
+  applyInboundEffectiveSenderIdentity,
+  buildLeadRoutingIdentity,
   resolvePersistedEmailAuthorship,
   type IngestionOperatorIdentity,
 } from "@/lib/email/email-ingestion-routing";
@@ -442,6 +444,7 @@ export async function loadSenderHistoryFacts(input: {
 async function applyThreadContextReclassification(input: {
   classifications: ClassificationResult[];
   emails: NormalizedEmail[];
+  mayInheritProviderThread: readonly boolean[];
   connection: EmailConnection;
   context: {
     companyName: string;
@@ -458,7 +461,11 @@ async function applyThreadContextReclassification(input: {
 }): Promise<ClassificationResult[]> {
   const leadIndexes: number[] = [];
   input.classifications.forEach((classification, index) => {
-    if (classification.verdict === "lead") leadIndexes.push(index);
+    // Form/forward transport threads can contain unrelated customers. Only
+    // ordinary conversations may contribute provider-thread context.
+    if (classification.verdict === "lead" && input.mayInheritProviderThread[index]) {
+      leadIndexes.push(index);
+    }
   });
   if (leadIndexes.length === 0) return input.classifications;
 
@@ -658,6 +665,11 @@ export const AISyncReviewer = {
     mailboxOperation: {
       supabase?: SupabaseClient;
       providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+      /** Authoritative source scope survives recovery without wrapper headers. */
+      messageScopedSources?: ReadonlyArray<{
+        providerMessageId: string;
+        providerThreadId: string;
+      }>;
     } = {}
   ): Promise<AIReviewResult> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
@@ -690,19 +702,46 @@ export const AISyncReviewer = {
       userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
     };
 
-    const classificationInputs = unmatchedEmails.map((e) => ({
-      id: e.id,
-      threadId: e.threadId,
-      from: e.from,
-      to: e.to,
-      subject: e.subject,
-      snippet: e.snippet,
-      // Pass the cleaned body so the classifier can recover address/scope;
-      // it is capped to 1500 chars inside classifySingleBatch.
-      body: currentEmailWorkBody(e),
-      date: e.date.toISOString(),
-      direction: resolvePersistedEmailAuthorship(e, operatorIdentity).direction,
+    const messageScopedSources = new Set(
+      (mailboxOperation.messageScopedSources ?? []).map(
+        (source) =>
+          `${source.providerThreadId}\u0000${source.providerMessageId}`
+      )
+    );
+    const classificationContexts = unmatchedEmails.map((email) => ({
+      email,
+      effectiveEmail: applyInboundEffectiveSenderIdentity(
+        email,
+        operatorIdentity
+      ).email,
+      // Caller-supplied scope may restrict thread use; it can never loosen it.
+      mayInheritProviderThread:
+        !messageScopedSources.has(`${email.threadId}\u0000${email.id}`) &&
+        buildLeadRoutingIdentity(
+          email,
+          {
+            provider: connection.provider,
+            connectionId: connection.id,
+          },
+          operatorIdentity
+        ).mayInheritProviderThread,
     }));
+    const classificationInputs = classificationContexts.map(
+      ({ email: e, effectiveEmail }) => ({
+        id: e.id,
+        threadId: e.threadId,
+        from: effectiveEmail.from,
+        to: e.to,
+        subject: e.subject,
+        snippet: e.snippet,
+        // Pass the cleaned body so the classifier can recover address/scope;
+        // it is capped to 1500 chars inside classifySingleBatch.
+        body: currentEmailWorkBody(e),
+        date: e.date.toISOString(),
+        direction: resolvePersistedEmailAuthorship(e, operatorIdentity)
+          .direction,
+      })
+    );
     const classifications = await EmailAIClassifier.classifyBatch(
       classificationInputs,
       {
@@ -748,6 +787,9 @@ export const AISyncReviewer = {
     const orderedClassifications = await applyThreadContextReclassification({
       classifications: stageAClassifications,
       emails: unmatchedEmails,
+      mayInheritProviderThread: classificationContexts.map(
+        (context) => context.mayInheritProviderThread
+      ),
       connection,
       context: {
         companyName: companyContext.name,
@@ -771,14 +813,17 @@ export const AISyncReviewer = {
       connectionId: connection.id,
       threshold,
       protectedDomains: companyContext.domains,
-      candidates: unmatchedEmails.map((email, index) => ({
-        baseline: baselines[index],
-        candidate: {
-          providerThreadId: email.threadId,
-          providerMessageId: email.id,
-          senderEmail: email.from,
-        },
-      })),
+      candidates: classificationContexts.map(
+        ({ email, effectiveEmail, mayInheritProviderThread }, index) => ({
+          baseline: baselines[index],
+          candidate: {
+            providerThreadId: email.threadId,
+            providerMessageId: email.id,
+            senderEmail: effectiveEmail.from,
+            mayInheritProviderThread,
+          },
+        })
+      ),
     });
     if (priorDecisions.length !== orderedClassifications.length) {
       throw new Error(

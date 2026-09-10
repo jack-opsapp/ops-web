@@ -161,12 +161,14 @@ describe("email purpose before sales creation", () => {
     ).toBe("review");
   });
 
-  it("preserves first-time lead creation and holds explicitly uncertain model results", () => {
+  it("requires source evidence for first-time leads and holds uncertain model results", () => {
     const empty = { clientIds: [], projects: [] };
     expect(
       decideEmailWorkRouting({
         context: empty,
+        intent: "new_work",
         body: "Please call me about a deck.",
+        newWorkEvidence: "Please call me about a deck.",
       }).action
     ).toBe("sales");
     expect(
@@ -174,6 +176,30 @@ describe("email purpose before sales creation", () => {
         context: empty,
         intent: "uncertain",
         body: "Can you call me?",
+      }).action
+    ).toBe("review");
+  });
+
+  it.each([undefined, null, "uncertain", "new_work"] as const)(
+    "does not create a first-time lead with %s intent and no inquiry evidence",
+    (intent) => {
+      expect(
+        decideEmailWorkRouting({
+          context: { clientIds: [], projects: [] },
+          intent,
+          body: "You’ve been assigned as an author of a post. For more details, contact the site owner.",
+        }).action
+      ).toBe("review");
+    }
+  );
+
+  it("rejects invented evidence for a customer with no projects", () => {
+    expect(
+      decideEmailWorkRouting({
+        context: { clientIds: ["client-new"], projects: [] },
+        intent: "new_work",
+        body: "You've been assigned as a post author.",
+        newWorkEvidence: "Please quote a new deck.",
       }).action
     ).toBe("review");
   });

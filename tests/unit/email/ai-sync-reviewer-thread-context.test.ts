@@ -6,6 +6,10 @@ import {
 } from "@/lib/api/services/ai-sync-reviewer";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
+import {
+  applyLeadFeedbackPrior,
+  type LeadFeedbackCandidate,
+} from "@/lib/api/services/lead-feedback-prior-service";
 
 /**
  * Bug d1eaebe1 — Stage B.
@@ -37,16 +41,19 @@ vi.mock("@/lib/api/services/email-service", () => ({
 
 // Only the batch evaluator is faked. `normalizeLeadFeedbackEmail` is real —
 // the sender-history loader parses candidate addresses with it.
-vi.mock("@/lib/api/services/lead-feedback-prior-service", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("@/lib/api/services/lead-feedback-prior-service")
-    >();
-  return {
-    ...actual,
-    evaluateLeadFeedbackPriorBatch: evaluateLeadFeedbackPriorBatchMock,
-  };
-});
+vi.mock(
+  "@/lib/api/services/lead-feedback-prior-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/lead-feedback-prior-service")
+      >();
+    return {
+      ...actual,
+      evaluateLeadFeedbackPriorBatch: evaluateLeadFeedbackPriorBatchMock,
+    };
+  }
+);
 
 vi.mock("@/lib/api/services/email-ai-classifier", async (importOriginal) => {
   const actual =
@@ -66,6 +73,7 @@ vi.mock("@/lib/api/services/email-ai-classifier", async (importOriginal) => {
 const connection = {
   id: "connection-1",
   companyId: "company-1",
+  provider: "gmail",
   email: "canprojack@gmail.com",
   syncFilters: { aiClassificationThreshold: 0.7 },
 } as unknown as EmailConnection;
@@ -189,21 +197,44 @@ beforeEach(() => {
 });
 
 describe("existing-job correspondence survives sales filters", () => {
-  it.each([0.4, 0.95])("retains an existing-job result at confidence %s", async (confidence) => {
-    classifyBatchMock.mockResolvedValue(stageALead(confidence).map((row) => ({ ...row, workIntent: "existing_job", newWorkEvidence: null })));
-    reclassifyMock.mockResolvedValue([{ id: "message-landlord", verdict: "lead", workIntent: "existing_job", newWorkEvidence: null, confidence }]);
-    const result = await review();
-    expect(result.newLeadsClassified).toBe(0);
-    expect(result.classifiedLeads).toHaveLength(1);
-    expect(result.classifiedLeads[0].workIntent).toBe(confidence < 0.7 ? "uncertain" : "existing_job");
-    expect(result.deferredClassifications).toEqual([]);
-  });
+  it.each([0.4, 0.95])(
+    "retains an existing-job result at confidence %s",
+    async (confidence) => {
+      classifyBatchMock.mockResolvedValue(
+        stageALead(confidence).map((row) => ({
+          ...row,
+          workIntent: "existing_job",
+          newWorkEvidence: null,
+        }))
+      );
+      reclassifyMock.mockResolvedValue([
+        {
+          id: "message-landlord",
+          verdict: "lead",
+          workIntent: "existing_job",
+          newWorkEvidence: null,
+          confidence,
+        },
+      ]);
+      const result = await review();
+      expect(result.newLeadsClassified).toBe(0);
+      expect(result.classifiedLeads).toHaveLength(1);
+      expect(result.classifiedLeads[0].workIntent).toBe(
+        confidence < 0.7 ? "uncertain" : "existing_job"
+      );
+      expect(result.deferredClassifications).toEqual([]);
+    }
+  );
 });
 
 describe("Stage B replaces the single-message verdict", () => {
   it("suppresses the landlord lead once the full thread is read", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "personal_or_admin", confidence: 0.94 },
+      {
+        id: "message-landlord",
+        verdict: "personal_or_admin",
+        confidence: 0.94,
+      },
     ]);
 
     const result = await review();
@@ -213,7 +244,8 @@ describe("Stage B replaces the single-message verdict", () => {
     expect(result.newLeadsClassified).toBe(0);
     // personal_or_admin is not-a-lead downstream, exactly like skip.
     const baseline =
-      evaluateLeadFeedbackPriorBatchMock.mock.calls[0][0].candidates[0].baseline;
+      evaluateLeadFeedbackPriorBatchMock.mock.calls[0][0].candidates[0]
+        .baseline;
     expect(baseline).toEqual({ verdict: "not_lead", confidence: 0.94 });
   });
 
@@ -239,7 +271,13 @@ describe("Stage B replaces the single-message verdict", () => {
 
   it("keeps a genuine lead that the full thread confirms", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "lead", workIntent: "new_work", newWorkEvidence: "Could you quote a new deck?", confidence: 0.91 },
+      {
+        id: "message-landlord",
+        verdict: "lead",
+        workIntent: "new_work",
+        newWorkEvidence: "Could you quote a new deck?",
+        confidence: 0.91,
+      },
     ]);
 
     const result = await review();
@@ -287,7 +325,8 @@ describe("unverified leads lose the confidence to auto-create", () => {
 
     expect(result.classifiedLeads).toEqual([]);
     const baseline =
-      evaluateLeadFeedbackPriorBatchMock.mock.calls[0][0].candidates[0].baseline;
+      evaluateLeadFeedbackPriorBatchMock.mock.calls[0][0].candidates[0]
+        .baseline;
     expect(baseline).toEqual({ verdict: "lead", confidence: 0.69 });
     expect(result.deferredClassifications).toHaveLength(1);
     expect(result.deferredClassifications[0].decision.reviewReason).toBe(
@@ -326,7 +365,13 @@ describe("unverified leads lose the confidence to auto-create", () => {
 describe("the borderline review band", () => {
   it("defers a lead scored between the floor and the threshold", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "lead", workIntent: "new_work", newWorkEvidence: "Could you quote a new deck?", confidence: 0.62 },
+      {
+        id: "message-landlord",
+        verdict: "lead",
+        workIntent: "new_work",
+        newWorkEvidence: "Could you quote a new deck?",
+        confidence: 0.62,
+      },
     ]);
 
     const result = await review();
@@ -341,7 +386,13 @@ describe("the borderline review band", () => {
 
   it("leaves a sub-floor verdict a silent non-lead", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "lead", workIntent: "new_work", newWorkEvidence: "Could you quote a new deck?", confidence: 0.3 },
+      {
+        id: "message-landlord",
+        verdict: "lead",
+        workIntent: "new_work",
+        newWorkEvidence: "Could you quote a new deck?",
+        confidence: 0.3,
+      },
     ]);
 
     const result = await review();
@@ -352,7 +403,13 @@ describe("the borderline review band", () => {
 
   it("still auto-creates an above-threshold lead — the optimistic bias stands", async () => {
     reclassifyMock.mockResolvedValue([
-      { id: "message-landlord", verdict: "lead", workIntent: "new_work", newWorkEvidence: "Could you quote a new deck?", confidence: 0.85 },
+      {
+        id: "message-landlord",
+        verdict: "lead",
+        workIntent: "new_work",
+        newWorkEvidence: "Could you quote a new deck?",
+        confidence: 0.85,
+      },
     ]);
 
     const result = await review();
@@ -542,4 +599,101 @@ describe("loadSenderHistoryFacts", () => {
     expect(facts.size).toBe(0);
     expect(tables).toEqual([]);
   });
+});
+
+describe("message-scoped form classification", () => {
+  it.each([false, true])(
+    "isolates a new customer from other submissions and wrapper feedback (recovered: %s)",
+    async (recovered) => {
+      const form = email({
+        from: recovered
+          ? "Michael Green <michael@example.com>"
+          : "Wix Forms <notifications@wixforms.com>",
+        fromName: recovered ? "Michael Green" : "Wix Forms",
+        authenticatedFromDomains: recovered ? [] : ["wixforms.com"],
+        subject: "Free Quote form got a new submission",
+        bodyText:
+          "Submission summary:\nFull Name: Michael Green\nEmail: michael@example.com\nMessage: Please quote a new deck at 123 Main Street.",
+      });
+      classifyBatchMock.mockResolvedValue([
+        {
+          ...stageALead(0.95)[0],
+          newWorkEvidence: "Please quote a new deck at 123 Main Street.",
+        },
+      ]);
+      // A different submission happens to share the provider transport thread.
+      reclassifyMock.mockResolvedValue([
+        {
+          id: form.id,
+          verdict: "personal_or_admin",
+          confidence: 1,
+          workIntent: "uncertain",
+          newWorkEvidence: null,
+        },
+      ]);
+      evaluateLeadFeedbackPriorBatchMock.mockImplementation(
+        async (input: {
+          threshold: number;
+          candidates: Array<{
+            candidate: LeadFeedbackCandidate;
+            baseline: { verdict: "lead" | "not_lead"; confidence: number };
+          }>;
+        }) =>
+          input.candidates.map((item) =>
+            applyLeadFeedbackPrior({
+              ...item,
+              connectionId: connection.id,
+              threshold: input.threshold,
+              protectedDomains: [],
+              feedback: [
+                {
+                  id: "old-form-correction",
+                  reasonCode: "duplicate",
+                  learningPolarity: "neutral",
+                  sourceConnectionId: connection.id,
+                  sourceProviderThreadId: form.threadId,
+                  sourceMessageId: "other-submission",
+                  sourceThreadKey: "other-source",
+                  senderEmail: "notifications@wixforms.com",
+                  senderDomain: "wixforms.com",
+                },
+              ],
+            })
+          )
+      );
+      const result = await AISyncReviewer.reviewUnmatchedEmails(
+        [form],
+        connection,
+        companyContext,
+        undefined,
+        {
+          ...mailboxOperation,
+          ...(recovered
+            ? {
+                messageScopedSources: [
+                  {
+                    providerMessageId: form.id,
+                    providerThreadId: form.threadId,
+                  },
+                ],
+              }
+            : {}),
+        }
+      );
+      expect(result.classifiedLeads).toHaveLength(1);
+      expect(result.classifiedLeads[0].email.id).toBe(form.id);
+      expect(result.deferredClassifications).toEqual([]);
+      expect(fetchThreadMock).not.toHaveBeenCalled();
+      expect(classifyBatchMock).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            id: form.id,
+            from: "Michael Green <michael@example.com>",
+          }),
+        ],
+        expect.anything(),
+        expect.anything()
+      );
+    }
+  );
 });

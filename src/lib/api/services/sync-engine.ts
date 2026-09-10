@@ -3,7 +3,15 @@
 // Implements the 12-step flow from spec Section 4C.
 
 import { randomUUID } from "node:crypto";
-import { decideEmailWorkRouting, isEmailWorkRoutingReceipt, loadEmailCustomerContext, currentEmailWorkBody, type EmailCustomerContext, type EmailWorkRouting } from "@/lib/email/email-work-routing";
+import {
+  decideEmailWorkRouting,
+  hasSourceNewWorkEvidence,
+  isEmailWorkRoutingReceipt,
+  loadEmailCustomerContext,
+  currentEmailWorkBody,
+  type EmailCustomerContext,
+  type EmailWorkRouting,
+} from "@/lib/email/email-work-routing";
 import { persistEmailWorkRouting } from "@/lib/email/persist-email-work-routing";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -15,6 +23,7 @@ import { EmailService } from "./email-service";
 import { captureProviderDeliveredEmailSource } from "./provider-delivery-source-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
 import { EmailFilterService } from "./email-filter-service";
+import { matchPlatform, isLikelyForwardedInquiry } from "./known-platforms";
 import {
   StageEvaluator,
   isAllowedAutomatedEmailStageTransition,
@@ -30,7 +39,6 @@ import {
   EmailSignatureService,
   stripRenderedEmailSignature,
 } from "./email-signature-service";
-import { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { reconcilePendingMailboxDraftsForConnection } from "./draft-reconciliation";
 import { maybeSuggestProject } from "./project-suggestion-service";
@@ -119,8 +127,7 @@ import {
   isRecruitingProviderNoise,
 } from "@/lib/email/opportunity-correspondence-classifier";
 import {
-  buildDeterministicContactFormLead,
-  partitionUnmatchedLeadContexts,
+  isContactFormReviewCandidate,
 } from "@/lib/email/contact-form-lead-gate";
 import {
   extractEmailAddress,
@@ -350,16 +357,6 @@ function isDeferredModelAnswerError(
 }
 
 // ─── Module-level helpers ───────────────────────────────────────────────────
-
-function matchesPattern(email: NormalizedEmail, profile: SyncProfile): boolean {
-  const normalized = email.subject
-    .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
-    .trim()
-    .toLowerCase();
-  return (profile.estimateSubjectPatterns || []).some((p) =>
-    normalized.includes(p.toLowerCase())
-  );
-}
 
 function extractSenderEmail(from: string): string {
   const match = from.match(/<([^>]+)>/);
@@ -596,17 +593,29 @@ function syncTitleUnsafeIdentity(
   };
 }
 
-function contactFormTitleCandidate(
-  submitter: ContactFormSubmissionIdentity | null
-): EmailOpportunityIdentityCandidate[] {
-  if (!submitter) return [];
-  return [
-    {
-      source: "contact_form",
-      name: submitter.name,
-      email: submitter.email,
-    },
-  ];
+/** Legacy hints only control a suggestion AFTER inquiry-authorized creation. */
+function hasProjectSuggestionHint(
+  email: NormalizedEmail,
+  profile: SyncProfile,
+  isContactForm: boolean
+): boolean {
+  const sender = extractSenderEmail(email.from);
+  const subject = email.subject
+    .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
+    .trim()
+    .toLowerCase();
+  return (
+    isContactForm ||
+    matchPlatform(sender) !== null ||
+    (profile.estimateSubjectPatterns ?? []).some((pattern) =>
+      subject.includes(pattern.toLowerCase())
+    ) ||
+    isLikelyForwardedInquiry(
+      sender,
+      email.subject,
+      profile.teamForwarders ?? []
+    )
+  );
 }
 
 function syncIngestionOperatorIdentity(
@@ -1650,8 +1659,12 @@ async function createOpportunity(
   clientId: string,
   companyId: string,
   stage: string,
+  newWorkEvidence: string,
   titleOptions: CreateOpportunityTitleOptions = {}
 ): Promise<OpportunityResolution> {
+  if (!hasSourceNewWorkEvidence(currentEmailWorkBody(email), newWorkEvidence)) {
+    throw new LifecyclePersistenceError("Automatic lead creation requires current-message inquiry evidence");
+  }
   const supabase = requireSupabase();
   // This helper is a final persistence boundary, not just a convenience for
   // the current reviewer. Even a future or mocked caller cannot create a
@@ -1670,7 +1683,6 @@ async function createOpportunity(
     reviewConfidence <= 1
       ? reviewConfidence
       : null;
-  const isOutbound = persistedStage === "qualifying"; // sent folder leads start at qualifying
   const sourceKey = titleOptions.sourceKey ?? email.threadId ?? null;
   const startedAt = Date.now();
   const clientCandidate = await getClientOpportunityTitleCandidate(clientId);
@@ -1869,7 +1881,7 @@ async function createOpportunity(
     companyId,
     clientId,
     stage: persistedStage,
-    direction: isOutbound ? "out" : "in",
+    direction: "in",
     msToCreate: Date.now() - startedAt,
   });
 
@@ -1910,54 +1922,6 @@ async function persistAIStageReviewProvenance(params: {
       `[sync-engine] AI terminal review provenance failed for ${params.opportunityId}: ${error.message ?? "unknown error"}`
     );
   }
-}
-
-async function getOrCreateOpportunity(
-  clientId: string,
-  companyId: string,
-  email: NormalizedEmail,
-  titleOptions: CreateOpportunityTitleOptions = {},
-  // Stage used only when creating a NEW opportunity (existing active opps keep
-  // their stage). Defaults to new_lead so existing callers are unchanged.
-  stage: string = "new_lead"
-): Promise<OpportunityResolution> {
-  const supabase = requireSupabase();
-
-  const { data: existing, error: existingError } = await supabase
-    .from("opportunities")
-    .select("id, client_id")
-    .eq("client_id", clientId)
-    .eq("company_id", companyId)
-    .not("stage", "in", '("won","lost","discarded")')
-    .is("deleted_at", null)
-    .is("archived_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (existingError) {
-    throw new LifecyclePersistenceError(
-      `[sync-engine] active opportunity lookup failed: ${existingError.message ?? "unknown error"}`
-    );
-  }
-
-  if (existing && existing.length > 0) {
-    if (titleOptions.enrichmentFacts) {
-      await applyCanonicalLeadEnrichment({
-        supabase,
-        opportunityId: existing[0].id,
-        clientId,
-        facts: titleOptions.enrichmentFacts,
-        companyId,
-      });
-    }
-    return {
-      id: existing[0].id as string,
-      clientId: existing[0].client_id as string,
-      created: false,
-    };
-  }
-
-  return createOpportunity(email, clientId, companyId, stage, titleOptions);
 }
 
 function normalizedExternalParticipantEmails(
@@ -3939,13 +3903,6 @@ async function processInboundEmail(
     ingestionOperator,
     forceMessageScopedTransport
   );
-  const activityRoutingExtra = !routingIdentity.mayInheritProviderThread
-    ? { skipThreadState: true }
-    : undefined;
-  const linkInboundThread = (opportunityId: string) =>
-    routingIdentity.mayInheritProviderThread
-      ? linkThread(opportunityId, email.threadId, connection.id)
-      : Promise.resolve(true);
   const existingOrphanActivity = existingActivity ?? null;
   const inboundEnrichmentFacts = leadEnrichmentFactsFromEmail({
     email,
@@ -4101,317 +4058,9 @@ async function processInboundEmail(
 
   const customerContext = await loadEmailCustomerContext({ supabase,
     companyId: connection.companyId, contactEmails: [inboundEnrichmentFacts.contactEmail ?? extractSenderEmail(effectiveEmail.from)] });
-  const requiresWorkIntent = customerContext.projects.length > 0 || customerContext.clientIds.length > 1;
-
-  // Pattern matching
-  const senderEmail = extractSenderEmail(email.from);
-  const isPatternMatch = matchesPattern(email, profile);
-  const isPlatformMatch = matchPlatform(senderEmail) !== null;
-  const isForwarderMatch =
-    profile.teamForwarders?.some((f) =>
-      senderEmail.includes(f.toLowerCase())
-    ) && isFormSubmissionSubject(email.subject);
-
-  if (
-    !requiresWorkIntent && (isPatternMatch ||
-    isPlatformMatch ||
-    isForwarderMatch ||
-    routingIdentity.isContactFormSubmission)
-  ) {
-    const matchResult = await EmailMatchingServiceV2.match(
-      connection.companyId,
-      extractSenderEmail(effectiveEmail.from),
-      {
-        ...(routingIdentity.mayInheritProviderThread
-          ? {
-              threadId: routingIdentity.providerThreadId,
-              connectionId: connection.id,
-            }
-          : {}),
-        name: effectiveEmail.fromName,
-      }
-    );
-    const relationshipDecision = await findOpportunityRelationshipMatch({
-      supabase,
-      companyId: connection.companyId,
-      connectionId: connection.id,
-      providerThreadId: routingIdentity.mayInheritProviderThread
-        ? email.threadId
-        : null,
-      clientId: matchResult.clientId,
-      facts: opportunityRelationshipFactsFromLeadEnrichment(
-        inboundEnrichmentFacts,
-        effectiveEmail,
-        connection,
-        profile,
-        await getCachedOperatorIdentity(connection)
-      ),
-    });
-    const relationshipDecisionRequiresNewOpportunity =
-      relationshipDecision.action === "create_new";
-
-    if (relationshipDecision.action === "link") {
-      const oppId = relationshipDecision.opportunityId;
-      const authoritativeClientId = relationshipDecision.clientId;
-
-      // Finish retryable semantic writes before the activity checkpoint. If a
-      // sub-contact insert fails once, retry must run this branch again rather
-      // than short-circuit through the existing-activity replay path.
-      await applyCanonicalLeadEnrichment({
-        supabase,
-        opportunityId: oppId,
-        clientId: authoritativeClientId,
-        facts: inboundEnrichmentFacts,
-        companyId: connection.companyId,
-      });
-      const subClientIdentity = subClientIdentityFromFacts(
-        inboundEnrichmentFacts
-      );
-      if (
-        matchResult.action === "create_subclient" &&
-        authoritativeClientId &&
-        matchResult.clientId === authoritativeClientId &&
-        subClientIdentity
-      ) {
-        await createSubClient(
-          effectiveEmail,
-          authoritativeClientId,
-          connection.companyId,
-          subClientIdentity
-        );
-      }
-
-      const linked = await linkInboundThread(oppId);
-      if (!linked) return null;
-      const activityPersistence = await createOrAdoptInboundActivity({
-        email: effectiveEmail,
-        connection,
-        opportunityId: oppId,
-        extra: {
-          matchConfidence: relationshipDecision.confidence,
-          ...activityRoutingExtra,
-        },
-        executionPolicy,
-        existingOrphanActivity,
-        recoveryActorUserId,
-        syncLockOwner,
-        contactFormRecipient: contactFormSubmitter?.email ?? null,
-      });
-      if (!activityPersistence.persisted) return null;
-      await updateCorrespondenceCounts(
-        oppId,
-        effectiveEmail,
-        connection,
-        followUpDaysCache,
-        result
-      );
-      await applyLabel(
-        email.threadId,
-        email.id,
-        connection,
-        result,
-        providerLockCheckpoint,
-        syncLockOwner,
-        executionPolicy
-      );
-      result.matched++;
-      if (activityPersistence.created) result.activitiesCreated++;
-
-      return null;
-    }
-
-    if (matchResult.action === "create_new") {
-      const requestedClientId = await createClient(
-        effectiveEmail,
-        connection.companyId,
-        contactFormSubmitter,
-        inboundEnrichmentFacts
-      );
-      const opportunity = await createOpportunity(
-        effectiveEmail,
-        requestedClientId,
-        connection.companyId,
-        "new_lead",
-        {
-          candidates: contactFormTitleCandidate(contactFormSubmitter),
-          unsafe: syncTitleUnsafeIdentity(connection, profile),
-          enrichmentFacts: inboundEnrichmentFacts,
-          sourceKey: routingIdentity.sourceKey,
-          mailboxAssignment: mailboxAssignmentContext(
-            connection,
-            executionPolicy
-          ),
-        }
-      );
-      const oppId = opportunity.id;
-      const clientId = opportunity.clientId;
-
-      const linked = await linkInboundThread(oppId);
-      if (!linked) return null;
-      const activityPersistence = await createOrAdoptInboundActivity({
-        email: effectiveEmail,
-        connection,
-        opportunityId: oppId,
-        extra: activityRoutingExtra,
-        executionPolicy,
-        existingOrphanActivity,
-        recoveryActorUserId,
-        syncLockOwner,
-        contactFormRecipient: contactFormSubmitter?.email ?? null,
-      });
-      if (!activityPersistence.persisted) return null;
-      await updateCorrespondenceCounts(
-        oppId,
-        effectiveEmail,
-        connection,
-        followUpDaysCache,
-        result
-      );
-      await applyLabel(
-        email.threadId,
-        email.id,
-        connection,
-        result,
-        providerLockCheckpoint,
-        syncLockOwner,
-        executionPolicy
-      );
-      result.newLeads++;
-      if (activityPersistence.created) result.activitiesCreated++;
-
-      // ── P1: Suggest project creation for new leads ────────────────────
-      // The lead's current assignee — never the mailbox connector — owns the
-      // proposal. Keep the bounded derived work inside the global lease.
-      if (!executionPolicy.providerMutationsDisabled) {
-        try {
-          await maybeSuggestProjectForAssignedActor({
-            email: effectiveEmail,
-            connection,
-            clientId,
-            opportunityId: oppId,
-          });
-        } catch (err) {
-          if (isDatabasePressureError(err)) throw err;
-          console.error(
-            "[sync-engine] Project suggestion error (non-fatal):",
-            err
-          );
-        }
-      }
-    } else if (
-      matchResult.action === "link" ||
-      matchResult.action === "create_subclient"
-    ) {
-      const matchedClientId = matchResult.clientId!;
-      const titleOptions = {
-        candidates: contactFormTitleCandidate(contactFormSubmitter),
-        unsafe: syncTitleUnsafeIdentity(connection, profile),
-        enrichmentFacts: inboundEnrichmentFacts,
-        sourceKey: routingIdentity.sourceKey,
-        mailboxAssignment: mailboxAssignmentContext(
-          connection,
-          executionPolicy
-        ),
-      };
-      const opportunity = relationshipDecisionRequiresNewOpportunity
-        ? await createOpportunity(
-            effectiveEmail,
-            matchedClientId,
-            connection.companyId,
-            "new_lead",
-            titleOptions
-          )
-        : await getOrCreateOpportunity(
-            matchedClientId,
-            connection.companyId,
-            effectiveEmail,
-            titleOptions
-          );
-      const oppId = opportunity.id;
-      const authoritativeClientId = opportunity.clientId;
-
-      await applyCanonicalLeadEnrichment({
-        supabase,
-        opportunityId: oppId,
-        clientId: authoritativeClientId,
-        facts: inboundEnrichmentFacts,
-        companyId: connection.companyId,
-      });
-      const subClientIdentity = subClientIdentityFromFacts(
-        inboundEnrichmentFacts
-      );
-      if (
-        matchResult.action === "create_subclient" &&
-        matchResult.clientId === authoritativeClientId &&
-        subClientIdentity
-      ) {
-        await createSubClient(
-          effectiveEmail,
-          authoritativeClientId,
-          connection.companyId,
-          subClientIdentity
-        );
-      }
-
-      const linked = await linkInboundThread(oppId);
-      if (!linked) return null;
-      const activityPersistence = await createOrAdoptInboundActivity({
-        email: effectiveEmail,
-        connection,
-        opportunityId: oppId,
-        extra: activityRoutingExtra,
-        executionPolicy,
-        existingOrphanActivity,
-        recoveryActorUserId,
-        syncLockOwner,
-        contactFormRecipient: contactFormSubmitter?.email ?? null,
-      });
-      if (!activityPersistence.persisted) return null;
-      await updateCorrespondenceCounts(
-        oppId,
-        effectiveEmail,
-        connection,
-        followUpDaysCache,
-        result
-      );
-      await applyLabel(
-        email.threadId,
-        email.id,
-        connection,
-        result,
-        providerLockCheckpoint,
-        syncLockOwner,
-        executionPolicy
-      );
-      if (relationshipDecisionRequiresNewOpportunity) {
-        result.newLeads++;
-      } else {
-        result.matched++;
-      }
-      if (activityPersistence.created) result.activitiesCreated++;
-    } else if (matchResult.action === "review") {
-      const activityPersistence = await createOrAdoptInboundActivity({
-        email: effectiveEmail,
-        connection,
-        opportunityId: null,
-        extra: {
-          matchNeedsReview: true,
-          suggestedClientId: matchResult.suggestedClientId,
-          matchConfidence: matchResult.confidence,
-          ...activityRoutingExtra,
-        },
-        executionPolicy,
-        existingOrphanActivity,
-        recoveryActorUserId,
-        syncLockOwner,
-        contactFormRecipient: contactFormSubmitter?.email ?? null,
-      });
-      if (!activityPersistence.persisted) return null;
-      result.needsReview++;
-      if (activityPersistence.created) result.activitiesCreated++;
-    }
-    return null; // Matched by a deterministic rule.
-  }
+  // Sender domains, subject patterns, and parsed form identity are context,
+  // never permission to create sales records. Every unowned inbound reaches
+  // the same intent/evidence gate before any client or opportunity write.
 
   // Unmatched — upsert into email_threads so it appears in inbox,
   // then send to AI classification if feature-gated.
@@ -4488,29 +4137,8 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       context,
     ])
   );
-  // Website contact-form submissions are leads by construction — a human
-  // asked to be contacted. Claim them deterministically so a sub-threshold
-  // model verdict can never discard one: the reviewer keeps only what it
-  // scores as a lead, and the mailbox cursor then advances past the rest.
-  const { deterministicContexts, aiCandidateContexts } =
-    partitionUnmatchedLeadContexts(input.contexts.filter((context) =>
-      !context.customerContext?.projects.length && (context.customerContext?.clientIds.length ?? 0) <= 1));
-  aiCandidateContexts.push(...input.contexts.filter((context) =>
-    Boolean(context.customerContext?.projects.length) || (context.customerContext?.clientIds.length ?? 0) > 1));
-
-  const deterministicLeads = deterministicContexts.flatMap((context) => {
-    const lead = buildDeterministicContactFormLead(context);
-    if (!lead) return [];
-    console.log("[email-ingest] contact-form-lead-claimed", {
-      messageId: context.email.id,
-      threadId: context.email.threadId,
-      contactEmail: lead.clientEmail,
-    });
-    return [lead];
-  });
-
   const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
-    aiCandidateContexts.map((context) => context.email),
+    input.contexts.map((context) => context.email),
     input.connection,
     {
       name: input.companyName,
@@ -4526,8 +4154,39 @@ async function persistAIClassifiedUnmatchedInbound(input: {
     {
       supabase: requireSupabase(),
       providerLockCheckpoint: input.providerLockCheckpoint,
+      messageScopedSources: input.contexts
+        .filter((context) => !context.routingIdentity.mayInheritProviderThread)
+        .map((context) => ({
+          providerMessageId: context.email.id,
+          providerThreadId: context.email.threadId,
+        })),
     }
   );
+
+  const needsReadableReview = (context: UnmatchedInboundContext) =>
+    isContactFormReviewCandidate(context) ||
+    !context.routingIdentity.mayInheritProviderThread;
+  const retainForReview = async (context: UnmatchedInboundContext) => {
+    await input.providerLockCheckpoint();
+    const routing = decideEmailWorkRouting({
+      context: context.customerContext ?? { clientIds: [], projects: [] },
+      intent: "uncertain",
+      body: currentEmailWorkBody(context.effectiveEmail),
+    });
+    if (routing.action === "sales")
+      throw new Error("Unclassified email cannot authorize sales");
+    const created = await retainEmailWorkCorrespondence({
+      email: context.effectiveEmail,
+      connection: input.connection,
+      routing,
+      direction: "inbound",
+      mayProjectThread: context.routingIdentity.mayInheritProviderThread,
+      existingActivity: context.existingOrphanActivity,
+      executionPolicy: input.executionPolicy,
+    });
+    if (created) input.result.activitiesCreated++;
+    input.result.needsReview++;
+  };
 
   // Safety net: an unmatched inbound the reviewer neither promoted nor
   // deferred is otherwise dropped with no record anywhere, and the cursor
@@ -4539,8 +4198,13 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       (deferred) => deferred.email.id
     ),
   ]);
-  for (const context of aiCandidateContexts) {
+  for (const context of input.contexts) {
     if (promotedOrDeferred.has(context.email.id)) continue;
+    if (needsReadableReview(context)) {
+      // Preserve uncertain forms even when classification is disabled.
+      await retainForReview(context);
+      continue;
+    }
     console.warn("[email-ingest] unmatched-inbound-discarded", {
       messageId: context.email.id,
       threadId: context.email.threadId,
@@ -4565,34 +4229,22 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       candidate: {
         providerThreadId: deferred.email.threadId,
         providerMessageId: deferred.email.id,
-        senderEmail: deferred.email.from,
+        senderEmail: context.effectiveEmail.from,
       },
       baseline: deferred.baseline,
       decision: deferred.decision,
       mayProjectThread: context.routingIdentity.mayInheritProviderThread,
       client: requireSupabase(),
     });
-    input.result.needsReview += 1;
+    // Audit first: a final source receipt short-circuits replay, so it must
+    // never exist before the classifier's prior decision has been persisted.
+    if (needsReadableReview(context)) await retainForReview(context);
+    else input.result.needsReview += 1;
   }
 
-  // Deterministic submissions persist through the identical path as
-  // model-classified leads — same enrichment, correspondence events and
-  // projections — so there is no second lead-creation path to drift.
-  // A contact-form submission is a lead by construction — a human asked to be
-  // contacted — so it is never diverted to review. Only the MODEL-classified
-  // half is subject to the matcher's review verdict below.
-  const persistenceQueue = [
-    ...deterministicLeads.map((classified) => ({
-      classified,
-      aiClassified: false,
-    })),
-    ...aiResult.classifiedLeads.map((classified) => ({
-      classified,
-      aiClassified: true,
-    })),
-  ];
-
-  for (const { classified, aiClassified } of persistenceQueue) {
+  // One creation queue: even form submissions require a classified current
+  // request and source-matching evidence before customer/sales persistence.
+  for (const classified of aiResult.classifiedLeads) {
     await input.providerLockCheckpoint();
     try {
       const classifiedEmail = normalizeProviderBackedEmailForSync(
@@ -4621,23 +4273,37 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         classified.terminalFlag
       );
 
-      if (aiClassified) {
-        const customerContext = context.customerContext ?? await loadEmailCustomerContext({
-          supabase: requireSupabase(), companyId: input.connection.companyId,
-          contactEmails: [deterministicFacts.contactEmail ?? extractSenderEmail(effectiveEmail.from)] });
-        const workRouting = decideEmailWorkRouting({ context: customerContext,
-          intent: classified.workIntent, newWorkEvidence: classified.newWorkEvidence,
-          body: currentEmailWorkBody(effectiveEmail), address: deterministicFacts.address ?? classified.address });
-        if (workRouting.action !== "sales") {
-          const created = await retainEmailWorkCorrespondence({ email: effectiveEmail,
-            connection: input.connection, routing: workRouting, direction: "inbound",
-            mayProjectThread: routingIdentity.mayInheritProviderThread,
-            existingActivity: existingOrphanActivity, executionPolicy: input.executionPolicy });
-          if (created) input.result.activitiesCreated++;
-          if (workRouting.action === "review") input.result.needsReview++;
-          else input.result.matched++;
-          continue;
-        }
+      const customerContext =
+        context.customerContext ??
+        (await loadEmailCustomerContext({
+          supabase: requireSupabase(),
+          companyId: input.connection.companyId,
+          contactEmails: [
+            deterministicFacts.contactEmail ??
+              extractSenderEmail(effectiveEmail.from),
+          ],
+        }));
+      const workRouting = decideEmailWorkRouting({
+        context: customerContext,
+        intent: classified.workIntent,
+        newWorkEvidence: classified.newWorkEvidence,
+        body: currentEmailWorkBody(effectiveEmail),
+        address: deterministicFacts.address ?? classified.address,
+      });
+      if (workRouting.action !== "sales") {
+        const created = await retainEmailWorkCorrespondence({
+          email: effectiveEmail,
+          connection: input.connection,
+          routing: workRouting,
+          direction: "inbound",
+          mayProjectThread: routingIdentity.mayInheritProviderThread,
+          existingActivity: existingOrphanActivity,
+          executionPolicy: input.executionPolicy,
+        });
+        if (created) input.result.activitiesCreated++;
+        if (workRouting.action === "review") input.result.needsReview++;
+        else input.result.matched++;
+        continue;
       }
 
       const matchResult = await EmailMatchingServiceV2.match(
@@ -4689,7 +4355,6 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       // lead. A medium-confidence match is a QUESTION, not an answer: persist
       // the correspondence for a human to confirm and create nothing.
       if (
-        aiClassified &&
         matchResult.action === "review" &&
         relationshipDecision.action !== "link"
       ) {
@@ -4741,6 +4406,7 @@ async function persistAIClassifiedUnmatchedInbound(input: {
           clientId,
           input.connection.companyId,
           classifiedStageReview.stage,
+          workRouting.newWorkEvidence,
           {
             candidates: [
               {
@@ -4850,13 +4516,38 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       );
       if (activityPersistence.created) input.result.activitiesCreated++;
       if (opportunityCreated) input.result.newLeads++;
+      if (
+        opportunityCreated &&
+        clientId !== null &&
+        matchResult.action === "create_new" &&
+        !input.executionPolicy.providerMutationsDisabled &&
+        hasProjectSuggestionHint(
+          context.email,
+          input.profile,
+          routingIdentity.isContactFormSubmission
+        )
+      ) {
+        try {
+          await maybeSuggestProjectForAssignedActor({
+            email: effectiveEmail,
+            connection: input.connection,
+            clientId,
+            opportunityId: oppId,
+          });
+        } catch (err) {
+          if (isDatabasePressureError(err)) throw err;
+          console.error(
+            "[sync-engine] Project suggestion error (non-fatal):",
+            err
+          );
+        }
+      }
     } catch (err) {
       throw new LifecyclePersistenceError(
         `[sync-engine] failed to persist AI-classified lead ${classified.clientEmail}: ${err instanceof Error ? err.message : "unknown error"}`
       );
     }
   }
-
 }
 
 async function processSentEmail(
@@ -4881,15 +4572,6 @@ async function processSentEmail(
     "outbound"
   );
   const operatorIdentity = await getCachedOperatorIdentity(connection);
-  const routingIdentity = buildLeadRoutingIdentity(
-    email,
-    {
-      provider: connection.provider,
-      connectionId: connection.id,
-    },
-    syncIngestionOperatorIdentity(connection, profile, operatorIdentity)
-  );
-
   const supabase = requireSupabase();
   const externalConversationEmail = emailWithAuthoritativeExternalRecipients(
     email,
@@ -5086,53 +4768,12 @@ async function processSentEmail(
       operatorIdentity
     ),
   });
-  const normalizedSubject = email.subject
-    .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
-    .trim();
-  const isEstimate = Boolean(
-    profile.estimateSubjectPatterns?.some((pattern) =>
-      normalizedSubject.toLowerCase().includes(pattern.toLowerCase())
-    )
-  );
-
-  let opportunityId: string | null = null;
-  let opportunityClientId: string | null = null;
-  let createdOpportunity = false;
-  if (relationshipDecision.action === "link") {
-    opportunityId = relationshipDecision.opportunityId;
-    opportunityClientId = relationshipDecision.clientId;
-  } else if (isEstimate && matchResult.action !== "review") {
-    const effectiveRecipientEmail: NormalizedEmail = {
-      ...email,
-      from: recipientEmail,
-      fromName: recipientCandidate.name ?? recipientEmail.split("@")[0],
-    };
-    opportunityClientId =
-      matchResult.clientId ??
-      (await createClient(
-        effectiveRecipientEmail,
-        connection.companyId,
-        null,
-        outboundEnrichmentFacts
-      ));
-    const opportunity = await createOpportunity(
-      effectiveRecipientEmail,
-      opportunityClientId,
-      connection.companyId,
-      "qualifying",
-      {
-        kind: "estimate",
-        candidates: [recipientCandidate],
-        unsafe: syncTitleUnsafeIdentity(connection, profile),
-        enrichmentFacts: outboundEnrichmentFacts,
-        sourceKey: routingIdentity.sourceKey,
-        mailboxAssignment: mailboxAssignmentContext(connection),
-      }
-    );
-    opportunityId = opportunity.id;
-    opportunityClientId = opportunity.clientId;
-    createdOpportunity = opportunity.created;
-  }
+  // Outgoing subjects describe correspondence, not a customer request.
+  // Preserve/link existing sales conversations, but never create one here.
+  const opportunityId = relationshipDecision.action === "link"
+    ? relationshipDecision.opportunityId : null;
+  const opportunityClientId = relationshipDecision.action === "link"
+    ? relationshipDecision.clientId : null;
 
   if (!opportunityId) {
     // Never drop operator-authored conversation history merely because the
@@ -5188,19 +4829,7 @@ async function processSentEmail(
     followUpDaysCache,
     result
   );
-  if (createdOpportunity) {
-    await applyLabel(
-      email.threadId,
-      email.id,
-      connection,
-      result,
-      providerLockCheckpoint,
-      syncLockOwner
-    );
-    result.newLeads++;
-  } else {
-    result.matched++;
-  }
+  result.matched++;
   result.activitiesCreated++;
   if (staffAliasCandidate) result.needsReview++;
 }

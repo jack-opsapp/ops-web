@@ -1,0 +1,25 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "../../../src/lib/api/services/sync-engine.ts",
+    "../../../src/lib/email/contact-form-lead-gate.ts",
+    "../../../src/lib/email/email-work-routing.ts",
+    "../../../tests/unit/email/contact-form-lead-gate.test.ts",
+    "../../../tests/unit/email/email-work-routing.test.ts",
+    "../../../tests/unit/email/email-opportunity-title-live-pattern.test.ts",
+    "../../../next-env.d.ts",
+    "../../../src/**/*.d.ts",
+    "../../../src/lib/api/services/ai-sync-reviewer.ts",
+    "../../../src/lib/api/services/lead-feedback-prior-service.ts",
+    "../../../tests/unit/email/ai-sync-reviewer-thread-context.test.ts",
+    "../../../tests/unit/services/lead-feedback-prior-service.test.ts",
+    "../../../tests/unit/email/ai-sync-reviewer-terminal-detection.test.ts"
+  ],
+  "exclude": [
+    "../../../node_modules",
+    "../../../supabase/functions"
+  ]
+}

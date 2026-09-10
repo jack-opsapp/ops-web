@@ -21,7 +21,7 @@ export interface EmailCustomerContext {
 }
 
 export type EmailWorkRouting =
-  | { action: "sales" }
+  | { action: "sales"; newWorkEvidence: string }
   | {
       action: "project";
       clientId: string;
@@ -102,17 +102,19 @@ export function currentEmailWorkBody(email: {
 export function hasSourceNewWorkEvidence(
   body: string,
   evidence: string | null | undefined
-): boolean {
+): evidence is string {
   const quote = normalizeEvidence(evidence ?? "");
   return quote.length >= 12 && normalizeEvidence(body).includes(quote);
 }
 
 export const EMAIL_WORK_INTENT_PROMPT = `
 Separate customer identity from SALES INTENT in the current message:
+- A new thread, known sender, recognized platform (including Wix), subject pattern, or submitted form is NOT by itself a new customer inquiry. Administrative notices (author assignment, account changes, subscriptions, reviews, delivery notices) are non-customer mail, even from a platform that also sends quote requests.
 - workIntent "new_work": an explicit request for a new job, new scope, quote/estimate, or a distinct additional job. Return newWorkEvidence as a short VERBATIM excerpt of the CURRENT message containing that request.
 - workIntent "existing_job": delivery of already-agreed work: crew damage, defects, warranty/callback, reimbursement, invoice/payment questions, access, furniture removal, start-date confirmation or scheduling an existing job. These are correspondence, not new sales. A crew already working is evidence of an EXISTING job, never evidence of a new lead.
 - workIntent "uncertain": the current message does not establish whether new work is requested. Never manufacture sales intent from the sender being a customer.
 - newWorkEvidence must be null unless workIntent is "new_work". Quoted earlier requests and old signatures are context, not a new request. For a forwarded message, judge the forwarded customer's current message. If new scope is explicitly requested alongside an existing-job issue, use new_work and quote only the new request.
+- For a form submission, judge the customer's actual message. A warranty complaint or access confirmation submitted through a Quote form is still existing_job. A blank form or contact details alone is uncertain. Do not quote the form title, field labels, notification boilerplate, or sender domain as newWorkEvidence.
 Existing-job correspondence is still a customer conversation: return verdict "lead" with workIntent "existing_job" so it is retained, not discarded as noise. For non-customer verdicts use workIntent "uncertain" and null newWorkEvidence.`;
 
 export function parseEmailWorkIntent(
@@ -151,12 +153,11 @@ export function decideEmailWorkRouting(input: {
   });
   if (clients.length > 1) return review("ambiguous_customer");
   if (input.intent !== "existing_job") {
-    if (input.intent === "uncertain") return review("uncertain_work_intent");
-    if (input.context.projects.length === 0) return { action: "sales" };
+    if (input.intent !== "new_work") return review("uncertain_work_intent");
     return input.intent === "new_work" &&
       hasSourceNewWorkEvidence(input.body, input.newWorkEvidence)
-      ? { action: "sales" }
-      : review("existing_customer_requires_new_work_evidence");
+      ? { action: "sales", newWorkEvidence: input.newWorkEvidence }
+      : review("new_work_requires_source_evidence");
   }
   if (!clientId) return review("existing_job_customer_unresolved");
   const address = normalizePropertyAddressIdentity(input.address);
