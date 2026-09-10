@@ -7,12 +7,16 @@ import {
 import { MCP_CONSENT_CATALOG_V9 } from "../scope-catalog";
 import {
   MCP_EXPOSURE_V14,
+  MCP_EXPOSURE_V23,
   MCP_EXPOSURE_V2,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const CALLBACK =
   "https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth";
-function register(overrides: Record<string, unknown> = {}) {
+function register(
+  overrides: Record<string, unknown> = {},
+  exposure: typeof MCP_EXPOSURE_V14 | typeof MCP_EXPOSURE_V23 = MCP_EXPOSURE_V14
+) {
   return validateClientRegistration(
     {
       client_name: "Canpro cloud sources",
@@ -23,12 +27,37 @@ function register(overrides: Record<string, unknown> = {}) {
       scope: "ops.company.read ops.jobs.read ops.purchasing.read",
       ...overrides,
     },
-    MCP_EXPOSURE_V14,
+    exposure,
     MCP_CONSENT_CATALOG_V9
   );
 }
 
 describe("Canpro cloud callback boundary", () => {
+  it("preserves the exact callback and explicit read ceiling on V23", () => {
+    const result = register({}, MCP_EXPOSURE_V23);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.registration.exposureRevision).toBe(
+      MCP_EXPOSURE_V23.revision
+    );
+    expect(result.registration.redirectUris).toEqual([CALLBACK]);
+    expect(result.registration.scopeCeiling).toEqual([
+      "ops.company.read",
+      "ops.jobs.read",
+      "ops.purchasing.read",
+    ]);
+    for (const scope of [
+      undefined,
+      "",
+      "ops.customers.prepare",
+      "ops.jobs.read ops.customers.prepare",
+    ]) {
+      expect(register({ scope }, MCP_EXPOSURE_V23)).toMatchObject({
+        ok: false,
+        rejection: { error: "invalid_client_metadata" },
+      });
+    }
+  });
   it("accepts the exact callback with an explicit immutable read ceiling", () => {
     expect(isAllowlistedRedirectUri(CALLBACK)).toBe(true);
     const result = register();

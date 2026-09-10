@@ -159,6 +159,11 @@ try:
     query('oauth', "select runtime.assert(not exists(select * from runtime.custody_before except (select 'client',to_jsonb(c) from private.mcp_oauth_clients c union all select 'grant',to_jsonb(g) from private.mcp_oauth_grants g union all select 'token',to_jsonb(t) from private.mcp_oauth_tokens t)),'migration preserves every old client grant token row');", 'oauth-custody')
     query('oauth', MIGRATION.read_text(), 'oauth-replay')
     query('oauth', after, 'oauth-after')
+    canpro = (SQL/'canpro-cloud-oauth-runtime.sql').read_text()
+    # Exercise the current frozen registration function under new V23. Its
+    # separate already-live migration is not part of this release's SQL.
+    canpro = re.sub(r'^\\ir .*$', lambda _: '\\i '+str(MIGRATION), canpro, flags=re.M).replace(OLD, NEW)
+    query('oauth', canpro, 'oauth-canpro-v23')
     fixture('pending')
     prefix = customer_runtime('v14').split('-- Successful opportunity-only edit',1)[0]
     prefix = prefix.replace('return public.prepare_agent_customer_update_for_grant_as_system(', 'return public.prepare_agent_customer_update_as_system(').replace("'2026-09-04.capability-manifest.v20','prepare_customer_update'", "'2026-09-04.capability-manifest.v20','"+OLD+"','prepare_customer_update'")
