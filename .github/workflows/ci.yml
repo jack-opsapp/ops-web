@@ -41,7 +41,9 @@ jobs:
           echo "::endgroup::"
           # Every SQL contract step below runs psql as the `postgres` unix user,
           # but the checkout lives under /home/runner, which the runner image
-          # creates 0700 -- private to `runner`. The steps that pass a RELATIVE
+          # creates 0750 runner:runner. postgres is not in the `runner` group
+          # (uid=112, groups=117(postgres),115(ssl-cert)), so it lands in the
+          # "other" class with no permissions at all. The steps that pass a RELATIVE
           # `-f` path survive only by accident: a relative lookup resolves from
           # the CWD the process already inherited and never re-checks search
           # permission on the ancestors above it. The moment a step resolves an
