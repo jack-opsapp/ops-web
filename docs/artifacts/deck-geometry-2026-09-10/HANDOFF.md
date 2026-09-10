@@ -6,6 +6,8 @@ The complete V14 connection now has a V23 successor with exactly the same ordere
 
 Local implementation, independent review, database proof, bounded typechecking and lint are complete. **No production migration, push, deployment, grant/consent mutation, business write, iOS build or host canary occurred in this task.** Parent task `01a0551f-df19-7942-a6d9-7e6e33f1bc9e` owns the separately approved rollout and live acceptance.
 
+**Production SQL checkpoint:** Parent applied and independently read back this exact migration under actual ledger version `20260910233314`, name `agent_deck_geometry_v23_exposure`. Function hashes/security and original client/grant, all trial binding rows, customer business effect hash and policy rows were preserved; the stale customer policy remains stale. Zero V23 clients/grants existed before code deployment. Local migration filename now mirrors that ledger with unchanged bytes/checksum. Code deployment and fresh Claude acceptance remain with parent.
+
 ## Commits and source custody
 
 Web worktree: `/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-deck-geometry-web`, branch `feat/ops-mcp-deck-geometry`.
@@ -34,7 +36,7 @@ Bible worktree: `/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-deck-geomet
 
 ## Migration and rollout order
 
-**File:** `supabase/migrations/20260910225814_agent_deck_geometry_v23_exposure.sql`
+**File:** `supabase/migrations/20260910233314_agent_deck_geometry_v23_exposure.sql`
 
 **SHA-256:** `657578123aeb0196c91abff5004553af524aed5afb1146cd17029c6ca0222989`
 

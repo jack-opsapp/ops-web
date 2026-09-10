@@ -13,7 +13,7 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 SQL = ROOT / 'tests/sql'
 BIN = Path(os.environ.get('OPS_PG17_BIN', '/opt/homebrew/opt/postgresql@17/bin'))
-MIGRATION = ROOT / 'supabase/migrations/20260910225814_agent_deck_geometry_v23_exposure.sql'
+MIGRATION = ROOT / 'supabase/migrations/20260910233314_agent_deck_geometry_v23_exposure.sql'
 LOGS = ROOT / 'docs/artifacts/deck-geometry-2026-09-10/v23-runtime'
 LOGS.mkdir(parents=True, exist_ok=True)
 CLUSTER = Path(tempfile.mkdtemp(prefix='ops-deck-v23-', dir='/private/tmp'))

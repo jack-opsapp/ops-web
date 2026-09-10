@@ -34,3 +34,5 @@
 - 860 post-merge Node22 tests; 316 real PostgreSQL17 assertions including overlapping binding insertion, old V14 pending approval across migration, exact limiter binding, stale-policy/no-change refusal, and Canpro V23 code/refresh custody.
 - Migration must precede active-V23 code. Once V23 grants exist, rollback must retain V23 resolution/representation while separately stopping new V23 registration, or repair forward. A preintegration deployment rejects V23 and is not a universal rollback.
 - Exact commands, logs, checksum and live acceptance limits are in `docs/artifacts/deck-geometry-2026-09-10/HANDOFF.md`.
+
+Production SQL checkpoint from parent: exact reviewed bytes applied under actual ledger `20260910233314`; local migration filename and runner mirror that version. No SQL reapplication or resealing. Original connection/binding/customer-policy invariants independently read back by parent before code deployment.
