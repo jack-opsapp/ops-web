@@ -75,9 +75,9 @@
   "teaser": "≤ 200 chars",
   "category": "growth | industry-intel | leadership-and-crew | money-and-margins | operations | technology",
   "topic": { "backlog_topic_id": "uuid | null", "angle": "≤ 300 chars" },
-  "hero_line": "≤ 70 chars — the sharpest line of the piece, shown on the hero plate",
+  "hero_line": "≤ 60 chars — the sharpest line of the piece, shown on the hero plate (three rows inside the band every crop keeps)",
   "body": [ { "type": "p" | "h2" | "h3" | "blockquote", "text": "…" } | { "type": "ul" | "ol", "items": ["…"] } ],
-  "faqs": [ { "question": "≤ 160", "answer": "≤ 600" } ],          // 4–8
+  "faqs": [ { "question": "≤ 160", "answer": "60–120 words" } ],   // 6–8 (format playbook)
   "email_content": "≤ 1,600 chars plain text, 120–250 words",
   "citations": [ { "source_id": "uuid", "role": "primary" | "supporting" } ],   // ≥ 2, all fetched through OPS for this assignment
   "evidence": [ { "claim": "≤ 400", "source_id": "uuid", "quote": "20–700 chars, verbatim from that snapshot" } ],  // 1–30
