@@ -1,0 +1,138 @@
+{
+  "settings": {
+    "mode": "prepare",
+    "authoring_heartbeat_at": "2026-09-10T10:07:27.128306-07:00",
+    "publish_weekday": 1,
+    "publish_hour": 6
+  },
+  "newsletter_enabled": false,
+  "assignments": [
+    {
+      "id": "98b3531b-6dc5-4984-931a-7da7852abd40",
+      "identity": "weekly:2026-09-14",
+      "state": "scheduled",
+      "mode": "prepare",
+      "slot_at": "2026-09-14T06:00:00-07:00",
+      "publish_at": "2026-09-14T06:00:00-07:00",
+      "drafted_at": "2026-09-10T12:01:05.897834-07:00",
+      "published_at": null,
+      "cancelled_at": null,
+      "title": "A HANDSHAKE IS NOT A CONTRACT",
+      "slug": "a-handshake-is-not-a-contract-put-every-job-in-writing",
+      "last_code": null,
+      "preview": {
+        "url": "http://127.0.0.1:3312/storage/v1/object/public/images/blog/journal/2026-09-14-5b43083dbbad4aad.jpg",
+        "bytes": 15496,
+        "width": 1200,
+        "height": 630,
+        "sha256": "5b43083dbbad4aada42c847b01ce21d984122e61ae3150b6bfde441c7f5cf22f",
+        "backend": "supabase",
+        "storage_key": "blog/journal/2026-09-14-5b43083dbbad4aad.jpg",
+        "content_type": "image/jpeg",
+        "render_version": "journal-hero-2026-09-10-v1"
+      },
+      "package": {
+        "article": {
+          "faqs": [
+            {
+              "answer": "It depends on your state, and the bar can sit low. California requires a written contract for every home improvement project over $500, and Virginia requires licensed businesses to provide a written contract for residential work, signed by both parties. The FTC goes further on the customer's side: it tells homeowners to ask for a written agreement even where their state doesn't require one. So your customer may expect paper on a job your state doesn't cover. Our advice is simple — write up every job, small ones included. It costs you minutes and saves you the argument.",
+              "question": "Do I need a written contract for a small job?"
+            },
+            {
+              "answer": "Start with the FTC's list for homeowners: your business name, address, phone number and license number; an estimated start and completion date; every promise made in conversations or calls about scope and cost; and, when the customer signs at home, a written statement of their right to cancel within three business days. California's licensing board adds a detailed description of the products and the work, a written payment schedule, who gets the permits, cleanup and debris removal, and any warranty in writing. Fill in every blank before anyone signs.",
+              "question": "What should a home improvement contract include?"
+            },
+            {
+              "answer": "Under the federal E-SIGN Act, enacted June 30, 2000, the law bars anyone from denying a signature, contract or record legal effect solely because it is electronic, as long as the transaction is in or affects interstate commerce. Two limits matter. Nobody has to accept electronic records, so keep paper available. And where a law requires a consumer disclosure in writing, you can deliver it electronically only after the customer affirmatively consents. Send the customer a signed copy they can keep and reprint, because a record nobody can keep and reproduce can lose its effect where a law requires writing.",
+              "question": "Is an electronic signature legally valid?"
+            },
+            {
+              "answer": "It can. The FTC's Cooling-Off Rule gives buyers three days to cancel certain sales made at their home, and it applies when a customer invites a salesperson to make a presentation in their home. It covers door-to-door sales over $25. The rule has exceptions, including sales needed to meet an emergency, and some state laws give buyers more rights than the federal rule. If you sell jobs at the kitchen table, assume the clock applies until your state's consumer protection office or licensing board tells you otherwise, and put the notice in the agreement.",
+              "question": "Does the three-day cancellation rule apply to my jobs?"
+            },
+            {
+              "answer": "That's set state by state. In California, the down payment on a home improvement job cannot be more than $1,000 or 10 percent of the contract price, whichever is less, with no exceptions for special-order materials. Virginia's regulator tells homeowners to consider no more than 10% down or $1,000, whichever is less, and no more than 30% for custom-made items or special orders. The FTC notes that some states limit down payments. Check your state's rule, write the deposit into the agreement, and tie every later payment to finished work.",
+              "question": "How big a deposit can I ask for?"
+            },
+            {
+              "answer": "Honestly, it works the other way. The FTC's own guide tells homeowners to ask for a written agreement even when their state doesn't require one, and it lists pressure for an immediate decision and cash-only payment among the tactics scammers use. Our read: to a customer who has read that guide, paper looks like the sign of a real business. Hand them a clear, complete agreement and you're giving them exactly what the regulators told them to look for. Keep the handshake. Just put the paper behind it.",
+              "question": "Won't a contract make the customer think I don't trust them?"
+            },
+            {
+              "answer": "Stop and write it down before the work happens. In California, any change to the contract price or scope must go on a written change order that the customer and the business sign before the change, and it becomes part of the contract. Even where your state doesn't spell that out, the logic holds: a change nobody signed is the next argument waiting to happen. Put the change, the new price and the new completion date on one page, get both signatures, and send the crew the signed copy.",
+              "question": "What happens if the scope changes partway through the job?"
+            },
+            {
+              "answer": "Under the FTC's Cooling-Off Rule, a customer who cancels in time gets a full refund, and you have 10 days to cancel and return any check they signed, refund all their money and return any property they traded in. The right lasts until midnight of the third business day after the sale, and Saturday counts as a business day. Our read: when you sell a job at the customer's home, hold special orders until that window closes, and say so in the agreement so nobody gets surprised.",
+              "question": "What if the customer cancels after I've ordered materials?"
+            }
+          ],
+          "slug": "a-handshake-is-not-a-contract-put-every-job-in-writing",
+          "title": "A HANDSHAKE IS NOT A CONTRACT",
+          "topic": {
+            "angle": "Regulators coach the customer, not you: the FTC tells homeowners to ask for a written agreement even where no law requires one. Paper is proof of a real business. The move: one signed agreement on every job, change orders before changes, the cancellation notice for jobs sold at home.",
+            "backlog_topic_id": "a57e8560-8657-46c5-9629-a1f6d4bbd3dc"
+          },
+          "teaser": "California requires a written contract on home improvement jobs over $500. The FTC tells homeowners to ask for one even where no law does.",
+          "summary": "Federal and state regulators coach homeowners to ask for a signed, detailed agreement before work starts. Here is what belongs on the paper, how deposits and the three-day cancellation clock work, and why an e-signature counts.",
+          "category": "operations",
+          "subtitle": "The FTC tells homeowners to ask for a written agreement even where no state law requires one. Your customer shows up expecting paper.",
+          "hero_line": "Shake on it. Then sign it.",
+          "meta_title": "Home improvement contracts: put every job in writing",
+          "email_content": "<p>The FTC keeps a guide for homeowners who are about to hire someone to work on their house. One line in it: “Even if your state doesn’t require a written agreement, ask for one.”</p>\n\n<p>Regulators are coaching your customer to ask for paper even where no law requires it. California already requires a written contract on every home improvement project over $500, with every change to price or scope on a signed change order before the work. Virginia requires licensed businesses to provide a written contract for residential work, signed by both parties.</p>\n\n<p>The move: build one agreement and use it on every job. Your name, address, phone and license number. The work in detail. Start and completion dates. The price and a payment schedule. Who pulls permits. Warranties. Every promise you made out loud. No blank spaces.</p>\n\n<p>If you sold the job at the customer&#39;s home, add the cancellation notice. The FTC&#39;s Cooling-Off Rule can give them until midnight of the third business day to cancel, and Saturday counts as a business day.</p>\n\n<p>And paper doesn&#39;t have to mean paper. Under the federal E-SIGN Act, nobody can deny a contract legal effect solely because someone signed it electronically. Send the customer a signed copy they can keep.</p>\n\n<p>Shake the hand, sign the paper, then pick up the tools.</p>"
+        },
+        "html": "<p>The Federal Trade Commission keeps a plain-English guide for homeowners about to hire someone to work on their house, and one line in it should change how you close every job: “Even if your state doesn’t require a written agreement, ask for one.” Read that from the customer's side of the kitchen table. A federal consumer agency is telling the person about to hand you a deposit that a handshake isn't enough — and the same page lists the moves scammers make, including pressure for an immediate decision and asking to be paid for everything up front or only in cash.</p>\n\n<p>Look, most owner-operators who run on handshakes aren't hiding anything. The customer seemed decent, the truck sat loaded in the driveway, and pulling out paperwork felt like telling a good person you didn't trust them. That instinct comes from a good place. It also leaves you standing in somebody's backyard with nothing but your memory against theirs.</p>\n\n<h2>What a handshake actually costs</h2>\n\n<p>The bill for a handshake shows up in the middle of the job, when the homeowner remembers the railing as included and you remember it as an add. Nobody is lying — two people heard the same conversation and walked away with two different jobs in their heads. Say that railing is $2,400 of material and labor on a deck you already priced thin. You either swallow it or you fight a customer whose neighbors are the referrals you're counting on, and <a href=\"/journal/word-of-mouth-isnt-a-marketing-plan\">word of mouth only carries a shop whose jobs end clean</a>. Whether you set <a href=\"/industries/railings\">railings</a>, hang <a href=\"/industries/fencing\">fence</a> or <a href=\"/industries/painting\">paint</a> houses, the argument sounds the same.</p>\n\n<p>Then there's the law, which forgives less than the customer does. California requires a written contract for every home improvement project over <strong>$500</strong>, and its licensing board says any change to price or scope goes on a written change order that both sides sign before the change. Virginia's Department of Professional and Occupational Regulation says licensed businesses must provide a written contract for residential work, signed by both parties. Contract rules vary by state, and the FTC says so directly. California and Virginia still point the same way: if it isn't written and signed, it isn't the deal.</p>\n\n<h2>The homeowner already has the checklist</h2>\n\n<p>Here's the part most crews miss. The FTC guide tells homeowners what belongs in the contract, and California's licensing board adds the detail. Put them together and you have the checklist your customer is quietly holding you to:</p>\n\n<ul>\n<li>Who you are: business name, address, phone number and license number.</li>\n<li>The work, in detail: products, materials, sizes, colors, model numbers, and who does what.</li>\n<li>The dates: an estimated start date and a completion date.</li>\n<li>The money: the price and a written payment schedule that never runs ahead of the work, beyond the deposit.</li>\n<li>Permits: who pulls them, in writing.</li>\n<li>Cleanup: debris removal and special requests, like saving lumber for firewood.</li>\n<li>Warranties: labor and materials, written down instead of promised in the driveway.</li>\n<li>Every promise made out loud: anything you said about scope or cost on a call or a walk-through.</li>\n</ul>\n\n<p>And no blanks. The FTC tells homeowners to make sure someone fills in every blank space, and never to sign a document that still has one.</p>\n\n<p>Think of the signed agreement like instant replay in football. Nobody wins an argument with the ref by yelling louder; they win it by going to the tape. When the homeowner swears the gate hardware came with the job, you both look at the paper, and whatever it says is the call. Honestly? That isn't cold. It's fair to both of you — and a clean written estimate is also <a href=\"/journal/ai-is-grading-your-bid\">how homeowners grade your bid</a>.</p>\n\n<h2>Deposits and the cancellation clock</h2>\n\n<p>Two more lines belong on paper because regulators already wrote them. First, the deposit. In California, the down payment on a home improvement job cannot be more than $1,000 or 10 percent of the contract price, whichever is less, with no exceptions for special-order materials. Virginia's regulator coaches homeowners to consider no more than 10% down or $1,000, whichever is less, and no more than 30% when the job needs custom-made items or special orders. Check your state's limit and write the deposit inside it.</p>\n\n<p>Second, the cancellation clock. Sell a job at the customer's kitchen table and the FTC's Cooling-Off Rule can give them three days to cancel. The rule covers door-to-door sales over $25. You have to tell the buyer about the right to cancel at the time of the sale, hand over two copies of a cancellation form, and give them a dated contract or receipt with your name and address that explains that right. The clock runs until midnight of the third business day, and Saturday counts as a business day. Sign at the house on a Friday, with no federal holiday in the way, and the customer has until midnight Tuesday to walk. If they cancel, you have 10 days to refund all their money. Our read: don't spend a cancellable deposit on materials until the clock runs out.</p>\n\n<p>The rule has exceptions, including sales needed to meet an emergency, and some state laws give buyers more rights than the federal rule. The FTC lays out the <a href=\"https://consumer.ftc.gov/articles/buyers-remorse-ftcs-cooling-rule-may-help\">full cooling-off details</a>; check your state's version too.</p>\n\n<h2>An e-signature is still a signature</h2>\n\n<p>Here's where the fight gets easier: paper doesn't have to mean paper. The federal Electronic Signatures in Global and National Commerce Act, enacted June 30, 2000, says a signature, contract or record tied to a transaction in or affecting interstate commerce “may not be denied legal effect, validity, or enforceability solely because it is in electronic form.” A customer signing on their phone in the driveway is signing. Read the statute yourself at <a href=\"https://www.law.cornell.edu/uscode/text/15/7001\">15 U.S.C. 7001</a>.</p>\n\n<p>Two catches. The law doesn't force anyone to accept electronic records, so keep paper ready for the customer who wants it. And it leaves the content and timing of required consumer disclosures alone — the cancellation notice still has to show up on time, and delivering a required disclosure electronically takes the customer's affirmative consent first. Then send back a signed copy they can keep and reprint, because where a law requires a written contract, an electronic record nobody can keep and accurately reproduce can lose its legal effect.</p>\n\n<h2>Here's what this means for you</h2>\n\n<p>You don't need a filing cabinet in the truck. You need one agreement and the discipline to use it on every job, including the small repair calls where handshakes hide and <a href=\"/journal/make-real-money-on-small-jobs\">small jobs quietly bleed margin</a>. Before the next estimate goes out:</p>\n\n<ol>\n<li>Build one agreement from the checklist above and check it against your state licensing board's rules on contracts, deposits and cancellation.</li>\n<li>Get it signed, on paper or on a phone, before a tool comes off the truck.</li>\n<li>Put every change to price or scope on a signed change order before the crew does the work.</li>\n<li>When you sell at the customer's home, add the cancellation notice and both copies of the form, and hold the materials order until the clock runs out.</li>\n<li>Send the customer a signed copy they can keep, every time.</li>\n</ol>\n\n<p>Your lead hand lives by it too. If he agrees to changes on site, the change order is his job, and <a href=\"/journal/great-hands-dont-make-great-bosses\">promoting your best hand without training him</a> is how that step gets skipped. Get the signed change to the crew through <a href=\"/journal/build-comms-your-crew-actually-uses\">comms your crew actually uses</a>, whether you run <a href=\"/industries/roofing\">roofing</a> crews or <a href=\"/industries/pool-service\">pool service</a> routes.</p>\n\n<p>It's why we built OPS estimates the way we did: the client opens the estimate on their phone, picks the options, answers the questions you set, and signs. A handshake still matters — it's how you look a customer in the eye and promise to do the job right. The signature is how both of you remember what right meant.</p>\n\n<blockquote>Shake the hand, sign the paper, then pick up the tools.</blockquote>\n\n<h2>Sources</h2>\n<ul>\n<li><a href=\"https://consumer.ftc.gov/articles/how-avoid-home-improvement-scam\">How To Avoid a Home Improvement Scam</a> · Consumer Advice</li>\n<li><a href=\"https://www.cslb.ca.gov/Consumers/Hire_A_Contractor/Home_Improvement_Contracts/What_Is_A_Contract.aspx\">Learn About Home Improvement Contracts - CSLB</a> · cslb.ca.gov</li>\n<li><a href=\"https://consumer.ftc.gov/articles/buyers-remorse-ftcs-cooling-rule-may-help\">Buyer’s Remorse: The FTC’s Cooling-Off Rule May Help</a> · Consumer Advice</li>\n<li><a href=\"https://www.law.cornell.edu/uscode/text/15/7001\">15 U.S. Code § 7001 - General rule of validity</a> · LII / Legal Information Institute</li>\n<li><a href=\"https://www.dpor.virginia.gov/Consumers/Guide_Contractor\">DPOR CONSUMER GUIDE: Hiring A Contractor | Virginia Department of Professional and Occupational Regulation</a> · dpor.virginia.gov</li>\n<li><a href=\"https://www.ftc.gov/legal-library/browse/rules/cooling-period-sales-made-home-or-other-locations\">Cooling-off Period for Sales Made at Home or Other Locations</a> · Federal Trade Commission</li>\n</ul>",
+        "word_count": 1326,
+        "citations": [
+          {
+            "role": "primary",
+            "title": "How To Avoid a Home Improvement Scam",
+            "site_name": "Consumer Advice",
+            "final_url": "https://consumer.ftc.gov/articles/how-avoid-home-improvement-scam"
+          },
+          {
+            "role": "primary",
+            "title": "Learn About Home Improvement Contracts - CSLB",
+            "site_name": "cslb.ca.gov",
+            "final_url": "https://www.cslb.ca.gov/Consumers/Hire_A_Contractor/Home_Improvement_Contracts/What_Is_A_Contract.aspx"
+          },
+          {
+            "role": "primary",
+            "title": "Buyer’s Remorse: The FTC’s Cooling-Off Rule May Help",
+            "site_name": "Consumer Advice",
+            "final_url": "https://consumer.ftc.gov/articles/buyers-remorse-ftcs-cooling-rule-may-help"
+          },
+          {
+            "role": "primary",
+            "title": "15 U.S. Code § 7001 - General rule of validity",
+            "site_name": "LII / Legal Information Institute",
+            "final_url": "https://www.law.cornell.edu/uscode/text/15/7001"
+          },
+          {
+            "role": "supporting",
+            "title": "DPOR CONSUMER GUIDE: Hiring A Contractor | Virginia Department of Professional and Occupational Regulation",
+            "site_name": "dpor.virginia.gov",
+            "final_url": "https://www.dpor.virginia.gov/Consumers/Guide_Contractor"
+          },
+          {
+            "role": "supporting",
+            "title": "Cooling-off Period for Sales Made at Home or Other Locations",
+            "site_name": "Federal Trade Commission",
+            "final_url": "https://www.ftc.gov/legal-library/browse/rules/cooling-period-sales-made-home-or-other-locations"
+          }
+        ],
+        "internal_links": 10,
+        "evidence": 30,
+        "editor_notes": "Biggest fix: the cancellation-clock section and FAQ 4 (\"Does the three-day cancellation rule apply to my jobs?\") name only the emergency exception, but the FTC Cooling-Off page (source 6) also excludes sales made because the customer asked the seller to visit to repair or perform maintenance (extras sold beyond that request are covered). That is the exception most trades service calls hit, so add one sentence with it. Every claim, number and quote checks out against the sources. $2,400 is the declared worked example. Word counts, links, FAQs, email and closing line are within limits. No banned words, relative time, 'contractor', 'AI' or exclamation points. Minor: the email's E-SIGN line drops the 'in or affecting interstate commerce' qualifier that the body keeps."
+      },
+      "blog_id": null,
+      "newsletter_state": null,
+      "attempt_log": [
+        {
+          "at": "2026-09-10T19:01:05.741Z",
+          "event": "submission"
+        }
+      ]
+    }
+  ]
+}

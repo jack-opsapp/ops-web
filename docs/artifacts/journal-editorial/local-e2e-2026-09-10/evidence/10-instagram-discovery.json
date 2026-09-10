@@ -1,0 +1,14 @@
+{
+  "state": "discovered",
+  "discovered": 1,
+  "promoted": 0,
+  "notified": 0,
+  "copywriting_reference": {
+    "path": "docs/social/voice/sam-parr-field-guide.md",
+    "sha256": "33eb69c729c46c56995cedcb87955b732eeba763b0d6a93401e3e6c404ab086e"
+  },
+  "voice_reference": {
+    "path": "docs/social/voice/ops-copywriter-brief.md",
+    "sha256": "33bac5e55ee885afba171e6f563acf851aaad93735e114c18997389144920da5"
+  }
+}
