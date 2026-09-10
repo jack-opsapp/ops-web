@@ -31,6 +31,38 @@ jobs:
         with:
           node-version: 22
           cache: "npm"
+      - name: Grant the postgres user traversal into the workspace
+        run: |
+          set -euo pipefail
+          target="$PWD/tests/sql/mcp-v3-synthetic-canary-runtime.sql"
+          echo "::group::Workspace path permissions before"
+          namei -lx "$target"
+          sudo -u postgres id
+          echo "::endgroup::"
+          # Every SQL contract step below runs psql as the `postgres` unix user,
+          # but the checkout lives under /home/runner, which the runner image
+          # creates 0700 -- private to `runner`. The steps that pass a RELATIVE
+          # `-f` path survive only by accident: a relative lookup resolves from
+          # the CWD the process already inherited and never re-checks search
+          # permission on the ancestors above it. The moment a step resolves an
+          # ABSOLUTE path -- as tests/sql/mcp-v3-synthetic-canary-concurrency.sh
+          # does, via `pwd -P` -- resolution restarts at / and is denied at
+          # /home/runner. Grant search (x) for others on that one directory:
+          # `x` permits path traversal only. Listing it still requires `r`,
+          # writing still requires `w`, and every file keeps its own mode, so
+          # nothing becomes readable that a process with a known path could not
+          # already reach. The runner is ephemeral and single-tenant.
+          sudo chmod o+x /home/runner
+          echo "::group::Workspace path permissions after"
+          namei -lx "$target"
+          echo "::endgroup::"
+          # Assert the whole chain, not just the one directory we changed, so a
+          # future runner image that tightens a different ancestor fails here
+          # with the namei output above rather than deep inside a test script.
+          sudo -u postgres test -r "$target" || {
+            echo "postgres cannot read the workspace via an absolute path" >&2
+            exit 1
+          }
       - name: Start PostgreSQL for migration contracts
         run: sudo systemctl start postgresql.service
       - name: Test email attachment reconciliation migration
