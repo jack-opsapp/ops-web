@@ -1,0 +1,491 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS Join_Ops Page US",
+   "id": "22263645060",
+   "startDateTime": "2025-02-21 10:28:17"
+  },
+  "metrics": {
+   "clicks": "1337",
+   "conversions": 49,
+   "costMicros": "337256795",
+   "allConversions": 50,
+   "impressions": "13592"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS Quiz NA",
+   "id": "22263922986",
+   "startDateTime": "2025-02-21 12:42:52"
+  },
+  "metrics": {
+   "clicks": "371",
+   "conversions": 6,
+   "costMicros": "95670477",
+   "allConversions": 6,
+   "impressions": "15447"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS Index Page",
+   "id": "22267088788",
+   "startDateTime": "2025-02-20 00:05:00"
+  },
+  "metrics": {
+   "clicks": "495",
+   "conversions": 7,
+   "costMicros": "37649623",
+   "allConversions": 7,
+   "impressions": "5610"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS Quiz UK",
+   "id": "22271198871",
+   "startDateTime": "2025-02-23 19:18:05"
+  },
+  "metrics": {
+   "clicks": "19",
+   "conversions": 0,
+   "costMicros": "8692748",
+   "allConversions": 0,
+   "impressions": "1977"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271202912",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS Join_Ops Page Aus",
+   "id": "22271202912",
+   "startDateTime": "2025-02-23 19:19:58"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 1,
+   "costMicros": "9626497",
+   "allConversions": 1,
+   "impressions": "1373"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22277761109",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS Quiz Aus",
+   "id": "22277761109",
+   "startDateTime": "2025-02-23 19:19:58"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "9919362",
+   "allConversions": 0,
+   "impressions": "1592"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "status": "PAUSED",
+   "advertisingChannelType": "PERFORMANCE_MAX",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "Performance Max- Join Ops USA/UK",
+   "id": "22281113483",
+   "startDateTime": "2025-02-24 13:53:58"
+  },
+  "metrics": {
+   "clicks": "244",
+   "conversions": 26,
+   "costMicros": "173778684",
+   "allConversions": 26,
+   "impressions": "3537"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS Join_Ops Page UK",
+   "id": "22281576841",
+   "startDateTime": "2025-02-23 19:18:05"
+  },
+  "metrics": {
+   "clicks": "1221",
+   "conversions": 34,
+   "costMicros": "283308434",
+   "allConversions": 34,
+   "impressions": "9095"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "status": "PAUSED",
+   "advertisingChannelType": "PERFORMANCE_MAX",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "Performance Max- Join Ops CA",
+   "id": "22298439315",
+   "startDateTime": "2025-03-03 20:29:25"
+  },
+  "metrics": {
+   "clicks": "362",
+   "conversions": 22,
+   "costMicros": "234126858",
+   "allConversions": 22,
+   "impressions": "22255"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "status": "PAUSED",
+   "advertisingChannelType": "PERFORMANCE_MAX",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)",
+   "id": "22301586936",
+   "startDateTime": "2025-03-04 18:25:23"
+  },
+  "metrics": {
+   "clicks": "217",
+   "conversions": 26,
+   "costMicros": "244759606",
+   "allConversions": 26,
+   "impressions": "15931"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS Join_Ops Page CA",
+   "id": "22304613329",
+   "startDateTime": "2025-03-03 17:43:55"
+  },
+  "metrics": {
+   "clicks": "1357",
+   "conversions": 33,
+   "costMicros": "562296114",
+   "allConversions": 33,
+   "impressions": "15005"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "status": "PAUSED",
+   "advertisingChannelType": "PERFORMANCE_MAX",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "Performance Max- Join Ops CA #2",
+   "id": "22361795219",
+   "startDateTime": "2025-03-20 13:43:48"
+  },
+  "metrics": {
+   "clicks": "113",
+   "conversions": 16,
+   "costMicros": "184285429",
+   "allConversions": 16,
+   "impressions": "2871"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "status": "PAUSED",
+   "advertisingChannelType": "SEARCH",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS SEARCH CAMPAIGN CANADA",
+   "id": "22393218216",
+   "startDateTime": "2025-04-01 14:53:50"
+  },
+  "metrics": {
+   "clicks": "18",
+   "conversions": 0,
+   "costMicros": "308841830",
+   "allConversions": 0,
+   "impressions": "1367"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "status": "PAUSED",
+   "advertisingChannelType": "SEARCH",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS SEARCH CAMPAIGN UK",
+   "id": "22445416465",
+   "startDateTime": "2025-04-14 11:18:15"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "111399824",
+   "allConversions": 0,
+   "impressions": "467"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22687261432",
+   "status": "PAUSED",
+   "advertisingChannelType": "DISPLAY",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS APP LAUNCH",
+   "id": "22687261432",
+   "startDateTime": "2025-06-16 11:27:18"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "allConversions": 0,
+   "impressions": "0"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "status": "PAUSED",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "advertisingChannelSubType": "APP_CAMPAIGN",
+   "biddingStrategyType": "TARGET_CPA",
+   "name": "OPS iOS APP PROMOTION 2025",
+   "id": "23048237240",
+   "startDateTime": "2025-09-23 12:05:38"
+  },
+  "metrics": {
+   "clicks": "1349",
+   "conversions": 91,
+   "costMicros": "312310423",
+   "allConversions": 91,
+   "impressions": "20109"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "status": "PAUSED",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "advertisingChannelSubType": "APP_CAMPAIGN",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary",
+   "id": "23158440149",
+   "startDateTime": "2025-10-20 16:30:37"
+  },
+  "metrics": {
+   "clicks": "92",
+   "conversions": 7,
+   "costMicros": "102173378",
+   "allConversions": 7,
+   "impressions": "2623"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "status": "PAUSED",
+   "advertisingChannelType": "SEARCH",
+   "biddingStrategyType": "TARGET_SPEND",
+   "name": "HIRE OPS - WEB",
+   "id": "23164560623",
+   "startDateTime": "2025-10-21 15:26:05"
+  },
+  "metrics": {
+   "clicks": "201",
+   "conversions": 6,
+   "costMicros": "997913957",
+   "allConversions": 6,
+   "impressions": "12035"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "status": "PAUSED",
+   "advertisingChannelType": "PERFORMANCE_MAX",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "Black Friday Home PAge",
+   "id": "23323769898",
+   "startDateTime": "2025-12-04 00:14:54"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "7898622",
+   "allConversions": 0,
+   "impressions": "577"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "status": "PAUSED",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "advertisingChannelSubType": "APP_CAMPAIGN",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "iOS APP 2026",
+   "id": "23453254016",
+   "startDateTime": "2026-01-12 11:43:05"
+  },
+  "metrics": {
+   "clicks": "376",
+   "conversions": 31,
+   "costMicros": "244803908",
+   "allConversions": 31,
+   "impressions": "10008"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23554825380",
+   "status": "REMOVED",
+   "advertisingChannelType": "PERFORMANCE_MAX",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "PERFORMANCE MAX OPS 2026",
+   "id": "23554825380",
+   "startDateTime": "2026-02-12 14:59:14"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "allConversions": 0,
+   "impressions": "0"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "status": "PAUSED",
+   "advertisingChannelType": "PERFORMANCE_MAX",
+   "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+   "name": "TRY OPS 2026",
+   "id": "23560304540",
+   "startDateTime": "2026-02-12 17:50:11"
+  },
+  "metrics": {
+   "clicks": "678",
+   "conversions": 0,
+   "costMicros": "511085759",
+   "allConversions": 0,
+   "impressions": "30836"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24229871193",
+   "status": "PAUSED",
+   "advertisingChannelType": "SEARCH",
+   "biddingStrategyType": "MANUAL_CPC",
+   "name": "BRAND · NA",
+   "id": "24229871193",
+   "startDateTime": "2026-09-09 22:20:33"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "allConversions": 0,
+   "impressions": "0"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24229871196",
+   "status": "PAUSED",
+   "advertisingChannelType": "SEARCH",
+   "biddingStrategyType": "TARGET_SPEND",
+   "name": "PRICING · US",
+   "id": "24229871196",
+   "startDateTime": "2026-09-09 22:20:33"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "allConversions": 0,
+   "impressions": "0"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24229871199",
+   "status": "PAUSED",
+   "advertisingChannelType": "SEARCH",
+   "biddingStrategyType": "TARGET_SPEND",
+   "name": "SWITCH · US",
+   "id": "24229871199",
+   "startDateTime": "2026-09-09 22:20:33"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "allConversions": 0,
+   "impressions": "0"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24229871202",
+   "status": "PAUSED",
+   "advertisingChannelType": "SEARCH",
+   "biddingStrategyType": "TARGET_SPEND",
+   "name": "TRADE · US",
+   "id": "24229871202",
+   "startDateTime": "2026-09-09 22:20:33"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "allConversions": 0,
+   "impressions": "0"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24235473779",
+   "status": "PAUSED",
+   "advertisingChannelType": "SEARCH",
+   "biddingStrategyType": "TARGET_SPEND",
+   "name": "CORE · CA",
+   "id": "24235473779",
+   "startDateTime": "2026-09-09 22:20:33"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "allConversions": 0,
+   "impressions": "0"
+  }
+ }
+]

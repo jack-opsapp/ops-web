@@ -169,3 +169,129 @@ budget enforced by `tests/unit/api/heavy-cron-schedule-isolation.test.ts`.
 | `data-manager-live.json` | one real event delivered (request `3ac0bc8f-4d84-4bf2-98f2-1ebe4a3817e3`); the fixture row is marked `skipped` / `rehearsal` and the fake gclid cleared |
 | `design-audit.txt` | the readiness ledger uses tokens only |
 | `readiness-ledger.png` | the ledger at 1440×900 with the real stored probe payload (`readiness-probe.json`) — rendered by `capture-readiness-ledger.mjs` on a throwaway dev route with the admin page chrome, because the admin layout admits only the `admins` table (Jackson's two accounts) and the dev auth bypass has no admin identity; the real `/admin/google-ads` shows the same panel under its header |
+
+---
+
+# Phase 2 — the account, built from a file
+
+The account is no longer something anyone edits by hand. `config/ads/blueprint.json`
+describes every campaign, ad group, keyword, negative list and ad, and a route applies
+the difference. Editing Google directly puts the account out of sync with the file, and
+the next apply will not put it back — it only ever creates and updates.
+
+**State as of 2026-09-09:** five campaigns, all `PAUSED`, all labelled `engine`; 12 ad
+groups; 54 keywords; 24 ads under Google review; five shared negative lists holding 100
+negatives; 21 legacy campaigns labelled `legacy` and otherwise untouched. Nothing has
+spent a cent, and nothing can until the enable route is called.
+
+## The structure, and the money
+
+| Campaign | Daily | CPC cap | Geo | Ad groups |
+|---|---:|---:|---|---|
+| `BRAND · NA` | $3 | $2 manual | US + Canada | Brand |
+| `PRICING · US` | $18 | $9 | US | Jobber pricing, Housecall Pro pricing |
+| `SWITCH · US` | $10 | $12 | US | Jobber / Housecall Pro / ServiceTitan alternative |
+| `TRADE · US` | $12 | $9 | US | Cleaning, Landscaping, Roofing |
+| `CORE · CA` | $7 | $9 | Canada | Pricing, Switching, Category |
+
+$50/day, which is the locked $1,500 a month. $43 of it sits in the United States because
+that is where the searches are: 8,720 buyable searches a month against Canada's 1,520.
+See `docs/ads/keyword-candidates-2026-09.md`.
+
+## Changing the blueprint
+
+1. Edit `config/ads/blueprint.json`.
+2. `npx vitest run tests/unit/ads/` — the planner refuses broad positive keywords and any
+   negative that would block a keyword the same campaign bids on, and every ad is checked
+   against the copy rules.
+3. Dry run: `POST /api/internal/ads/setup/blueprint` with the `CRON_SECRET` bearer. It
+   validates against Google and writes nothing. **This is the default** — you must ask
+   for a write.
+4. Apply: the same call with `?validateOnly=0`.
+5. Run step 3 again. A clean apply leaves `operations: 0` and `converged: true`.
+
+Every real mutate is validated first and sent only on a clean pass, with partial failure
+OFF, so a rejected ad fails the whole tree rather than leaving half an account behind.
+The apply runs two passes with a snapshot refresh between them: pass one creates, pass
+two labels what pass one created.
+
+## Refreshing the demand numbers
+
+```
+node scripts/ads/keyword-demand.mjs                  # writes config/ads/keyword-demand-<date>.json
+node scripts/ads/annotate-blueprint-demand.mjs       # stamps those numbers onto the blueprint
+```
+
+The Keyword Planner is a free read — it places no bid and creates nothing. It rate-limits
+bursts; the script honours the retry delay Google returns.
+
+## Turning campaigns on
+
+`POST /api/internal/ads/setup/enable` with the `CRON_SECRET` bearer and
+
+```json
+{ "campaigns": ["PRICING · US", "SWITCH · US"], "confirm": "ENABLE" }
+```
+
+This is the only path in the system that changes a campaign's status. It refuses a
+campaign that does not carry the `engine` label (proof the blueprint built it rather than
+a hand edit) and one whose ads Google has not approved — at least two per campaign, with
+`approval_status = APPROVED`.
+
+**Nothing calls this on a schedule. It runs when Jackson says the word.**
+
+## Stopping everything
+
+The same route, `"confirm": "PAUSE"`. Pausing has no gate at all — no label check, no
+approval check — because stopping spend must never be blocked by a precondition. This is
+the emergency stop as well as the switch.
+
+## Waiting for policy review
+
+Ads land as `REVIEW_IN_PROGRESS` and usually clear within a day. Check with
+
+```
+node scripts/ads/account-state.mjs --summary
+```
+
+A `DISAPPROVED` ad names its policy topic in the account state dump. The fix is always to
+rewrite the asset in the blueprint and re-apply — never to edit it in Google's interface.
+
+Trademark complaints are the likeliest disapproval here: the competitor campaigns name
+Jobber, Housecall Pro and ServiceTitan, and the copy rules already restrict that to
+`<Brand> alternative`, `Switching from <Brand>?` and `Tired of <Brand>?`. If a complaint
+lands anyway, the ad group's ads get rewritten without the name and the landing page keeps
+the comparison, which is where it does the most work in any case.
+
+## Held back — real demand we chose not to buy
+
+Recorded so the engine revisits these against real cost-per-trial evidence instead of
+rediscovering them as ideas. All measured 2026-09-09, US volume and low–high top-of-page
+bid in CAD.
+
+| Term | US searches/mo | Bid | Why held |
+|---|---:|---|---|
+| `field service management software` | 22,200 | $55–119 | The category head term, and the wrong buyer: enterprise. |
+| `plumbing business software` | 210 | $65–444 | $65 a click against a $1,680 first-year customer does not pay back. |
+| `hvac scheduling software` | 210 | $61–729 | Same arithmetic. |
+| `electrician scheduling software` | 90 | $55–1,369 | Widest bid range measured; unpredictable spend on thin volume. |
+
+## The thing to watch in week one
+
+Three of the five CPC caps sit below the measured low top-of-page bid for their own
+keywords — `TRADE · US` is capped at $9 against $14–19, and `SWITCH · US` at $12 against
+$25–50. That is deliberate: the caps come from the locked budget, not from the auction,
+and the whole point of the 90 days is to find out what they actually buy. But it means
+under-delivery is the likely first failure mode, not overspend. If a campaign spends
+well under its daily budget in week one, raising its cap is the first lever — not more
+keywords, and not a bigger budget.
+
+## What each artifact proves (`docs/artifacts/ads-engine/p2/`)
+
+| Artifact | Proves |
+|---|---|
+| `blueprint-validate.json` | Google validated all 268 create operations with zero failures — including every ad, so no asset was rejected on policy at validate time |
+| `blueprint-apply.json` | the real apply: 328 operations over two passes, zero failures |
+| `blueprint-reapply.json` | a third run plans nothing (`operations: 0`, `converged: true`) — the account matches the file |
+| `account-state.json` | the account read straight from Google: 5 PAUSED campaigns, Search only with partners and display off, presence targeting, the right budgets and ceilings, 21 legacy labels, 24 ads in review |
+| `ad-previews.md` | the 24 ads as a person reads them, for approval |

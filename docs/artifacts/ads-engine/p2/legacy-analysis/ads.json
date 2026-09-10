@@ -1,0 +1,1011 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/173967143166",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "495",
+   "conversions": 7,
+   "costMicros": "37649623",
+   "impressions": "5610"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/173967143166~733789726539",
+   "status": "ENABLED",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "resourceName": "customers/4454506598/ads/733789726539",
+    "id": "733789726539",
+    "finalUrls": [
+     "https://opsapp.co/"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/174874479826",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1337",
+   "conversions": 49,
+   "costMicros": "337256795",
+   "impressions": "13592"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/174874479826~734053713279",
+   "status": "ENABLED",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "resourceName": "customers/4454506598/ads/734053713279",
+    "id": "734053713279",
+    "finalUrls": [
+     "https://opsapp.co/join_ops"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/181050303251",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "371",
+   "conversions": 6,
+   "costMicros": "95670477",
+   "impressions": "15447"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/181050303251~734113098649",
+   "status": "ENABLED",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "resourceName": "customers/4454506598/ads/734113098649",
+    "id": "734113098649",
+    "finalUrls": [
+     "https://opsapp.co/leadershipanalysis"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271202912",
+   "name": "OPS Join_Ops Page Aus"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/176444287138",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 1,
+   "costMicros": "9626497",
+   "impressions": "1373"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/176444287138~734364882624",
+   "status": "PAUSED",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "resourceName": "customers/4454506598/ads/734364882624",
+    "id": "734364882624",
+    "finalUrls": [
+     "https://opsapp.co/join_ops"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/178322519911",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1221",
+   "conversions": 34,
+   "costMicros": "283308434",
+   "impressions": "9095"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/178322519911~734402753890",
+   "status": "ENABLED",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "resourceName": "customers/4454506598/ads/734402753890",
+    "id": "734402753890",
+    "finalUrls": [
+     "https://opsapp.co/join_ops"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "name": "OPS Quiz UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/178322519751",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "19",
+   "conversions": 0,
+   "costMicros": "8692748",
+   "impressions": "1977"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/178322519751~734402782243",
+   "status": "PAUSED",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "resourceName": "customers/4454506598/ads/734402782243",
+    "id": "734402782243",
+    "finalUrls": [
+     "https://opsapp.co/leadershipanalysis"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22277761109",
+   "name": "OPS Quiz Aus"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/176444287178",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "9919362",
+   "impressions": "1592"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/176444287178~734480433254",
+   "status": "PAUSED",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "resourceName": "customers/4454506598/ads/734480433254",
+    "id": "734480433254",
+    "finalUrls": [
+     "https://opsapp.co/leadershipanalysis"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "name": "OPS Join_Ops Page CA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/173191266182",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1357",
+   "conversions": 33,
+   "costMicros": "562296114",
+   "impressions": "15005"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/173191266182~736414840511",
+   "status": "ENABLED",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "resourceName": "customers/4454506598/ads/736414840511",
+    "id": "736414840511",
+    "finalUrls": [
+     "https://opsapp.co/join_ops"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "18",
+   "conversions": 0,
+   "costMicros": "308841830",
+   "impressions": "1367"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "status": "ENABLED",
+   "ad": {
+    "type": "RESPONSIVE_SEARCH_AD",
+    "responsiveSearchAd": {
+     "headlines": [
+      {
+       "text": "[ Efficient Job Management. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ OPS: Maximum Efficiency. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Trades, Execute. OPS. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Execute With Precision. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Dominate Jobs. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ OPS: Built by Trades. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Own Your Trade's Success. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Zero Slack. All Results. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Master Your Operations. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Crush Inefficiency. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Seize Control Of Your Jobs ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Streamline your workflow. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Simplify job management. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Crush every project. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Job management with maximum efficiency. Zero nonsense. Built by trades. Take ownership.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Ditch inefficient whiteboards & spreadsheets. Built for the leaders who demand execution.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Streamline your crew management with lethal precision. The only app built for execution.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Forget software built by clean-handed nerds. Created by tradesmen who know real work.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872",
+    "finalUrls": [
+     "https://opsapp.co/join_ops"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "111399824",
+   "impressions": "467"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "status": "ENABLED",
+   "ad": {
+    "type": "RESPONSIVE_SEARCH_AD",
+    "responsiveSearchAd": {
+     "headlines": [
+      {
+       "text": "[ Efficient Job Management. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ OPS: Maximum Efficiency. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Trades, Execute. OPS. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Execute With Precision. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Dominate Jobs. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ OPS: Built by Trades. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Own Your Trade's Success. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Zero Slack. All Results. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Master Your Operations. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Crush Inefficiency. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Seize Control Of Your Jobs ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Streamline your workflow. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Simplify job management. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Crush every project. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Job management with maximum efficiency. Zero nonsense. Built by trades. Take ownership.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Ditch inefficient whiteboards & spreadsheets. Built for the leaders who demand execution.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Streamline your crew management with lethal precision. The only app built for execution.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Forget software built by clean-handed nerds. Created by tradesmen who know real work.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255",
+    "finalUrls": [
+     "https://opsapp.co/join_ops"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191503700528",
+   "name": "What Makes Us Different"
+  },
+  "metrics": {
+   "clicks": "224",
+   "conversions": 16,
+   "costMicros": "41642587",
+   "impressions": "4258"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/185497122123",
+   "name": "Value You Can't Get Elsewhere"
+  },
+  "metrics": {
+   "clicks": "264",
+   "conversions": 19,
+   "costMicros": "58599729",
+   "impressions": "5172"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "861",
+   "conversions": 54,
+   "costMicros": "208775355",
+   "impressions": "10520"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190325086754",
+   "name": "Hire OPS/ ADvanced Value"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "costMicros": "2960000",
+   "impressions": "641"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "201",
+   "conversions": 6,
+   "costMicros": "997913957",
+   "impressions": "12035"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "status": "ENABLED",
+   "ad": {
+    "type": "RESPONSIVE_SEARCH_AD",
+    "responsiveSearchAd": {
+     "headlines": [
+      {
+       "pinnedField": "HEADLINE_1",
+       "text": "Hire OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Earns $400/Month For You.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Better ROI Than Any Other Hire",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Built by Trades, for Trades.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "OPS Pays For Itself.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Investment, Not Expense,",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Saves 2.5+ Hours Weekly.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "122% or more ROI Every Month.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Your Most Profitable Hire.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Actually Works Offline.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Cut The Slack. Get OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "ServiceTitan too complex? OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Housecall Pro? OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Jobber is overcomplicated.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Built by trades for trades. 12 years in deck construction - needed better - built OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Would you hire a crew member who pays for themselves? That's OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Your time worth $25/hour? OPS saves 8+ hours monthly. That's $200 value for $90 cost.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Better ROI than any crew member. Never calls in sick. Always ready to work.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875",
+    "finalUrls": [
+     "https://opsapp.co/join_ops"
+    ]
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/187735663614",
+   "name": "What makes OPS diff"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 0,
+   "costMicros": "4966857",
+   "impressions": "169"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/189797156780",
+   "name": "What makes OPS diff #2 - scheduling"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "44"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "79",
+   "conversions": 7,
+   "costMicros": "94246521",
+   "impressions": "1769"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191898724936",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 2,
+   "costMicros": "3292752",
+   "impressions": "159"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562054",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "230",
+   "conversions": 17,
+   "costMicros": "155062109",
+   "impressions": "5043"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562094",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "146",
+   "conversions": 14,
+   "costMicros": "89741799",
+   "impressions": "4965"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "status": "ENABLED",
+   "ad": {
+    "type": "APP_AD",
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  }
+ }
+]
