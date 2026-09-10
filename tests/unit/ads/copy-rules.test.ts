@@ -47,7 +47,7 @@ function codes(candidate: RsaCandidate, ctx: CopyContext = core): CopyIssueCode[
 
 describe("brand facts allowlist", () => {
   it("loads the versioned allowlist with the banned words from the copywriter brief", () => {
-    expect(BRAND_FACTS.version).toBe("2026-09-10-v1");
+    expect(BRAND_FACTS.version).toBe("2026-09-09-v2");
     expect(BRAND_FACTS.bannedWords).toContain("seamless");
     expect(BRAND_FACTS.bannedWords).toContain("robust");
     expect(BRAND_FACTS.competitors.names).toEqual([

@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-10-v1",
+  "version": "2026-09-09-v2",
   "numbers": [
     { "token": "$90", "context": "Starter tier, per month, CAD" },
     { "token": "$140", "context": "Team tier, per month, CAD" },
@@ -54,9 +54,11 @@
   "allowedFinalUrls": [
     "https://try.opsapp.co/",
     "https://try.opsapp.co/job-management",
-    "https://try.opsapp.co/scheduling",
-    "https://try.opsapp.co/quotes-invoices",
     "https://try.opsapp.co/compare/jobber",
-    "https://try.opsapp.co/compare/housecall-pro"
+    "https://try.opsapp.co/compare/housecall-pro",
+    "https://try.opsapp.co/compare/servicetitan",
+    "https://try.opsapp.co/for/cleaning",
+    "https://try.opsapp.co/for/landscaping",
+    "https://try.opsapp.co/for/roofing"
   ]
 }

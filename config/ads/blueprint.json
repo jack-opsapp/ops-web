@@ -1,0 +1,394 @@
+{
+  "version": "2026-09-09-v1",
+  "customerId": "4454506598",
+  "currency": "CAD",
+  "evidence": [
+    "ops-software-bible/research/google-ads/2026-09-09-keyword-demand.md — measured volume and bids (KeywordPlanIdeaService v25, 2026-09-09)",
+    "config/ads/keyword-demand-2026-09-09.json — the raw pull this file is pruned from",
+    "ads_daily_search_term — the historical waste the negative lists are built from",
+    "ops-software-bible/docs/plans/2026-09-08-google-ads-engine-p2-account-rebuild.md Task 2R and Task 3R"
+  ],
+  "labels": ["engine", "legacy", "role-control", "role-challenger"],
+
+  "sharedNegativeLists": [
+    {
+      "name": "NEG · Job seekers",
+      "purpose": "People looking for work, not for software to run their crew.",
+      "keywords": [
+        { "text": "jobs", "matchType": "BROAD" },
+        { "text": "job openings", "matchType": "BROAD" },
+        { "text": "job posting", "matchType": "BROAD" },
+        { "text": "job board", "matchType": "BROAD" },
+        { "text": "hiring", "matchType": "BROAD" },
+        { "text": "now hiring", "matchType": "BROAD" },
+        { "text": "salary", "matchType": "BROAD" },
+        { "text": "wages", "matchType": "BROAD" },
+        { "text": "resume", "matchType": "BROAD" },
+        { "text": "apprenticeship", "matchType": "BROAD" },
+        { "text": "apprentice", "matchType": "BROAD" },
+        { "text": "careers", "matchType": "BROAD" },
+        { "text": "employment", "matchType": "BROAD" },
+        { "text": "recruiter", "matchType": "BROAD" },
+        { "text": "indeed", "matchType": "BROAD" },
+        { "text": "work from home", "matchType": "BROAD" }
+      ]
+    },
+    {
+      "name": "NEG · Homeowner intent",
+      "purpose": "Someone who wants a trade hired, not someone who runs one. The largest historical waste cluster after e-signature.",
+      "keywords": [
+        { "text": "near me", "matchType": "BROAD" },
+        { "text": "hire", "matchType": "BROAD" },
+        { "text": "repair", "matchType": "BROAD" },
+        { "text": "repairs", "matchType": "BROAD" },
+        { "text": "install", "matchType": "BROAD" },
+        { "text": "installation", "matchType": "BROAD" },
+        { "text": "emergency", "matchType": "BROAD" },
+        { "text": "quotes for", "matchType": "BROAD" },
+        { "text": "my house", "matchType": "BROAD" },
+        { "text": "my home", "matchType": "BROAD" },
+        { "text": "handyman", "matchType": "BROAD" },
+        { "text": "taskrabbit", "matchType": "BROAD" },
+        { "text": "airtasker", "matchType": "BROAD" },
+        { "text": "takl", "matchType": "BROAD" },
+        { "text": "tree removal", "matchType": "BROAD" },
+        { "text": "tree cutting", "matchType": "BROAD" },
+        { "text": "tree care", "matchType": "BROAD" },
+        { "text": "junk removal", "matchType": "BROAD" },
+        { "text": "maid", "matchType": "BROAD" },
+        { "text": "cleaning service", "matchType": "BROAD" },
+        { "text": "cleaning services", "matchType": "BROAD" },
+        { "text": "moving company", "matchType": "BROAD" },
+        { "text": "movers", "matchType": "BROAD" },
+        { "text": "broken", "matchType": "BROAD" },
+        { "text": "fix my", "matchType": "BROAD" },
+        { "text": "who fixes", "matchType": "BROAD" },
+        { "text": "diy", "matchType": "BROAD" }
+      ]
+    },
+    {
+      "name": "NEG · Training",
+      "purpose": "Students and career-changers researching the trade itself.",
+      "keywords": [
+        { "text": "course", "matchType": "BROAD" },
+        { "text": "courses", "matchType": "BROAD" },
+        { "text": "certification", "matchType": "BROAD" },
+        { "text": "certificate", "matchType": "BROAD" },
+        { "text": "exam", "matchType": "BROAD" },
+        { "text": "red seal", "matchType": "BROAD" },
+        { "text": "tutorial", "matchType": "BROAD" },
+        { "text": "training", "matchType": "BROAD" },
+        { "text": "school", "matchType": "BROAD" },
+        { "text": "classes", "matchType": "BROAD" },
+        { "text": "degree", "matchType": "BROAD" },
+        { "text": "how to start", "matchType": "BROAD" },
+        { "text": "how to become", "matchType": "BROAD" },
+        { "text": "starting a", "matchType": "BROAD" }
+      ]
+    },
+    {
+      "name": "NEG · Generic waste",
+      "purpose": "Free tools, templates and sideloads. Seeded from the real waste: e-signature terms alone burned $260 of the historical spend.",
+      "keywords": [
+        { "text": "template", "matchType": "BROAD" },
+        { "text": "templates", "matchType": "BROAD" },
+        { "text": "excel", "matchType": "BROAD" },
+        { "text": "spreadsheet", "matchType": "BROAD" },
+        { "text": "google sheets", "matchType": "BROAD" },
+        { "text": "pdf", "matchType": "BROAD" },
+        { "text": "apk", "matchType": "BROAD" },
+        { "text": "crack", "matchType": "BROAD" },
+        { "text": "cracked", "matchType": "BROAD" },
+        { "text": "download", "matchType": "BROAD" },
+        { "text": "open source", "matchType": "BROAD" },
+        { "text": "github", "matchType": "BROAD" },
+        { "text": "reddit", "matchType": "BROAD" },
+        { "text": "quora", "matchType": "BROAD" },
+        { "text": "wikipedia", "matchType": "BROAD" },
+        { "text": "sample", "matchType": "BROAD" },
+        { "text": "printable", "matchType": "BROAD" },
+        { "text": "esign", "matchType": "BROAD" },
+        { "text": "e sign", "matchType": "BROAD" },
+        { "text": "esignature", "matchType": "BROAD" },
+        { "text": "signature", "matchType": "BROAD" },
+        { "text": "firma", "matchType": "BROAD" }
+      ]
+    },
+    {
+      "name": "NEG · Wrong segment",
+      "purpose": "Enterprise, fleet and adjacent categories. The buyer OPS cannot serve and cannot outbid.",
+      "keywords": [
+        { "text": "enterprise", "matchType": "BROAD" },
+        { "text": "erp", "matchType": "BROAD" },
+        { "text": "fleet", "matchType": "BROAD" },
+        { "text": "franchise", "matchType": "BROAD" },
+        { "text": "salesforce", "matchType": "BROAD" },
+        { "text": "sap", "matchType": "BROAD" },
+        { "text": "oracle", "matchType": "BROAD" },
+        { "text": "netsuite", "matchType": "BROAD" },
+        { "text": "microsoft dynamics", "matchType": "BROAD" },
+        { "text": "procore", "matchType": "BROAD" },
+        { "text": "autodesk", "matchType": "BROAD" },
+        { "text": "takeoff", "matchType": "BROAD" },
+        { "text": "takeoffs", "matchType": "BROAD" },
+        { "text": "estimating software", "matchType": "BROAD" },
+        { "text": "construction management", "matchType": "BROAD" },
+        { "text": "property management", "matchType": "BROAD" },
+        { "text": "field service management", "matchType": "BROAD" },
+        { "text": "gps tracking", "matchType": "BROAD" },
+        { "text": "time clock", "matchType": "BROAD" },
+        { "text": "payroll software", "matchType": "BROAD" },
+        { "text": "hoa", "matchType": "BROAD" }
+      ]
+    }
+  ],
+
+  "campaigns": [
+    {
+      "name": "BRAND · NA",
+      "kind": "brand",
+      "status": "PAUSED",
+      "budget": { "name": "BRAND · NA budget", "amountMicros": "3000000", "deliveryMethod": "STANDARD" },
+      "bidding": { "type": "MANUAL_CPC" },
+      "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
+      "geo": { "locations": ["geoTargetConstants/2840", "geoTargetConstants/2124"], "positiveGeoTargetType": "PRESENCE" },
+      "languages": ["languageConstants/1000"],
+      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "campaignNegatives": [{ "text": "servicetitan", "matchType": "BROAD" }],
+      "adGroups": [
+        {
+          "name": "Brand",
+          "finalUrl": "https://try.opsapp.co/",
+          "path1": "trades",
+          "path2": "ops",
+          "cpcBidMicros": "2000000",
+          "keywords": [
+            { "text": "opsapp", "matchType": "EXACT", "source": "brand" },
+            { "text": "ops app", "matchType": "EXACT", "source": "brand" },
+            { "text": "opsapp.co", "matchType": "EXACT", "source": "brand" },
+            { "text": "ops job management", "matchType": "EXACT", "source": "brand" }
+          ],
+          "ads": []
+        }
+      ]
+    },
+
+    {
+      "name": "PRICING · US",
+      "kind": "competitor",
+      "status": "PAUSED",
+      "budget": { "name": "PRICING · US budget", "amountMicros": "18000000", "deliveryMethod": "STANDARD" },
+      "bidding": { "type": "MAXIMIZE_CLICKS", "cpcBidCeilingMicros": "9000000" },
+      "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
+      "geo": { "locations": ["geoTargetConstants/2840"], "positiveGeoTargetType": "PRESENCE" },
+      "languages": ["languageConstants/1000"],
+      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "campaignNegatives": [],
+      "adGroups": [
+        {
+          "name": "Jobber pricing",
+          "finalUrl": "https://try.opsapp.co/compare/jobber",
+          "path1": "compare",
+          "path2": "pricing",
+          "keywords": [
+            { "text": "jobber pricing", "matchType": "EXACT", "volume": 4400, "source": "keyword-demand 2026-09-09 (US 4,400 · $10–60)" },
+            { "text": "jobber pricing", "matchType": "PHRASE", "volume": 4400, "source": "keyword-demand 2026-09-09" },
+            { "text": "jobber cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "jobber plans", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "how much does jobber cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        },
+        {
+          "name": "Housecall Pro pricing",
+          "finalUrl": "https://try.opsapp.co/compare/housecall-pro",
+          "path1": "compare",
+          "path2": "pricing",
+          "keywords": [
+            { "text": "housecall pro pricing", "matchType": "EXACT", "volume": 1300, "source": "keyword-demand 2026-09-09 (US 1,300 · $12–65)" },
+            { "text": "housecall pro pricing", "matchType": "PHRASE", "volume": 1300, "source": "keyword-demand 2026-09-09" },
+            { "text": "housecall pro cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "how much is housecall pro", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        }
+      ]
+    },
+
+    {
+      "name": "SWITCH · US",
+      "kind": "competitor",
+      "status": "PAUSED",
+      "budget": { "name": "SWITCH · US budget", "amountMicros": "10000000", "deliveryMethod": "STANDARD" },
+      "bidding": { "type": "MAXIMIZE_CLICKS", "cpcBidCeilingMicros": "12000000" },
+      "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
+      "geo": { "locations": ["geoTargetConstants/2840"], "positiveGeoTargetType": "PRESENCE" },
+      "languages": ["languageConstants/1000"],
+      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "campaignNegatives": [],
+      "adGroups": [
+        {
+          "name": "Jobber alternative",
+          "finalUrl": "https://try.opsapp.co/compare/jobber",
+          "path1": "compare",
+          "path2": "switch",
+          "keywords": [
+            { "text": "jobber alternative", "matchType": "EXACT", "volume": 260, "source": "keyword-demand 2026-09-09 (US 260 · $25–102)" },
+            { "text": "jobber alternative", "matchType": "PHRASE", "volume": 260, "source": "keyword-demand 2026-09-09" },
+            { "text": "jobber alternatives", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "jobber competitors", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "alternatives to jobber", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "software like jobber", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "apps similar to jobber", "matchType": "PHRASE", "source": "ads_daily_search_term — converted historically" },
+            { "text": "switch from jobber", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        },
+        {
+          "name": "Housecall Pro alternative",
+          "finalUrl": "https://try.opsapp.co/compare/housecall-pro",
+          "path1": "compare",
+          "path2": "switch",
+          "keywords": [
+            { "text": "housecall pro alternative", "matchType": "EXACT", "volume": 140, "source": "keyword-demand 2026-09-09 (US 140 · $50–116)" },
+            { "text": "housecall pro alternative", "matchType": "PHRASE", "volume": 140, "source": "keyword-demand 2026-09-09" },
+            { "text": "housecall pro alternatives", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "housecall pro competitors", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        },
+        {
+          "name": "ServiceTitan alternative",
+          "finalUrl": "https://try.opsapp.co/compare/servicetitan",
+          "path1": "compare",
+          "path2": "switch",
+          "keywords": [
+            { "text": "servicetitan alternative", "matchType": "EXACT", "volume": 90, "source": "keyword-demand 2026-09-09 (US 90 · $28–86)" },
+            { "text": "servicetitan alternative", "matchType": "PHRASE", "volume": 90, "source": "keyword-demand 2026-09-09" },
+            { "text": "servicetitan competitors", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "servicetitan pricing", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        }
+      ]
+    },
+
+    {
+      "name": "TRADE · US",
+      "kind": "core",
+      "status": "PAUSED",
+      "budget": { "name": "TRADE · US budget", "amountMicros": "12000000", "deliveryMethod": "STANDARD" },
+      "bidding": { "type": "MAXIMIZE_CLICKS", "cpcBidCeilingMicros": "9000000" },
+      "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
+      "geo": { "locations": ["geoTargetConstants/2840"], "positiveGeoTargetType": "PRESENCE" },
+      "languages": ["languageConstants/1000"],
+      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "campaignNegatives": [
+        { "text": "free", "matchType": "BROAD" },
+        { "text": "servicetitan", "matchType": "BROAD" }
+      ],
+      "adGroups": [
+        {
+          "name": "Cleaning",
+          "finalUrl": "https://try.opsapp.co/for/cleaning",
+          "path1": "cleaning",
+          "path2": "crews",
+          "keywords": [
+            { "text": "cleaning business software", "matchType": "EXACT", "volume": 880, "source": "keyword-demand 2026-09-09 (US 880 · $17–110)" },
+            { "text": "cleaning business software", "matchType": "PHRASE", "volume": 880, "source": "keyword-demand 2026-09-09" },
+            { "text": "cleaning company software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "janitorial software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "cleaning business app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        },
+        {
+          "name": "Landscaping",
+          "finalUrl": "https://try.opsapp.co/for/landscaping",
+          "path1": "landscaping",
+          "path2": "crews",
+          "keywords": [
+            { "text": "landscaping business software", "matchType": "EXACT", "volume": 480, "source": "keyword-demand 2026-09-09 (US 480 · $14–138)" },
+            { "text": "landscaping business software", "matchType": "PHRASE", "volume": 480, "source": "keyword-demand 2026-09-09" },
+            { "text": "landscaping software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "lawn care software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "lawn care business app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        },
+        {
+          "name": "Roofing",
+          "finalUrl": "https://try.opsapp.co/for/roofing",
+          "path1": "roofing",
+          "path2": "crews",
+          "keywords": [
+            { "text": "roofing contractor software", "matchType": "EXACT", "volume": 210, "source": "keyword-demand 2026-09-09 (US 210 · $18–182)" },
+            { "text": "roofing contractor software", "matchType": "PHRASE", "volume": 210, "source": "keyword-demand 2026-09-09" },
+            { "text": "roofing software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "roofing business software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        }
+      ]
+    },
+
+    {
+      "name": "CORE · CA",
+      "kind": "core",
+      "status": "PAUSED",
+      "budget": { "name": "CORE · CA budget", "amountMicros": "7000000", "deliveryMethod": "STANDARD" },
+      "bidding": { "type": "MAXIMIZE_CLICKS", "cpcBidCeilingMicros": "9000000" },
+      "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
+      "geo": { "locations": ["geoTargetConstants/2124"], "positiveGeoTargetType": "PRESENCE" },
+      "languages": ["languageConstants/1000"],
+      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "campaignNegatives": [
+        { "text": "free", "matchType": "BROAD" },
+        { "text": "servicetitan", "matchType": "BROAD" }
+      ],
+      "adGroups": [
+        {
+          "name": "Pricing",
+          "finalUrl": "https://try.opsapp.co/compare/jobber",
+          "path1": "compare",
+          "path2": "pricing",
+          "keywords": [
+            { "text": "jobber pricing", "matchType": "EXACT", "volume": 1000, "source": "keyword-demand 2026-09-09 (CA 1,000 · $12–77)" },
+            { "text": "jobber pricing", "matchType": "PHRASE", "volume": 1000, "source": "keyword-demand 2026-09-09" },
+            { "text": "jobber cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "how much does jobber cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        },
+        {
+          "name": "Switching",
+          "finalUrl": "https://try.opsapp.co/compare/jobber",
+          "path1": "compare",
+          "path2": "switch",
+          "keywords": [
+            { "text": "jobber alternative", "matchType": "EXACT", "volume": 70, "source": "keyword-demand 2026-09-09 (CA 70 · $21–102)" },
+            { "text": "jobber alternative", "matchType": "PHRASE", "volume": 70, "source": "keyword-demand 2026-09-09" },
+            { "text": "jobber alternatives", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "jobber competitors", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        },
+        {
+          "name": "Category",
+          "finalUrl": "https://try.opsapp.co/job-management",
+          "path1": "trades",
+          "path2": "job-management",
+          "keywords": [
+            { "text": "job management app", "matchType": "EXACT", "volume": 30, "source": "keyword-demand 2026-09-09 (CA 30 · $21–158)" },
+            { "text": "job management app", "matchType": "PHRASE", "volume": 30, "source": "keyword-demand 2026-09-09" },
+            { "text": "crew scheduling app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
+            { "text": "contractor scheduling app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09 — targeting word only, never printed" },
+            { "text": "contractor invoicing app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09 — targeting word only, never printed" },
+            { "text": "job management software for trades", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+          ],
+          "ads": []
+        }
+      ]
+    }
+  ]
+}
