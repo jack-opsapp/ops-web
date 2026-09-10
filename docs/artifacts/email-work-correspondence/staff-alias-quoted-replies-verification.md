@@ -1,6 +1,6 @@
 # Quoted staff signature and correspondence retention repair
 
-Date: 2026-09-10. Status: implemented and verified locally; production release and data repair are pending approval. No production writes were performed during this investigation.
+Date: 2026-09-10. Status: live. Jackson approved publishing the correction and the exact incident repair. Production commit `23ffe646a77effba851fe063c68c15e93114b9cb` includes fix `b295b697239d10330ea7239faace705b3d9b5d95` and the current main-branch changes. Vercel deployment `dpl_C1JXrygTkScb9pQhCi8ywu7V15Sa` reached READY and serves `app.opsapp.co`; the public login route returned HTTP 200.
 
 ## Failure and correction
 
@@ -19,14 +19,20 @@ Pending identity messages now receive a durable, unlinked `staff_alias_pending` 
 - Scoped TypeScript compilation passed using `staff-alias-tsconfig.json`.
 - Independent review found no remaining actionable issues after checking reconciliation and contact-form quote handling.
 - The older full sync test file has a known failing baseline: 37 failures / 78 passes before this patch, 36 failures / 81 passes after it, with no newly failing test names. Many older expectations assume automatic lead creation without the current inquiry-evidence contract. The full repository suite is not claimed green.
-- Tests use provider/database doubles; production provider-source capture and live ingestion after deployment still require readback.
+- Tests use provider/database doubles. The separately approved production recovery used actual provider messages and independently verified saved activity and immutable-source content hashes.
 
 ## Live audit and bounded recovery
 
 The audited mailbox was active and advancing its sync cursor; other inbound messages were being saved. Nine external addresses had false pending staff-alias records. Across 37 exact provider messages from those addresses since the incident window began, 14 were already stored and 23 were missing. The original alias evidence predates the September inquiry-evidence correction.
 
-All 23 missing source messages were fetched read-only and retained privately. Three are within the established exact recovery runner's seven-day window; its dry run returned `ready` for each. This verifies authorization, snapshot integrity, current absence, and input readiness, not the result of applying recovery. Their false alias must be rejected before canonical inbound recovery can proceed.
+All nine proven false staff aliases were rejected with the approving administrator, source evidence, reason, and release commit recorded. An independent readback confirmed all nine changes and that the genuine verified secondary staff address was unchanged.
 
-The other 20 messages require a separate bounded historical restoration, preserving provider timestamps, current ownership, and terminal/archive state. Supplier correspondence and completed-job messages must remain review/project history and cannot create or reopen a sales lead. Do not weaken the existing seven-day recovery cutoff, change source dates, or reset a mailbox cursor. The private repair package enumerates the exact aliases, source identities, existing targets, and checks needed before any production change.
+All 23 missing messages were restored from exact provider identities. The three recent messages passed the existing seven-day recovery runner through normal matching, correspondence projection, commercial guards, and summary refresh. A bounded historical restoration recovered the remaining 20: 12 existing-lead messages, three existing-project messages, and five review messages. The production recovery cutoff, provider dates, and mailbox cursor were not changed by either runner. Historical restoration preserved archive states and terminal stages. The recent customer replies legitimately resurfaced their original archived lead through the normal new-reply path.
 
-Production completion requires a ready deployment containing this patch, audited rejection of only the nine proven false aliases, exact restoration with independent activity/source/event readback, and a subsequent successful sync. These steps have not yet been performed.
+Independent database readback verified 23 unique activities and 23 immutable provider-source records. Every saved activity matched the expected sender, thread, original date, inbound direction, body hash, and existing lead/project/review destination. Every immutable source matched the provider content hash. There are 15 corresponding lead events; project/review records retain their source and activity without inventing a lead event. Supported lead-memory turns were also persisted. The 14 pre-existing activities were unchanged. No new lead was created during the repair, and no restored message was duplicated.
+
+The four other affected historical lead summaries were refreshed through the existing guarded summary service. Independent readback matched all four resulting summary hashes and timestamps. Their stages and archive states remained unchanged. Per-target receipts allow safe continuation without regenerating an already verified summary.
+
+The mailbox remains active with sync enabled. Production advanced its sync watermark after deployment and alias correction, then again to `2026-09-10T22:10:12.606Z`; the final lock readback was clear. Production sync completion is verified through the database watermark. The runtime-log tool returned no detailed logs, so no stronger runtime trace is claimed. A manual cron probe using the local credential returned 401 and is not counted as a successful sync.
+
+All customer content, exact repair manifests, authorization checks, original snapshots, source hashes, SQL readbacks, and per-message receipts remain in the private incident package outside this public repository. The published tests and this evidence note contain no customer identities or email bodies.
