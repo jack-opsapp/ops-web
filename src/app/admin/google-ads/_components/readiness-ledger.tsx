@@ -120,7 +120,7 @@ export function ReadinessLedger() {
     return (
       <section className="glass-surface rounded-panel px-3 py-2" aria-label="Engine readiness">
         <h2 className="font-mono text-micro uppercase tracking-authority text-text-3">
-          <span className="text-text-mute">//</span> ENGINE READINESS
+          <span className="text-text-mute">{"//"}</span> ENGINE READINESS
         </h2>
         <p className="mt-1 font-mono text-micro text-text-3">Readiness unavailable</p>
       </section>
@@ -133,7 +133,7 @@ export function ReadinessLedger() {
     <section className="glass-surface rounded-panel px-3 py-2" aria-label="Engine readiness">
       <header className="flex items-baseline justify-between gap-2 pb-1">
         <h2 className="font-mono text-micro uppercase tracking-authority text-text-3">
-          <span className="text-text-mute">//</span> ENGINE READINESS
+          <span className="text-text-mute">{"//"}</span> ENGINE READINESS
         </h2>
         <span className="font-mono text-micro uppercase tracking-wider text-text-3 tabular-nums">
           {`PROBED ${formatProbedAt(probedAt)}`}

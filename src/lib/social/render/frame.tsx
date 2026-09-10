@@ -94,7 +94,7 @@ export function SocialFrame({
           paddingBottom: SOCIAL_SPACE.headerGap,
         }}
       >
-        <div style={{ ...monoLabel, display: "flex" }}>// OPS JOURNAL</div>
+        <div style={{ ...monoLabel, display: "flex" }}>{"// OPS JOURNAL"}</div>
         {date ? (
           <div
             style={{
