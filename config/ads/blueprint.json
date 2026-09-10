@@ -8,8 +8,7 @@
     "ads_daily_search_term — the historical waste the negative lists are built from",
     "ops-software-bible/docs/plans/2026-09-08-google-ads-engine-p2-account-rebuild.md Task 2R and Task 3R"
   ],
-  "labels": ["engine", "legacy", "role-control", "role-challenger"],
-
+  "labels": ["engine","legacy","role-control","role-challenger"],
   "sharedNegativeLists": [
     {
       "name": "NEG · Job seekers",
@@ -142,7 +141,6 @@
       ]
     }
   ],
-
   "campaigns": [
     {
       "name": "BRAND · NA",
@@ -151,10 +149,21 @@
       "budget": { "name": "BRAND · NA budget", "amountMicros": "3000000", "deliveryMethod": "STANDARD" },
       "bidding": { "type": "MANUAL_CPC" },
       "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
-      "geo": { "locations": ["geoTargetConstants/2840", "geoTargetConstants/2124"], "positiveGeoTargetType": "PRESENCE" },
+      "geo": {
+        "locations": ["geoTargetConstants/2840","geoTargetConstants/2124"],
+        "positiveGeoTargetType": "PRESENCE"
+      },
       "languages": ["languageConstants/1000"],
-      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
-      "campaignNegatives": [{ "text": "servicetitan", "matchType": "BROAD" }],
+      "negativeLists": [
+        "NEG · Job seekers",
+        "NEG · Homeowner intent",
+        "NEG · Training",
+        "NEG · Generic waste",
+        "NEG · Wrong segment"
+      ],
+      "campaignNegatives": [
+        { "text": "servicetitan", "matchType": "BROAD" }
+      ],
       "adGroups": [
         {
           "name": "Brand",
@@ -168,11 +177,57 @@
             { "text": "opsapp.co", "matchType": "EXACT", "source": "brand" },
             { "text": "ops job management", "matchType": "EXACT", "source": "brand" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "The crew actually opens it — the whole product in one line.",
+              "headlines": [
+                { "text": "OPS — job management", "pinnedField": "HEADLINE_1" },
+                { "text": "OPS for trades", "pinnedField": "HEADLINE_1" },
+                { "text": "Built by trades, for trades", "pinnedField": "HEADLINE_1" },
+                { "text": "Your crew will actually use it" },
+                { "text": "One app for the whole crew" },
+                { "text": "Works offline on site" },
+                { "text": "Free to start" },
+                { "text": "No credit card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Jobs, crews, quotes and invoices in one app your crew opens without training." },
+                { "text": "Built by a trades owner who got tired of software nobody on the crew would open." },
+                { "text": "Free to start, no credit card. Every feature at every tier, from $90 a month." },
+                { "text": "Works offline. Changes sync the moment signal comes back." }
+              ],
+              "finalUrl": "https://try.opsapp.co/"
+            },
+            {
+              "role": "challenger",
+              "angle": "Price first: one price for the crew, nothing held back.",
+              "headlines": [
+                { "text": "Job management from $90", "pinnedField": "HEADLINE_1" },
+                { "text": "$140 for the whole crew", "pinnedField": "HEADLINE_1" },
+                { "text": "Every feature, every tier", "pinnedField": "HEADLINE_1" },
+                { "text": "No credit card to start" },
+                { "text": "OPS runs your whole day" },
+                { "text": "Quotes, jobs, invoices" },
+                { "text": "Crew opens it, gets to work" },
+                { "text": "Offline on every job site" },
+                { "text": "Built by trades, for trades" },
+                { "text": "One price, no add-ons" }
+              ],
+              "descriptions": [
+                { "text": "$90, $140 or $190 a month. Every feature included at every tier. No add-ons." },
+                { "text": "Start free with no credit card. Keep going only if your crew actually uses it." },
+                { "text": "Jobs, schedule, quotes and invoices in one app that works without signal." },
+                { "text": "Built by a trades owner who scaled a crew on it before anyone else could buy it." }
+              ],
+              "finalUrl": "https://try.opsapp.co/"
+            }
+          ]
         }
       ]
     },
-
     {
       "name": "PRICING · US",
       "kind": "competitor",
@@ -180,9 +235,18 @@
       "budget": { "name": "PRICING · US budget", "amountMicros": "18000000", "deliveryMethod": "STANDARD" },
       "bidding": { "type": "MAXIMIZE_CLICKS", "cpcBidCeilingMicros": "9000000" },
       "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
-      "geo": { "locations": ["geoTargetConstants/2840"], "positiveGeoTargetType": "PRESENCE" },
+      "geo": {
+        "locations": ["geoTargetConstants/2840"],
+        "positiveGeoTargetType": "PRESENCE"
+      },
       "languages": ["languageConstants/1000"],
-      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "negativeLists": [
+        "NEG · Job seekers",
+        "NEG · Homeowner intent",
+        "NEG · Training",
+        "NEG · Generic waste",
+        "NEG · Wrong segment"
+      ],
       "campaignNegatives": [],
       "adGroups": [
         {
@@ -191,13 +255,60 @@
           "path1": "compare",
           "path2": "pricing",
           "keywords": [
-            { "text": "jobber pricing", "matchType": "EXACT", "volume": 4400, "source": "keyword-demand 2026-09-09 (US 4,400 · $10–60)" },
-            { "text": "jobber pricing", "matchType": "PHRASE", "volume": 4400, "source": "keyword-demand 2026-09-09" },
-            { "text": "jobber cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "jobber plans", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "how much does jobber cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "jobber pricing", "matchType": "EXACT", "volume": 4400, "source": "keyword-demand-2026-09-09 · US 4400/mo · $9.79–60.24 top of page" },
+            { "text": "jobber pricing", "matchType": "PHRASE", "volume": 4400, "source": "keyword-demand-2026-09-09 · US 4400/mo · $9.79–60.24 top of page" },
+            { "text": "jobber cost", "matchType": "PHRASE", "volume": 590, "source": "keyword-demand-2026-09-09 · US 590/mo · $8.84–52.45 top of page" },
+            { "text": "jobber plans", "matchType": "PHRASE", "volume": 320, "source": "keyword-demand-2026-09-09 · US 320/mo · $8.13–62.53 top of page" },
+            { "text": "how much does jobber cost", "matchType": "PHRASE", "volume": 390, "source": "keyword-demand-2026-09-09 · US 390/mo · $7.45–38.37 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Published price against an incumbent who hides theirs.",
+              "headlines": [
+                { "text": "Jobber alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switching from Jobber?", "pinnedField": "HEADLINE_1" },
+                { "text": "Compare the real prices", "pinnedField": "HEADLINE_1" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No per-user pricing" },
+                { "text": "Every feature, every tier" },
+                { "text": "Free to start, no card" },
+                { "text": "See the math yourself" },
+                { "text": "One price, no add-ons" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table." },
+                { "text": "Every feature at every tier. No upsell, no add-on, no seat you forgot you bought." },
+                { "text": "Start free with no credit card. Built by a trades owner for crews of 1 to 10." },
+                { "text": "Compare line by line, then decide. The numbers are on the page, not behind a call." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/jobber"
+            },
+            {
+              "role": "challenger",
+              "angle": "Per-seat billing punishes hiring; OPS charges for the crew.",
+              "headlines": [
+                { "text": "Tired of Jobber?", "pinnedField": "HEADLINE_1" },
+                { "text": "Jobber alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Add a crew, not a bill", "pinnedField": "HEADLINE_1" },
+                { "text": "$140 covers the crew" },
+                { "text": "Seats do not cost extra" },
+                { "text": "Every feature, every tier" },
+                { "text": "Free to start" },
+                { "text": "No credit card" },
+                { "text": "Built by trades, for trades" },
+                { "text": "Works offline on site" }
+              ],
+              "descriptions": [
+                { "text": "Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat." },
+                { "text": "$90, $140 or $190 a month, every feature included. Add crew without adding cost." },
+                { "text": "Start free, no credit card. Cancel whenever the crew says it is not for them." },
+                { "text": "One app for jobs, schedule, quotes and invoices. It works with no signal." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/jobber"
+            }
+          ]
         },
         {
           "name": "Housecall Pro pricing",
@@ -205,16 +316,62 @@
           "path1": "compare",
           "path2": "pricing",
           "keywords": [
-            { "text": "housecall pro pricing", "matchType": "EXACT", "volume": 1300, "source": "keyword-demand 2026-09-09 (US 1,300 · $12–65)" },
-            { "text": "housecall pro pricing", "matchType": "PHRASE", "volume": 1300, "source": "keyword-demand 2026-09-09" },
-            { "text": "housecall pro cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "how much is housecall pro", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "housecall pro pricing", "matchType": "EXACT", "volume": 1300, "source": "keyword-demand-2026-09-09 · US 1300/mo · $11.6–65.09 top of page" },
+            { "text": "housecall pro pricing", "matchType": "PHRASE", "volume": 1300, "source": "keyword-demand-2026-09-09 · US 1300/mo · $11.6–65.09 top of page" },
+            { "text": "housecall pro cost", "matchType": "PHRASE", "volume": 170, "source": "keyword-demand-2026-09-09 · US 170/mo · $11.05–60.82 top of page" },
+            { "text": "how much is housecall pro", "matchType": "PHRASE", "volume": 170, "source": "keyword-demand-2026-09-09 · US 170/mo · $11.05–55.12 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Published price against an incumbent who hides theirs.",
+              "headlines": [
+                { "text": "Housecall Pro alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switching from Housecall Pro?", "pinnedField": "HEADLINE_1" },
+                { "text": "Compare the real prices", "pinnedField": "HEADLINE_1" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No per-user pricing" },
+                { "text": "Every feature, every tier" },
+                { "text": "Free to start, no card" },
+                { "text": "See the math yourself" },
+                { "text": "One price, no add-ons" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table." },
+                { "text": "Every feature at every tier. No upsell, no add-on, no seat you forgot you bought." },
+                { "text": "Start free with no credit card. Built by a trades owner for crews of 1 to 10." },
+                { "text": "Compare line by line, then decide. The numbers are on the page, not behind a call." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+            },
+            {
+              "role": "challenger",
+              "angle": "Per-seat billing punishes hiring; OPS charges for the crew.",
+              "headlines": [
+                { "text": "Tired of Housecall Pro?", "pinnedField": "HEADLINE_1" },
+                { "text": "Housecall Pro alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Add a crew, not a bill", "pinnedField": "HEADLINE_1" },
+                { "text": "$140 covers the crew" },
+                { "text": "Seats do not cost extra" },
+                { "text": "Every feature, every tier" },
+                { "text": "Free to start" },
+                { "text": "No credit card" },
+                { "text": "Built by trades, for trades" },
+                { "text": "Works offline on site" }
+              ],
+              "descriptions": [
+                { "text": "Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat." },
+                { "text": "$90, $140 or $190 a month, every feature included. Add crew without adding cost." },
+                { "text": "Start free, no credit card. Cancel whenever the crew says it is not for them." },
+                { "text": "One app for jobs, schedule, quotes and invoices. It works with no signal." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+            }
+          ]
         }
       ]
     },
-
     {
       "name": "SWITCH · US",
       "kind": "competitor",
@@ -222,9 +379,18 @@
       "budget": { "name": "SWITCH · US budget", "amountMicros": "10000000", "deliveryMethod": "STANDARD" },
       "bidding": { "type": "MAXIMIZE_CLICKS", "cpcBidCeilingMicros": "12000000" },
       "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
-      "geo": { "locations": ["geoTargetConstants/2840"], "positiveGeoTargetType": "PRESENCE" },
+      "geo": {
+        "locations": ["geoTargetConstants/2840"],
+        "positiveGeoTargetType": "PRESENCE"
+      },
       "languages": ["languageConstants/1000"],
-      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "negativeLists": [
+        "NEG · Job seekers",
+        "NEG · Homeowner intent",
+        "NEG · Training",
+        "NEG · Generic waste",
+        "NEG · Wrong segment"
+      ],
       "campaignNegatives": [],
       "adGroups": [
         {
@@ -233,16 +399,61 @@
           "path1": "compare",
           "path2": "switch",
           "keywords": [
-            { "text": "jobber alternative", "matchType": "EXACT", "volume": 260, "source": "keyword-demand 2026-09-09 (US 260 · $25–102)" },
-            { "text": "jobber alternative", "matchType": "PHRASE", "volume": 260, "source": "keyword-demand 2026-09-09" },
-            { "text": "jobber alternatives", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "jobber competitors", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "alternatives to jobber", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "software like jobber", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "apps similar to jobber", "matchType": "PHRASE", "source": "ads_daily_search_term — converted historically" },
-            { "text": "switch from jobber", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "jobber alternative", "matchType": "EXACT", "volume": 260, "source": "keyword-demand-2026-09-09 · US 260/mo · $25.49–102.19 top of page" },
+            { "text": "jobber alternative", "matchType": "PHRASE", "volume": 260, "source": "keyword-demand-2026-09-09 · US 260/mo · $25.49–102.19 top of page" },
+            { "text": "jobber competitors", "matchType": "PHRASE", "volume": 110, "source": "keyword-demand-2026-09-09 · US 110/mo · $27.28–102.19 top of page" },
+            { "text": "alternatives to jobber", "matchType": "PHRASE", "volume": 40, "source": "keyword-demand-2026-09-09 · US 40/mo · $27.55–117.76 top of page" },
+            { "text": "software like jobber", "matchType": "PHRASE", "volume": 20, "source": "keyword-demand-2026-09-09 · US 20/mo · $35.98–136.57 top of page" },
+            { "text": "apps similar to jobber", "matchType": "PHRASE", "volume": 20, "source": "keyword-demand-2026-09-09 · US 20/mo · $14.86–61.94 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Crews quit software they will not open; this one they open.",
+              "headlines": [
+                { "text": "Jobber alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switching from Jobber?", "pinnedField": "HEADLINE_1" },
+                { "text": "Software the crew opens", "pinnedField": "HEADLINE_1" },
+                { "text": "No training day required" },
+                { "text": "Move your jobs over free" },
+                { "text": "Every feature, every tier" },
+                { "text": "$140 for the whole crew" },
+                { "text": "Works offline on site" },
+                { "text": "Built by trades, for trades" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Most crews quit software because it is too much app. OPS opens and shows the job." },
+                { "text": "Bring your jobs, clients and quotes across. Free to start, no credit card." },
+                { "text": "$140 a month for the whole crew, every feature included. Not per seat." },
+                { "text": "Built by a trades owner who could not get his own crew to use anything else." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/jobber"
+            },
+            {
+              "role": "challenger",
+              "angle": "Switching costs a morning, not a quarter.",
+              "headlines": [
+                { "text": "Tired of Jobber?", "pinnedField": "HEADLINE_1" },
+                { "text": "Jobber alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switch in an afternoon", "pinnedField": "HEADLINE_1" },
+                { "text": "Keep your job history" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No per-seat billing" },
+                { "text": "Free to start, no card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Offline on every site" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Switching costs a morning, not a quarter. Your jobs and clients come with you." },
+                { "text": "$90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons." },
+                { "text": "Start free with no credit card and see whether the crew opens it on day 1." },
+                { "text": "Built by trades, for trades. It works with no signal and syncs when it returns." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/jobber"
+            }
+          ]
         },
         {
           "name": "Housecall Pro alternative",
@@ -250,12 +461,58 @@
           "path1": "compare",
           "path2": "switch",
           "keywords": [
-            { "text": "housecall pro alternative", "matchType": "EXACT", "volume": 140, "source": "keyword-demand 2026-09-09 (US 140 · $50–116)" },
-            { "text": "housecall pro alternative", "matchType": "PHRASE", "volume": 140, "source": "keyword-demand 2026-09-09" },
-            { "text": "housecall pro alternatives", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "housecall pro competitors", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "housecall pro alternative", "matchType": "EXACT", "volume": 140, "source": "keyword-demand-2026-09-09 · US 140/mo · $49.75–115.91 top of page" },
+            { "text": "housecall pro alternative", "matchType": "PHRASE", "volume": 140, "source": "keyword-demand-2026-09-09 · US 140/mo · $49.75–115.91 top of page" },
+            { "text": "housecall pro competitors", "matchType": "PHRASE", "volume": 70, "source": "keyword-demand-2026-09-09 · US 70/mo · $47.99–141.31 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Crews quit software they will not open; this one they open.",
+              "headlines": [
+                { "text": "Housecall Pro alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switching from Housecall Pro?", "pinnedField": "HEADLINE_1" },
+                { "text": "Software the crew opens", "pinnedField": "HEADLINE_1" },
+                { "text": "No training day required" },
+                { "text": "Move your jobs over free" },
+                { "text": "Every feature, every tier" },
+                { "text": "$140 for the whole crew" },
+                { "text": "Works offline on site" },
+                { "text": "Built by trades, for trades" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Most crews quit software because it is too much app. OPS opens and shows the job." },
+                { "text": "Bring your jobs, clients and quotes across. Free to start, no credit card." },
+                { "text": "$140 a month for the whole crew, every feature included. Not per seat." },
+                { "text": "Built by a trades owner who could not get his own crew to use anything else." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+            },
+            {
+              "role": "challenger",
+              "angle": "Switching costs a morning, not a quarter.",
+              "headlines": [
+                { "text": "Tired of Housecall Pro?", "pinnedField": "HEADLINE_1" },
+                { "text": "Housecall Pro alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switch in an afternoon", "pinnedField": "HEADLINE_1" },
+                { "text": "Keep your job history" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No per-seat billing" },
+                { "text": "Free to start, no card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Offline on every site" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Switching costs a morning, not a quarter. Your jobs and clients come with you." },
+                { "text": "$90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons." },
+                { "text": "Start free with no credit card and see whether the crew opens it on day 1." },
+                { "text": "Built by trades, for trades. It works with no signal and syncs when it returns." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+            }
+          ]
         },
         {
           "name": "ServiceTitan alternative",
@@ -263,16 +520,62 @@
           "path1": "compare",
           "path2": "switch",
           "keywords": [
-            { "text": "servicetitan alternative", "matchType": "EXACT", "volume": 90, "source": "keyword-demand 2026-09-09 (US 90 · $28–86)" },
-            { "text": "servicetitan alternative", "matchType": "PHRASE", "volume": 90, "source": "keyword-demand 2026-09-09" },
-            { "text": "servicetitan competitors", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "servicetitan pricing", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "servicetitan alternative", "matchType": "EXACT", "volume": 90, "source": "keyword-demand-2026-09-09 · US 90/mo · $27.55–85.7 top of page" },
+            { "text": "servicetitan alternative", "matchType": "PHRASE", "volume": 90, "source": "keyword-demand-2026-09-09 · US 90/mo · $27.55–85.7 top of page" },
+            { "text": "servicetitan competitors", "matchType": "PHRASE", "volume": 210, "source": "keyword-demand-2026-09-09 · US 210/mo · $27.55–75.75 top of page" },
+            { "text": "servicetitan pricing", "matchType": "PHRASE", "volume": 590, "source": "keyword-demand-2026-09-09 · US 590/mo · $27.29–137.74 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Built for a crew of ten, not for a call centre.",
+              "headlines": [
+                { "text": "ServiceTitan alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switching from ServiceTitan?", "pinnedField": "HEADLINE_1" },
+                { "text": "Built for small crews", "pinnedField": "HEADLINE_1" },
+                { "text": "No enterprise rollout" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No onboarding fee" },
+                { "text": "Free to start, no card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Crews of 1 to 10" },
+                { "text": "Works offline on site" }
+              ],
+              "descriptions": [
+                { "text": "Built for crews of 1 to 10, not for a call centre. No rollout, no onboarding fee." },
+                { "text": "$90, $140 or $190 a month. Every feature at every tier. Start free, no card." },
+                { "text": "Your crew opens it and sees today's jobs. That is the whole training." },
+                { "text": "Built by a trades owner who needed it to work in a truck with no signal." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/servicetitan"
+            },
+            {
+              "role": "challenger",
+              "angle": "The price is on the page, not behind a discovery call.",
+              "headlines": [
+                { "text": "Tired of ServiceTitan?", "pinnedField": "HEADLINE_1" },
+                { "text": "ServiceTitan alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "$140 for the whole crew", "pinnedField": "HEADLINE_1" },
+                { "text": "No quote, no sales call" },
+                { "text": "Prices on the page" },
+                { "text": "Every feature, every tier" },
+                { "text": "Free to start" },
+                { "text": "No credit card" },
+                { "text": "Built by trades, for trades" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "The price is $90, $140 or $190 a month. No quote, no discovery call, no contract." },
+                { "text": "Every feature at every tier. Nothing is held back for a bigger plan." },
+                { "text": "Start free with no credit card. Keep it only if the crew opens it." },
+                { "text": "Jobs, schedule, quotes and invoices in one app that works with no signal." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/servicetitan"
+            }
+          ]
         }
       ]
     },
-
     {
       "name": "TRADE · US",
       "kind": "core",
@@ -280,9 +583,18 @@
       "budget": { "name": "TRADE · US budget", "amountMicros": "12000000", "deliveryMethod": "STANDARD" },
       "bidding": { "type": "MAXIMIZE_CLICKS", "cpcBidCeilingMicros": "9000000" },
       "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
-      "geo": { "locations": ["geoTargetConstants/2840"], "positiveGeoTargetType": "PRESENCE" },
+      "geo": {
+        "locations": ["geoTargetConstants/2840"],
+        "positiveGeoTargetType": "PRESENCE"
+      },
       "languages": ["languageConstants/1000"],
-      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "negativeLists": [
+        "NEG · Job seekers",
+        "NEG · Homeowner intent",
+        "NEG · Training",
+        "NEG · Generic waste",
+        "NEG · Wrong segment"
+      ],
       "campaignNegatives": [
         { "text": "free", "matchType": "BROAD" },
         { "text": "servicetitan", "matchType": "BROAD" }
@@ -294,13 +606,60 @@
           "path1": "cleaning",
           "path2": "crews",
           "keywords": [
-            { "text": "cleaning business software", "matchType": "EXACT", "volume": 880, "source": "keyword-demand 2026-09-09 (US 880 · $17–110)" },
-            { "text": "cleaning business software", "matchType": "PHRASE", "volume": 880, "source": "keyword-demand 2026-09-09" },
-            { "text": "cleaning company software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "janitorial software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "cleaning business app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "cleaning business software", "matchType": "EXACT", "volume": 880, "source": "keyword-demand-2026-09-09 · US 880/mo · $16.72–110.19 top of page" },
+            { "text": "cleaning business software", "matchType": "PHRASE", "volume": 880, "source": "keyword-demand-2026-09-09 · US 880/mo · $16.72–110.19 top of page" },
+            { "text": "cleaning company software", "matchType": "PHRASE", "volume": 880, "source": "keyword-demand-2026-09-09 · US 880/mo · $16.72–110.19 top of page" },
+            { "text": "janitorial software", "matchType": "PHRASE", "volume": 110, "source": "keyword-demand-2026-09-09 · US 110/mo · $14.46–83.07 top of page" },
+            { "text": "cleaning business app", "matchType": "PHRASE", "volume": 260, "source": "keyword-demand-2026-09-09 · US 260/mo · $11.8–110.19 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Names the trade and shows the day: stops on one screen.",
+              "headlines": [
+                { "text": "Cleaning business software", "pinnedField": "HEADLINE_1" },
+                { "text": "Software for cleaning crews", "pinnedField": "HEADLINE_1" },
+                { "text": "Run every clean from one app", "pinnedField": "HEADLINE_1" },
+                { "text": "Crew sees the day up front" },
+                { "text": "Schedules, jobs, invoices" },
+                { "text": "$140 for the whole crew" },
+                { "text": "Free to start, no card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Works offline on site" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Assign the route, track the clean, invoice from the phone before you leave." },
+                { "text": "Your crew opens it and sees today's stops. No training day, no manual." },
+                { "text": "$90, $140 or $190 a month for the crew. Every feature at every tier." },
+                { "text": "Free to start with no credit card. Built by a trades owner, not an office." }
+              ],
+              "finalUrl": "https://try.opsapp.co/for/cleaning"
+            },
+            {
+              "role": "challenger",
+              "angle": "The alternative is group texts and paper, and it loses work.",
+              "headlines": [
+                { "text": "Cleaning crews, one app", "pinnedField": "HEADLINE_1" },
+                { "text": "Cleaning business software", "pinnedField": "HEADLINE_1" },
+                { "text": "Stop running on group texts", "pinnedField": "HEADLINE_1" },
+                { "text": "Every stop on one screen" },
+                { "text": "Invoice before you drive off" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No credit card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Works with no signal" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Group texts and paper schedules lose stops. One app holds the whole route." },
+                { "text": "Photos, notes and sign-off land on the job, not in someone's camera roll." },
+                { "text": "$90, $140 or $190 a month, every feature included. Start free, no card." },
+                { "text": "Built by a trades owner who ran a crew on it before selling it to anyone." }
+              ],
+              "finalUrl": "https://try.opsapp.co/for/cleaning"
+            }
+          ]
         },
         {
           "name": "Landscaping",
@@ -308,13 +667,65 @@
           "path1": "landscaping",
           "path2": "crews",
           "keywords": [
-            { "text": "landscaping business software", "matchType": "EXACT", "volume": 480, "source": "keyword-demand 2026-09-09 (US 480 · $14–138)" },
-            { "text": "landscaping business software", "matchType": "PHRASE", "volume": 480, "source": "keyword-demand 2026-09-09" },
-            { "text": "landscaping software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "lawn care software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "lawn care business app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "landscaping business software", "matchType": "EXACT", "volume": 480, "source": "keyword-demand-2026-09-09 · US 480/mo · $14.34–137.74 top of page" },
+            {
+              "text": "landscaping business software",
+              "matchType": "PHRASE",
+              "volume": 480,
+              "source": "keyword-demand-2026-09-09 · US 480/mo · $14.34–137.74 top of page"
+            },
+            { "text": "landscaping software", "matchType": "PHRASE", "volume": 1600, "source": "keyword-demand-2026-09-09 · US 1600/mo · $3.78–44.62 top of page" },
+            { "text": "lawn care software", "matchType": "PHRASE", "volume": 390, "source": "keyword-demand-2026-09-09 · US 390/mo · $15.87–103.88 top of page" },
+            { "text": "lawn care business app", "matchType": "PHRASE", "volume": 210, "source": "keyword-demand-2026-09-09 · US 210/mo · $10.85–63.8 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Names the trade and shows the day: properties on one screen.",
+              "headlines": [
+                { "text": "Landscaping business software", "pinnedField": "HEADLINE_1" },
+                { "text": "Software for lawn crews", "pinnedField": "HEADLINE_1" },
+                { "text": "Run the route from one app", "pinnedField": "HEADLINE_1" },
+                { "text": "Crew sees the day up front" },
+                { "text": "Schedules, jobs, invoices" },
+                { "text": "$140 for the whole crew" },
+                { "text": "Free to start, no card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Works offline on site" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Assign the route, track the cut, invoice from the phone before the trailer moves." },
+                { "text": "Your crew opens it and sees today's properties. No training day, no manual." },
+                { "text": "$90, $140 or $190 a month for the crew. Every feature at every tier." },
+                { "text": "Free to start with no credit card. Built by a trades owner, not an office." }
+              ],
+              "finalUrl": "https://try.opsapp.co/for/landscaping"
+            },
+            {
+              "role": "challenger",
+              "angle": "The alternative is group texts and paper, and it loses work.",
+              "headlines": [
+                { "text": "Lawn care crews, one app", "pinnedField": "HEADLINE_1" },
+                { "text": "Landscaping business software", "pinnedField": "HEADLINE_1" },
+                { "text": "Stop running on group texts", "pinnedField": "HEADLINE_1" },
+                { "text": "Every propertie on one screen" },
+                { "text": "Invoice before you drive off" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No credit card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Works with no signal" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Group texts and paper routes lose properties. One app holds the whole day." },
+                { "text": "Photos, notes and sign-off land on the job, not in someone's camera roll." },
+                { "text": "$90, $140 or $190 a month, every feature included. Start free, no card." },
+                { "text": "Built by a trades owner who ran a crew on it before selling it to anyone." }
+              ],
+              "finalUrl": "https://try.opsapp.co/for/landscaping"
+            }
+          ]
         },
         {
           "name": "Roofing",
@@ -322,16 +733,62 @@
           "path1": "roofing",
           "path2": "crews",
           "keywords": [
-            { "text": "roofing contractor software", "matchType": "EXACT", "volume": 210, "source": "keyword-demand 2026-09-09 (US 210 · $18–182)" },
-            { "text": "roofing contractor software", "matchType": "PHRASE", "volume": 210, "source": "keyword-demand 2026-09-09" },
-            { "text": "roofing software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "roofing business software", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "roofing contractor software", "matchType": "EXACT", "volume": 210, "source": "keyword-demand-2026-09-09 · US 210/mo · $18.51–182.64 top of page" },
+            { "text": "roofing contractor software", "matchType": "PHRASE", "volume": 210, "source": "keyword-demand-2026-09-09 · US 210/mo · $18.51–182.64 top of page" },
+            { "text": "roofing software", "matchType": "PHRASE", "volume": 720, "source": "keyword-demand-2026-09-09 · US 720/mo · $17.45–75.88 top of page" },
+            { "text": "roofing business software", "matchType": "PHRASE", "volume": 140, "source": "keyword-demand-2026-09-09 · US 140/mo · $22.27–81.25 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Names the trade and shows the day: addresses on one screen.",
+              "headlines": [
+                { "text": "Roofing business software", "pinnedField": "HEADLINE_1" },
+                { "text": "Software for roofing crews", "pinnedField": "HEADLINE_1" },
+                { "text": "Run every roof from one app", "pinnedField": "HEADLINE_1" },
+                { "text": "Crew sees the day up front" },
+                { "text": "Schedules, jobs, invoices" },
+                { "text": "$140 for the whole crew" },
+                { "text": "Free to start, no card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Works offline on site" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Quote the roof, schedule the crew, photograph the work, invoice from the phone." },
+                { "text": "Your crew opens it and sees today's addresses. No training day, no manual." },
+                { "text": "$90, $140 or $190 a month for the crew. Every feature at every tier." },
+                { "text": "Free to start with no credit card. Built by a trades owner, not an office." }
+              ],
+              "finalUrl": "https://try.opsapp.co/for/roofing"
+            },
+            {
+              "role": "challenger",
+              "angle": "The alternative is group texts and paper, and it loses work.",
+              "headlines": [
+                { "text": "Roofing crews, one app", "pinnedField": "HEADLINE_1" },
+                { "text": "Roofing business software", "pinnedField": "HEADLINE_1" },
+                { "text": "Stop running on group texts", "pinnedField": "HEADLINE_1" },
+                { "text": "Every addresse on one screen" },
+                { "text": "Invoice before you drive off" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No credit card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Works with no signal" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Paper packets and group texts lose photos. One app holds the whole job file." },
+                { "text": "Photos, notes and sign-off land on the job, not in someone's camera roll." },
+                { "text": "$90, $140 or $190 a month, every feature included. Start free, no card." },
+                { "text": "Built by a trades owner who ran a crew on it before selling it to anyone." }
+              ],
+              "finalUrl": "https://try.opsapp.co/for/roofing"
+            }
+          ]
         }
       ]
     },
-
     {
       "name": "CORE · CA",
       "kind": "core",
@@ -339,9 +796,18 @@
       "budget": { "name": "CORE · CA budget", "amountMicros": "7000000", "deliveryMethod": "STANDARD" },
       "bidding": { "type": "MAXIMIZE_CLICKS", "cpcBidCeilingMicros": "9000000" },
       "network": { "targetGoogleSearch": true, "targetSearchNetwork": false, "targetContentNetwork": false },
-      "geo": { "locations": ["geoTargetConstants/2124"], "positiveGeoTargetType": "PRESENCE" },
+      "geo": {
+        "locations": ["geoTargetConstants/2124"],
+        "positiveGeoTargetType": "PRESENCE"
+      },
       "languages": ["languageConstants/1000"],
-      "negativeLists": ["NEG · Job seekers", "NEG · Homeowner intent", "NEG · Training", "NEG · Generic waste", "NEG · Wrong segment"],
+      "negativeLists": [
+        "NEG · Job seekers",
+        "NEG · Homeowner intent",
+        "NEG · Training",
+        "NEG · Generic waste",
+        "NEG · Wrong segment"
+      ],
       "campaignNegatives": [
         { "text": "free", "matchType": "BROAD" },
         { "text": "servicetitan", "matchType": "BROAD" }
@@ -353,12 +819,61 @@
           "path1": "compare",
           "path2": "pricing",
           "keywords": [
-            { "text": "jobber pricing", "matchType": "EXACT", "volume": 1000, "source": "keyword-demand 2026-09-09 (CA 1,000 · $12–77)" },
-            { "text": "jobber pricing", "matchType": "PHRASE", "volume": 1000, "source": "keyword-demand 2026-09-09" },
-            { "text": "jobber cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "how much does jobber cost", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "jobber pricing", "matchType": "EXACT", "volume": 1000, "source": "keyword-demand-2026-09-09 · CA 1000/mo · $12.06–76.63 top of page" },
+            { "text": "jobber pricing", "matchType": "PHRASE", "volume": 1000, "source": "keyword-demand-2026-09-09 · CA 1000/mo · $12.06–76.63 top of page" },
+            { "text": "jobber cost", "matchType": "PHRASE", "volume": 70, "source": "keyword-demand-2026-09-09 · CA 70/mo · $4.96–30.38 top of page" },
+            { "text": "how much does jobber cost", "matchType": "PHRASE", "volume": 40, "source": "keyword-demand-2026-09-09 · CA 40/mo · $5.96–30.38 top of page" },
+            { "text": "jobber plans", "matchType": "PHRASE", "volume": 140, "source": "keyword-demand-2026-09-09 · CA 140/mo · $9.53–69.04 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Published price against an incumbent who hides theirs.",
+              "headlines": [
+                { "text": "Jobber alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switching from Jobber?", "pinnedField": "HEADLINE_1" },
+                { "text": "Compare the real prices", "pinnedField": "HEADLINE_1" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No per-user pricing" },
+                { "text": "Every feature, every tier" },
+                { "text": "Free to start, no card" },
+                { "text": "See the math yourself" },
+                { "text": "One price, no add-ons" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table." },
+                { "text": "Every feature at every tier. No upsell, no add-on, no seat you forgot you bought." },
+                { "text": "Start free with no credit card. Built by a trades owner for crews of 1 to 10." },
+                { "text": "Compare line by line, then decide. The numbers are on the page, not behind a call." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/jobber"
+            },
+            {
+              "role": "challenger",
+              "angle": "Per-seat billing punishes hiring; OPS charges for the crew.",
+              "headlines": [
+                { "text": "Tired of Jobber?", "pinnedField": "HEADLINE_1" },
+                { "text": "Jobber alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Add a crew, not a bill", "pinnedField": "HEADLINE_1" },
+                { "text": "$140 covers the crew" },
+                { "text": "Seats do not cost extra" },
+                { "text": "Every feature, every tier" },
+                { "text": "Free to start" },
+                { "text": "No credit card" },
+                { "text": "Built by trades, for trades" },
+                { "text": "Works offline on site" }
+              ],
+              "descriptions": [
+                { "text": "Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat." },
+                { "text": "$90, $140 or $190 a month, every feature included. Add crew without adding cost." },
+                { "text": "Start free, no credit card. Cancel whenever the crew says it is not for them." },
+                { "text": "One app for jobs, schedule, quotes and invoices. It works with no signal." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/jobber"
+            }
+          ],
+          "copyKind": "competitor"
         },
         {
           "name": "Switching",
@@ -366,12 +881,59 @@
           "path1": "compare",
           "path2": "switch",
           "keywords": [
-            { "text": "jobber alternative", "matchType": "EXACT", "volume": 70, "source": "keyword-demand 2026-09-09 (CA 70 · $21–102)" },
-            { "text": "jobber alternative", "matchType": "PHRASE", "volume": 70, "source": "keyword-demand 2026-09-09" },
-            { "text": "jobber alternatives", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "jobber competitors", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "jobber alternative", "matchType": "EXACT", "volume": 70, "source": "keyword-demand-2026-09-09 · CA 70/mo · $20.61–102.18 top of page" },
+            { "text": "jobber alternative", "matchType": "PHRASE", "volume": 70, "source": "keyword-demand-2026-09-09 · CA 70/mo · $20.61–102.18 top of page" },
+            { "text": "jobber competitors", "matchType": "PHRASE", "volume": 30, "source": "keyword-demand-2026-09-09 · CA 30/mo · $13.84–55.23 top of page" }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "Crews quit software they will not open; this one they open.",
+              "headlines": [
+                { "text": "Jobber alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switching from Jobber?", "pinnedField": "HEADLINE_1" },
+                { "text": "Software the crew opens", "pinnedField": "HEADLINE_1" },
+                { "text": "No training day required" },
+                { "text": "Move your jobs over free" },
+                { "text": "Every feature, every tier" },
+                { "text": "$140 for the whole crew" },
+                { "text": "Works offline on site" },
+                { "text": "Built by trades, for trades" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Most crews quit software because it is too much app. OPS opens and shows the job." },
+                { "text": "Bring your jobs, clients and quotes across. Free to start, no credit card." },
+                { "text": "$140 a month for the whole crew, every feature included. Not per seat." },
+                { "text": "Built by a trades owner who could not get his own crew to use anything else." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/jobber"
+            },
+            {
+              "role": "challenger",
+              "angle": "Switching costs a morning, not a quarter.",
+              "headlines": [
+                { "text": "Tired of Jobber?", "pinnedField": "HEADLINE_1" },
+                { "text": "Jobber alternative", "pinnedField": "HEADLINE_1" },
+                { "text": "Switch in an afternoon", "pinnedField": "HEADLINE_1" },
+                { "text": "Keep your job history" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No per-seat billing" },
+                { "text": "Free to start, no card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Offline on every site" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Switching costs a morning, not a quarter. Your jobs and clients come with you." },
+                { "text": "$90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons." },
+                { "text": "Start free with no credit card and see whether the crew opens it on day 1." },
+                { "text": "Built by trades, for trades. It works with no signal and syncs when it returns." }
+              ],
+              "finalUrl": "https://try.opsapp.co/compare/jobber"
+            }
+          ],
+          "copyKind": "competitor"
         },
         {
           "name": "Category",
@@ -379,14 +941,66 @@
           "path1": "trades",
           "path2": "job-management",
           "keywords": [
-            { "text": "job management app", "matchType": "EXACT", "volume": 30, "source": "keyword-demand 2026-09-09 (CA 30 · $21–158)" },
-            { "text": "job management app", "matchType": "PHRASE", "volume": 30, "source": "keyword-demand 2026-09-09" },
-            { "text": "crew scheduling app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" },
-            { "text": "contractor scheduling app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09 — targeting word only, never printed" },
-            { "text": "contractor invoicing app", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09 — targeting word only, never printed" },
-            { "text": "job management software for trades", "matchType": "PHRASE", "source": "keyword-demand 2026-09-09" }
+            { "text": "job management app", "matchType": "EXACT", "volume": 30, "source": "keyword-demand-2026-09-09 · CA 30/mo · $21.03–158.23 top of page" },
+            { "text": "job management app", "matchType": "PHRASE", "volume": 30, "source": "keyword-demand-2026-09-09 · CA 30/mo · $21.03–158.23 top of page" },
+            { "text": "crew scheduling app", "matchType": "PHRASE", "volume": 10, "source": "keyword-demand-2026-09-09 · CA 10/mo" },
+            { "text": "contractor scheduling app", "matchType": "PHRASE", "volume": 10, "source": "keyword-demand-2026-09-09 · CA 10/mo · $44.3–124.17 top of page" },
+            { "text": "contractor invoicing app", "matchType": "PHRASE", "volume": 10, "source": "keyword-demand-2026-09-09 · CA 10/mo" },
+            {
+              "text": "job management software for trades",
+              "matchType": "PHRASE",
+              "volume": 10,
+              "source": "keyword-demand-2026-09-09 · CA 10/mo · $8.44–23.51 top of page"
+            }
           ],
-          "ads": []
+          "ads": [
+            {
+              "role": "control",
+              "angle": "One app for the whole day — the category answer.",
+              "headlines": [
+                { "text": "Job management app", "pinnedField": "HEADLINE_1" },
+                { "text": "Job management for trades", "pinnedField": "HEADLINE_1" },
+                { "text": "One app for the whole crew", "pinnedField": "HEADLINE_1" },
+                { "text": "Crew sees the day up front" },
+                { "text": "Jobs, schedule, invoices" },
+                { "text": "$140 for the whole crew" },
+                { "text": "Free to start, no card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Works offline on site" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Jobs, crews, quotes and invoices in one app your crew opens without training." },
+                { "text": "Your crew opens it and sees today's work. No manual, no training day." },
+                { "text": "$90, $140 or $190 a month for the crew. Every feature at every tier." },
+                { "text": "Free to start with no credit card. Works with no signal and syncs later." }
+              ],
+              "finalUrl": "https://try.opsapp.co/job-management"
+            },
+            {
+              "role": "challenger",
+              "angle": "Scheduling first — the job the searcher is actually trying to do.",
+              "headlines": [
+                { "text": "Crew scheduling app", "pinnedField": "HEADLINE_1" },
+                { "text": "Schedule the crew in minutes", "pinnedField": "HEADLINE_1" },
+                { "text": "Stop running on group texts", "pinnedField": "HEADLINE_1" },
+                { "text": "Everyone sees the same day" },
+                { "text": "Quotes and invoices too" },
+                { "text": "$140 for the whole crew" },
+                { "text": "No credit card" },
+                { "text": "Every feature, every tier" },
+                { "text": "Works with no signal" },
+                { "text": "Crews of 1 to 10" }
+              ],
+              "descriptions": [
+                { "text": "Drag the job, the crew sees it. No calls, no group text, no one at the wrong site." },
+                { "text": "Schedule, quote and invoice from the same app the crew already has open." },
+                { "text": "$90, $140 or $190 a month, every feature included. Start free, no card." },
+                { "text": "Built by a trades owner who ran a crew on it before selling it to anyone." }
+              ],
+              "finalUrl": "https://try.opsapp.co/job-management"
+            }
+          ]
         }
       ]
     }

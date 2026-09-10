@@ -73,6 +73,15 @@ export const AdGroupSchema = z
      * bid lives on the ad group rather than on a campaign-level ceiling.
      */
     cpcBidMicros: z.string().regex(/^\d+$/).optional(),
+    /**
+     * Which copy rules this group's ads answer to, when they differ from the
+     * campaign's. Intent lives at the ad group, not the campaign: `CORE · CA`
+     * is a core campaign, but its `Switching` group bids on competitor terms
+     * and lands on a compare page, so its ads may name the competitor. Only
+     * allowed on a group whose landing page is a `/compare/` page — see
+     * `assertBlueprintCoherent`.
+     */
+    copyKind: z.enum(["brand", "core", "competitor"]).optional(),
     keywords: z.array(KeywordSchema).min(1),
     ads: z.array(RsaSchema),
   })
@@ -179,7 +188,8 @@ export class BlueprintError extends Error {
       | "UNKNOWN_NEGATIVE_LIST"
       | "DUPLICATE_CAMPAIGN"
       | "DUPLICATE_AD_GROUP"
-      | "MISSING_CPC_CEILING",
+      | "MISSING_CPC_CEILING"
+      | "COMPETITOR_COPY_WITHOUT_COMPARE_PAGE",
     message: string
   ) {
     super(message);
@@ -225,8 +235,24 @@ export function assertBlueprintCoherent(blueprint: Blueprint): void {
           `"${campaign.name}" has two ad groups named "${group.name}".`
         );
       seenGroups.add(group.name);
+      if (
+        group.copyKind === "competitor" &&
+        !new URL(group.finalUrl).pathname.startsWith("/compare/")
+      )
+        throw new BlueprintError(
+          "COMPETITOR_COPY_WITHOUT_COMPARE_PAGE",
+          `"${campaign.name}" › "${group.name}" claims competitor copy but lands on ${group.finalUrl}. A competitor name may only run where the page actually compares.`
+        );
     }
   }
+}
+
+/** Which copy rules an ad group's ads answer to. */
+export function copyKindFor(
+  campaign: BlueprintCampaign,
+  group: BlueprintAdGroup
+): "brand" | "core" | "competitor" {
+  return group.copyKind ?? campaign.kind;
 }
 
 /** Parse and check an arbitrary object; throws `BlueprintError` on any failure. */

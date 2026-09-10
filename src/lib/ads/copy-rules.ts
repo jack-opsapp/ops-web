@@ -79,7 +79,10 @@ export const COPY_LIMITS = {
 
 const EMOJI = /\p{Extended_Pictographic}/u;
 const REPEATED_PUNCTUATION = /(!!|\?\?|\.\.\.|…|,,)/;
-const NUMBER_TOKEN = /\$?\d[\d,]*(?:\.\d+)?/g;
+// A comma only belongs to a number when it groups thousands. Matching
+// `[\d,]*` swallowed the comma in prose ("$90, $140 or $190"), so a good
+// price read as the unsupported number "$90,".
+const NUMBER_TOKEN = /\$?\d+(?:,\d{3})*(?:\.\d+)?/g;
 const ALLOWED_NUMBERS = new Set(BRAND_FACTS.numbers.map((n) => n.token));
 const BANNED_WORDS = BRAND_FACTS.bannedWords.map(
   (word) => new RegExp(`(^|[^a-z0-9-])${escape(word)}(?=$|[^a-z0-9-])`, "i")

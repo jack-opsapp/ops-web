@@ -169,6 +169,19 @@ describe("validateRsa", () => {
     expect(codes(fine)).not.toContain("UNSUPPORTED_NUMBER");
   });
 
+  it("reads a comma as punctuation, not as part of the price", () => {
+    // "$90, $140 or $190" is three allowed prices, not the number "$90,".
+    const listed = good();
+    listed.descriptions[0] = {
+      text: "$90, $140 or $190 a month. Every feature at every tier, for crews of 1 to 10.",
+    };
+    expect(codes(listed)).not.toContain("UNSUPPORTED_NUMBER");
+    // A genuine thousands separator is still one number, and still checked.
+    const thousands = good();
+    thousands.descriptions[0] = { text: "Save $1,500 a year on seats you do not need." };
+    expect(codes(thousands)).toContain("UNSUPPORTED_NUMBER");
+  });
+
   it("TRADEMARK_CAMPAIGN keeps competitor names out of core and brand", () => {
     const candidate = good();
     candidate.headlines[2] = { text: "Jobber alternative" };
