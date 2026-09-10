@@ -83,22 +83,39 @@ const defaultDependencies: PublicMediaDependencies = {
   fetcher: fetchPinnedAddress,
 };
 
+export type PublicMediaErrorCode =
+  | "INVALID_URL"
+  | "PRIVATE_ADDRESS"
+  | "DNS_FAILED"
+  | "TOO_MANY_REDIRECTS"
+  | "FETCH_TIMEOUT"
+  | "FETCH_FAILED"
+  | "INVALID_CONTENT_TYPE"
+  | "RESOURCE_TOO_LARGE"
+  | "IMAGE_TOO_LARGE"
+  | "INVALID_IMAGE";
+
+export interface PublicMediaErrorOptions {
+  /** HTTP status of the response that was refused, when one was received. */
+  status?: number;
+  cause?: unknown;
+}
+
 export class PublicMediaError extends Error {
+  /** HTTP status of the response that was refused, when one was received. */
+  declare readonly status?: number;
+
   constructor(
-    public readonly code:
-      | "INVALID_URL"
-      | "PRIVATE_ADDRESS"
-      | "DNS_FAILED"
-      | "TOO_MANY_REDIRECTS"
-      | "FETCH_TIMEOUT"
-      | "FETCH_FAILED"
-      | "INVALID_CONTENT_TYPE"
-      | "IMAGE_TOO_LARGE"
-      | "INVALID_IMAGE",
-    message: string
+    public readonly code: PublicMediaErrorCode,
+    message: string,
+    options: PublicMediaErrorOptions = {}
   ) {
-    super(message);
+    super(
+      message,
+      options.cause === undefined ? undefined : { cause: options.cause }
+    );
     this.name = "PublicMediaError";
+    if (options.status !== undefined) this.status = options.status;
   }
 }
 
@@ -305,7 +322,110 @@ async function resolvePublicMediaUrl(
   return { url, pinnedAddress: addresses[0] };
 }
 
-async function readBoundedBody(response: Response): Promise<Buffer> {
+/**
+ * Which guard stopped a fetch. Module-private on purpose: `fetchPublicResource`
+ * speaks a resource-neutral vocabulary, and `downloadPublicImage` uses this tag
+ * to restore the exact codes, messages, and unwrapped transport errors its
+ * callers have always received.
+ */
+type GuardedFetchFailure =
+  | "request_timeout"
+  | "request_failed"
+  | "redirect_incomplete"
+  | "redirect_invalid"
+  | "redirect_discard_failed"
+  | "too_many_redirects"
+  | "http_status"
+  | "content_type"
+  | "too_large"
+  | "body_timeout"
+  | "body_failed";
+
+const guardedFetchFailures = new WeakMap<
+  PublicMediaError,
+  GuardedFetchFailure
+>();
+
+function guardedFetchError(
+  failure: GuardedFetchFailure,
+  code: PublicMediaErrorCode,
+  message: string,
+  options?: PublicMediaErrorOptions
+): PublicMediaError {
+  const error = new PublicMediaError(code, message, options);
+  guardedFetchFailures.set(error, failure);
+  return error;
+}
+
+export interface PublicResourceOptions {
+  /** Sent as the Accept header on every hop. */
+  accept: string;
+  /** Body ceiling, enforced against Content-Length and while streaming. */
+  maxBytes: number;
+  /** Deadline for each hop, covering connect, headers, and body. */
+  timeoutMs: number;
+  /**
+   * Admits a response by media type. `contentType` is lowercased with its
+   * parameters removed. `declaredContentType` is the same value in the case
+   * the server sent it, for callers bound to a case-sensitive contract.
+   */
+  allowedContentTypes: (
+    contentType: string,
+    declaredContentType: string
+  ) => boolean;
+}
+
+export interface PublicResource {
+  buffer: Buffer;
+  /** Lowercased media type without parameters, e.g. `text/html`. */
+  contentType: string;
+  /** Lowercased `charset` parameter of the Content-Type header, if declared. */
+  charset: string | null;
+  /** The URL that produced the body, after every redirect. */
+  finalUrl: string;
+  status: number;
+}
+
+function parseContentType(header: string | null): {
+  declared: string;
+  charset: string | null;
+} {
+  const value = header ?? "";
+  const match = /;\s*charset\s*=\s*(?:"([^"]*)"|([^;\s]*))/i.exec(value);
+  const charset = (match?.[1] ?? match?.[2] ?? "").trim().toLowerCase();
+  return { declared: value.split(";")[0].trim(), charset: charset || null };
+}
+
+function byteLimitLabel(maxBytes: number): string {
+  const mebibyte = 1024 * 1024;
+  if (maxBytes % mebibyte === 0) return `${maxBytes / mebibyte} MB`;
+  if (maxBytes % 1024 === 0) return `${maxBytes / 1024} KB`;
+  return `${maxBytes}-byte`;
+}
+
+function tooLargeError(maxBytes: number): PublicMediaError {
+  return guardedFetchError(
+    "too_large",
+    "RESOURCE_TOO_LARGE",
+    `Source exceeds the ${byteLimitLabel(maxBytes)} limit`
+  );
+}
+
+function assertPositiveInteger(value: number, name: string): void {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new RangeError(`${name} must be a positive integer`);
+  }
+}
+
+/** Releases a refused response's connection now instead of at the deadline. */
+function discardBody(response: Response): void {
+  void response.body?.cancel().catch(() => undefined);
+}
+
+async function readBoundedBody(
+  response: Response,
+  maxBytes: number
+): Promise<Buffer> {
   if (!response.body) return Buffer.alloc(0);
   const reader = response.body.getReader();
   const chunks: Buffer[] = [];
@@ -315,12 +435,9 @@ async function readBoundedBody(response: Response): Promise<Buffer> {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > MAX_SOURCE_BYTES) {
-        await reader.cancel("source image exceeds limit");
-        throw new PublicMediaError(
-          "IMAGE_TOO_LARGE",
-          "Source image exceeds the 12 MB limit"
-        );
+      if (total > maxBytes) {
+        await reader.cancel("response body exceeds limit");
+        throw tooLargeError(maxBytes);
       }
       chunks.push(Buffer.from(value));
     }
@@ -330,15 +447,20 @@ async function readBoundedBody(response: Response): Promise<Buffer> {
   return Buffer.concat(chunks, total);
 }
 
-export async function downloadPublicImage(
+/**
+ * Fetches a public HTTPS resource with every SSRF guard applied: URL syntax
+ * validation, private-address rejection on every hop, DNS pinning, a redirect
+ * limit, a per-hop timeout, a declared-size check, a bounded streaming read,
+ * non-2xx rejection, and a content-type check. Every failure is a
+ * `PublicMediaError`.
+ */
+export async function fetchPublicResource(
   rawUrl: string,
+  options: PublicResourceOptions,
   dependencyOverrides: Partial<PublicMediaDependencies> = {}
-): Promise<{
-  buffer: Buffer;
-  contentType: "image/jpeg";
-  width: number;
-  height: number;
-}> {
+): Promise<PublicResource> {
+  assertPositiveInteger(options.maxBytes, "maxBytes");
+  assertPositiveInteger(options.timeoutMs, "timeoutMs");
   const dependencies = { ...defaultDependencies, ...dependencyOverrides };
   let currentUrl = rawUrl;
 
@@ -351,6 +473,7 @@ export async function downloadPublicImage(
       currentUrl,
       dependencies
     );
+    const signal = AbortSignal.timeout(options.timeoutMs);
     let response: Response;
 
     try {
@@ -359,8 +482,8 @@ export async function downloadPublicImage(
         {
           method: "GET",
           redirect: "manual",
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-          headers: { Accept: "image/avif,image/webp,image/png,image/jpeg" },
+          signal,
+          headers: { Accept: options.accept },
         },
         pinnedAddress
       );
@@ -369,101 +492,250 @@ export async function downloadPublicImage(
         error instanceof DOMException &&
         (error.name === "AbortError" || error.name === "TimeoutError")
       ) {
-        throw new PublicMediaError(
+        throw guardedFetchError(
+          "request_timeout",
           "FETCH_TIMEOUT",
-          "Source image download timed out"
+          "Source download timed out",
+          { cause: error }
         );
       }
-      throw new PublicMediaError(
+      throw guardedFetchError(
+        "request_failed",
         "FETCH_FAILED",
-        "Source image could not be downloaded"
+        "Source could not be downloaded",
+        { cause: error }
       );
     }
 
     if (REDIRECT_STATUSES.has(response.status)) {
       const location = response.headers.get("location");
       if (!location) {
-        throw new PublicMediaError(
+        discardBody(response);
+        throw guardedFetchError(
+          "redirect_incomplete",
           "FETCH_FAILED",
-          "Source image redirect was incomplete"
+          "Source redirect was incomplete",
+          { status: response.status }
         );
       }
       if (redirectCount === MAX_REDIRECTS) {
-        throw new PublicMediaError(
+        discardBody(response);
+        throw guardedFetchError(
+          "too_many_redirects",
           "TOO_MANY_REDIRECTS",
-          "Source image redirected too many times"
+          "Source redirected too many times"
         );
       }
-      currentUrl = new URL(location, safeUrl).toString();
-      await response.body?.cancel();
+      try {
+        currentUrl = new URL(location, safeUrl).toString();
+      } catch (error) {
+        discardBody(response);
+        throw guardedFetchError(
+          "redirect_invalid",
+          "INVALID_URL",
+          "Source redirect location is invalid",
+          { cause: error }
+        );
+      }
+      try {
+        await response.body?.cancel();
+      } catch (error) {
+        throw guardedFetchError(
+          "redirect_discard_failed",
+          "FETCH_FAILED",
+          "Source could not be downloaded",
+          { cause: error }
+        );
+      }
       continue;
     }
 
     if (!response.ok) {
-      throw new PublicMediaError(
+      discardBody(response);
+      throw guardedFetchError(
+        "http_status",
         "FETCH_FAILED",
-        `Source image returned HTTP ${response.status}`
+        `Source returned HTTP ${response.status}`,
+        { status: response.status }
       );
     }
 
-    const sourceContentType =
-      response.headers.get("content-type")?.split(";")[0].trim() ?? "";
-    if (!sourceContentType.startsWith("image/")) {
-      throw new PublicMediaError(
+    const { declared, charset } = parseContentType(
+      response.headers.get("content-type")
+    );
+    const contentType = declared.toLowerCase();
+    if (!options.allowedContentTypes(contentType, declared)) {
+      discardBody(response);
+      throw guardedFetchError(
+        "content_type",
         "INVALID_CONTENT_TYPE",
-        "Source URL did not return an image"
+        "Source returned an unsupported content type"
       );
     }
 
     const declaredBytes = Number(response.headers.get("content-length") ?? "0");
-    if (Number.isFinite(declaredBytes) && declaredBytes > MAX_SOURCE_BYTES) {
-      throw new PublicMediaError(
+    if (Number.isFinite(declaredBytes) && declaredBytes > options.maxBytes) {
+      discardBody(response);
+      throw tooLargeError(options.maxBytes);
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = await readBoundedBody(response, options.maxBytes);
+    } catch (error) {
+      if (error instanceof PublicMediaError) throw error;
+      if (signal.aborted) {
+        throw guardedFetchError(
+          "body_timeout",
+          "FETCH_TIMEOUT",
+          "Source download timed out",
+          { cause: error }
+        );
+      }
+      throw guardedFetchError(
+        "body_failed",
+        "FETCH_FAILED",
+        "Source could not be downloaded",
+        { cause: error }
+      );
+    }
+
+    return {
+      buffer,
+      contentType,
+      charset,
+      finalUrl: safeUrl.toString(),
+      status: response.status,
+    };
+  }
+
+  throw guardedFetchError(
+    "too_many_redirects",
+    "TOO_MANY_REDIRECTS",
+    "Source redirected too many times"
+  );
+}
+
+const IMAGE_ACCEPT = "image/avif,image/webp,image/png,image/jpeg";
+
+/** Restores the image download's long-standing error contract. */
+function legacyImageError(error: unknown): unknown {
+  if (!(error instanceof PublicMediaError)) return error;
+  const failure = guardedFetchFailures.get(error);
+  switch (failure) {
+    case undefined:
+      // URL and address validation already share one vocabulary.
+      return error;
+    case "request_timeout":
+      return new PublicMediaError(
+        "FETCH_TIMEOUT",
+        "Source image download timed out"
+      );
+    case "request_failed":
+      return new PublicMediaError(
+        "FETCH_FAILED",
+        "Source image could not be downloaded"
+      );
+    case "redirect_incomplete":
+      return new PublicMediaError(
+        "FETCH_FAILED",
+        "Source image redirect was incomplete"
+      );
+    case "too_many_redirects":
+      return new PublicMediaError(
+        "TOO_MANY_REDIRECTS",
+        "Source image redirected too many times"
+      );
+    case "http_status":
+      return new PublicMediaError(
+        "FETCH_FAILED",
+        `Source image returned HTTP ${error.status}`
+      );
+    case "content_type":
+      return new PublicMediaError(
+        "INVALID_CONTENT_TYPE",
+        "Source URL did not return an image"
+      );
+    case "too_large":
+      return new PublicMediaError(
         "IMAGE_TOO_LARGE",
         "Source image exceeds the 12 MB limit"
       );
-    }
-
-    const sourceBuffer = await readBoundedBody(response);
-
-    try {
-      const sourceMetadata = await sharp(sourceBuffer, {
-        failOn: "warning",
-        limitInputPixels: MAX_INPUT_PIXELS,
-      }).metadata();
-      const width = sourceMetadata.width ?? 0;
-      const height = sourceMetadata.height ?? 0;
-      if (width < 1 || height < 1 || width * height > MAX_INPUT_PIXELS) {
-        throw new PublicMediaError(
-          "INVALID_IMAGE",
-          "Source image dimensions are not supported"
-        );
-      }
-
-      const normalized = await sharp(sourceBuffer, {
-        failOn: "warning",
-        limitInputPixels: MAX_INPUT_PIXELS,
-      })
-        .rotate()
-        .jpeg({ quality: 92, chromaSubsampling: "4:4:4", mozjpeg: true })
-        .toBuffer({ resolveWithObject: true });
-
-      return {
-        buffer: normalized.data,
-        contentType: "image/jpeg",
-        width: normalized.info.width,
-        height: normalized.info.height,
-      };
-    } catch (error) {
-      if (error instanceof PublicMediaError) throw error;
-      throw new PublicMediaError(
-        "INVALID_IMAGE",
-        "Source image could not be decoded safely"
-      );
+    case "redirect_invalid":
+    case "redirect_discard_failed":
+    case "body_timeout":
+    case "body_failed":
+      // The image download has always let these transport errors through
+      // unwrapped.
+      return error.cause;
+    default: {
+      const unreachable: never = failure;
+      return unreachable;
     }
   }
+}
 
-  throw new PublicMediaError(
-    "TOO_MANY_REDIRECTS",
-    "Source image redirected too many times"
-  );
+export async function downloadPublicImage(
+  rawUrl: string,
+  dependencyOverrides: Partial<PublicMediaDependencies> = {}
+): Promise<{
+  buffer: Buffer;
+  contentType: "image/jpeg";
+  width: number;
+  height: number;
+}> {
+  let source: PublicResource;
+  try {
+    source = await fetchPublicResource(
+      rawUrl,
+      {
+        accept: IMAGE_ACCEPT,
+        maxBytes: MAX_SOURCE_BYTES,
+        timeoutMs: FETCH_TIMEOUT_MS,
+        // Matched in the declared case: the image contract always has been.
+        allowedContentTypes: (_contentType, declared) =>
+          declared.startsWith("image/"),
+      },
+      dependencyOverrides
+    );
+  } catch (error) {
+    throw legacyImageError(error);
+  }
+  const sourceBuffer = source.buffer;
+
+  try {
+    const sourceMetadata = await sharp(sourceBuffer, {
+      failOn: "warning",
+      limitInputPixels: MAX_INPUT_PIXELS,
+    }).metadata();
+    const width = sourceMetadata.width ?? 0;
+    const height = sourceMetadata.height ?? 0;
+    if (width < 1 || height < 1 || width * height > MAX_INPUT_PIXELS) {
+      throw new PublicMediaError(
+        "INVALID_IMAGE",
+        "Source image dimensions are not supported"
+      );
+    }
+
+    const normalized = await sharp(sourceBuffer, {
+      failOn: "warning",
+      limitInputPixels: MAX_INPUT_PIXELS,
+    })
+      .rotate()
+      .jpeg({ quality: 92, chromaSubsampling: "4:4:4", mozjpeg: true })
+      .toBuffer({ resolveWithObject: true });
+
+    return {
+      buffer: normalized.data,
+      contentType: "image/jpeg",
+      width: normalized.info.width,
+      height: normalized.info.height,
+    };
+  } catch (error) {
+    if (error instanceof PublicMediaError) throw error;
+    throw new PublicMediaError(
+      "INVALID_IMAGE",
+      "Source image could not be decoded safely"
+    );
+  }
 }
