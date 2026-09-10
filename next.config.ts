@@ -27,6 +27,12 @@ const baseNextConfig: NextConfig = {
     "/api/internal/journal/editorial/assignments/[id]/release": [
       "./docs/journal/voice/*.md",
     ],
+    // The hourly journal tick renders the hero plate with the bundled fonts.
+    "/api/cron/journal-editorial": [
+      "./public/fonts/CakeMono-Light.woff",
+      "./public/fonts/Mohave-Regular.ttf",
+      "./public/fonts/JetBrainsMono-Regular.ttf",
+    ],
   },
   eslint: {
     // Warnings from other agents' unused imports break the Vercel build.
