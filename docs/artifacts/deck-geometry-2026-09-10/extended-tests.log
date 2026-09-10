@@ -1,0 +1,277 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-deck-geometry-web
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > answers 401 with the resource-metadata challenge and zero capability vocabulary when unauthenticated
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > returns 503 without disclosure when the cursor key is not provisioned
+{"at":"mcp_transport","outcome":"unconfigured"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > allows the claude.ai origin through to the auth gate
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > allows the chatgpt.com origin through to the auth gate
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > gates GET and DELETE identically and answers 405 when authenticated
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+ ✓ src/lib/agent-control-plane/mcp/__tests__/transport.test.ts (45 tests) 1033ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-calculator.test.ts (32 tests) 101ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/grant-pinned-exposure.test.ts (19 tests) 116ms
+ ✓ src/lib/agent-control-plane/contracts/__tests__/p2-deck-design-geometry.test.ts (10 tests) 20ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-repository.test.ts (7 tests) 34ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-services.test.ts (6 tests) 48ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-authorization.test.ts (10 tests) 14ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-railing-estimate.test.ts (15 tests) 48ms
+ ✓ src/lib/agent-control-plane/services/p2/__tests__/composition.test.ts (8 tests) 39ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-v2-service.test.ts (17 tests) 443ms
+ ✓ src/lib/agent-control-plane/services/p2/__tests__/read-error-transport.test.ts (20 tests) 244ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-fixtures.test.ts (4 tests) 40ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-proof.test.ts (4 tests) 220ms
+ ❯ src/lib/agent-control-plane/mcp/__tests__/domain-dispatch.test.ts (2 tests | 1 failed) 28ms
+   × typed MCP domain dispatch > pins all reads and both inactive prepare verticals in canonical order 21ms
+     → expected [ …(53) ] to deeply equal [ …(50) ]
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-native.test.ts (14 tests) 105ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/deck-geometry-candidate-protocol.test.ts (11 tests) 1538ms
+   ✓ dormant deck geometry result v2 protocol > runs the original business arguments through real authorization, RPC, v2 proof and serializer 844ms
+   ✓ dormant deck geometry result v2 protocol > does not bleed v2 selection into the original pinned connection 405ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/domain-dispatch.test.ts > typed MCP domain dispatch > pins all reads and both inactive prepare verticals in canonical order
+AssertionError: expected [ …(53) ] to deeply equal [ …(50) ]
+
+- Expected
++ Received
+
+  Array [
+    Array [
+      "list_scheduled_jobs",
+      "listScheduledJobs",
+    ],
+    Array [
+      "list_job_readiness_issues",
+      "listJobReadinessIssues",
+    ],
+    Array [
+      "get_job_communication_context",
+      "getJobCommunicationContext",
+    ],
+    Array [
+      "get_job_conversation_context",
+      "getJobConversationContext",
+    ],
+    Array [
+      "list_customer_jobs",
+      "listCustomerJobs",
+    ],
+    Array [
+      "get_job_summary",
+      "getJobSummary",
+    ],
+    Array [
+      "search_job_history",
+      "searchJobHistory",
+    ],
+    Array [
+      "get_correspondence_evidence",
+      "getCorrespondenceEvidence",
+    ],
+    Array [
+      "search_customers",
+      "searchCustomers",
+    ],
+    Array [
+      "search_jobs",
+      "searchJobs",
+    ],
+    Array [
+      "resolve_job_participants",
+      "resolveJobParticipants",
+    ],
+    Array [
+      "get_customer_context",
+      "getCustomerContext",
+    ],
+    Array [
+      "list_tasks",
+      "listTasks",
+    ],
+    Array [
+      "get_task_context",
+      "getTaskContext",
+    ],
+    Array [
+      "list_job_artifacts",
+      "listJobArtifacts",
+    ],
+    Array [
+      "get_job_artifact_evidence",
+      "getJobArtifactEvidence",
+    ],
+    Array [
+      "list_site_visits",
+      "listSiteVisits",
+    ],
+    Array [
+      "get_site_visit_context",
+      "getSiteVisitContext",
+    ],
+    Array [
+      "get_deck_design_geometry",
+      "getDeckDesignGeometry",
+    ],
+    Array [
+      "list_sales_documents",
+      "listSalesDocuments",
+    ],
+    Array [
+      "get_sales_document",
+      "getSalesDocument",
+    ],
+    Array [
+      "list_payments",
+      "listPayments",
+    ],
+    Array [
+      "list_expenses",
+      "listExpenses",
+    ],
+    Array [
+      "get_expense_context",
+      "getExpenseContext",
+    ],
+    Array [
+      "list_work_queue",
+      "listWorkQueue",
+    ],
+    Array [
+      "search_catalog_items",
+      "searchCatalogItems",
+    ],
+    Array [
+      "get_catalog_item",
+      "getCatalogItem",
+    ],
+    Array [
+      "list_purchase_orders",
+      "listPurchaseOrders",
+    ],
+    Array [
+      "get_purchase_order",
+      "getPurchaseOrder",
+    ],
+    Array [
+      "get_company_context",
+      "getCompanyContext",
+    ],
+    Array [
+      "list_team_members",
+      "listTeamMembers",
+    ],
+    Array [
+      "list_team_availability",
+      "listTeamAvailability",
+    ],
+    Array [
+      "get_integration_health",
+      "getIntegrationHealth",
+    ],
+    Array [
+      "get_operational_overview",
+      "getOperationalOverview",
+    ],
+    Array [
+      "prepare_day_closeout",
+      "prepareDayCloseout",
+    ],
+    Array [
+      "prepare_collections",
+      "prepareCollections",
+    ],
+    Array [
+      "analyze_hiring_break_even",
+      "analyzeHiringBreakEven",
+    ],
+    Array [
+      "check_customer_reply",
+      "checkCustomerReply",
+    ],
+    Array [
+      "analyze_sales_truth",
+      "analyzeSalesTruth",
+    ],
+    Array [
+      "check_payroll_readiness",
+      "checkPayrollReadiness",
+    ],
+    Array [
+      "prepare_recurring_service_price_change",
+      "prepareRecurringServicePriceChange",
+    ],
+    Array [
+      "prepare_estimate_from_past_job",
+      "prepareEstimateFromPastJob",
+    ],
+    Array [
+      "prepare_weather_reschedule",
+      "prepareWeatherReschedule",
+    ],
+    Array [
+      "prepare_crew_callout_recovery",
+      "prepareCrewCalloutRecovery",
+    ],
+    Array [
+      "prepare_dispatch_confirmation_task",
+      "prepareDispatchConfirmationTask",
+    ],
+    Array [
+      "prepare_customer_update",
+      "prepareCustomerUpdate",
+    ],
+    Array [
+      "prepare_customer_message",
+      "prepareCustomerMessage",
+    ],
+    Array [
+      "prepare_schedule_change",
+      "prepareScheduleChange",
+    ],
+    Array [
+      "prepare_financial_document",
+      "prepareFinancialDocument",
+    ],
+    Array [
++     "inspect_catalog_changes",
++     "inspectCatalogChanges",
++   ],
++   Array [
++     "prepare_catalog_changes",
++     "prepareCatalogChanges",
++   ],
++   Array [
++     "prepare_inventory_adjustment",
++     "prepareInventoryAdjustment",
++   ],
++   Array [
+      "inspect_financial_document",
+      "inspectFinancialDocument",
+    ],
+  ]
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/domain-dispatch.test.ts:89:57
+     87|       | "prepare_customer_message"
+     88|     >();
+     89|     expect(Object.entries(DOMAIN_METHOD_BY_CAPABILITY)).toEqual(
+       |                                                         ^
+     90|       EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD
+     91|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 15 passed (16)
+      Tests  1 failed | 223 passed (224)
+   Start at  15:29:04
+   Duration  58.58s (transform 8.95s, setup 8.10s, collect 24.85s, tests 4.07s, environment 13.45s, prepare 1.50s)

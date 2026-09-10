@@ -1,0 +1,21 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noEmit": true,
+    "typeRoots": [
+      "../../../node_modules/@types"
+    ],
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "../../../src/lib/agent-control-plane/mcp/server-factory.ts",
+    "../../../src/lib/agent-control-plane/services/p2/deck-design/deck-geometry-reads.ts",
+    "../../../src/lib/agent-control-plane/mcp/__tests__/deck-geometry-candidate-protocol.test.ts",
+    "../../../src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-v2-service.test.ts",
+    "../../../src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-railing-estimate.test.ts"
+  ],
+  "exclude": []
+}

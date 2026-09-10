@@ -1,0 +1,15 @@
+{
+  "base": "23ffe646a77effba851fe063c68c15e93114b9cb",
+  "files": [
+    {
+      "path": "src/lib/agent-control-plane/mcp/domain-dispatch.ts",
+      "unchanged_from_base": true,
+      "sha256": "25374bde04a5f0fc373e29d452fbe9970ae187b790c212f21d2492e020143901"
+    },
+    {
+      "path": "src/lib/agent-control-plane/mcp/__tests__/domain-dispatch.test.ts",
+      "unchanged_from_base": true,
+      "sha256": "cd35cdf36d2f41425c989be0489a0f18ceebaf98a3404aa6807034e53cd12c62"
+    }
+  ]
+}
