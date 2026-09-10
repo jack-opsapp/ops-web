@@ -12,7 +12,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit",
+    "type-check": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
     "email:sync-versions": "tsx scripts/email-template-version-sync.ts",
     "backfill:geocoding": "tsx scripts/backfill-project-geocoding.ts",
     "prebuild": "node scripts/check-slash-opacity.mjs && npm run email:sync-versions",
