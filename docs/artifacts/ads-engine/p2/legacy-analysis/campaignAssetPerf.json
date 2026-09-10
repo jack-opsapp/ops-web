@@ -1,0 +1,1552 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "19",
+   "impressions": "480"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22281113483~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "77",
+   "impressions": "6402"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22298439315~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "36",
+   "impressions": "4597"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22301586936~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "11",
+   "impressions": "931"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22361795219~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "27"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "371",
+   "impressions": "26547"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23560304540~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "10",
+   "impressions": "163"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203358570916",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772"
+    }
+   },
+   "id": "203358570916",
+   "name": "Ops Logo Black.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22281113483~203358570916~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "87",
+   "impressions": "11476"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203358570916",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772"
+    }
+   },
+   "id": "203358570916",
+   "name": "Ops Logo Black.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22298439315~203358570916~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "36",
+   "impressions": "5915"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203358570916",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772"
+    }
+   },
+   "id": "203358570916",
+   "name": "Ops Logo Black.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22301586936~203358570916~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "6",
+   "impressions": "72"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203358570916",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772"
+    }
+   },
+   "id": "203358570916",
+   "name": "Ops Logo Black.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22361795219~203358570916~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "5",
+   "impressions": "292"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314314750506",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/11821971491417767432"
+    }
+   },
+   "id": "314314750506",
+   "name": "Suggested logo #1"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~314314750506~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "135",
+   "impressions": "1470"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917357",
+   "type": "SITELINK",
+   "id": "204258917357",
+   "finalUrls": [
+    "https://opsapp.co/join_ops"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ JOIN OPS ]",
+    "description1": "Sign Up.",
+    "description2": "Register for free early access."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22281113483~204258917357~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "101",
+   "impressions": "693"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917357",
+   "type": "SITELINK",
+   "id": "204258917357",
+   "finalUrls": [
+    "https://opsapp.co/join_ops"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ JOIN OPS ]",
+    "description1": "Sign Up.",
+    "description2": "Register for free early access."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22298439315~204258917357~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "105",
+   "impressions": "2558"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917357",
+   "type": "SITELINK",
+   "id": "204258917357",
+   "finalUrls": [
+    "https://opsapp.co/join_ops"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ JOIN OPS ]",
+    "description1": "Sign Up.",
+    "description2": "Register for free early access."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22301586936~204258917357~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "73",
+   "impressions": "1090"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917357",
+   "type": "SITELINK",
+   "id": "204258917357",
+   "finalUrls": [
+    "https://opsapp.co/join_ops"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ JOIN OPS ]",
+    "description1": "Sign Up.",
+    "description2": "Register for free early access."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22361795219~204258917357~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "99",
+   "impressions": "1345"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917360",
+   "type": "SITELINK",
+   "id": "204258917360",
+   "finalUrls": [
+    "https://opsapp.co/about"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ ABOUT OPS ]",
+    "description1": "Learn our story.",
+    "description2": "Find out just how OPS was born."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22281113483~204258917360~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "92",
+   "impressions": "1482"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917360",
+   "type": "SITELINK",
+   "id": "204258917360",
+   "finalUrls": [
+    "https://opsapp.co/about"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ ABOUT OPS ]",
+    "description1": "Learn our story.",
+    "description2": "Find out just how OPS was born."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22298439315~204258917360~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "78",
+   "impressions": "2596"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917360",
+   "type": "SITELINK",
+   "id": "204258917360",
+   "finalUrls": [
+    "https://opsapp.co/about"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ ABOUT OPS ]",
+    "description1": "Learn our story.",
+    "description2": "Find out just how OPS was born."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22301586936~204258917360~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "60",
+   "impressions": "1140"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917360",
+   "type": "SITELINK",
+   "id": "204258917360",
+   "finalUrls": [
+    "https://opsapp.co/about"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ ABOUT OPS ]",
+    "description1": "Learn our story.",
+    "description2": "Find out just how OPS was born."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22361795219~204258917360~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "134",
+   "impressions": "1477"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917363",
+   "type": "SITELINK",
+   "id": "204258917363",
+   "finalUrls": [
+    "https://opsapp.co/leadershipanalysis"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ LEADER TEST ]",
+    "description1": "Test your leadership aptitude.",
+    "description2": "2 Minute test to gain key insights."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22281113483~204258917363~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "129",
+   "impressions": "1595"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917363",
+   "type": "SITELINK",
+   "id": "204258917363",
+   "finalUrls": [
+    "https://opsapp.co/leadershipanalysis"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ LEADER TEST ]",
+    "description1": "Test your leadership aptitude.",
+    "description2": "2 Minute test to gain key insights."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22298439315~204258917363~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "111",
+   "impressions": "2728"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917363",
+   "type": "SITELINK",
+   "id": "204258917363",
+   "finalUrls": [
+    "https://opsapp.co/leadershipanalysis"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ LEADER TEST ]",
+    "description1": "Test your leadership aptitude.",
+    "description2": "2 Minute test to gain key insights."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22301586936~204258917363~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "76",
+   "impressions": "1190"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204258917363",
+   "type": "SITELINK",
+   "id": "204258917363",
+   "finalUrls": [
+    "https://opsapp.co/leadershipanalysis"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ LEADER TEST ]",
+    "description1": "Test your leadership aptitude.",
+    "description2": "2 Minute test to gain key insights."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22361795219~204258917363~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "5",
+   "impressions": "506"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220853832323",
+   "type": "SITELINK",
+   "id": "220853832323",
+   "finalUrls": [
+    "https://opsapp.co/join_ops"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ JOIN OPS ]"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220853832323~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "3",
+   "impressions": "197"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220853832323",
+   "type": "SITELINK",
+   "id": "220853832323",
+   "finalUrls": [
+    "https://opsapp.co/join_ops"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ JOIN OPS ]"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220853832323~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "10",
+   "impressions": "716"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220853832326",
+   "type": "SITELINK",
+   "id": "220853832326",
+   "finalUrls": [
+    "https://opsapp.co/leadershipanalysis"
+   ],
+   "sitelinkAsset": {
+    "linkText": "TEST LEADERSHIP",
+    "description1": "Test your command capabilities now.",
+    "description2": "Measure your command readiness."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220853832326~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "4",
+   "impressions": "215"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220853832326",
+   "type": "SITELINK",
+   "id": "220853832326",
+   "finalUrls": [
+    "https://opsapp.co/leadershipanalysis"
+   ],
+   "sitelinkAsset": {
+    "linkText": "TEST LEADERSHIP",
+    "description1": "Test your command capabilities now.",
+    "description2": "Measure your command readiness."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220853832326~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "10",
+   "impressions": "712"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220853832329",
+   "type": "SITELINK",
+   "id": "220853832329",
+   "finalUrls": [
+    "https://opsapp.co/about"
+   ],
+   "sitelinkAsset": {
+    "linkText": "ABOUT",
+    "description1": "From jobsite to solution-Our story.",
+    "description2": "Forged in the field, not offices."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220853832329~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "4",
+   "impressions": "221"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220853832329",
+   "type": "SITELINK",
+   "id": "220853832329",
+   "finalUrls": [
+    "https://opsapp.co/about"
+   ],
+   "sitelinkAsset": {
+    "linkText": "ABOUT",
+    "description1": "From jobsite to solution-Our story.",
+    "description2": "Forged in the field, not offices."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220853832329~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "25"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317909206",
+   "type": "SITELINK",
+   "id": "314317909206",
+   "finalUrls": [
+    "https://opsapp.co/"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ OPS HOME ]"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~314317909206~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "128"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317909209",
+   "type": "SITELINK",
+   "id": "314317909209",
+   "finalUrls": [
+    "https://opsapp.co/ops_pricing"
+   ],
+   "sitelinkAsset": {
+    "linkText": "OPS PRICING"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~314317909209~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "25"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317909212",
+   "type": "SITELINK",
+   "id": "314317909212",
+   "finalUrls": [
+    "https://apps.apple.com/us/app/ops-job-crew-management/id6746662078"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ OPS iPHONE ]"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~314317909212~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "128"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317909215",
+   "type": "SITELINK",
+   "id": "314317909215",
+   "finalUrls": [
+    "https://opsapp.co/join_ops"
+   ],
+   "sitelinkAsset": {
+    "linkText": "OPS SIGN UP"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~314317909215~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "131"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142214",
+   "type": "CALLOUT",
+   "id": "220854142214",
+   "calloutAsset": {
+    "calloutText": "Built By Trades"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220854142214~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "27"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142214",
+   "type": "CALLOUT",
+   "id": "220854142214",
+   "calloutAsset": {
+    "calloutText": "Built By Trades"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220854142214~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "5"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142214",
+   "type": "CALLOUT",
+   "id": "220854142214",
+   "calloutAsset": {
+    "calloutText": "Built By Trades"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~220854142214~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "101"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142217",
+   "type": "CALLOUT",
+   "id": "220854142217",
+   "calloutAsset": {
+    "calloutText": "Eliminate Job Chaos"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220854142217~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "23"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142217",
+   "type": "CALLOUT",
+   "id": "220854142217",
+   "calloutAsset": {
+    "calloutText": "Eliminate Job Chaos"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220854142217~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "5"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142217",
+   "type": "CALLOUT",
+   "id": "220854142217",
+   "calloutAsset": {
+    "calloutText": "Eliminate Job Chaos"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~220854142217~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "81"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142220",
+   "type": "CALLOUT",
+   "id": "220854142220",
+   "calloutAsset": {
+    "calloutText": "Maximize Crew Efficiency"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220854142220~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "12"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142220",
+   "type": "CALLOUT",
+   "id": "220854142220",
+   "calloutAsset": {
+    "calloutText": "Maximize Crew Efficiency"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220854142220~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "5"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142220",
+   "type": "CALLOUT",
+   "id": "220854142220",
+   "calloutAsset": {
+    "calloutText": "Maximize Crew Efficiency"
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~220854142220~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "121"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142223",
+   "type": "CALLOUT",
+   "id": "220854142223",
+   "calloutAsset": {
+    "calloutText": "Fast Setup, Real Results."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220854142223~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "27"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142223",
+   "type": "CALLOUT",
+   "id": "220854142223",
+   "calloutAsset": {
+    "calloutText": "Fast Setup, Real Results."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220854142223~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "5"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220854142223",
+   "type": "CALLOUT",
+   "id": "220854142223",
+   "calloutAsset": {
+    "calloutText": "Fast Setup, Real Results."
+   }
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~220854142223~CALLOUT",
+   "fieldType": "CALLOUT"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "1"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314289639948",
+   "type": "PROMOTION",
+   "id": "314289639948",
+   "finalUrls": [
+    "https://itunes.apple.com/AE/app/6746662078"
+   ]
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~314289639948~PROMOTION",
+   "fieldType": "PROMOTION"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "31",
+   "impressions": "677"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204270253413",
+   "type": "TEXT",
+   "textAsset": {
+    "text": "OPS APP"
+   },
+   "id": "204270253413"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22281113483~204270253413~BUSINESS_NAME",
+   "fieldType": "BUSINESS_NAME"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "222",
+   "impressions": "19983"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204270253413",
+   "type": "TEXT",
+   "textAsset": {
+    "text": "OPS APP"
+   },
+   "id": "204270253413"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22298439315~204270253413~BUSINESS_NAME",
+   "fieldType": "BUSINESS_NAME"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "81",
+   "impressions": "11168"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204270253413",
+   "type": "TEXT",
+   "textAsset": {
+    "text": "OPS APP"
+   },
+   "id": "204270253413"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22301586936~204270253413~BUSINESS_NAME",
+   "fieldType": "BUSINESS_NAME"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "30",
+   "impressions": "1157"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204270253413",
+   "type": "TEXT",
+   "textAsset": {
+    "text": "OPS APP"
+   },
+   "id": "204270253413"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22361795219~204270253413~BUSINESS_NAME",
+   "fieldType": "BUSINESS_NAME"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "12",
+   "impressions": "575"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314318240148",
+   "type": "TEXT",
+   "textAsset": {
+    "text": "OPS Job & Crew Management"
+   },
+   "id": "314318240148"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23323769898~314318240148~BUSINESS_NAME",
+   "fieldType": "BUSINESS_NAME"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "591",
+   "impressions": "29294"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/331078078176",
+   "type": "TEXT",
+   "textAsset": {
+    "text": "OPS Job Management Ltd."
+   },
+   "id": "331078078176"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23560304540~331078078176~BUSINESS_NAME",
+   "fieldType": "BUSINESS_NAME"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "116",
+   "impressions": "4476"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/23164560623~203326113726~BUSINESS_LOGO",
+   "fieldType": "BUSINESS_LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "121"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203328923130",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/10226560818865156425"
+    }
+   },
+   "id": "203328923130",
+   "name": "pexels-thiagomobile-2317640_1.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~203328923130~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "38"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203328923130",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/10226560818865156425"
+    }
+   },
+   "id": "203328923130",
+   "name": "pexels-thiagomobile-2317640_1.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~203328923130~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "178"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220873190771",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/2922626904426025021"
+    }
+   },
+   "id": "220873190771",
+   "name": "pexels-chris-r-2147603956-31039719.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220873190771~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "72"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220873190771",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/2922626904426025021"
+    }
+   },
+   "id": "220873190771",
+   "name": "pexels-chris-r-2147603956-31039719.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220873190771~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "112"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220873410059",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/12012454421018712358"
+    }
+   },
+   "id": "220873410059",
+   "name": "pexels-lucas-d-amico-2150246673-31041771_1:1.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220873410059~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "35"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220873410059",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/12012454421018712358"
+    }
+   },
+   "id": "220873410059",
+   "name": "pexels-lucas-d-amico-2150246673-31041771_1:1.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220873410059~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "201"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220931610007",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/16719036231507461101"
+    }
+   },
+   "id": "220931610007",
+   "name": "pexels-lucas-d-amico-2150246673-31041771_1.91:1.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220931610007~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "62"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220931610007",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/16719036231507461101"
+    }
+   },
+   "id": "220931610007",
+   "name": "pexels-lucas-d-amico-2150246673-31041771_1.91:1.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220931610007~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "285"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220938159771",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/9156751689198926596"
+    }
+   },
+   "id": "220938159771",
+   "name": "pexels-thiagomobile-2317640_1.91:1.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22393218216~220938159771~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "137"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220938159771",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "url": "https://tpc.googlesyndication.com/simgad/9156751689198926596"
+    }
+   },
+   "id": "220938159771",
+   "name": "pexels-thiagomobile-2317640_1.91:1.jpg"
+  },
+  "campaignAsset": {
+   "resourceName": "customers/4454506598/campaignAssets/22445416465~220938159771~AD_IMAGE",
+   "fieldType": "AD_IMAGE"
+  }
+ }
+]

@@ -1,0 +1,642 @@
+{
+  "version": "2026-09-10-assets-v1",
+  "status": "DRAFT — awaiting Jackson's approval. Nothing here is in the account, and no image is used until he has seen it.",
+  "onApproval": "Attach each campaign's assets at campaign level (which overrides the account level), pause — not remove — the four account-level sitelinks, opt the five campaigns out of Google generating images from our pages, and submit with the challenger swap in one validated apply.",
+  "accountLevel": {
+    "pause": [
+      {
+        "assetId": "220853832323",
+        "fieldType": "SITELINK",
+        "text": "[ JOIN OPS ]",
+        "finalUrl": "https://opsapp.co/join_ops",
+        "reason": "Points at a retired page that now redirects to /plans."
+      },
+      {
+        "assetId": "301640749369",
+        "fieldType": "SITELINK",
+        "text": "[ OPS PRICING ]",
+        "finalUrl": "https://opsapp.co/ops_pricing",
+        "reason": "Points at a retired page that now redirects to /plans."
+      },
+      {
+        "assetId": "314317909206",
+        "fieldType": "SITELINK",
+        "text": "[ OPS HOME ]",
+        "finalUrl": "https://opsapp.co/",
+        "reason": "Old bracket style, and it would sit under the new ads."
+      },
+      {
+        "assetId": "314317909212",
+        "fieldType": "SITELINK",
+        "text": "[ OPS iPHONE ]",
+        "finalUrl": "https://apps.apple.com/us/app/ops-job-crew-management/id6746662078",
+        "reason": "Sends paid clicks to the App Store."
+      }
+    ]
+  },
+  "campaigns": {
+    "BRAND · NA": {
+      "sitelinks": [
+        {
+          "text": "Compare the prices",
+          "description1": "Their price, next to ours.",
+          "description2": "Read it, then decide.",
+          "finalUrl": "https://try.opsapp.co/compare/jobber",
+          "source": "new · no competitor named, so it can run in core and brand"
+        },
+        {
+          "text": "How OPS runs a job",
+          "description1": "Jobs, crew, photos, invoices.",
+          "description2": "Works when Wi-Fi doesn't.",
+          "finalUrl": "https://try.opsapp.co/job-management",
+          "source": "new · 'Works when Wi-Fi doesn't' is a proven headline (5.7%)"
+        },
+        {
+          "text": "Cleaning crews",
+          "description1": "The whole route on one screen.",
+          "description2": "Recurring visits built in.",
+          "finalUrl": "https://try.opsapp.co/for/cleaning",
+          "source": "new · recurring tasks verified in ops-web (task_recurrences)"
+        },
+        {
+          "text": "Roofing crews",
+          "description1": "Quote, schedule, photograph.",
+          "description2": "Invoice from the roof.",
+          "finalUrl": "https://try.opsapp.co/for/roofing",
+          "source": "new · quotes and invoices verified in ops-web"
+        }
+      ],
+      "callouts": [
+        {
+          "text": "No credit card",
+          "source": "plans page"
+        },
+        {
+          "text": "No contract",
+          "source": "plans page"
+        },
+        {
+          "text": "Free for 30 days",
+          "source": "plans page · 30-day trial"
+        },
+        {
+          "text": "Every feature, every tier",
+          "source": "plans page"
+        },
+        {
+          "text": "Works when Wi-Fi doesn't",
+          "source": "proven · app headline, 5.7%"
+        },
+        {
+          "text": "No training needed",
+          "source": "proven · 'No training needed. Done.' 6.3%"
+        },
+        {
+          "text": "Built by trades",
+          "source": "proven · 'Built by trades, for trades' 8.9%"
+        },
+        {
+          "text": "Crews of 1 to 10",
+          "source": "plans page · tiers cover up to 10"
+        }
+      ],
+      "snippet": {
+        "header": "Service catalog",
+        "values": [
+          "Crew scheduling",
+          "Job board",
+          "Job photos",
+          "Quotes",
+          "Invoices",
+          "Client records",
+          "Recurring tasks"
+        ],
+        "source": "plans page features, plus quotes, invoices and recurring tasks verified in ops-web"
+      },
+      "businessName": "OPS",
+      "businessLogo": "L_logo",
+      "images": [
+        "A_glove_app_square",
+        "B_autodetail_wide",
+        "B_autodetail_square",
+        "C_toolbelt_wide",
+        "C_toolbelt_square",
+        "D_hardhat_wide"
+      ],
+      "automation": {
+        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
+        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+      },
+      "price": null
+    },
+    "PRICING · US": {
+      "sitelinks": [
+        {
+          "text": "Jobber alternative",
+          "description1": "Their price, next to ours.",
+          "description2": "Read it, then decide.",
+          "finalUrl": "https://try.opsapp.co/compare/jobber",
+          "source": "new · the compare page's own promise"
+        },
+        {
+          "text": "Housecall Pro alternative",
+          "description1": "Per crew, not per seat.",
+          "description2": "Every feature, every tier.",
+          "finalUrl": "https://try.opsapp.co/compare/housecall-pro",
+          "source": "new · from the plans page"
+        },
+        {
+          "text": "ServiceTitan alternative",
+          "description1": "Built for crews of 1 to 10.",
+          "description2": "No sales call to see a price.",
+          "finalUrl": "https://try.opsapp.co/compare/servicetitan",
+          "source": "new · ServiceTitan publishes no price"
+        },
+        {
+          "text": "How OPS runs a job",
+          "description1": "Jobs, crew, photos, invoices.",
+          "description2": "Works when Wi-Fi doesn't.",
+          "finalUrl": "https://try.opsapp.co/job-management",
+          "source": "new · 'Works when Wi-Fi doesn't' is a proven headline (5.7%)"
+        }
+      ],
+      "callouts": [
+        {
+          "text": "No credit card",
+          "source": "plans page"
+        },
+        {
+          "text": "No contract",
+          "source": "plans page"
+        },
+        {
+          "text": "Free for 30 days",
+          "source": "plans page · 30-day trial"
+        },
+        {
+          "text": "Every feature, every tier",
+          "source": "plans page"
+        },
+        {
+          "text": "Works when Wi-Fi doesn't",
+          "source": "proven · app headline, 5.7%"
+        },
+        {
+          "text": "No training needed",
+          "source": "proven · 'No training needed. Done.' 6.3%"
+        },
+        {
+          "text": "Built by trades",
+          "source": "proven · 'Built by trades, for trades' 8.9%"
+        },
+        {
+          "text": "Crews of 1 to 10",
+          "source": "plans page · tiers cover up to 10"
+        }
+      ],
+      "snippet": {
+        "header": "Service catalog",
+        "values": [
+          "Crew scheduling",
+          "Job board",
+          "Job photos",
+          "Quotes",
+          "Invoices",
+          "Client records",
+          "Recurring tasks"
+        ],
+        "source": "plans page features, plus quotes, invoices and recurring tasks verified in ops-web"
+      },
+      "businessName": "OPS",
+      "businessLogo": "L_logo",
+      "images": [
+        "A_glove_app_square",
+        "B_autodetail_wide",
+        "B_autodetail_square",
+        "C_toolbelt_wide",
+        "C_toolbelt_square",
+        "D_hardhat_wide"
+      ],
+      "automation": {
+        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
+        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+      },
+      "price": {
+        "type": "SERVICE_TIERS",
+        "currency": "CAD",
+        "unit": "PER_MONTH",
+        "items": [
+          {
+            "header": "Starter",
+            "description": "Crews of up to 3",
+            "price": 90,
+            "finalUrl": "https://try.opsapp.co/job-management"
+          },
+          {
+            "header": "Team",
+            "description": "Crews of up to 5",
+            "price": 140,
+            "finalUrl": "https://try.opsapp.co/compare/jobber"
+          },
+          {
+            "header": "Business",
+            "description": "Crews of up to 10",
+            "price": 190,
+            "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+          }
+        ],
+        "source": "opsapp.co/plans — Starter $90 up to 3 users, Team $140 up to 5, Business $190 up to 10. CAD, so a US searcher sees CA$."
+      }
+    },
+    "SWITCH · US": {
+      "sitelinks": [
+        {
+          "text": "Jobber alternative",
+          "description1": "Their price, next to ours.",
+          "description2": "Read it, then decide.",
+          "finalUrl": "https://try.opsapp.co/compare/jobber",
+          "source": "new · the compare page's own promise"
+        },
+        {
+          "text": "Housecall Pro alternative",
+          "description1": "Per crew, not per seat.",
+          "description2": "Every feature, every tier.",
+          "finalUrl": "https://try.opsapp.co/compare/housecall-pro",
+          "source": "new · from the plans page"
+        },
+        {
+          "text": "ServiceTitan alternative",
+          "description1": "Built for crews of 1 to 10.",
+          "description2": "No sales call to see a price.",
+          "finalUrl": "https://try.opsapp.co/compare/servicetitan",
+          "source": "new · ServiceTitan publishes no price"
+        },
+        {
+          "text": "How OPS runs a job",
+          "description1": "Jobs, crew, photos, invoices.",
+          "description2": "Works when Wi-Fi doesn't.",
+          "finalUrl": "https://try.opsapp.co/job-management",
+          "source": "new · 'Works when Wi-Fi doesn't' is a proven headline (5.7%)"
+        }
+      ],
+      "callouts": [
+        {
+          "text": "No credit card",
+          "source": "plans page"
+        },
+        {
+          "text": "No contract",
+          "source": "plans page"
+        },
+        {
+          "text": "Free for 30 days",
+          "source": "plans page · 30-day trial"
+        },
+        {
+          "text": "Every feature, every tier",
+          "source": "plans page"
+        },
+        {
+          "text": "Works when Wi-Fi doesn't",
+          "source": "proven · app headline, 5.7%"
+        },
+        {
+          "text": "No training needed",
+          "source": "proven · 'No training needed. Done.' 6.3%"
+        },
+        {
+          "text": "Built by trades",
+          "source": "proven · 'Built by trades, for trades' 8.9%"
+        },
+        {
+          "text": "Crews of 1 to 10",
+          "source": "plans page · tiers cover up to 10"
+        }
+      ],
+      "snippet": {
+        "header": "Service catalog",
+        "values": [
+          "Crew scheduling",
+          "Job board",
+          "Job photos",
+          "Quotes",
+          "Invoices",
+          "Client records",
+          "Recurring tasks"
+        ],
+        "source": "plans page features, plus quotes, invoices and recurring tasks verified in ops-web"
+      },
+      "businessName": "OPS",
+      "businessLogo": "L_logo",
+      "images": [
+        "A_glove_app_square",
+        "B_autodetail_wide",
+        "B_autodetail_square",
+        "C_toolbelt_wide",
+        "C_toolbelt_square",
+        "D_hardhat_wide"
+      ],
+      "automation": {
+        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
+        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+      },
+      "price": {
+        "type": "SERVICE_TIERS",
+        "currency": "CAD",
+        "unit": "PER_MONTH",
+        "items": [
+          {
+            "header": "Starter",
+            "description": "Crews of up to 3",
+            "price": 90,
+            "finalUrl": "https://try.opsapp.co/job-management"
+          },
+          {
+            "header": "Team",
+            "description": "Crews of up to 5",
+            "price": 140,
+            "finalUrl": "https://try.opsapp.co/compare/jobber"
+          },
+          {
+            "header": "Business",
+            "description": "Crews of up to 10",
+            "price": 190,
+            "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+          }
+        ],
+        "source": "opsapp.co/plans — Starter $90 up to 3 users, Team $140 up to 5, Business $190 up to 10. CAD, so a US searcher sees CA$."
+      }
+    },
+    "TRADE · US": {
+      "sitelinks": [
+        {
+          "text": "Cleaning crews",
+          "description1": "The whole route on one screen.",
+          "description2": "Recurring visits built in.",
+          "finalUrl": "https://try.opsapp.co/for/cleaning",
+          "source": "new · recurring tasks verified in ops-web (task_recurrences)"
+        },
+        {
+          "text": "Landscaping crews",
+          "description1": "Every property, in order.",
+          "description2": "Photos land on the job.",
+          "finalUrl": "https://try.opsapp.co/for/landscaping",
+          "source": "new"
+        },
+        {
+          "text": "Roofing crews",
+          "description1": "Quote, schedule, photograph.",
+          "description2": "Invoice from the roof.",
+          "finalUrl": "https://try.opsapp.co/for/roofing",
+          "source": "new · quotes and invoices verified in ops-web"
+        },
+        {
+          "text": "How OPS runs a job",
+          "description1": "Jobs, crew, photos, invoices.",
+          "description2": "Works when Wi-Fi doesn't.",
+          "finalUrl": "https://try.opsapp.co/job-management",
+          "source": "new · 'Works when Wi-Fi doesn't' is a proven headline (5.7%)"
+        }
+      ],
+      "callouts": [
+        {
+          "text": "No credit card",
+          "source": "plans page"
+        },
+        {
+          "text": "No contract",
+          "source": "plans page"
+        },
+        {
+          "text": "Free for 30 days",
+          "source": "plans page · 30-day trial"
+        },
+        {
+          "text": "Every feature, every tier",
+          "source": "plans page"
+        },
+        {
+          "text": "Works when Wi-Fi doesn't",
+          "source": "proven · app headline, 5.7%"
+        },
+        {
+          "text": "No training needed",
+          "source": "proven · 'No training needed. Done.' 6.3%"
+        },
+        {
+          "text": "Built by trades",
+          "source": "proven · 'Built by trades, for trades' 8.9%"
+        },
+        {
+          "text": "Crews of 1 to 10",
+          "source": "plans page · tiers cover up to 10"
+        }
+      ],
+      "snippet": {
+        "header": "Service catalog",
+        "values": [
+          "Crew scheduling",
+          "Job board",
+          "Job photos",
+          "Quotes",
+          "Invoices",
+          "Client records",
+          "Recurring tasks"
+        ],
+        "source": "plans page features, plus quotes, invoices and recurring tasks verified in ops-web"
+      },
+      "businessName": "OPS",
+      "businessLogo": "L_logo",
+      "images": [
+        "A_glove_app_square",
+        "B_autodetail_wide",
+        "B_autodetail_square",
+        "C_toolbelt_wide",
+        "C_toolbelt_square",
+        "D_hardhat_wide"
+      ],
+      "automation": {
+        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
+        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+      },
+      "price": null
+    },
+    "CORE · CA": {
+      "sitelinks": [
+        {
+          "text": "Compare the prices",
+          "description1": "Their price, next to ours.",
+          "description2": "Read it, then decide.",
+          "finalUrl": "https://try.opsapp.co/compare/jobber",
+          "source": "new · no competitor named, so it can run in core and brand"
+        },
+        {
+          "text": "How OPS runs a job",
+          "description1": "Jobs, crew, photos, invoices.",
+          "description2": "Works when Wi-Fi doesn't.",
+          "finalUrl": "https://try.opsapp.co/job-management",
+          "source": "new · 'Works when Wi-Fi doesn't' is a proven headline (5.7%)"
+        },
+        {
+          "text": "Cleaning crews",
+          "description1": "The whole route on one screen.",
+          "description2": "Recurring visits built in.",
+          "finalUrl": "https://try.opsapp.co/for/cleaning",
+          "source": "new · recurring tasks verified in ops-web (task_recurrences)"
+        },
+        {
+          "text": "Roofing crews",
+          "description1": "Quote, schedule, photograph.",
+          "description2": "Invoice from the roof.",
+          "finalUrl": "https://try.opsapp.co/for/roofing",
+          "source": "new · quotes and invoices verified in ops-web"
+        }
+      ],
+      "callouts": [
+        {
+          "text": "No credit card",
+          "source": "plans page"
+        },
+        {
+          "text": "No contract",
+          "source": "plans page"
+        },
+        {
+          "text": "Free for 30 days",
+          "source": "plans page · 30-day trial"
+        },
+        {
+          "text": "Every feature, every tier",
+          "source": "plans page"
+        },
+        {
+          "text": "Works when Wi-Fi doesn't",
+          "source": "proven · app headline, 5.7%"
+        },
+        {
+          "text": "No training needed",
+          "source": "proven · 'No training needed. Done.' 6.3%"
+        },
+        {
+          "text": "Built by trades",
+          "source": "proven · 'Built by trades, for trades' 8.9%"
+        },
+        {
+          "text": "Crews of 1 to 10",
+          "source": "plans page · tiers cover up to 10"
+        }
+      ],
+      "snippet": {
+        "header": "Service catalog",
+        "values": [
+          "Crew scheduling",
+          "Job board",
+          "Job photos",
+          "Quotes",
+          "Invoices",
+          "Client records",
+          "Recurring tasks"
+        ],
+        "source": "plans page features, plus quotes, invoices and recurring tasks verified in ops-web"
+      },
+      "businessName": "OPS",
+      "businessLogo": "L_logo",
+      "images": [
+        "A_glove_app_square",
+        "B_autodetail_wide",
+        "B_autodetail_square",
+        "C_toolbelt_wide",
+        "C_toolbelt_square",
+        "D_hardhat_wide"
+      ],
+      "automation": {
+        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
+        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+      },
+      "price": {
+        "type": "SERVICE_TIERS",
+        "currency": "CAD",
+        "unit": "PER_MONTH",
+        "items": [
+          {
+            "header": "Starter",
+            "description": "Crews of up to 3",
+            "price": 90,
+            "finalUrl": "https://try.opsapp.co/job-management"
+          },
+          {
+            "header": "Team",
+            "description": "Crews of up to 5",
+            "price": 140,
+            "finalUrl": "https://try.opsapp.co/compare/jobber"
+          },
+          {
+            "header": "Business",
+            "description": "Crews of up to 10",
+            "price": 190,
+            "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+          }
+        ],
+        "source": "opsapp.co/plans — Starter $90 up to 3 users, Team $140 up to 5, Business $190 up to 10. CAD, so a US searcher sees CA$."
+      }
+    }
+  },
+  "images": {
+    "A_glove_app_square": {
+      "file": "docs/artifacts/ads-engine/p2/legacy-analysis/images/glove_app_1x1_textfree.png",
+      "aspect": "1:1",
+      "size": "830x830",
+      "why": "The best image in the account — 7.8% clicked, 20 downloads — cropped to remove its text, which search images may not carry.",
+      "flag": "The app on screen still reads TEST COMPANY. A re-render with a real-looking company would be better."
+    },
+    "B_autodetail_wide": {
+      "existingAssetId": "330946001186",
+      "name": "autodetail_mike_1.91:1.png",
+      "size": "2558x1339",
+      "aspect": "1.91:1",
+      "why": "Best click rate on the web side — 11.7% over 804 views. A real owner at his van. No text."
+    },
+    "B_autodetail_square": {
+      "existingAssetId": "330945939323",
+      "name": "autodetail_mike_1:1.png",
+      "size": "1536x1536",
+      "aspect": "1:1",
+      "why": "Square cut of the same shot (1.5% over 817 views)."
+    },
+    "C_toolbelt_wide": {
+      "existingAssetId": "203357920012",
+      "name": "pexels-life-of-pix-8092_1.9108.jpg",
+      "size": "5017x2608",
+      "aspect": "1.91:1",
+      "why": "Job-site photo — 6.3% clicked in app ads. No text."
+    },
+    "C_toolbelt_square": {
+      "existingAssetId": "203357926063",
+      "name": "pexels-life-of-pix-8092_1.jpg",
+      "size": "3361x3344",
+      "aspect": "1:1",
+      "why": "Square cut of the same photo (1.9%)."
+    },
+    "D_hardhat_wide": {
+      "existingAssetId": "203328858165",
+      "name": "pexels-yury-kim-181374-585419_1.9108.jpg",
+      "size": "3861x2008",
+      "aspect": "1.91:1",
+      "why": "Job-site photo — 5.7% clicked in app ads. No text."
+    }
+  },
+  "businessLogo": {
+    "L_logo": {
+      "existingAssetId": "203326113726",
+      "name": "Ops Logo black background.png",
+      "size": "1890x1890",
+      "why": "The OPS mark on black — already ran as the business logo on the old search campaign (2.6% clicked)."
+    }
+  },
+  "rejectedImages": {
+    "X_slogan": "Slogan graphic — 0.7% over 17,148 views, 'MAXIMIZE EFFICIENCY', and text over the image.",
+    "X_logo_plain": "Logo only — 0.8% over 17,626 views.",
+    "X_welder_early_access": "Says 'REGISTER NOW FOR FREE EARLY ACCESS' — no longer true, and text over the image.",
+    "X_truck_lowres": "704x368, below Google's size for a sharp image; 0.7% over 1,266 views."
+  }
+}

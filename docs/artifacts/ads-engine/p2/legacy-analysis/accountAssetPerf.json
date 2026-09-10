@@ -1,0 +1,86 @@
+[
+ {
+  "metrics": {
+   "clicks": "123",
+   "impressions": "4144"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220853832323",
+   "type": "SITELINK",
+   "id": "220853832323",
+   "finalUrls": [
+    "https://opsapp.co/join_ops"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ JOIN OPS ]"
+   }
+  },
+  "customerAsset": {
+   "resourceName": "customers/4454506598/customerAssets/220853832323~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "metrics": {
+   "clicks": "102",
+   "impressions": "3542"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301640749369",
+   "type": "SITELINK",
+   "id": "301640749369",
+   "finalUrls": [
+    "https://opsapp.co/ops_pricing"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ OPS PRICING ]"
+   }
+  },
+  "customerAsset": {
+   "resourceName": "customers/4454506598/customerAssets/301640749369~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "metrics": {
+   "clicks": "120",
+   "impressions": "3424"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317909206",
+   "type": "SITELINK",
+   "id": "314317909206",
+   "finalUrls": [
+    "https://opsapp.co/"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ OPS HOME ]"
+   }
+  },
+  "customerAsset": {
+   "resourceName": "customers/4454506598/customerAssets/314317909206~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ },
+ {
+  "metrics": {
+   "clicks": "71",
+   "impressions": "1023"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317909212",
+   "type": "SITELINK",
+   "id": "314317909212",
+   "finalUrls": [
+    "https://apps.apple.com/us/app/ops-job-crew-management/id6746662078"
+   ],
+   "sitelinkAsset": {
+    "linkText": "[ OPS iPHONE ]"
+   }
+  },
+  "customerAsset": {
+   "resourceName": "customers/4454506598/customerAssets/314317909212~SITELINK",
+   "fieldType": "SITELINK"
+  }
+ }
+]

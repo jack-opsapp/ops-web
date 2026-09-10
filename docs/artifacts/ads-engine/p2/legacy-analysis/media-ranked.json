@@ -1,0 +1,1403 @@
+[
+ {
+  "id": "203308598654",
+  "type": "IMAGE",
+  "name": "pexels-korhan-erdol-1123380-2554128_1.jpg",
+  "w": "2836",
+  "h": "2836",
+  "url": "https://tpc.googlesyndication.com/simgad/17847153522452995785",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 352,
+  "c": 9,
+  "cv": 0,
+  "s": 0.102909
+ },
+ {
+  "id": "203326113726",
+  "type": "IMAGE",
+  "name": "Ops Logo black background.png",
+  "w": "1890",
+  "h": "1890",
+  "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025",
+   "pmax:PMAX:Performance Max- Join Ops USA/UK",
+   "pmax:PMAX:Performance Max- Join Ops CA",
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)",
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "MARKETING_IMAGE",
+   "LOGO"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 12489,
+  "c": 143,
+  "cv": 2,
+  "s": 0.000852
+ },
+ {
+  "id": "203328858165",
+  "type": "IMAGE",
+  "name": "pexels-yury-kim-181374-585419_1.9108.jpg",
+  "w": "3861",
+  "h": "2008",
+  "url": "https://tpc.googlesyndication.com/simgad/2058180317136649344",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 245,
+  "c": 14,
+  "cv": 1,
+  "s": 2.102785
+ },
+ {
+  "id": "203357920012",
+  "type": "IMAGE",
+  "name": "pexels-life-of-pix-8092_1.9108.jpg",
+  "w": "5017",
+  "h": "2608",
+  "url": "https://tpc.googlesyndication.com/simgad/5738971406758540476",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 693,
+  "c": 44,
+  "cv": 1,
+  "s": 5.183686
+ },
+ {
+  "id": "203357926063",
+  "type": "IMAGE",
+  "name": "pexels-life-of-pix-8092_1.jpg",
+  "w": "3361",
+  "h": "3344",
+  "url": "https://tpc.googlesyndication.com/simgad/6964995950021929723",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 261,
+  "c": 5,
+  "cv": 0,
+  "s": 0.659024
+ },
+ {
+  "id": "203360490106",
+  "type": "IMAGE",
+  "name": "pexels-korhan-erdol-1123380-2554128_1.9108.jpg",
+  "w": "4496",
+  "h": "2354",
+  "url": "https://tpc.googlesyndication.com/simgad/8156160264853382203",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 339,
+  "c": 10,
+  "cv": 1,
+  "s": 1.369395
+ },
+ {
+  "id": "203360535154",
+  "type": "IMAGE",
+  "name": "pexels-yury-kim-181374-585419_1.jpg",
+  "w": "2587",
+  "h": "2574",
+  "url": "https://tpc.googlesyndication.com/simgad/17251887287314107866",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 116,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "301323693945",
+  "type": "IMAGE",
+  "name": "photo_2025-10-20_15-09-41_1.91:1.jpg",
+  "w": "853",
+  "h": "448",
+  "url": "https://tpc.googlesyndication.com/simgad/9057619305062681007",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 31,
+  "c": 1,
+  "cv": 0,
+  "s": 0.1
+ },
+ {
+  "id": "301323693948",
+  "type": "IMAGE",
+  "name": "photo_2025-10-20_15-09-41_1:1.jpg",
+  "w": "853",
+  "h": "858",
+  "url": "https://tpc.googlesyndication.com/simgad/16419752207304753131",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary",
+   "pmax:PMAX:Black Friday Home PAge",
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE",
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 436,
+  "c": 4,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "311037838411",
+  "type": "IMAGE",
+  "name": "16x9_4:5.png",
+  "w": "900",
+  "h": "1120",
+  "url": "https://tpc.googlesyndication.com/simgad/5420347144168367669",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 53,
+  "c": 2,
+  "cv": 0,
+  "s": 0.021116
+ },
+ {
+  "id": "311037838423",
+  "type": "IMAGE",
+  "name": "16x9_1:1.png",
+  "w": "900",
+  "h": "900",
+  "url": "https://tpc.googlesyndication.com/simgad/17783804599546942576",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025",
+   "ad:MULTI_CHANNEL:iOS APP 2026",
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 158,
+  "c": 2,
+  "cv": 0,
+  "s": 0.010303
+ },
+ {
+  "id": "311038023766",
+  "type": "IMAGE",
+  "name": "photo_2025-10-20_15-09-41_4:5.jpg",
+  "w": "835",
+  "h": "1044",
+  "url": "https://tpc.googlesyndication.com/simgad/505929650801863522",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 34,
+  "c": 7,
+  "cv": 0,
+  "s": 0.344125
+ },
+ {
+  "id": "311038257157",
+  "type": "IMAGE",
+  "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg",
+  "w": "1677",
+  "h": "1677",
+  "url": "https://tpc.googlesyndication.com/simgad/10049728154322525556",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary",
+   "pmax:PMAX:Black Friday Home PAge",
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE",
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 94,
+  "c": 1,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "311064548325",
+  "type": "IMAGE",
+  "name": "1x1.png",
+  "w": "1290",
+  "h": "1290",
+  "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025",
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary",
+   "ad:MULTI_CHANNEL:iOS APP 2026",
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE",
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 497,
+  "c": 8,
+  "cv": 0,
+  "s": 0.074061
+ },
+ {
+  "id": "311064548331",
+  "type": "IMAGE",
+  "name": "1.91x1.png",
+  "w": "1910",
+  "h": "1000",
+  "url": "https://tpc.googlesyndication.com/simgad/253789208157360622",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025",
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary",
+   "ad:MULTI_CHANNEL:iOS APP 2026",
+   "pmax:PMAX:Black Friday Home PAge",
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING",
+   "UNKNOWN"
+  ],
+  "i": 2429,
+  "c": 190,
+  "cv": 20,
+  "s": 58.292927
+ },
+ {
+  "id": "311065203636",
+  "type": "IMAGE",
+  "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg",
+  "w": "1677",
+  "h": "1677",
+  "url": "https://tpc.googlesyndication.com/simgad/16339165318306750561",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025",
+   "ad:MULTI_CHANNEL:iOS APP 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 164,
+  "c": 1,
+  "cv": 0,
+  "s": 0.024016
+ },
+ {
+  "id": "311065249776",
+  "type": "IMAGE",
+  "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_4:5.jpg",
+  "w": "1677",
+  "h": "2096",
+  "url": "https://tpc.googlesyndication.com/simgad/17387076785556323257",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS iOS APP PROMOTION 2025",
+   "ad:MULTI_CHANNEL:iOS APP 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 26,
+  "c": 1,
+  "cv": 0,
+  "s": 0.053331
+ },
+ {
+  "id": "314170661846",
+  "type": "IMAGE",
+  "name": "BLACK FRIDAY OPS16x9_1.91:1.png",
+  "w": "887",
+  "h": "464",
+  "url": "https://tpc.googlesyndication.com/simgad/6506118770133476720",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 38,
+  "c": 16,
+  "cv": 1,
+  "s": 19.888322
+ },
+ {
+  "id": "314248051036",
+  "type": "IMAGE",
+  "name": "BLACK FRIDAY OPS1x1.png",
+  "w": "1290",
+  "h": "1290",
+  "url": "https://tpc.googlesyndication.com/simgad/10680486075667428859",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary",
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "MARKETING_IMAGE",
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 10,
+  "c": 0,
+  "cv": 0,
+  "s": 0.000009
+ },
+ {
+  "id": "314248232554",
+  "type": "IMAGE",
+  "name": "BLACK FRIDAY OPS16x9_1:1.png",
+  "w": "900",
+  "h": "900",
+  "url": "https://tpc.googlesyndication.com/simgad/16659083004538834318",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 5,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314288992245",
+  "type": "IMAGE",
+  "name": "BLACK FRIDAY OPS1.91x1.png",
+  "w": "1910",
+  "h": "1000",
+  "url": "https://tpc.googlesyndication.com/simgad/11053584939791966146",
+  "title": "",
+  "where": [
+   "ad:MULTI_CHANNEL:OPS APP - Hire OPS - Performance Max - Primary",
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [
+   "LEARNING"
+  ],
+  "i": 34,
+  "c": 1,
+  "cv": 0,
+  "s": 0.900266
+ },
+ {
+  "id": "203306731283",
+  "type": "IMAGE",
+  "name": "OPS BY TRADES FOR TRADES free early access.png",
+  "w": "1000",
+  "h": "1000",
+  "url": "https://tpc.googlesyndication.com/simgad/18241817910896113204",
+  "title": "",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops USA/UK",
+   "pmax:PMAX:Performance Max- Join Ops CA",
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)",
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 17148,
+  "c": 122,
+  "cv": 1,
+  "s": 0
+ },
+ {
+  "id": "203325669141",
+  "type": "IMAGE",
+  "name": "OPS TATTERED.png",
+  "w": "1000",
+  "h": "1000",
+  "url": "https://tpc.googlesyndication.com/simgad/5237544781008762594",
+  "title": "",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops USA/UK",
+   "pmax:PMAX:Performance Max- Join Ops CA",
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)",
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 9891,
+  "c": 73,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "203358570916",
+  "type": "IMAGE",
+  "name": "Ops Logo Black.png",
+  "w": "1024",
+  "h": "1024",
+  "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772",
+  "title": "",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops USA/UK",
+   "pmax:PMAX:Performance Max- Join Ops CA",
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)",
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "LOGO"
+  ],
+  "labels": [],
+  "i": 17626,
+  "c": 139,
+  "cv": 2,
+  "s": 0
+ },
+ {
+  "id": "203672709158",
+  "type": "IMAGE",
+  "name": "welder-ops_1.91:1.png",
+  "w": "4496",
+  "h": "2354",
+  "url": "https://tpc.googlesyndication.com/simgad/12681795250850882639",
+  "title": "",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops USA/UK",
+   "pmax:PMAX:Performance Max- Join Ops CA",
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)",
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 3954,
+  "c": 85,
+  "cv": 2,
+  "s": 0
+ },
+ {
+  "id": "204260708669",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/ENo6DAdDsTE",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops USA/UK"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 1,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "204278737509",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/HryBzTnmw9E",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops USA/UK"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 6,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "204305940922",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/WA4_6cV_y1g",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops USA/UK"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 4,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "208794966725",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/BgQoXyeTZSw",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 29,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "208795074233",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/pgVZ7HC4ssQ",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 37,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "208840193322",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/rLOBTJJC_Dw",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 194,
+  "c": 6,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "208845736264",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/ADNTrUnN1Zc",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 801,
+  "c": 27,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "208849166329",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/XzOYUP3rr7I",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 22,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "209541951948",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/5HhCe-ldfFc",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 38,
+  "c": 2,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "209547900037",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/uXhfIlFcQsI",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 14,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "209547915538",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/jj2xCitVZms",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 13,
+  "c": 1,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "209547968026",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/2Q8RwbENB18",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 6,
+  "c": 1,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "209548366696",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/kcq--r__TzY",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA (Competitor SIgnal)"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 12,
+  "c": 1,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "215427034037",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/HTSmnQe8ip0",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 47,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "215427085826",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/ZO8AFNrMYPw",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 51,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "215467644499",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/GASyXnkW7Lk",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 9,
+  "c": 1,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "215467724689",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/wb7ayRxT2cI",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 27,
+  "c": 2,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "215468650938",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/zsAvEKCsWN8",
+  "title": "OPS APP - [ Lead your crew effectively ]",
+  "where": [
+   "pmax:PMAX:Performance Max- Join Ops CA #2"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 11,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "220931395642",
+  "type": "IMAGE",
+  "name": "pexels-lucas-d-amico-2150246673-31041771_1.9108.jpg",
+  "w": "2006",
+  "h": "1050",
+  "url": "https://tpc.googlesyndication.com/simgad/17312033512460658561",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 227,
+  "c": 4,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "220937938227",
+  "type": "IMAGE",
+  "name": "pexels-lucas-d-amico-2150246673-31041771_1.jpg",
+  "w": "2048",
+  "h": "2038",
+  "url": "https://tpc.googlesyndication.com/simgad/9801749358079764467",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 915,
+  "c": 9,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "301640128639",
+  "type": "IMAGE",
+  "name": "photo_2025-10-20_15-09-41_1.91:1.jpg",
+  "w": "853",
+  "h": "448",
+  "url": "https://tpc.googlesyndication.com/simgad/16473687389287485011",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 127,
+  "c": 9,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314172784835",
+  "type": "IMAGE",
+  "name": "photo_2025-10-20_15-09-41_4:5.jpg",
+  "w": "835",
+  "h": "1044",
+  "url": "https://tpc.googlesyndication.com/simgad/3474087862158674975",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "PORTRAIT_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 52,
+  "c": 2,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314244602372",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/eRIcOZFXi0o",
+  "title": "OPS Job & Crew Management - [Built By Trades, For Trades.]",
+  "where": [
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 14,
+  "c": 1,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314244828269",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/7aHbVxbXbOE",
+  "title": "OPS Job & Crew Management - [Built By Trades, For Trades.]",
+  "where": [
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 23,
+  "c": 1,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314317324341",
+  "type": "IMAGE",
+  "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1.91:1.jpg",
+  "w": "1677",
+  "h": "880",
+  "url": "https://tpc.googlesyndication.com/simgad/7842607256396350026",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 143,
+  "c": 10,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314317395648",
+  "type": "IMAGE",
+  "name": "1x1_1.91:1.png",
+  "w": "1290",
+  "h": "675",
+  "url": "https://tpc.googlesyndication.com/simgad/3523993582909219440",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 686,
+  "c": 8,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314317601706",
+  "type": "IMAGE",
+  "name": "16x9_1:1.png",
+  "w": "900",
+  "h": "900",
+  "url": "https://tpc.googlesyndication.com/simgad/1130220274466579928",
+  "title": "",
+  "where": [
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 2,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314317654671",
+  "type": "IMAGE",
+  "name": "BLACK FRIDAY OPS1x1_1.91:1.png",
+  "w": "1290",
+  "h": "675",
+  "url": "https://tpc.googlesyndication.com/simgad/875385057118249161",
+  "title": "",
+  "where": [
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 53,
+  "c": 3,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314322606982",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/BwiEpNFs0d4",
+  "title": "OPS Job & Crew Management - [Built By Trades, For Trades.]",
+  "where": [
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 193,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314362295025",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/d_qy_GGYik8",
+  "title": "OPS Job & Crew Management - [Built By Trades, For Trades.]",
+  "where": [
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 121,
+  "c": 2,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "314362385283",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/b4KsUZ2uxiA",
+  "title": "OPS Job & Crew Management - [Built By Trades, For Trades.]",
+  "where": [
+   "pmax:PMAX:Black Friday Home PAge"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 64,
+  "c": 2,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330942675581",
+  "type": "IMAGE",
+  "name": "16x9_4:5.png",
+  "w": "900",
+  "h": "1120",
+  "url": "https://tpc.googlesyndication.com/simgad/5519310229390512047",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "PORTRAIT_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 87,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330942787208",
+  "type": "IMAGE",
+  "name": "pexels-lucas-d-amico-2150246673-31041771_0.8.jpg",
+  "w": "2026",
+  "h": "2532",
+  "url": "https://tpc.googlesyndication.com/simgad/16922239514348281092",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "PORTRAIT_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 25,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330945874472",
+  "type": "IMAGE",
+  "name": "autodetail_mike_4:5.png",
+  "w": "1228",
+  "h": "1536",
+  "url": "https://tpc.googlesyndication.com/simgad/8163668041737608628",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "PORTRAIT_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 10,
+  "c": 0,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330945939323",
+  "type": "IMAGE",
+  "name": "autodetail_mike_1:1.png",
+  "w": "1536",
+  "h": "1536",
+  "url": "https://tpc.googlesyndication.com/simgad/9977691552307134900",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 817,
+  "c": 12,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330945939701",
+  "type": "IMAGE",
+  "name": "OPS in truck_4:5.png",
+  "w": "704",
+  "h": "883",
+  "url": "https://tpc.googlesyndication.com/simgad/1111801799066222458",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "PORTRAIT_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 54,
+  "c": 1,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330946001186",
+  "type": "IMAGE",
+  "name": "autodetail_mike_1.91:1.png",
+  "w": "2558",
+  "h": "1339",
+  "url": "https://tpc.googlesyndication.com/simgad/10962853852508150831",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 804,
+  "c": 94,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330949983344",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/fzw47Tnpqa4",
+  "title": "OPS Job Management Ltd. - Stop reacting-Start operating.",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 217,
+  "c": 4,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330949986137",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/qnm1lIDovYs",
+  "title": "OPS Job Management Ltd. - Stop reacting-Start operating.",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 721,
+  "c": 18,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "330950780954",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/-mxDEDvzHS4",
+  "title": "OPS Job Management Ltd. - Stop reacting-Start operating.",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 3695,
+  "c": 41,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "331041136417",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/4VA8xap8Pck",
+  "title": "OPS Job Management Ltd. - Stop reacting-Start operating.",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 16647,
+  "c": 24,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "331041778090",
+  "type": "YOUTUBE_VIDEO",
+  "name": "",
+  "url": "https://youtu.be/Jov0IHI32MU",
+  "title": "OPS Job Management Ltd. - Stop reacting-Start operating.",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "YOUTUBE_VIDEO"
+  ],
+  "labels": [],
+  "i": 424,
+  "c": 3,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "331079824344",
+  "type": "IMAGE",
+  "name": "OPS in truck_1.91:1.png",
+  "w": "704",
+  "h": "368",
+  "url": "https://tpc.googlesyndication.com/simgad/2963983466605034239",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 1266,
+  "c": 9,
+  "cv": 0,
+  "s": 0
+ },
+ {
+  "id": "331079824368",
+  "type": "IMAGE",
+  "name": "OPS in truck_1:1.png",
+  "w": "704",
+  "h": "707",
+  "url": "https://tpc.googlesyndication.com/simgad/4399452754747757751",
+  "title": "",
+  "where": [
+   "pmax:PMAX:TRY OPS 2026"
+  ],
+  "fields": [
+   "SQUARE_MARKETING_IMAGE"
+  ],
+  "labels": [],
+  "i": 687,
+  "c": 8,
+  "cv": 0,
+  "s": 0
+ }
+]

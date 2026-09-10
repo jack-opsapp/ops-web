@@ -1,0 +1,2098 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/185497122123",
+   "name": "Value You Can't Get Elsewhere"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "23298",
+   "impressions": "185"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203308598654",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2836",
+     "widthPixels": "2836",
+     "url": "https://tpc.googlesyndication.com/simgad/17847153522452995785"
+    }
+   },
+   "id": "203308598654",
+   "name": "pexels-korhan-erdol-1123380-2554128_1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203308598654~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191503700528",
+   "name": "What Makes Us Different"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "79611",
+   "impressions": "167"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203308598654",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2836",
+     "widthPixels": "2836",
+     "url": "https://tpc.googlesyndication.com/simgad/17847153522452995785"
+    }
+   },
+   "id": "203308598654",
+   "name": "pexels-korhan-erdol-1123380-2554128_1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203308598654~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191503700528",
+   "name": "What Makes Us Different"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "852",
+   "impressions": "79"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1890",
+     "widthPixels": "1890",
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203326113726~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/185497122123",
+   "name": "Value You Can't Get Elsewhere"
+  },
+  "metrics": {
+   "clicks": "14",
+   "conversions": 1,
+   "costMicros": "2102785",
+   "impressions": "245"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203328858165",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2008",
+     "widthPixels": "3861",
+     "url": "https://tpc.googlesyndication.com/simgad/2058180317136649344"
+    }
+   },
+   "id": "203328858165",
+   "name": "pexels-yury-kim-181374-585419_1.9108.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203328858165~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/185497122123",
+   "name": "Value You Can't Get Elsewhere"
+  },
+  "metrics": {
+   "clicks": "18",
+   "conversions": 1,
+   "costMicros": "2281275",
+   "impressions": "252"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203357920012",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2608",
+     "widthPixels": "5017",
+     "url": "https://tpc.googlesyndication.com/simgad/5738971406758540476"
+    }
+   },
+   "id": "203357920012",
+   "name": "pexels-life-of-pix-8092_1.9108.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203357920012~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191503700528",
+   "name": "What Makes Us Different"
+  },
+  "metrics": {
+   "clicks": "26",
+   "conversions": 0,
+   "costMicros": "2902411",
+   "impressions": "441"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203357920012",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2608",
+     "widthPixels": "5017",
+     "url": "https://tpc.googlesyndication.com/simgad/5738971406758540476"
+    }
+   },
+   "id": "203357920012",
+   "name": "pexels-life-of-pix-8092_1.9108.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203357920012~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/185497122123",
+   "name": "Value You Can't Get Elsewhere"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "615728",
+   "impressions": "119"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203357926063",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "3344",
+     "widthPixels": "3361",
+     "url": "https://tpc.googlesyndication.com/simgad/6964995950021929723"
+    }
+   },
+   "id": "203357926063",
+   "name": "pexels-life-of-pix-8092_1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203357926063~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191503700528",
+   "name": "What Makes Us Different"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "43296",
+   "impressions": "142"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203357926063",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "3344",
+     "widthPixels": "3361",
+     "url": "https://tpc.googlesyndication.com/simgad/6964995950021929723"
+    }
+   },
+   "id": "203357926063",
+   "name": "pexels-life-of-pix-8092_1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203357926063~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/185497122123",
+   "name": "Value You Can't Get Elsewhere"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "179082",
+   "impressions": "108"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203360490106",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2354",
+     "widthPixels": "4496",
+     "url": "https://tpc.googlesyndication.com/simgad/8156160264853382203"
+    }
+   },
+   "id": "203360490106",
+   "name": "pexels-korhan-erdol-1123380-2554128_1.9108.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203360490106~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191503700528",
+   "name": "What Makes Us Different"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 1,
+   "costMicros": "1190313",
+   "impressions": "231"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203360490106",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2354",
+     "widthPixels": "4496",
+     "url": "https://tpc.googlesyndication.com/simgad/8156160264853382203"
+    }
+   },
+   "id": "203360490106",
+   "name": "pexels-korhan-erdol-1123380-2554128_1.9108.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203360490106~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/185497122123",
+   "name": "Value You Can't Get Elsewhere"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "116"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203360535154",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2574",
+     "widthPixels": "2587",
+     "url": "https://tpc.googlesyndication.com/simgad/17251887287314107866"
+    }
+   },
+   "id": "203360535154",
+   "name": "pexels-yury-kim-181374-585419_1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203360535154~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190325086754",
+   "name": "Hire OPS/ ADvanced Value"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "100000",
+   "impressions": "31"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301323693945",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "448",
+     "widthPixels": "853",
+     "url": "https://tpc.googlesyndication.com/simgad/9057619305062681007"
+    }
+   },
+   "id": "301323693945",
+   "name": "photo_2025-10-20_15-09-41_1.91:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301323693945~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190325086754",
+   "name": "Hire OPS/ ADvanced Value"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "33"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301323693948",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "858",
+     "widthPixels": "853",
+     "url": "https://tpc.googlesyndication.com/simgad/16419752207304753131"
+    }
+   },
+   "id": "301323693948",
+   "name": "photo_2025-10-20_15-09-41_1:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301323693948~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "21116",
+   "impressions": "53"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838411",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1120",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/5420347144168367669"
+    }
+   },
+   "id": "311037838411",
+   "name": "16x9_4:5.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311037838411~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "10303",
+   "impressions": "115"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "900",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/17783804599546942576"
+    }
+   },
+   "id": "311037838423",
+   "name": "16x9_1:1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562054",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "31"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "900",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/17783804599546942576"
+    }
+   },
+   "id": "311037838423",
+   "name": "16x9_1:1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562094",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "6"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "900",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/17783804599546942576"
+    }
+   },
+   "id": "311037838423",
+   "name": "16x9_1:1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191898724936",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "900",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/17783804599546942576"
+    }
+   },
+   "id": "311037838423",
+   "name": "16x9_1:1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "900",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/17783804599546942576"
+    }
+   },
+   "id": "311037838423",
+   "name": "16x9_1:1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "344125",
+   "impressions": "34"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038023766",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1044",
+     "widthPixels": "835",
+     "url": "https://tpc.googlesyndication.com/simgad/505929650801863522"
+    }
+   },
+   "id": "311038023766",
+   "name": "photo_2025-10-20_15-09-41_4:5.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311038023766~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/187735663614",
+   "name": "What makes OPS diff"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "10"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038257157",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/10049728154322525556"
+    }
+   },
+   "id": "311038257157",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311038257157~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/189797156780",
+   "name": "What makes OPS diff #2 - scheduling"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038257157",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/10049728154322525556"
+    }
+   },
+   "id": "311038257157",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311038257157~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190325086754",
+   "name": "Hire OPS/ ADvanced Value"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "6"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038257157",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/10049728154322525556"
+    }
+   },
+   "id": "311038257157",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~311038257157~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "19313",
+   "impressions": "145"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/187735663614",
+   "name": "What makes OPS diff"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "6"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/189797156780",
+   "name": "What makes OPS diff #2 - scheduling"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562054",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "54748",
+   "impressions": "33"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562094",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "12"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190325086754",
+   "name": "Hire OPS/ ADvanced Value"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "3"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191898724936",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "134",
+   "conversions": 10,
+   "costMicros": "16244249",
+   "impressions": "1047"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/187735663614",
+   "name": "What makes OPS diff"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/189797156780",
+   "name": "What makes OPS diff #2 - scheduling"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "2"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562054",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "31",
+   "conversions": 3,
+   "costMicros": "23333249",
+   "impressions": "166"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562094",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "16",
+   "conversions": 5,
+   "costMicros": "15041241",
+   "impressions": "553"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "UNKNOWN"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190325086754",
+   "name": "Hire OPS/ ADvanced Value"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "400000",
+   "impressions": "3"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191898724936",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 2,
+   "costMicros": "3274188",
+   "impressions": "59"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "UNKNOWN"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "24016",
+   "impressions": "113"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065203636",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/16339165318306750561"
+    }
+   },
+   "id": "311065203636",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311065203636~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562054",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "39"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065203636",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/16339165318306750561"
+    }
+   },
+   "id": "311065203636",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311065203636~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562094",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "9"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065203636",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/16339165318306750561"
+    }
+   },
+   "id": "311065203636",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311065203636~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191898724936",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "3"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065203636",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/16339165318306750561"
+    }
+   },
+   "id": "311065203636",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~311065203636~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "17183",
+   "impressions": "23"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065249776",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2096",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/17387076785556323257"
+    }
+   },
+   "id": "311065249776",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_4:5.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311065249776~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562054",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "1"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065249776",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2096",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/17387076785556323257"
+    }
+   },
+   "id": "311065249776",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_4:5.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311065249776~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562094",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "36148",
+   "impressions": "2"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065249776",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2096",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/17387076785556323257"
+    }
+   },
+   "id": "311065249776",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_4:5.jpg"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311065249776~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "16",
+   "conversions": 1,
+   "costMicros": "19888322",
+   "impressions": "38"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314170661846",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "464",
+     "widthPixels": "887",
+     "url": "https://tpc.googlesyndication.com/simgad/6506118770133476720"
+    }
+   },
+   "id": "314170661846",
+   "name": "BLACK FRIDAY OPS16x9_1.91:1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314170661846~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "9",
+   "impressions": "9"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314248051036",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/10680486075667428859"
+    }
+   },
+   "id": "314248051036",
+   "name": "BLACK FRIDAY OPS1x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314248051036~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "5"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314248232554",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "900",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/16659083004538834318"
+    }
+   },
+   "id": "314248232554",
+   "name": "BLACK FRIDAY OPS16x9_1:1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314248232554~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "900266",
+   "impressions": "18"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314288992245",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/11053584939791966146"
+    }
+   },
+   "id": "314288992245",
+   "name": "BLACK FRIDAY OPS1.91x1.png"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314288992245~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ }
+]

@@ -59,7 +59,8 @@ export type CopyIssueCode =
   | "TRADEMARK_CAMPAIGN"
   | "URL_NOT_ALLOWED"
   | "PATH_TOO_LONG"
-  | "PIN_PLAN";
+  | "PIN_PLAN"
+  | "ASSET_TOO_LONG";
 
 export interface CopyIssue {
   code: CopyIssueCode;
@@ -132,7 +133,7 @@ function checkText(
   text: string,
   field: string,
   limit: number,
-  tooLong: "HEADLINE_TOO_LONG" | "DESCRIPTION_TOO_LONG",
+  tooLong: "HEADLINE_TOO_LONG" | "DESCRIPTION_TOO_LONG" | "ASSET_TOO_LONG",
   ctx: CopyContext,
   issues: CopyIssue[]
 ) {
@@ -364,5 +365,33 @@ export function validateRsa(
       message: `Pin ${COPY_LIMITS.pinnedHeadlines.min} or ${COPY_LIMITS.pinnedHeadlines.max} headlines to HEADLINE_1 and nothing else (found ${pinnedToOne} on position one, ${pinnedElsewhere} elsewhere, ${pinnedDescriptions} descriptions pinned).`,
     });
 
+  return issues;
+}
+
+/**
+ * Sitelinks, callouts, structured-snippet values, price items and the business
+ * name are ad text too. They answer to exactly the rules a headline does —
+ * no exclamation, no banned words, no "contractor", numbers from the allowlist,
+ * competitor names only in the sanctioned forms and campaigns — each at its own
+ * Google length limit.
+ */
+export const ASSET_LIMITS = {
+  sitelinkText: 25,
+  sitelinkDescription: 35,
+  callout: 25,
+  snippetValue: 25,
+  priceHeader: 25,
+  priceDescription: 25,
+  businessName: 25,
+} as const;
+
+export function validateAssetText(
+  text: string,
+  field: string,
+  limit: number,
+  ctx: CopyContext
+): CopyIssue[] {
+  const issues: CopyIssue[] = [];
+  checkText(text, field, limit, "ASSET_TOO_LONG", ctx, issues);
   return issues;
 }

@@ -1,0 +1,62 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24229871193",
+   "name": "BRAND · NA",
+   "assetAutomationSettings": [
+    {
+     "assetAutomationType": "TEXT_ASSET_AUTOMATION",
+     "assetAutomationStatus": "OPTED_OUT"
+    }
+   ]
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24229871196",
+   "name": "PRICING · US",
+   "assetAutomationSettings": [
+    {
+     "assetAutomationType": "TEXT_ASSET_AUTOMATION",
+     "assetAutomationStatus": "OPTED_OUT"
+    }
+   ]
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24229871199",
+   "name": "SWITCH · US",
+   "assetAutomationSettings": [
+    {
+     "assetAutomationType": "TEXT_ASSET_AUTOMATION",
+     "assetAutomationStatus": "OPTED_OUT"
+    }
+   ]
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24229871202",
+   "name": "TRADE · US",
+   "assetAutomationSettings": [
+    {
+     "assetAutomationType": "TEXT_ASSET_AUTOMATION",
+     "assetAutomationStatus": "OPTED_OUT"
+    }
+   ]
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/24235473779",
+   "name": "CORE · CA",
+   "assetAutomationSettings": [
+    {
+     "assetAutomationType": "TEXT_ASSET_AUTOMATION",
+     "assetAutomationStatus": "OPTED_OUT"
+    }
+   ]
+  }
+ }
+]
