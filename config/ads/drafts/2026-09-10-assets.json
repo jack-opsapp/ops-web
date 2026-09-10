@@ -124,8 +124,7 @@
         "D_hardhat_wide"
       ],
       "automation": {
-        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
-        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+        "TEXT_ASSET_AUTOMATION": "OPTED_OUT"
       },
       "price": null
     },
@@ -218,8 +217,7 @@
         "D_hardhat_wide"
       ],
       "automation": {
-        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
-        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+        "TEXT_ASSET_AUTOMATION": "OPTED_OUT"
       },
       "price": {
         "type": "SERVICE_TIERS",
@@ -337,8 +335,7 @@
         "D_hardhat_wide"
       ],
       "automation": {
-        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
-        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+        "TEXT_ASSET_AUTOMATION": "OPTED_OUT"
       },
       "price": {
         "type": "SERVICE_TIERS",
@@ -456,8 +453,7 @@
         "D_hardhat_wide"
       ],
       "automation": {
-        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
-        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+        "TEXT_ASSET_AUTOMATION": "OPTED_OUT"
       },
       "price": null
     },
@@ -550,8 +546,7 @@
         "D_hardhat_wide"
       ],
       "automation": {
-        "GENERATE_IMAGE_EXTRACTION": "OPTED_OUT",
-        "GENERATE_IMAGE_ENHANCEMENT": "OPTED_OUT"
+        "TEXT_ASSET_AUTOMATION": "OPTED_OUT"
       },
       "price": {
         "type": "SERVICE_TIERS",

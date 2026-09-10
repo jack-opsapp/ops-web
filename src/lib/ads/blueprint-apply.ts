@@ -26,6 +26,7 @@ import {
   type PlannedOperation,
 } from "./blueprint-planner";
 import type { EntitySnapshot } from "./engine/types";
+import { planAssets, type ImageLoader, type LiveAssetState } from "./blueprint-assets";
 
 export interface MutateFailure {
   index: number | null;
@@ -49,6 +50,8 @@ export interface BlueprintGateway {
 
 export interface BlueprintRepository {
   readSnapshot(): Promise<EntitySnapshot>;
+  /** The account's assets, read live from Google — the warehouse does not hold them. */
+  readAssetState(): Promise<LiveAssetState>;
   refreshSnapshot(): Promise<void>;
   record(id: string, payload: Record<string, unknown>): Promise<void>;
 }
@@ -96,17 +99,27 @@ export async function applyBlueprint({
   gateway,
   repository,
   validateOnly,
+  loadImage = (key) => {
+    throw new Error(`No image loader: cannot upload "${key}".`);
+  },
   now = () => new Date(),
 }: {
   blueprint: Blueprint;
   gateway: BlueprintGateway;
   repository: BlueprintRepository;
   validateOnly: boolean;
+  /** Supplies the bytes of a blueprint image that is not in the account yet. */
+  loadImage?: ImageLoader;
   now?: () => Date;
 }): Promise<BlueprintApplyOutcome> {
   const passes: PassRecord[] = [];
+  // Structure first (stages 1–8), then assets (stage 9) against live state.
+  const planAll = async (current: EntitySnapshot): Promise<PlannedOperation[]> => [
+    ...planBlueprint(blueprint, current),
+    ...planAssets(blueprint, await repository.readAssetState(), loadImage),
+  ];
   let snapshot = await refreshed(repository);
-  let plan: PlannedOperation[] = planBlueprint(blueprint, snapshot);
+  let plan: PlannedOperation[] = await planAll(snapshot);
   let failures: MutateFailure[] = [];
   let requestId: string | null = null;
 
@@ -146,7 +159,7 @@ export async function applyBlueprint({
     }
 
     snapshot = await refreshed(repository);
-    plan = planBlueprint(blueprint, snapshot);
+    plan = await planAll(snapshot);
   }
 
   const outcome: BlueprintApplyOutcome = {

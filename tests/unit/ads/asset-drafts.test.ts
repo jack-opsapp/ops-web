@@ -66,10 +66,10 @@ describe("asset drafts (2026-09-10)", () => {
       expect(Boolean(image.existingAssetId) || (image.file ? existsSync(image.file) : false), key).toBe(true);
   });
 
-  it("stops Google choosing images from our pages behind Jackson's back", () => {
+  it("keeps Google from writing its own ad text, and sets no image automation Search refuses", () => {
     for (const [name, c] of campaigns) {
-      expect(c.automation.GENERATE_IMAGE_EXTRACTION, name).toBe("OPTED_OUT");
-      expect(c.automation.GENERATE_IMAGE_ENHANCEMENT, name).toBe("OPTED_OUT");
+      expect(c.automation.TEXT_ASSET_AUTOMATION, name).toBe("OPTED_OUT");
+      expect(Object.keys(c.automation), name).toEqual(["TEXT_ASSET_AUTOMATION"]);
     }
   });
 

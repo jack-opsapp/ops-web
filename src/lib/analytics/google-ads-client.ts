@@ -1607,6 +1607,54 @@ export interface EntityRow {
  * sets, their members and the campaigns they are attached to, labels — keyed
  * by Google resource name. Ten searchStream calls.
  */
+/**
+ * Everything the blueprint's asset planner diffs against: the campaigns with
+ * their asset-automation settings, every campaign-level and account-level
+ * asset link, and every asset the blueprint could reuse. Four searchStream
+ * reads, returned raw; `mapAssetState` in src/lib/ads/blueprint-assets.ts
+ * turns them into the planner's shape. Field names checked against the v25
+ * protos (asset_types.proto, campaign_asset.proto, customer_asset.proto).
+ */
+const ASSET_CONTENT_FIELDS = [
+  "asset.resource_name",
+  "asset.id",
+  "asset.type",
+  "asset.name",
+  "asset.final_urls",
+  "asset.sitelink_asset.link_text",
+  "asset.sitelink_asset.description1",
+  "asset.sitelink_asset.description2",
+  "asset.callout_asset.callout_text",
+  "asset.structured_snippet_asset.header",
+  "asset.structured_snippet_asset.values",
+  "asset.text_asset.text",
+  "asset.price_asset.type",
+  "asset.price_asset.price_offerings",
+].join(", ");
+
+export async function queryAssetState(): Promise<{
+  campaigns: GoogleAdsRow[];
+  campaignAssets: GoogleAdsRow[];
+  customerAssets: GoogleAdsRow[];
+  assets: GoogleAdsRow[];
+}> {
+  const [campaigns, campaignAssets, customerAssets, assets] = await Promise.all([
+    queryGoogleAds(
+      "SELECT campaign.resource_name, campaign.name, campaign.asset_automation_settings FROM campaign WHERE campaign.status != 'REMOVED'"
+    ),
+    queryGoogleAds(
+      `SELECT campaign.resource_name, campaign_asset.resource_name, campaign_asset.field_type, campaign_asset.status, ${ASSET_CONTENT_FIELDS} FROM campaign_asset WHERE campaign_asset.status != 'REMOVED'`
+    ),
+    queryGoogleAds(
+      "SELECT customer_asset.resource_name, customer_asset.field_type, customer_asset.status, asset.id FROM customer_asset"
+    ),
+    queryGoogleAds(
+      `SELECT ${ASSET_CONTENT_FIELDS} FROM asset WHERE asset.type IN ('SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET', 'TEXT', 'PRICE', 'IMAGE')`
+    ),
+  ]);
+  return { campaigns, campaignAssets, customerAssets, assets };
+}
+
 export async function queryEntitySnapshot(): Promise<EntityRow[]> {
   const out: EntityRow[] = [];
   const push = (

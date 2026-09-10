@@ -138,8 +138,9 @@ const html = `<title>Ad Assets for Approval</title>
   <p class="lede">
     Assets are the extras under a search ad: links to other pages, short proof points, the prices,
     our name and logo, and sometimes a picture. None are on the new campaigns yet. <strong>Every image
-    is shown here before it is used</strong>, and Google's habit of picking its own pictures from our
-    pages is switched off, so nothing appears that you have not seen.
+    is shown here before it is used</strong>, and the account file refuses any image without your
+    approval on record. One gap only you can close: Google can also pull pictures from our own pages,
+    and on search campaigns that is switched off only in the account's settings — see the last section.
   </p>
 
   <section class="part">
@@ -164,6 +165,11 @@ const html = `<title>Ad Assets for Approval</title>
     <h2>Retired, not deleted</h2>
     <p>The account carries four sitelinks at account level, which attach to every campaign — the new ones included. They would be paused, so their history stays readable.</p>
     <ul class="retire">${pause.map((p) => `<li><b>${esc(p.text)}</b><span>${esc(p.reason)} <code>${esc((p.finalUrl ?? "").replace("https://", ""))}</code></span></li>`).join("")}</ul>
+  </section>
+
+  <section class="part">
+    <h2>One switch only you can flip</h2>
+    <p>Google's "dynamic image assets" pull pictures from our landing pages into search ads without asking. The API refuses to turn it off per campaign on search (tried in the dry run, 2026-09-10), so it has to be switched off once for the whole account: in Google Ads, <b>Campaigns → Assets → Assets → the ⋮ menu → Account-level automated assets → Dynamic image assets → Off</b>. Until then, a picture you have not seen could appear under an ad.</p>
   </section>
 
   <section class="part">

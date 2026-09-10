@@ -42,6 +42,8 @@ export const STAGES = {
   ADS: 6,
   SHARED_SETS: 7,
   LABELS: 8,
+  /** Assets, account-level retirements and automation — see blueprint-assets.ts. */
+  ASSETS: 9,
 } as const;
 
 export type Stage = (typeof STAGES)[keyof typeof STAGES];
@@ -450,6 +452,21 @@ export function planBlueprint(
         ensureLabel,
         labelAssignments,
       });
+  }
+
+  // ─── Retired ads ──────────────────────────────────────────────────────────
+  // An ad the blueprint replaced is paused, never removed, so its history and
+  // its results stay readable. Only ads named in `retire.adIds` are touched —
+  // the engine's own challengers live outside the file and must be left alone.
+  for (const id of blueprint.retire.adIds) {
+    const ad = snapshot.ads.find((candidate) => candidate.id === id);
+    if (!ad || ad.status !== "ENABLED") continue;
+    push(STAGES.ADS, `Pause retired ad ${id}`, {
+      adGroupAdOperation: {
+        update: { resourceName: ad.resourceName, status: "PAUSED" },
+        updateMask: "status",
+      },
+    });
   }
 
   // ─── Legacy labelling ─────────────────────────────────────────────────────
