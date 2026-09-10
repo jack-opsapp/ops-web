@@ -365,6 +365,12 @@ begin
   (a.package->>'category_id')::uuid, true, (a.package->>'word_count')::integer,
   coalesce(v_article->'faqs', '[]'::jsonb), now(), v_article->>'email_content', 'weekly'
  ) returning id into v_blog;
+ -- A backlog topic is spent when its post goes live, not when it is drafted:
+ -- a stopped draft leaves the idea available for another week.
+ if coalesce(v_article->'topic'->>'backlog_topic_id', '') ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+  update public.blog_topics set used = true, updated_at = now()
+  where id = (v_article->'topic'->>'backlog_topic_id')::uuid;
+ end if;
  update public.journal_editorial_assignments set
   state = 'published', blog_id = v_blog, published_at = now(), last_code = null,
   attempt_log = case when jsonb_array_length(attempt_log) < 40 then attempt_log || jsonb_build_array(jsonb_build_object(

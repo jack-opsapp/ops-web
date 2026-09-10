@@ -33,8 +33,9 @@ const sha = "a".repeat(64);
 const user = "user-1";
 const company = "0f6f0a8e-2d3b-4c4d-9e5f-6a7b8c9d0e1f";
 
+const topicId = "44444444-4444-4444-8444-444444444444";
 const pkg = (slug) =>
-  `jsonb_build_object('article', jsonb_build_object('title','THE WEEKLY TITLE GOES HERE NOW','subtitle','Sub','summary','Sum','teaser','Tease','meta_title','Meta','faqs', jsonb_build_array(jsonb_build_object('question','Q?','answer','A.')),'email_content','Email body'),'html','<p>Body</p>','word_count',1100,'category_id','${"c".repeat(8)}-cccc-4ccc-8ccc-cccccccccccc','slug','${slug}')`;
+  `jsonb_build_object('article', jsonb_build_object('title','THE WEEKLY TITLE GOES HERE NOW','subtitle','Sub','summary','Sum','teaser','Tease','meta_title','Meta','topic', jsonb_build_object('backlog_topic_id','${topicId}','angle','A'),'faqs', jsonb_build_array(jsonb_build_object('question','Q?','answer','A.')),'email_content','Email body'),'html','<p>Body</p>','word_count',1100,'category_id','${"c".repeat(8)}-cccc-4ccc-8ccc-cccccccccccc','slug','${slug}')`;
 
 function source(url) {
   return `jsonb_build_object('url','${url}','final_url','${url}','http_status',200,'content_type','text/html','bytes',1200,'sha256','${sha}','title','Title','site_name','Site','published_hint','2026-08-01T00:00:00Z','modified_hint',null,'text','Source text with 91% of numbers.','truncated',false)`;
@@ -54,6 +55,7 @@ try {
     "DO $$ BEGIN IF NOT EXISTS(select from pg_roles where rolname='anon') THEN CREATE ROLE anon; END IF; IF NOT EXISTS(select from pg_roles where rolname='authenticated') THEN CREATE ROLE authenticated; END IF; IF NOT EXISTS(select from pg_roles where rolname='service_role') THEN CREATE ROLE service_role BYPASSRLS; END IF; END $$;" +
       // Production's blog_posts shape, including its source check and unique slug.
       "CREATE TABLE public.blog_posts(id uuid primary key default gen_random_uuid(),title text not null,subtitle text,slug text not null unique,author text,content text not null default '',summary text,teaser text,meta_title text,thumbnail_url text,category_id uuid,category2_id uuid,is_live boolean not null default false,display_views integer not null default 0,word_count integer not null default 0,faqs jsonb default '[]'::jsonb,published_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),email_content text,linkedin_article text,image_prompt text,source text not null default 'breaking' check (source in ('weekly','breaking')));" +
+      "CREATE TABLE public.blog_topics(id uuid primary key default gen_random_uuid(),topic text not null,author text not null default 'The Ops Team',image_url text,used boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now());" +
       "CREATE TABLE public.notifications(id uuid default gen_random_uuid(),user_id text,company_id text,type text,title text,body text,is_read boolean,persistent boolean,action_url text,action_label text,dedupe_key text,resolved_at timestamptz,created_at timestamptz not null default now());" +
       // Production's open-notification dedupe indexes, so the outbox is proved
       // against the same uniqueness rules the live table enforces.
@@ -226,6 +228,9 @@ try {
   assert.equal(row(w1, "state||'|'||last_code"), "blocked|WEEKLY_ALREADY_LIVE");
   assert.equal(sql("select count(*) from blog_posts where slug='fresh-slug'"), "0");
 
+  sql(`insert into blog_topics(id,topic) values('${topicId}','Response time')`);
+  assert.equal(sql(`select used from blog_topics where id='${topicId}'`), "f", "a held or blocked draft leaves its backlog topic unused");
+
   // A person may override that one guard; the result is exactly one row.
   const manualResults = await Promise.all(
     [0, 1, 2].map(() =>
@@ -242,6 +247,7 @@ try {
     "the live row carries the package, the hero, the byline and the weekly source"
   );
   assert.equal(row(w1, "state||'|'||(blog_id is not null)"), "published|true");
+  assert.equal(sql(`select used from blog_topics where id='${topicId}'`), "t", "publication spends the backlog topic");
   assert.equal(sql(`select coalesce(cancel_journal_editorial_assignment('${id1}','op'),'none')`), "none", "a published post cannot be stopped");
 
   // Slug and freshness guards cannot be overridden.
