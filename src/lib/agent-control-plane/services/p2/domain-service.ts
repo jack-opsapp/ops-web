@@ -569,6 +569,7 @@ export function createOpsAgentP2DomainService(input: {
       return await readDeckDesignGeometry({
         authorization: authorizeDeckDesignGeometryRead(binding),
         repository: repositories.deckDesign,
+        resultRevision: options?.deckGeometryResultRevision ?? "v1",
         ...(options?.signal ? { signal: options.signal } : {}),
       });
     };

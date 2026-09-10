@@ -259,3 +259,5 @@ export function deckGeometryRawSnapshot(
     ...overrides,
   };
 }
+
+export { actorContext as deckGeometryActorContext };

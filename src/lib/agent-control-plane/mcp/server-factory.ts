@@ -1,3 +1,5 @@
+import { MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE } from "../registry/deck-geometry-exposure";
+import { isActorContext } from "../actor/resolve-actor-context";
 import { getCatalogAuthoringCapabilityManifestEntry } from "../registry/capability-manifest";
 import { MCP_EXPOSURE_V19 } from "../registry/mcp-exposure-catalog";
 import {
@@ -291,6 +293,29 @@ export function createCatalogAuthoringCandidateMcpServer(
     throw new TypeError("An exact catalog candidate grant is required");
   return createServerForExposure(input, MCP_EXPOSURE_V19);
 }
+/** Dormant deck-only candidate for isolated acceptance. The normal factory
+ * cannot select this exposure until a separately approved integration. */
+export function createDeckGeometryCandidateMcpServer(
+  input: CreateOpsMcpServerInput
+): McpServer {
+  const actor = input.actorContext;
+  const grant = input.grantFacts;
+  if (
+    grant.exposureRevision !== MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision ||
+    !isActorContext(actor) ||
+    actor.auth.channel !== "mcp" ||
+    actor.actorUserId !== grant.actorUserId ||
+    actor.companyId !== grant.companyId ||
+    actor.auth.oauthGrantId !== grant.grantId ||
+    actor.auth.oauthClientId !== grant.clientId ||
+    actor.auth.tokenId !== grant.tokenId ||
+    JSON.stringify([...actor.auth.scopeCeiling].sort()) !==
+      JSON.stringify([...grant.scopes].sort())
+  ) {
+    throw new TypeError("An exact authenticated deck candidate grant is required");
+  }
+  return createServerForExposure(input, MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE);
+}
 function createServerForExposure(
   input: CreateOpsMcpServerInput,
   exposure: McpExposure
@@ -364,7 +389,11 @@ function createServerForExposure(
       entry.name,
       {
         title: entry.name,
-        description: entry.description,
+        description:
+          exposure.revision === MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision &&
+          entry.name === "get_deck_design_geometry"
+            ? "Read authorized deck geometry using result v2. Configured railing quantities are separate from a measured perimeter scenario with exclusions, assumptions and missing facts. Perimeter estimates are not order-ready quantities."
+            : entry.description,
         inputSchema: entry.inputSchema,
         annotations: {
           readOnlyHint: entry.annotations.readOnlyHint,
@@ -427,6 +456,14 @@ function createServerForExposure(
 
           const result = await method(actorContext, args as never, {
             signal: AbortSignal.timeout(DOMAIN_CALL_TIMEOUT_MS),
+            ...(entry.name === "get_deck_design_geometry"
+              ? {
+                  deckGeometryResultRevision:
+                    exposure.revision === MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision
+                      ? ("v2" as const)
+                      : ("v1" as const),
+                }
+              : {}),
           });
           const serialized = serializeUntrustedPromptData(result);
           await audit("ok", null, utf8ByteLength(serialized));

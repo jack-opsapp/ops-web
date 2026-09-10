@@ -52,6 +52,8 @@ export type SearchCustomersInput = z.input<typeof SearchCustomersInputSchema>;
 export type SearchJobsInput = z.input<typeof SearchJobsInputSchema>;
 
 export interface DomainCallOptions {
+  /** Server-selected representation only; never accepted from tool arguments. */
+  readonly deckGeometryResultRevision?: "v1" | "v2";
   readonly signal?: AbortSignal;
 }
 
