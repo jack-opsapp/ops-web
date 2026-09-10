@@ -1,0 +1,99 @@
+SET
+SET
+SET
+CREATE FUNCTION
+INSERT 0 1
+ connect_canpro
+----------------
+
+(1 row)
+
+SELECT 12
+BEGIN
+SET
+SET
+DO
+COMMIT
+ assert
+--------
+
+(1 row)
+
+DO
+DO
+ connect_canpro
+----------------
+
+(1 row)
+
+DO
+ assert
+--------
+
+(1 row)
+
+SET
+ rejects
+---------
+
+(1 row)
+
+SET
+                     result
+------------------------------------------------
+ Canpro cloud OAuth PostgreSQL fixture complete
+(1 row)
+
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:30: NOTICE:  PASS: canpro-cloud registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:30: NOTICE:  PASS: canpro-cloud consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:30: NOTICE:  PASS: canpro-cloud other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:30: NOTICE:  PASS: canpro-cloud exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:30: NOTICE:  PASS: canpro-cloud consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:30: NOTICE:  PASS: canpro-cloud code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:35: NOTICE:  PASS: migration replay preserves every client byte
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth/
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth?
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth?code=x
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth#fragment
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth/extra
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias  https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias http://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias HTTPS://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co:443/functions/v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co.evil.example/functions/v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://ijeekuhbatykdomumfjx.supabase.co/functions/v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://*.supabase.co/functions/v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/%73ource-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/../v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject callback alias https://user@bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject mixed Canpro family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject mixed Canpro family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject mixed Canpro family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject non-ceiling scope ops.customers.prepare
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject non-ceiling scope ops.financial_documents.prepare
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject non-ceiling scope ops.jobs.write
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: reject non-ceiling scope ops.new.read
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:54: NOTICE:  PASS: SQL requires explicit scope
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: Canpro exact stored callback and public PKCE client
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: code issuance rejects redirect mismatch
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: wrong redirect cannot consume code
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: exact redirect consumes code and preserves PKCE challenge
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: code replay returns no authority
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: expired code returns no authority
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: expired consent preview returns no authority
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: Canpro rotation retains exact read-only consent
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: rotated bearer resolves with original read scope
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: Canpro refresh replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:83: NOTICE:  PASS: Canpro replay revokes grant and whole token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:86: NOTICE:  PASS: canpro-code-replay registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:86: NOTICE:  PASS: canpro-code-replay consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:86: NOTICE:  PASS: canpro-code-replay other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:86: NOTICE:  PASS: canpro-code-replay exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:86: NOTICE:  PASS: canpro-code-replay consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:86: NOTICE:  PASS: canpro-code-replay code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:91: NOTICE:  PASS: minted code replay returns no authority
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:91: NOTICE:  PASS: minted code replay revokes grant and tokens
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:93: NOTICE:  PASS: registration remains service-only
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-canpro-v23.sql:95: NOTICE:  PASS: registration repeats service-role gate

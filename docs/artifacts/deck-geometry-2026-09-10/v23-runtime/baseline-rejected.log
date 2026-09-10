@@ -1,0 +1,6 @@
+SET
+BEGIN
+SET
+SET
+psql:/private/tmp/ops-deck-v23-5pc6l0io/baseline-rejected.sql:513: ERROR:  DECK_V23_BASELINE_OR_ACL_MISMATCH: private.mcp_oauth_scope_array_is_valid(text[])
+CONTEXT:  PL/pgSQL function inline_code_block line 27 at RAISE

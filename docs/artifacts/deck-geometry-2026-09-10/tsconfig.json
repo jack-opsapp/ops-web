@@ -15,7 +15,15 @@
     "../../../src/lib/agent-control-plane/services/p2/deck-design/deck-geometry-reads.ts",
     "../../../src/lib/agent-control-plane/mcp/__tests__/deck-geometry-candidate-protocol.test.ts",
     "../../../src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-v2-service.test.ts",
-    "../../../src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-railing-estimate.test.ts"
+    "../../../src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-railing-estimate.test.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/canary.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/scopes.ts",
+    "../../../src/lib/agent-control-plane/services/customer-update/customer-update-repository.ts",
+    "../../../src/lib/agent-control-plane/services/customer-update/__tests__/customer-update.test.ts",
+    "../../../src/lib/agent-control-plane/registry/__tests__/deck-geometry-successor.test.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/__tests__/canpro-client.test.ts",
+    "../../../tests/unit/mcp/oauth-routes.test.ts",
+    "../../../tests/unit/mcp/oauth-userinfo.test.ts"
   ],
   "exclude": []
 }

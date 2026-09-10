@@ -1,0 +1,25 @@
+{
+  "base": "ab42b042613d487413f3d9f36f535cbe27a40504",
+  "failure": "TIMEZONE_RUNTIME_UPDATE_REQUIRED on existing Node22; three dormant schedule candidate tests stop before their intended assertions",
+  "files": [
+    {
+      "path": "src/lib/agent-control-plane/services/schedule-change/civil-time.ts",
+      "byte_identical_to_live_base": true,
+      "sha256": "1f6b1cee4f8245d8cf181798dfb533be5cce3e889c5093ed9c2be86dc7c28fd5"
+    },
+    {
+      "path": "src/lib/agent-control-plane/services/schedule-change/schedule-change-repository.ts",
+      "byte_identical_to_live_base": true,
+      "sha256": "f45f486da91649a574d0851bba9f2ff46bae5305b103407575be6c5c0d9b23da"
+    },
+    {
+      "path": "src/lib/agent-control-plane/services/schedule-change/schedule-change-service.ts",
+      "byte_identical_to_live_base": true,
+      "sha256": "9594680113cd31b1cbfe60bb355055ee04499faf5c851451243ed836735d3a2c"
+    },
+    {
+      "path": "src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts",
+      "only_active_exposure_expectation_changed": true
+    }
+  ]
+}

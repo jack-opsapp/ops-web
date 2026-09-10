@@ -1,0 +1,34 @@
+SET
+SET
+BEGIN
+DO
+ROLLBACK
+BEGIN
+DO
+ROLLBACK
+BEGIN
+DO
+ROLLBACK
+BEGIN
+DO
+ROLLBACK
+ assert
+--------
+
+(1 row)
+
+BEGIN
+DO
+ROLLBACK
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:17: NOTICE:  PASS: unchanged request retains no-change refusal
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:17: NOTICE:  PASS: stale business effect policy remains denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:17: NOTICE:  PASS: no-change and stale policy create no preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:17: NOTICE:  PASS: no-change and stale policy leave business record untouched
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:25: NOTICE:  PASS: wrapper refuses revoked grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:32: NOTICE:  PASS: wrapper refuses disabled client
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:42: NOTICE:  PASS: queued client substitution cannot select an exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:45: NOTICE:  PASS: new grant-derived wrapper is service-only
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:56: NOTICE:  PASS: actual customer-update limiter accepts exact versioned grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:56: NOTICE:  PASS: limiter rejects wrong grant company
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:56: NOTICE:  PASS: limiter rejects substituted policy pin
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v14-boundaries.sql:56: NOTICE:  PASS: limiter rejects revoked grant

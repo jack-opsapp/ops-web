@@ -1,0 +1,7 @@
+SET
+ assert
+--------
+
+(1 row)
+
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-custody.sql:2: NOTICE:  PASS: migration preserves every old client grant token row

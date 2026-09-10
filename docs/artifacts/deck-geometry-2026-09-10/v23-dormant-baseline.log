@@ -1,0 +1,73 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-deck-geometry-web
+
+ ❯ src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts (6 tests | 3 failed) 14ms
+   × schedule change domain boundary > reauthorizes and verifies timezone parity before creating the proposal 8ms
+     → The exact company schedule change policy is not available.
+   × schedule change domain boundary > does not create an approval when database timezone rules are stale 1ms
+     → expected "spy" to be called once, but got 0 times
+   × schedule change domain boundary > rejects validly shaped but substituted task, crew, date or precise source timestamp 2ms
+     → expected ScheduleChangeRepositoryError: The schedu… { code: '…' } to match object { code: 'UNAVAILABLE' }
+(1 matching property omitted from actual)
+ ✓ src/lib/agent-control-plane/contracts/__tests__/financial-readiness.test.ts (2 tests) 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts > schedule change domain boundary > reauthorizes and verifies timezone parity before creating the proposal
+ScheduleChangePrepareError: The exact company schedule change policy is not available.
+ ❯ Object.prepareScheduleChange src/lib/agent-control-plane/services/schedule-change/schedule-change-service.ts:206:17
+    204|                   ? "STALE_CONTEXT"
+    205|                   : "TEMPORARILY_UNAVAILABLE";
+    206|           throw new ScheduleChangePrepareError({
+       |                 ^
+    207|             code,
+    208|             requestId: actorContext.requestId,
+ ❯ src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts:23:13
+
+Caused by: ScheduleChangeRepositoryError: The schedule change policy is missing, conflicting, or invalid
+ ❯ Object.prepare src/lib/agent-control-plane/services/schedule-change/schedule-change-repository.ts:160:29
+ ❯ Object.prepareScheduleChange src/lib/agent-control-plane/services/schedule-change/schedule-change-service.ts:185:39
+ ❯ src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts:23:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'POLICY' }
+Caused by: Error: TIMEZONE_RUNTIME_UPDATE_REQUIRED
+ ❯ Module.assertScheduleRuntimeTimezoneRules src/lib/agent-control-plane/services/schedule-change/civil-time.ts:44:11
+ ❯ Object.prepare src/lib/agent-control-plane/services/schedule-change/schedule-change-repository.ts:159:13
+ ❯ Object.prepareScheduleChange src/lib/agent-control-plane/services/schedule-change/schedule-change-service.ts:185:39
+ ❯ src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts:23:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts > schedule change domain boundary > does not create an approval when database timezone rules are stale
+AssertionError: expected "spy" to be called once, but got 0 times
+ ❯ src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts:34:17
+     32|     const service = createScheduleChangeService({ repository: createSc…
+     33|     await expect(service.prepareScheduleChange(actor, REQUEST)).reject…
+     34|     expect(rpc).toHaveBeenCalledOnce();
+       |                 ^
+     35|   });
+     36|   it("rejects missing scope or current assignment authority before rea…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/lib/agent-control-plane/services/schedule-change/__tests__/schedule-change.test.ts > schedule change domain boundary > rejects validly shaped but substituted task, crew, date or precise source timestamp
+AssertionError: expected ScheduleChangeRepositoryError: The schedu… { code: '…' } to match object { code: 'UNAVAILABLE' }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "code": "UNAVAILABLE",
++ ScheduleChangeRepositoryError {
++   "code": "POLICY",
+  }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 5 passed (8)
+   Start at  17:29:37
+   Duration  1.73s (transform 410ms, setup 191ms, collect 808ms, tests 18ms, environment 358ms, prepare 44ms)
