@@ -33,6 +33,8 @@ export interface LeadFeedbackCandidate {
   providerThreadId: string;
   providerMessageId: string;
   senderEmail: string;
+  /** False for form/forward transports that may reuse a thread across customers. */
+  mayInheritProviderThread?: boolean;
 }
 
 export interface LeadFeedbackBaseline {
@@ -161,6 +163,7 @@ export function applyLeadFeedbackPrior(input: {
   );
   const exactThread = input.feedback.filter(
     (item) =>
+      input.candidate.mayInheritProviderThread !== false &&
       item.sourceConnectionId === input.connectionId &&
       Boolean(item.sourceProviderThreadId) &&
       item.sourceProviderThreadId === input.candidate.providerThreadId

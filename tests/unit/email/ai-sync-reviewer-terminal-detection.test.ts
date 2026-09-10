@@ -1134,6 +1134,7 @@ describe("AISyncReviewer terminal stage guard", () => {
               providerThreadId: "thread-1",
               providerMessageId: "message-1",
               senderEmail: "Kara Beach <kara@example.com>",
+              mayInheritProviderThread: true,
             },
           }),
         ],

@@ -39,6 +39,55 @@ const baseline = {
 };
 
 describe("lead feedback prior policy", () => {
+  it("does not apply another form customer's correction from a reused provider thread", () => {
+    const decision = applyLeadFeedbackPrior({
+      baseline,
+      threshold: 0.7,
+      candidate: {
+        providerThreadId: "shared-form-thread",
+        providerMessageId: "new-submission",
+        senderEmail: "customer@example.com",
+        mayInheritProviderThread: false,
+      },
+      feedback: [
+        feedback({
+          reasonCode: "duplicate",
+          sourceProviderThreadId: "shared-form-thread",
+          sourceMessageId: "other-submission",
+          senderEmail: "forms@wixforms.com",
+          senderDomain: "wixforms.com",
+        }),
+      ],
+      protectedDomains: [],
+    });
+    expect(decision.outcome).toBe("lead");
+    expect(decision.evidence.exactThread).toBe(false);
+    expect(decision.appliedFeedbackIds).toEqual([]);
+  });
+
+  it("still honors an exact-message correction for a message-scoped form", () => {
+    const decision = applyLeadFeedbackPrior({
+      baseline,
+      threshold: 0.7,
+      candidate: {
+        providerThreadId: "shared-form-thread",
+        providerMessageId: "same-submission",
+        senderEmail: "customer@example.com",
+        mayInheritProviderThread: false,
+      },
+      feedback: [
+        feedback({
+          reasonCode: "duplicate",
+          sourceProviderThreadId: "shared-form-thread",
+          sourceMessageId: "same-submission",
+        }),
+      ],
+      protectedDomains: [],
+    });
+    expect(decision.outcome).toBe("defer");
+    expect(decision.evidence.exactMessage).toBe(true);
+    expect(decision.evidence.exactThread).toBe(false);
+  });
   it("normalizes display-name addresses without trusting surrounding text", () => {
     expect(
       normalizeLeadFeedbackEmail("Noise Team <  SALES@Example.COM  >")
