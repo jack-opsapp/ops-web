@@ -1,0 +1,11 @@
+{
+  "approved": true,
+  "grounded": true,
+  "current": true,
+  "original": true,
+  "useful": true,
+  "on_voice": true,
+  "structured": true,
+  "reason": "approved",
+  "notes": "Biggest fix: the cancellation-clock section and FAQ 4 (\"Does the three-day cancellation rule apply to my jobs?\") name only the emergency exception, but the FTC Cooling-Off page (source 6) also excludes sales made because the customer asked the seller to visit to repair or perform maintenance (extras sold beyond that request are covered). That is the exception most trades service calls hit, so add one sentence with it. Every claim, number and quote checks out against the sources. $2,400 is the declared worked example. Word counts, links, FAQs, email and closing line are within limits. No banned words, relative time, 'contractor', 'AI' or exclamation points. Minor: the email's E-SIGN line drops the 'in or affecting interstate commerce' qualifier that the body keeps."
+}

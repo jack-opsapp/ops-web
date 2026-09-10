@@ -1,0 +1,522 @@
+{
+  "assignment": {
+    "id": "98b3531b-6dc5-4984-931a-7da7852abd40",
+    "identity": "weekly:2026-09-14",
+    "kind": "weekly",
+    "mode": "prepare",
+    "slot_date": "2026-09-14",
+    "publishes_at": "2026-09-14T06:00:00-07:00",
+    "attempt": 1,
+    "attempts_remaining": 2,
+    "lease_until": "2026-09-10T11:07:27.128306-07:00",
+    "current_time": "2026-09-10T17:07:27.187Z",
+    "brief_version": "ops-journal-2026-09-10-v1",
+    "format": {
+      "block_types": [
+        "p",
+        "h2",
+        "h3",
+        "blockquote",
+        "ul",
+        "ol"
+      ],
+      "inline_markup": [
+        "**bold**",
+        "*italic*",
+        "[label](url)"
+      ],
+      "closing_line": "blockquote",
+      "sources_section": "server"
+    },
+    "limits": {
+      "title_words": [
+        5,
+        10
+      ],
+      "title_chars": 80,
+      "subtitle": 160,
+      "slug": 80,
+      "meta_title": [
+        50,
+        60
+      ],
+      "summary": 300,
+      "teaser": 200,
+      "topic_angle": 300,
+      "hero_line": 60,
+      "body_words": [
+        1000,
+        1400
+      ],
+      "block_text": 1600,
+      "list_items": [
+        2,
+        8
+      ],
+      "list_item": 400,
+      "internal_links": [
+        8,
+        12
+      ],
+      "faqs": [
+        6,
+        8
+      ],
+      "faq_question": 160,
+      "faq_answer_words": [
+        60,
+        120
+      ],
+      "faq_answer_chars": 900,
+      "email_words": [
+        120,
+        250
+      ],
+      "email_chars": 1800,
+      "citations": [
+        2,
+        16
+      ],
+      "evidence": [
+        1,
+        30
+      ],
+      "evidence_quote": [
+        20,
+        700
+      ],
+      "evidence_claim": 400,
+      "worked_examples": 4
+    },
+    "max_sources": 24,
+    "categories": [
+      {
+        "slug": "growth",
+        "name": "Growth"
+      },
+      {
+        "slug": "industry-intel",
+        "name": "Industry Intel"
+      },
+      {
+        "slug": "leadership-and-crew",
+        "name": "Leadership & Crew"
+      },
+      {
+        "slug": "money-and-margins",
+        "name": "Money & Margins"
+      },
+      {
+        "slug": "operations",
+        "name": "Operations"
+      },
+      {
+        "slug": "technology",
+        "name": "Technology"
+      }
+    ],
+    "industry_pages": [
+      "/industries/landscaping",
+      "/industries/auto-detailing",
+      "/industries/railings",
+      "/industries/pool-service",
+      "/industries/garage-door",
+      "/industries/fencing",
+      "/industries/tree-service",
+      "/industries/concrete",
+      "/industries/flooring",
+      "/industries/drywall",
+      "/industries/appliance-repair",
+      "/industries/handyman",
+      "/industries/pressure-washing",
+      "/industries/snow-removal",
+      "/industries/window-cleaning",
+      "/industries/chimney-sweep",
+      "/industries/locksmith",
+      "/industries/hvac",
+      "/industries/plumbing",
+      "/industries/electrical",
+      "/industries/roofing",
+      "/industries/pest-control",
+      "/industries/painting",
+      "/industries/general-contracting",
+      "/industries/cleaning",
+      "/industries/property-maintenance",
+      "/industries/glass",
+      "/industries/septic",
+      "/industries/irrigation",
+      "/industries/water-treatment",
+      "/industries/insulation",
+      "/industries/fire-protection",
+      "/industries/demolition",
+      "/industries/restoration",
+      "/industries/mold-remediation",
+      "/industries/waterproofing",
+      "/industries/siding",
+      "/industries/gutters",
+      "/industries/paving",
+      "/industries/welding",
+      "/industries/excavation",
+      "/industries/tile",
+      "/industries/stucco",
+      "/industries/carpentry",
+      "/industries/cabinets",
+      "/industries/commercial-door",
+      "/industries/elevator",
+      "/industries/audio-visual",
+      "/industries/scaffolding"
+    ],
+    "recent_posts": [
+      {
+        "slug": "kauai-hurricane-lowell-jobsite-prep-september-7-2026",
+        "title": "KAUAʻI IS UNDER A HURRICANE WARNING. HOLD THE DISPATCH.",
+        "published_at": "2026-09-06T23:29:17.127125-07:00",
+        "summary": "Kauaʻi’s warning changes the call: hold routine dispatch, keep crews sheltered, and wait for official access plus a site check before work resumes.",
+        "category": "operations"
+      },
+      {
+        "slug": "western-cape-breton-flood-emergency-trades-dispatch-september-6-2026",
+        "title": "WESTERN CAPE BRETON IS UNDER EMERGENCY. HOLD NON-ESSENTIAL DISPATCH.",
+        "published_at": "2026-09-06T00:44:49.779452-07:00",
+        "summary": "Western Cape Breton declared a local emergency after severe flooding damaged roads and bridges. Hold non-essential dispatch and verify every route.",
+        "category": "operations"
+      },
+      {
+        "slug": "claude-fable-5-1-first-test-gpt-5-7-astra",
+        "title": "FABLE 5.1 IS OUT. HERE’S WHAT IT MEANS FOR YOUR SHOP.",
+        "published_at": "2026-09-01T11:32:46.742788-07:00",
+        "summary": "Claude Fable 5.1 is out. We translate its one-million-token window, cheaper repeat reads, and long-work claims into one practical test for trades businesses.",
+        "category": "technology"
+      },
+      {
+        "slug": "word-of-mouth-isnt-a-marketing-plan",
+        "title": "WORD OF MOUTH ISN'T A MARKETING PLAN",
+        "published_at": "2026-08-31T05:16:00-07:00",
+        "summary": "91% of homeowners still start with word-of-mouth, then verify online before calling. The five-move proof habit that stops referrals leaking away.",
+        "category": "growth"
+      },
+      {
+        "slug": "bessette-creek-water-order-well-drilling-utility-work",
+        "title": "BESSETTE CREEK WATER ORDER HITS WELL DRILLING AND UTILITY WORK.",
+        "published_at": "2026-08-30T23:40:01.447092-07:00",
+        "summary": "B.C.’s Bessette Creek order restricts 131 water licences and applications, including water used for well drilling and utility-corridor work. Check yours now.",
+        "category": "operations"
+      },
+      {
+        "slug": "pei-50000-tariff-grant-september-3-2026",
+        "title": "PEI’s $50,000 tariff grant opens Thursday. Apply before you commit.",
+        "published_at": "2026-08-29T23:22:52.528141-07:00",
+        "summary": "PEI’s first-come tariff grant opens September 3 at 11:30 a.m. ADT. Prepare the evidence now—and apply before signing, ordering, or depositing.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "september-8-canada-counter-tariffs-diesel-cost-reset",
+        "title": "September 8 is a double cost reset for Canadian trades",
+        "published_at": "2026-08-28T14:26:32.41856-07:00",
+        "summary": "Canada’s new 15–50% counter-tariffs and the 4¢/L federal diesel excise return land September 8. Here is what to verify before quoting.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "great-hands-dont-make-great-bosses",
+        "title": "GREAT HANDS DON'T MAKE GREAT BOSSES",
+        "published_at": "2026-08-24T05:11:00-07:00",
+        "summary": "About 60% of new managers fail, and trades promote with zero training. How to move your best tech into leadership without losing him and the crew.",
+        "category": "leadership-and-crew"
+      },
+      {
+        "slug": "domtar-howe-sound-mill-idling-bc-trades-impact",
+        "title": "DOMTAR IS IDLING HOWE SOUND. THE 400 EMPLOYEES ARE ONLY THE FIRST HIT.",
+        "published_at": "2026-08-23T00:38:03.98087-07:00",
+        "summary": "Domtar will indefinitely idle its Howe Sound mill and Bayview Fibre facility. Here is how exposed B.C. suppliers, haulers, and service firms protect cash before the demand loss spreads.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "canada-section-338-duties-live-august-22-2026",
+        "title": "THE DEAL BROKE. THE 50% CANADA DUTY IS LIVE.",
+        "published_at": "2026-08-21T23:29:01.681602-07:00",
+        "summary": "The additional 50% U.S. Section 338 duty is now live on specified Canadian goods, including covered lines that qualify under USMCA. Here is what U.S. importers, Canadian exporters and trades businesses with open quotes need to verify before the border turns a material line into a margin loss.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "amazon-louisiana-third-data-center-vendor-route",
+        "title": "Who hires the trades on Amazon’s Louisiana build?",
+        "published_at": "2026-08-19T23:30:04.485781-07:00",
+        "summary": "Amazon raised its Northwest Louisiana data-centre plan to $18 billion and named STACK as owner/developer. Two trade qualification routes are live; bids are not.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "build-comms-your-crew-actually-uses",
+        "title": "BUILD COMMS YOUR CREW ACTUALLY USES",
+        "published_at": "2026-08-17T05:14:00-07:00",
+        "summary": "The group text buries job details and breeds rework. A three-channel comms system your crew will actually use: calls, job threads, and a photo record.",
+        "category": "operations"
+      },
+      {
+        "slug": "amazon-gw-ranch-pecos-vendor-route",
+        "title": "AMAZON REGISTERED THREE $300 MILLION PECOS BUILDINGS. FIND THE VENDOR DOOR.",
+        "published_at": "2026-08-13T08:47:16.506-07:00",
+        "summary": "Amazon now owns the GW Ranch data-centre site in Pecos County, with three $300 million building registrations and a live vendor-interest inbox. Here is the right early move.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "eia-diesel-forecast-bab-el-mandeb-august-11-2026",
+        "title": "EIA RAISED ITS WHOLESALE DIESEL FORECAST 8.5%. THEN A BACKUP OIL ROUTE TURNED DEADLY.",
+        "published_at": "2026-08-12T00:35:12.386031-07:00",
+        "summary": "EIA raised its 2026 wholesale diesel forecast 8.5% as Hormuz stays constrained. Then a key alternate route turned deadly. What mobile crews should reprice.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "servicetitan-outbound-calls-outage-august-11-2026",
+        "title": "SERVICETITAN OUTBOUND CALLS HIT AN UPSTREAM FAILURE. TEST YOUR LINE.",
+        "published_at": "2026-08-11T00:25:19.252759-07:00",
+        "summary": "ServiceTitan Phones Pro and Contact Center Pro outbound calls hit a provider failure. Test calls, use an alternate line, and audit missed callbacks.",
+        "category": "operations"
+      },
+      {
+        "slug": "bc-wildfire-emergency-okanagan-dispatch-august-8-2026",
+        "title": "B.C. DECLARED A WILDFIRE EMERGENCY. CHECK EVERY OKANAGAN DISPATCH.",
+        "published_at": "2026-08-09T00:08:40.562106-07:00",
+        "summary": "B.C. declared a provincewide emergency as Summerland remained under full evacuation. Here is the trades-business dispatch, safety, and insurance checklist.",
+        "category": "operations"
+      },
+      {
+        "slug": "us-quartz-tariff-august-15-2026",
+        "title": "U.S. QUARTZ TARIFF HITS AUGUST 15. CHECK EVERY OPEN BID.",
+        "published_at": "2026-08-05T23:58:55.125915-07:00",
+        "summary": "A new U.S. safeguard adds 25% on covered imported quartz within quota and 50% above quota from August 15. Canada and Mexico are exempt.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "spokane-wildfire-crew-dispatch-cleanup-august-3-2026",
+        "title": "SPOKANE LOST 600 STRUCTURES. DO NOT RUSH THE CLEANUP.",
+        "published_at": "2026-08-03T09:18:49.366789-07:00",
+        "summary": "Spokane-area wildfires forced 60,000 evacuations and destroyed at least 600 structures. Washington trade businesses need to freeze unsafe dispatches, follow smoke rules, and prepare for cleanup work without racing the response.",
+        "category": "operations"
+      },
+      {
+        "slug": "bc-home-service-contract-rules-august-1-2026",
+        "title": "B.C. CONTRACT RULES JUST CHANGED. FIX YOUR QUOTE.",
+        "published_at": "2026-08-02T00:14:35.783448-07:00",
+        "summary": "B.C.’s contract rules took effect Aug. 1. Home-service businesses need tighter disclosures, matching contracts, proof of delivery, and direct-sales controls.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "bc-hydro-vancouver-island-battery-storage-rfsq-24742",
+        "title": "BC HYDRO JUST OPENED A BATTERY-STORAGE GATE. GET QUALIFIED.",
+        "published_at": "2026-07-30T23:31:56.494231-07:00",
+        "summary": "BC Hydro’s RFSQ 24742 is open for a 100 MW-plus Vancouver Island battery project. The qualification deadline is September 16 at 11 a.m. PT.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "canada-china-building-cable-provisional-duties-july-29",
+        "title": "CANADA JUST PUT UP TO 225.9% PROVISIONAL DUTIES ON CERTAIN BUILDING CABLE",
+        "published_at": "2026-07-29T23:29:49.953206-07:00",
+        "summary": "Canada’s provisional SIMA duties now apply to certain China-origin unarmoured building cable. Verify origin, exporter, and release date before locking a price.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "phoenix-uranium-mine-full-construction-saskatchewan",
+        "title": "Saskatchewan’s new uranium mine just hit full construction",
+        "published_at": "2026-07-28T23:28:59.962853-07:00",
+        "summary": "Denison’s C$600 million Phoenix uranium mine in northern Saskatchewan has moved into full-scale construction. The useful signal is a remote-work qualification window through Wood and Denison—not a public bid board.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "ai-is-grading-your-bid",
+        "title": "AI IS GRADING YOUR BID",
+        "published_at": "2026-07-27T05:11:00-07:00",
+        "summary": "52% of homeowners now run contractor estimates through AI before deciding. Here is how to write a bid that passes the check and wins the job.",
+        "category": "growth"
+      },
+      {
+        "slug": "meta-sturgeon-alberta-trade-vendor-route",
+        "title": "Meta’s C$13B Alberta Build Has a Front Door. It Is Not Meta.",
+        "published_at": "2026-07-27T00:36:35.88133-07:00",
+        "summary": "Meta’s C$13 billion Sturgeon County data-centre build now has named delivery teams and a separate C$1.7 billion power EPC contract. The early move for Alberta trades businesses is qualification through those teams—not chasing Meta or pricing work that has not been released.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "fortisbc-tilbury-lng-delta-prequalify",
+        "title": "DELTA'S $2 BILLION LNG PROJECT JUST CLEARED A GATE. GET QUALIFIED.",
+        "published_at": "2026-07-26T12:51:15.295529-07:00",
+        "summary": "B.C. cleared a regulatory gate for FortisBC's $2B Tilbury LNG expansion in Delta. The work is not released, but the qualification route is. Get your ISN, WorkSafeBC and quality package ready.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "gordie-howe-bridge-cross-border-dispatch-july-27",
+        "title": "WINDSOR–DETROIT GETS A NEW FREIGHT GATE MONDAY",
+        "published_at": "2026-07-24T23:50:59.660134-07:00",
+        "summary": "The Gordie Howe International Bridge opens to traffic July 27 at noon. Trades businesses moving people, materials, or equipment through Windsor–Detroit need a route, toll, and customs plan before Monday.",
+        "category": "operations"
+      },
+      {
+        "slug": "canada-usmca-10-percent-duty-july-24",
+        "title": "THE 10% CANADA DUTY IS LIVE. CHECK YOUR USMCA PROOF.",
+        "published_at": "2026-07-23T23:38:46.659984-07:00",
+        "summary": "A new U.S. 10% Section 301 duty on covered Canadian goods took effect July 24. Goods entered free under USMCA are exempt—so verify the SKU, origin, HTS classification, and entry status before you reprice.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "openai-georgia-vendor-list",
+        "title": "A $20 BILLION GEORGIA PLAN JUST OPENED ITS VENDOR LIST",
+        "published_at": "2026-07-22T23:51:55.957138-07:00",
+        "summary": "OpenAI’s planned $20B, 3.2GW Effingham County campus is early, but its local supplier-registration form is live. Register your capability now; do not price unreleased work.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "fermi-turbines-arrive-project-matador",
+        "title": "THE TURBINES ARE HERE. THE DATA CENTER ISN’T.",
+        "published_at": "2026-07-21T23:41:12.775286-07:00",
+        "summary": "Three turbines headed from Houston to Amarillo make Fermi’s power build real. The data-center shell still needs a tenant—and the work route is private.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "canada-50-percent-tariff-check-your-quote",
+        "title": "THE CANADA 50% TARIFF LIST IS HERE. CHECK YOUR QUOTE.",
+        "published_at": "2026-07-21T00:01:30.566445-07:00",
+        "summary": "A new U.S. 50% duty hits specific Canada-origin goods on August 19—even where USMCA eligibility would normally reassure you. Verify the HTS line, country of origin, and entry date before anyone reopens your price.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "make-real-money-on-small-jobs",
+        "title": "MAKE REAL MONEY ON SMALL JOBS",
+        "published_at": "2026-07-20T05:09:00-07:00",
+        "summary": "Repairs now outnumber replacements in the trades. Here's how to price small-ticket jobs for real margin instead of running them at a loss.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "philly-2-billion-shipbuilding-work-signal",
+        "title": "Philadelphia Just Got a $2 Billion Shipbuilding Work Signal",
+        "published_at": "2026-07-17T23:43:56-07:00",
+        "summary": "USDOT announced $2 billion for two MRIVs at Hanwha Philly Shipyard. The public package is not open—but the builder, construction manager, and supplier path are named.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "brazil-tariff-final-trades-july-22",
+        "title": "THE BRAZIL TARIFF IS FINAL. CHECK YOUR QUOTE.",
+        "published_at": "2026-07-16T02:34:58.096911-07:00",
+        "summary": "The U.S. finalized a 25% Brazil tariff effective July 22. Before a supplier adds a surcharge, verify origin, HTS status, exemptions, and shipment timing.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "new-york-data-center-freeze-trades",
+        "title": "NEW YORK JUST HIT PAUSE ON THE DATA CENTER RUSH",
+        "published_at": "2026-07-14T23:11:23.905677-07:00",
+        "summary": "New York paused state permitting for large hyperscale data centers for up to one year. For trades businesses, this is not a tech-policy footnote. It changes where data-center work may land, how owners price utility risk, and what to ask before chasing a bid.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "microsoft-pecos-data-center-contractors",
+        "title": "MICROSOFT JUST DROPPED A 6,000-JOB WORK SIGNAL",
+        "published_at": "2026-06-24T09:01:13.454086-07:00",
+        "summary": "Microsoft announced a 2 GW Pecos datacenter campus with more than 6,000 peak construction jobs, backed by Chevron's planned 2.67 GW Project Kilby power facility. The operator move is prequalification now, without mistaking a signed power deal for released bid packages.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "spacex-ipo-contractor-boom",
+        "title": "THE SPACEX IPO JUST BECAME A WORK SIGNAL",
+        "published_at": "2026-06-17T23:12:45.914763-07:00",
+        "summary": "SpaceX raised a record public-market war chest, then added more proceeds through its greenshoe option. For contractors, the practical angle is not the stock. It is facility work, supplier pressure, local service demand, and procurement readiness around SpaceX, Starlink, AI hardware, and aerospace corridors.",
+        "category": "industry-intel"
+      },
+      {
+        "slug": "ai-access-shutdown-contractors",
+        "title": "THE AI TOOL ACCESS SHOCK JUST HIT",
+        "published_at": "2026-06-15T12:41:20.769592-07:00",
+        "summary": "A U.S. export-control order forced Anthropic to disable Fable 5 and Mythos 5 access after OPS covered the launch last week. The contractor lesson is not anti-AI. It is operational: do not let one model become the only way quotes, emails, dispatch notes, or admin work gets done.",
+        "category": "technology"
+      },
+      {
+        "slug": "equipment-tariff-cut-hvac-contractors",
+        "title": "THE EQUIPMENT TARIFF JUST DROPPED",
+        "published_at": "2026-06-13T10:25:06.45253-07:00",
+        "summary": "A June 2 tariff order cut some HVAC, agricultural, and mobile industrial equipment tariff exposure from 25% to 15%, effective June 8 through the end of 2027. Contractors buying rooftop units, HVAC components, forklifts, loaders, or other covered gear should ask who keeps the spread before suppliers quietly price from the old world.",
+        "category": "money-and-margins"
+      },
+      {
+        "slug": "fable-5-mythos-is-public",
+        "title": "FABLE 5: MYTHOS IS NOW PUBLIC, AND IT LANDED EIGHT WEEKS EARLY",
+        "published_at": "2026-06-09T14:15:42.300637-07:00",
+        "summary": "Anthropic just released Claude Fable 5 — the first publicly available Mythos-class model — eight weeks ahead of every analyst projection. 95% on SWE-bench Verified. 1M context. $10/$50 pricing (double Opus 4.8). Plus a graceful fallback to Opus 4.8 for high-risk categories. Here is what shipped, the head-to-head numbers, and what it means for the base OPS app versus OPS Spec engagements.",
+        "category": "technology"
+      },
+      {
+        "slug": "the-tariff-clock-just-started",
+        "title": "THE TARIFF CLOCK JUST STARTED",
+        "published_at": "2026-06-09T13:34:33.162597-07:00",
+        "summary": "USTR proposed new Section 301 duties on imports from 60 economies. The rates are not active yet, but contractors with open quotes should tighten price holds, escalation language, and supplier exposure checks now.",
+        "category": "money-and-margins"
+      }
+    ],
+    "backlog_topics": [
+      {
+        "id": "fdd7e841-f0c9-4260-9eea-60a0afa466f6",
+        "topic": "Navigating Material Shortages: Lessons from the 2021-2023 Supply Chain Crisis"
+      },
+      {
+        "id": "5672d29e-cc2f-4ec8-8f9e-95aec1d97a4a",
+        "topic": "The Data-Driven Job Site: KPIs That Actually Improve Performance"
+      },
+      {
+        "id": "a57e8560-8657-46c5-9629-a1f6d4bbd3dc",
+        "topic": "From Handshake Deals to Digital Contracts: Maintaining Customer Trust"
+      },
+      {
+        "id": "795354f9-6676-4cac-bff2-e789acdb92de",
+        "topic": "Adapting to New Energy Efficiency Regulations: Balancing Compliance with Customer Budgets"
+      },
+      {
+        "id": "5b961fbd-cd39-4f49-9836-ea7cb335ec82",
+        "topic": "Job Site Technology Integration: A Practical Implementation Guide"
+      },
+      {
+        "id": "76d9b681-5792-4fcf-8b73-abc26b9d6b25",
+        "topic": "My Journey from Crew Lead to Business Owner: 3 Critical Leadership Lessons"
+      },
+      {
+        "id": "00b32041-79a5-4777-9fb6-5c3d57c67b84",
+        "topic": "Getting Crew Feedback That Actually Improves Operations"
+      },
+      {
+        "id": "1798058e-3283-437f-a65c-dbeef510b3e5",
+        "topic": "Finding Balance: When to Lead from the Front and When to Step Back"
+      },
+      {
+        "id": "24e5fccf-c76d-4b50-be59-3338c884adb5",
+        "topic": "Structured Freedom: How Clear Systems Create More Effective Field Operations"
+      },
+      {
+        "id": "cb01b2e9-d4be-467b-9d7f-78e8ca515b18",
+        "topic": "The Discipline Advantage: How Preparation Drives Trades Success"
+      },
+      {
+        "id": "25a93c57-f30e-47e1-a82c-43215573bacf",
+        "topic": "Navigating the 2023-2024 Insurance Crisis in the Construction Industry"
+      },
+      {
+        "id": "c32441fb-2239-484c-ba30-d25f553f9dc0",
+        "topic": "How Recent Building Code Changes Are Affecting Residential Contractors"
+      },
+      {
+        "id": "aa18033a-67d7-430a-b81a-0ca940252509",
+        "topic": "The Rise of Multi-Trade Service Companies: Industry Consolidation Trends"
+      }
+    ],
+    "fetched_sources": [],
+    "brief": {
+      "path": "docs/journal/voice/ops-journal-brief.md",
+      "sha256": "aa83083db2264bff9d47ba138c2534e3628add68cd515c992b47edd33176b3e6",
+      "content": "# OPS Journal Brief\n\nVersion `ops-journal-brief-2026-09-10-v1`. This is the governing voice for every weekly post on `opsapp.co/journal`. It is distilled from the OPS Copywriter skill (`ops-copywriter` 1.0.0: `SKILL.md`, `references/brand-voice-bible.md`, `references/copy-formulas.md`, `references/format-playbooks.md` § Blog Post, `references/blog-voice-sam-parr.md`). The writer and the editor receive this file on every assignment, with its SHA-256 recorded on the draft. `blog-voice-sam-parr.md` travels alongside it as the long-form rhythm layer, and `ops-product-facts.md` is the only place OPS product claims may come from. Where the three disagree, this brief wins.\n\n## Who is writing\n\nThe founder of OPS and the crew behind it, speaking as \"we\". The byline is `OPS Team`. The authority comes from having done the work: summer laborer, residential construction, ten years in deck and rail, a business built from zero to $1.6M in four years, and software built because nothing on the market worked the way a crew actually works.\n\nThe base voice is 60% Jocko Willink, 20% Bruce Springsteen, 20% Elon Musk:\n\n- **Jocko (60%): the backbone.** Discipline. Ownership. No qualifiers, no hedging. The confidence of earned authority. Say less, mean more.\n- **Springsteen (20%): the heart.** Job sites, early mornings, weather, tools, trucks. The dignity of labor. Rhythm you can hear read out loud. The tradesperson is the hero, never OPS.\n- **Musk (20%): the clarity.** First principles. \"Why is everyone overcomplicating this?\" Radical honesty. Logic first; emotion earned through logic.\n\nOn the journal that foundation carries Sam Parr's long-form rhythm: flowing paragraphs mixed with the occasional short hammer, conversational asides used sparingly (\"Here's the thing.\" \"Honestly?\" \"Look,\"), numbers embedded inside the story instead of bullet-bombed, parentheticals and em-dashes for thought breaks, direct opinions, and the reader's unspoken objection named out loud. Stacked staccato sentences read as machine-written after 200 words. Vary sentence length on purpose. A 40-word sentence is fine when it earns its breath.\n\nThe feeling the reader keeps: seen, respected, fired up, quietly confident. A smart friend at the bar explaining the thing over a beer, not a brochure and not a lecture. Under-the-breath \"hell. yeah.\", never a shout.\n\n## Who is reading\n\nAn owner-operator or small-crew boss with eight minutes of downtime. Residential construction, HVAC, painting, landscaping, plumbing, electrical, deck and rail, and every other trade that runs crews. They are smart, busy and skeptical. They have been making it work with paper and group texts; respect that. Give them one move they can make this week and the reason it works.\n\n## Brand facts (never contradict, never embellish)\n\n- Built by trades, for trades. Born on job sites, not in boardrooms.\n- Jobber, ServiceTitan and Housecall Pro were too complicated; crews refused to use them. So the founder built OPS.\n- No training required. The crew opens it, sees their jobs, knows what to do.\n- Free to start, then tiered by crew size; every tier has every feature. Never quote a price.\n- Anything else about OPS comes from `ops-product-facts.md`, word for word in substance. If it is not there, it does not go in the post.\n\n## Structure\n\n- **Title:** ALL CAPS, 5–10 words, passes the truck radio test: would it grab a business owner driving between jobs? Stat-led or question-led works. No period, no exclamation point.\n- **Subtitle:** one or two sentences, sentence case, a stat-led gut-punch.\n- **Teaser:** one or two punchy sentences for the journal card, with a number in it when the sources give one.\n- **Summary:** two or three sentences. The one paragraph a fast scroller reads: the headline fact and what it means.\n- **Meta title:** 50–60 characters, the primary search phrase a business owner would actually type. Sentence or title case.\n- **Body:** 1,000–1,400 words. Headings are `h2` (and rare `h3`) in sentence case, never ALL CAPS and never Title Case. Paragraphs carry the piece; bold only the one or two numbers that matter; lists only when the reader will act on each line; one or two blockquote pull lines, and the closing line.\n- **Internal links:** 8–12 inside the body, descriptive anchor text, never \"click here\". Mix `/journal/<slug>` (only slugs from the claim's `recent_posts`) and `/industries/<slug>` (only slugs from the claim's `industry_pages`), where each link genuinely helps the reader go deeper.\n- **Source links:** link a cited source inline where a reader would want to check it. OPS appends the full `Sources` list itself.\n- **FAQs:** 6–8. Mix plain \"what is\" questions with the skeptic's version (\"Is this just another thing to manage?\"). Answers 60–120 words, grounded like the body.\n- **Email version:** 120–250 words, plain paragraphs, the cold open and the one move. It carries the same facts and the same sources.\n\n## Frameworks\n\n- **PAS-D:** the problem the reader feels in the gut, the cost of leaving it alone made concrete, the fix explained as a mechanism (how, not just that), then one clear next move.\n- **Story-Drop:** open inside one specific moment on a job site or in the truck, widen to the pattern every shop hits, back it with sourced evidence, land the move.\n\n## The four signature moves\n\n1. **The cold open.** The first two sentences are a specific surprising fact or a character moment. Never \"In today's fast-paced world\".\n2. **The cultural reference point.** One analogy that anchors the idea in something the reader already knows. One per post.\n3. **The \"here's what this means for you\" pivot,** about three-quarters through: exactly what to do with it.\n4. **The one line at the end** the reader can repeat to their crew, their spouse or their supplier. Eight to twelve words. It goes in a blockquote.\n\n## Always\n\n- Lead with the problem the reader feels in their gut, in the words a foreman would use. 8th-grade reading level.\n- Action verbs, concrete nouns, specific numbers from the sources.\n- Name the source in the sentence when the fact carries weight (\"a 2024 BrightLocal survey found…\"). Dated facts carry their year.\n- Read it out loud. If it sounds like a press release with attitude, rewrite it.\n\n## Never\n\n- Exclamation points. Emoji. Hashtags.\n- Corporate jargon or tech-company speak. Passive voice. Hedging (\"could potentially\", \"we believe\"; commit to the read or cut the sentence).\n- The word \"contractor\" for the audience, anywhere, including the meta title. Say subtrades, the trades, crews, owner-operators, business owners, blue collars.\n- Leading with \"AI\". The AI industry may be discussed in the third person. OPS features are described by what they do, or as \"intelligent classification\" / \"intelligent pipeline management\". The only forward-looking AI line allowed is: \"We're working on supercharging your workflows with AI.\"\n- Talking down to anyone who runs on paper and group texts. Roast the habit, never the person.\n- Over-promising. No invented numbers, quotes, testimonials, customer results, product capabilities, guarantees, laws, grants or prices.\n\n## Banned words\n\nleverage, synergy, paradigm, ecosystem, revolutionary, disruptive, cutting-edge, state-of-the-art, best-in-class, world-class, enterprise-grade, seamless, frictionless, holistic, empower, solution, platform, stakeholders, facilitate, optimize, maximize, robust, streamlined, scalable, powerful, next-generation, smart (as filler).\n\n## Grounding rules\n\n- Every factual claim — every statistic, date, rule, price, program, law, study, company fact — is backed by a page OPS fetched for this assignment, and every such claim gets an evidence entry with a quote copied character for character from that page.\n- Every number in the post appears exactly as written in one of the cited pages, unless it sits inside a sentence declared as a worked example. A worked example is a clearly hypothetical illustration (\"Say a job runs $12,000…\", \"Call it 40 minutes a day…\") and must read as one.\n- Prefer primary sources: government and statistics agencies, regulators, standards bodies, company filings, the original survey or study. An article that repeats someone else's number is the second choice; find the original when you can.\n- Never cite a page you did not fetch through OPS. Never cite OPS itself as evidence.\n- A number you cannot find in a source does not go in the post. Rewrite the sentence without it.\n\n## Evergreen currency\n\nThe weekly post must still be true on the day a reader finds it a year from now.\n\n- No relative time: never \"this week\", \"last week\", \"next week\", \"today\", \"yesterday\", \"tomorrow\", \"this morning\", \"tonight\", \"breaking\", \"just announced\", \"just released\". Use dates and years.\n- No news peg that expires. If a recent development matters, state it with its date and explain what stays true after it.\n- A dated statistic is framed with its year and its source. Old data presented as current is stale; either find newer data or say how old it is.\n\n## The filter before a draft goes back\n\n- Would Jack say this out loud, in this rhythm, to a business owner next to him at a bar?\n- Does every sentence earn its spot? Cut the first and last quarter of anything that drags.\n- Is every claim specific and sourced? Is every number in a cited page?\n- Does the title work alone? Is there exactly one clear move?\n- Does it read as a person, not a brochure — and not as a machine stacking short sentences?\n- Every word checked against the banned list and the \"never\" list.\n"
+    },
+    "guide": {
+      "path": "docs/journal/voice/blog-voice-sam-parr.md",
+      "sha256": "9e11e7a50bb443f637f224d6d7973086aefb3c4f8a8bc72a18930bc4a0122faa",
+      "content": "<!-- Verbatim copy of ops-copywriter 1.0.0 references/blog-voice-sam-parr.md (copied 2026-09-10). Long-form rhythm layer for the journal; ops-journal-brief.md governs where they differ. The example names and numbers below illustrate rhythm only and are never facts for a post. -->\n\n# Blog Voice — Sam Parr Blend\n\nThis reference governs **long-form blog posts only** (the `/journal/` surface on opsapp.co). It does **not** apply to product copy, landing pages, ads, app store text, push notifications, or any in-app surface — those stay strict OPS voice per `brand-voice-bible.md`.\n\n## Why blog voice diverges\n\nProduct copy is read fast by a stressed-out operator deciding whether to sign up. Every word has to earn its spot. Jocko energy wins.\n\nBlog posts are read slowly by a curious owner who has eight minutes of downtime and wants to feel like they're being talked to by a smart friend at the bar — not pitched at by a brochure. Short hammer sentences stacked back-to-back start to feel performative and AI-generated after about 200 words. The reader checks out.\n\nThe fix: keep the OPS foundation (terse, tactical, no jargon, no exclamation points, working-class respect), but layer in Sam Parr's conversational long-form rhythm on top.\n\n## The blend\n\n**Base layer (unchanged):** Jocko/Springsteen/Musk per `brand-voice-bible.md`. Banned-words list still applies. No exclamation points. No \"leverage/synergy/ecosystem/solution.\" No \"AI\" as a bare lead claim per the bible's voice rules.\n\n**Sam Parr layer (added for blog):**\n\n- **Longer flowing paragraphs** mixed with the occasional short hammer. Vary sentence length on purpose. A 40-word sentence is fine if it earns its breath.\n- **Conversational asides.** \"OK so...\" \"Here's the thing.\" \"Honestly?\" \"Look,\". Used sparingly — once per ~300 words.\n- **Embedded stats inside narrative.** Don't bullet-bomb every number. Drop them inside prose: *\"On the hardest test, Claude solves 69.2% versus GPT-5.5's 58.6% — an 11-point gap that didn't exist six weeks ago.\"*\n- **First-person plural.** \"Our read is...\" \"We know a few things.\" \"We shipped it this morning.\" The founder-team voice. Never \"users will find\" or \"customers benefit from.\"\n- **Specific characters, real names, real numbers.** Cognition. Devin. Polymarket. Mowshowitz. The $65 billion fundraise. Six days later. Real anchors people can verify.\n- **Parentheticals for tonal looseness.** \"(For context on where the demand comes from...)\" \"(the autonomous coding agent that's been all over engineering Twitter)\". Earns the trust of an informed reader without slowing the spine of the piece.\n- **Em-dashes for thought breaks.** Use them liberally — they let a sentence shift gears mid-stride and they read the way the founder talks.\n- **State opinions directly.** \"Our projection is mid-July.\" \"The race isn't tightening, it's spreading.\" Confidence about reads and forecasts, not just facts.\n- **Acknowledge what the reader is probably thinking.** \"Honestly? Nothing.\" \"If you're running a service business, this is the kind of news you'd normally scroll past. Don't.\"\n- **End sections on a punchy short line** after a longer wind-up paragraph. The contrast does the work.\n- **Tell a small story, even in a tech piece.** The cadence story. The accidental CMS leak. The Codex log identifier that got scrubbed. People remember stories, not stat tables.\n\n## The four signature moves\n\nThese appear in every blog post that lands well:\n\n1. **The cold open.** First two sentences should hook with a specific surprising stat or character moment, not a generic headline. *\"Anthropic shipped Claude Opus 4.8 this morning. It's their fourth Opus model in 90 days, and the gap between Claude and OpenAI just got 11 points wider on the hardest coding test that exists.\"* Not: *\"In today's fast-moving AI landscape...\"*\n\n2. **The cultural reference point.** Drop one analogy that anchors a tech concept in something the reader already knows. *\"That's faster than Apple ships iOS point releases, and Apple's stuff doesn't have to learn anything along the way.\"* One per post is enough.\n\n3. **The \"here's what this means for you\" pivot.** Three-quarters of the way through, shift from explaining the news to telling the reader exactly what to do with it. *\"You don't have to learn anything. You don't have to install anything. You don't have to pay more.\"* The most-quoted passage of the piece, usually.\n\n4. **The one-sentence question or instruction at the end.** A line the reader can repeat to their vendor, their team, their spouse. *\"When are you on Opus 4.8?\"* Eight words. Goes in a blockquote. People screenshot it.\n\n## DO vs DON'T (blog-specific)\n\n| DO (Sam Parr blend) | DON'T (over-rotates on staccato OPS hammer) |\n|---|---|\n| \"Anthropic raised $65 billion last week. They shipped this six days later. Whatever brakes existed on the AI release cycle no longer apply.\" | \"Anthropic raised $65 billion. They shipped six days later. The brakes are off.\" |\n| \"Run the math on a typical AI-assisted estimate, call it 4,000 input tokens and 2,000 output per job. Yesterday on 4.7 fast mode that was 12 cents. Today it's 4 cents.\" | \"Yesterday: 12 cents. Today: 4 cents. The math is obvious.\" |\n| \"Honestly? Nothing. You don't install anything, you don't learn anything, you don't pay more.\" | \"You do nothing. Install nothing. Learn nothing. Pay nothing.\" |\n| \"When Anthropic says 'coming weeks' in a launch post, historically that's meant somewhere between 4 and 8 weeks.\" | \"Coming weeks = 4-8 weeks. History shows it.\" |\n\nThe right-hand column reads like AI output. The left-hand column reads like the founder actually wrote it.\n\n## Hard rules that still apply (don't break these)\n\n- **No exclamation points.** Same rule as product copy. Confidence doesn't shout, even in conversational mode.\n- **No corporate jargon.** The Sam Parr looseness is in rhythm, not vocabulary. \"Synergy\" is still dead.\n- **No \"AI\" as a bare lead claim about OPS features.** Use \"intelligent classification\" / \"intelligent pipeline management\" per `ops-software-bible/14_FEATURE_POSITIONING.md`. Talking about the AI industry in third-person is fine. Talking about OPS using AI requires the bible-approved framing.\n- **No made-up features.** Every OPS feature claim must trace to the bible. If you wouldn't bet $1,000 the feature ships today, don't write it.\n- **The \"truck radio test\" still applies to headlines.** Sentence-case h2s inside the body, but the post title is still ALL CAPS, 5-10 words, foreman-readable.\n\n## Word count\n\nBlog posts: **1,000-1,400 words** on the long version. Anything under 800 reads thin to Google and earns the \"Crawled - currently not indexed\" treatment in Search Console. Anything over 1,500 loses the casual blog rhythm and starts to feel like a research paper.\n\nThe Opus 4.8 post landed at ~1,340 words. That's the target shape.\n\n## When in doubt\n\nRead the post out loud. If it sounds like a smart founder explaining the thing to a customer over a beer — keep it. If it sounds like a press release with attitude, it's broken. If it sounds like AI wrote it, it definitely is — rewrite the staccato sections into flowing paragraphs.\n\nThe test: would Jack actually say this sentence out loud, in this rhythm, to a contractor sitting next to him at a bar? If yes, ship it. If it sounds like a LinkedIn carousel slide, kill it.\n"
+    },
+    "product_facts": {
+      "path": "docs/journal/voice/ops-product-facts.md",
+      "sha256": "27d6e450a6161afedeb81b5df6a433ccee090909f1655df76a6e4a98d3b8dc74",
+      "content": "# OPS Product Facts for the Journal\n\nVersion `ops-product-facts-2026-09-10-v1`. The only OPS product claims a journal post may make. Every line below is lifted from `ops-software-bible/14_FEATURE_POSITIONING.md` (last updated 2026-08-04), which cites the engineering chapter that proves each behaviour ships. Use the substance faithfully; rephrase for rhythm, never for scope. Anything about OPS that is not on this page does not go in a post.\n\nHow to use it in a weekly post: education earns its keep first. OPS appears at most once, late, as one soft line where it genuinely fits the move the reader is about to make — never as the lead, never as a pitch, never with a price.\n\n## Brand facts\n\n- Built by trades, for trades. The founder scaled a deck and railing business from $0 to $1.6M in four years, tried Jobber, ServiceTitan and Housecall Pro, found the crew would not use any of them, and built OPS.\n- No training required: the crew opens it, sees their jobs, knows what to do.\n- Free to start, then tiered by crew size; every tier has every feature. Never quote a price or a competitor comparison figure.\n\n## Features that may be mentioned\n\n**Inbox to pipeline** (source: `04_API_AND_INTEGRATION.md` § Email Pipeline Integration Routes; `10_JOB_LIFECYCLE_AND_DATA_RELATIONSHIPS.md` § Gmail Integration)\n- Connect Gmail or Microsoft 365 and OPS pulls every quote request out of your inbox, sorts it, and drops it in pipeline.\n- OPS classifies what's a lead, matches it to a client you already know, and queues it. Describe this as intelligent classification or by the behaviour; never \"AI\".\n- Do not imply OPS replies to anyone on the operator's behalf.\n\n**Pipeline** (source: `09_FINANCIAL_SYSTEM.md` § Pipeline / CRM System)\n- Eight stages from first contact to signed contract: new lead, qualifying, quoting, quoted, follow-up, negotiation, won, lost.\n- OPS moves leads forward as the work happens: logging a call, sending an estimate and an approval advance the stage. Drag manually when you need to.\n\n**Project workspace** (source: `10_JOB_LIFECYCLE_AND_DATA_RELATIONSHIPS.md` § Design Philosophy)\n- Photos, notes, tasks, estimates, invoices, site visits — all on one project. The crew sees the same thing on their phones.\n\n**Estimates and the client portal** (source: `09_FINANCIAL_SYSTEM.md` § Estimates System; `11_CLIENT_PORTAL.md`)\n- Send a branded estimate; the client opens it on their phone, picks the options, answers the questions you set, and signs.\n- Questions attach to specific line items: pick a stain colour, pick a gate hardware finish, decide on corner caps.\n\n**Invoices and payments** (source: `09_FINANCIAL_SYSTEM.md` § Invoices System, § Payments)\n- One click converts the approved estimate to an invoice — deposit, milestones and balance already structured from the line items.\n- Track what's paid and what's outstanding without a spreadsheet. Never claim a time-to-paid figure.\n\n**Schedule** (source: `01_PRODUCT_REQUIREMENTS.md` § Calendar & Scheduling)\n- Day, week, month, team and agenda views. Drag tasks where they need to be; the crew sees their day before they leave the driveway.\n- Recurring routes generate themselves. Conflicts are flagged when you drag, so a crew member is not double-booked.\n\n**Crew visibility** (source: `01_PRODUCT_REQUIREMENTS.md` § Team Management)\n- See who's on which job and reassign in one tap, not five phone calls. The new person opens the app and the job is already there.\n- Never describe it as tracking crew location.\n\n**Field-first iOS app** (source: `01_PRODUCT_REQUIREMENTS.md` § Field-Specific Requirements; `04_API_AND_INTEGRATION.md` § SyncEngine)\n- Jobs load in basements and dead zones because they were already on the device. Changes queue when signal drops and sync when it returns.\n- Dark for sunlight, big buttons for gloves. iOS today; never imply Android ships.\n\n**Photo capture and markup** (source: `01_PRODUCT_REQUIREMENTS.md` § Image Management)\n- Take the photo on site, draw on it, add a note. It lives with the job, the crew sees it, and the client sees it in the portal when you choose.\n\n**Site visits** (source: `10_JOB_LIFECYCLE_AND_DATA_RELATIONSHIPS.md` § SiteVisit)\n- Start a site visit, capture photos, notes and measurements on site, link the lead, and the captured packet becomes the project. Nothing gets re-entered.\n\n## Never mention\n\n- AI email drafts or AI memory, a financial dashboard or cashflow forecast, turn-by-turn navigation as a headline, GPS tracking of crews, Android, any price, any competitor price, any customer result, any testimonial, any usage statistic about OPS.\n- The only forward-looking line allowed: \"We're working on supercharging your workflows with AI.\"\n"
+    }
+  }
+}

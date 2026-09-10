@@ -50,4 +50,30 @@ describe("saved source validation", () => {
       })
     ).toBe(false);
   });
+
+  describe("OPS journal plates", () => {
+    const plate =
+      "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/journal/2026-09-14-0123456789abcdef.jpg";
+
+    it("adapts an article whose image is a journal plate as imageless", async () => {
+      state.row.thumbnail_url = plate;
+      try {
+        const source = await createEditorialRepository().findLiveBlogSource("source");
+        expect(source?.thumbnail_url).toBeNull();
+        expect(await createEditorialRepository().sourceStillCurrent(snapshot)).toBe(true);
+      } finally {
+        state.row.thumbnail_url = null;
+      }
+    });
+
+    it("keeps a photographic thumbnail", async () => {
+      state.row.thumbnail_url = "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/1788762281195-75f6b6d4.png";
+      try {
+        const source = await createEditorialRepository().findLiveBlogSource("source");
+        expect(source?.thumbnail_url).toBe(state.row.thumbnail_url);
+      } finally {
+        state.row.thumbnail_url = null;
+      }
+    });
+  });
 });

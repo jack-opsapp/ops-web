@@ -1,0 +1,14 @@
+{
+  "state": "discovered",
+  "mode": "prepare",
+  "created": 1,
+  "missed": 0,
+  "promoted": 0,
+  "published": [],
+  "held": [],
+  "newsletter": {
+    "sent": 0,
+    "skipped": 0
+  },
+  "notified": 0
+}
