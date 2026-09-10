@@ -8,11 +8,11 @@ import {
   DECK_GEOMETRY_MAX_TOPOLOGY_UNITS,
   DECK_GEOMETRY_MAX_VERTICES,
   DeckDesignGeometryMeasurementsSchema,
-  DeckDesignGeometryTopologySchema,
   type DeckDesignGeometryMeasurements,
-  type DeckDesignGeometryTopology,
 } from "@/lib/agent-control-plane/contracts/deck-design-geometry";
 import { createP2CanonicalTextSchema } from "@/lib/agent-control-plane/contracts/p2-common";
+
+import { DeckDesignGeometryTopologyV2Schema as DeckDesignGeometryTopologySchema, type DeckDesignGeometryTopologyV2 as DeckDesignGeometryTopology } from "@/lib/agent-control-plane/contracts/deck-design-geometry-v2";
 
 type UnknownRecord = Record<string, unknown>;
 type Point = Readonly<{ x: number; y: number }>;
@@ -80,7 +80,7 @@ interface ParsedLevelConnection {
   readonly upperLevelId: string;
   readonly lowerLevelId: string;
   readonly upperEdgeId: string;
-  readonly lowerEdgeId: string;
+  readonly lowerEdgeId: string | null;
   readonly stair: ParsedStair;
 }
 
@@ -506,7 +506,7 @@ function parseLevelConnection(value: unknown): ParsedLevelConnection {
     upperLevelId: sourceId(source.upperLevelId),
     lowerLevelId: sourceId(source.lowerLevelId),
     upperEdgeId: sourceId(source.upperEdgeId),
-    lowerEdgeId: sourceId(source.lowerEdgeId),
+    lowerEdgeId: source.lowerEdgeId == null ? null : sourceId(source.lowerEdgeId),
     stair,
   };
 }
@@ -665,7 +665,7 @@ export function parseDeckGeometrySource(
       !lower ||
       upper.sourceId === lower.sourceId ||
       !upper.edges.some((edge) => edge.id === connection.upperEdgeId) ||
-      !lower.edges.some((edge) => edge.id === connection.lowerEdgeId)
+      (connection.lowerEdgeId !== null && !lower.edges.some((edge) => edge.id === connection.lowerEdgeId))
     ) {
       fail("DECK_GEOMETRY_REFERENCE_INVALID");
     }
@@ -1976,7 +1976,7 @@ function projectTopology(input: {
           edgeRefByScopedId,
           `${connection.upperLevelId}:${connection.upperEdgeId}`
         ),
-        lower_edge_ref: requiredLocalReference(
+        lower_edge_ref: connection.lowerEdgeId === null ? null : requiredLocalReference(
           edgeRefByScopedId,
           `${connection.lowerLevelId}:${connection.lowerEdgeId}`
         ),

@@ -293,7 +293,7 @@ function isClosedDirectedLoop(
   });
 }
 
-export const DeckDesignGeometryTopologySchema = z
+const DeckGeometryTopologyObjectSchema = z
   .object({
     topology_units: z
       .number()
@@ -309,8 +309,17 @@ export const DeckDesignGeometryTopologySchema = z
       .array(DeckGeometryConnectionSchema)
       .max(DECK_GEOMETRY_MAX_CONNECTIONS),
   })
-  .strict()
-  .superRefine((topology, context) => {
+  .strict();
+
+// Structural validation shared by strict v1 and the explicitly versioned v2.
+// V1's object schema still rejects null lower edges before this refinement.
+type GeometryConnectionForValidation =
+  | (Omit<Extract<z.infer<typeof DeckGeometryConnectionSchema>, { kind: "level_stair" }>, "lower_edge_ref"> & { lower_edge_ref: string | null })
+  | Extract<z.infer<typeof DeckGeometryConnectionSchema>, { kind: "surface_transition" }>;
+export function refineDeckGeometryTopology(
+  topology: Omit<z.infer<typeof DeckGeometryTopologyObjectSchema>, "connections"> & { connections: GeometryConnectionForValidation[] },
+  context: z.RefinementCtx
+) {
     if (
       !hasConsecutiveRefs(
         topology.planes.map((plane) => plane.plane_ref),
@@ -416,13 +425,13 @@ export const DeckDesignGeometryTopologySchema = z
           planeRefs.has(connection.upper_plane_ref) &&
           planeRefs.has(connection.lower_plane_ref) &&
           allEdgeRefs.has(connection.upper_edge_ref) &&
-          allEdgeRefs.has(connection.lower_edge_ref) &&
+          (connection.lower_edge_ref === null || allEdgeRefs.has(connection.lower_edge_ref)) &&
           connection.upper_edge_ref.startsWith(
             `${connection.upper_plane_ref}:edge:`
           ) &&
-          connection.lower_edge_ref.startsWith(
+          (connection.lower_edge_ref === null || connection.lower_edge_ref.startsWith(
             `${connection.lower_plane_ref}:edge:`
-          )
+          ))
         );
       }
       return (
@@ -460,7 +469,10 @@ export const DeckDesignGeometryTopologySchema = z
         message: "DECK_GEOMETRY_TOPOLOGY_BOUND_INVALID",
       });
     }
-  });
+
+}
+
+export const DeckDesignGeometryTopologySchema = DeckGeometryTopologyObjectSchema.superRefine(refineDeckGeometryTopology);
 
 function measurementSchema<
   const TWarnings extends readonly [string, ...string[]],
