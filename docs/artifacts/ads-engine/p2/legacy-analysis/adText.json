@@ -1,0 +1,1601 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/173967143166",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "495",
+   "costMicros": "37649623",
+   "impressions": "5610"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/173967143166~733789726539",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "responsiveDisplayAd": {
+     "headlines": [
+      {
+       "text": "[ Boost your crew efficiency ]"
+      },
+      {
+       "text": "[ Crush every project. ]"
+      },
+      {
+       "text": "[ Simplify job management. ]"
+      },
+      {
+       "text": "[ Lead your crew effectively ]"
+      },
+      {
+       "text": "[ Streamline your workflow. ]"
+      }
+     ],
+     "longHeadline": {
+      "text": "Ditch Whiteboards & Spreadsheets—OPS Streamlines Job Management for Trades Crews."
+     },
+     "descriptions": [
+      {
+       "text": "Register Your Company Now to Be Added to the Waitlist for Free Early Access to OPS."
+      },
+      {
+       "text": "Ops is the job management app built by trades, for trades."
+      },
+      {
+       "text": "Purpose Built to Replace the Chaos of Whiteboards, Notebooks, and Endless Micromanaging."
+      },
+      {
+       "text": "Simplify job management with OPS—track jobs, manage crews, and boost efficiency."
+      },
+      {
+       "text": "OPS helps you streamline your workflow—get jobs done faster and with less stress."
+      }
+     ],
+     "businessName": "OPS APP"
+    },
+    "resourceName": "customers/4454506598/ads/733789726539",
+    "id": "733789726539"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/174874479826",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1337",
+   "costMicros": "337256795",
+   "impressions": "13592"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/174874479826~734053713279",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "responsiveDisplayAd": {
+     "headlines": [
+      {
+       "text": "[ Boost your crew efficiency ]"
+      },
+      {
+       "text": "[ Crush every project. ]"
+      },
+      {
+       "text": "[ Simplify job management. ]"
+      },
+      {
+       "text": "[ Lead your crew effectively ]"
+      },
+      {
+       "text": "[ Streamline your workflow. ]"
+      }
+     ],
+     "longHeadline": {
+      "text": "Ditch Whiteboards & Spreadsheets—OPS Streamlines Job Management for Trades Crews."
+     },
+     "descriptions": [
+      {
+       "text": "Register Your Company Now to Be Added to the Waitlist for Free Early Access to OPS."
+      },
+      {
+       "text": "Ops is the job management app built by trades, for trades."
+      },
+      {
+       "text": "Purpose Built to Replace the Chaos of Whiteboards, Notebooks, and Endless Micromanaging."
+      },
+      {
+       "text": "Simplify job management with OPS—track jobs, manage crews, and boost efficiency."
+      },
+      {
+       "text": "OPS helps you streamline your workflow—get jobs done faster and with less stress."
+      }
+     ],
+     "businessName": "OPS APP"
+    },
+    "resourceName": "customers/4454506598/ads/734053713279",
+    "id": "734053713279"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/181050303251",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "371",
+   "costMicros": "95670477",
+   "impressions": "15447"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/181050303251~734113098649",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "responsiveDisplayAd": {
+     "headlines": [
+      {
+       "text": "[ Are You a Strong Leader? ]"
+      },
+      {
+       "text": "[ Test Your Leadership Now. ]"
+      },
+      {
+       "text": "[ Prove Your Leadership. ]"
+      },
+      {
+       "text": "[ Challenge Your Leadership. ]"
+      },
+      {
+       "text": "[ Think you are a Leader? ]"
+      }
+     ],
+     "longHeadline": {
+      "text": "Take the OPS leadership test now —identify your strengths and destroy weaknesses."
+     },
+     "descriptions": [
+      {
+       "text": "Test your leadership. Face the truth. Improve. No excuses. Get after it."
+      },
+      {
+       "text": "Leadership isn’t talk. It’s action. Take the test. Find out where you stand."
+      },
+      {
+       "text": "Weak leaders ignore the truth. Strong ones seek it. Take the test. Step up"
+      },
+      {
+       "text": "You think you’re a leader? Prove it. Take the test. Own the results."
+      },
+      {
+       "text": "No BS. No nonsense. Just a hard look at your leadership. Take the test now."
+      }
+     ],
+     "businessName": "OPS APP"
+    },
+    "resourceName": "customers/4454506598/ads/734113098649",
+    "id": "734113098649"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271202912",
+   "name": "OPS Join_Ops Page Aus"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/176444287138",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "12",
+   "costMicros": "9626497",
+   "impressions": "1373"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/176444287138~734364882624",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "responsiveDisplayAd": {
+     "headlines": [
+      {
+       "text": "[ Boost your crew efficiency ]"
+      },
+      {
+       "text": "[ Crush every project. ]"
+      },
+      {
+       "text": "[ Simplify job management. ]"
+      },
+      {
+       "text": "[ Lead your crew effectively ]"
+      },
+      {
+       "text": "[ Streamline your workflow. ]"
+      }
+     ],
+     "longHeadline": {
+      "text": "Ditch Whiteboards & Spreadsheets—OPS Streamlines Job Management for Trades Crews."
+     },
+     "descriptions": [
+      {
+       "text": "Register Your Company Now to Be Added to the Waitlist for Free Early Access to OPS."
+      },
+      {
+       "text": "Ops is the job management app built by trades, for trades."
+      },
+      {
+       "text": "Purpose Built to Replace the Chaos of Whiteboards, Notebooks, and Endless Micromanaging."
+      },
+      {
+       "text": "Simplify job management with OPS—track jobs, manage crews, and boost efficiency."
+      },
+      {
+       "text": "OPS helps you streamline your workflow—get jobs done faster and with less stress."
+      }
+     ],
+     "businessName": "OPS APP"
+    },
+    "resourceName": "customers/4454506598/ads/734364882624",
+    "id": "734364882624"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/178322519911",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1221",
+   "costMicros": "283308434",
+   "impressions": "9095"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/178322519911~734402753890",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "responsiveDisplayAd": {
+     "headlines": [
+      {
+       "text": "[ Boost your crew efficiency ]"
+      },
+      {
+       "text": "[ Crush every project. ]"
+      },
+      {
+       "text": "[ Simplify job management. ]"
+      },
+      {
+       "text": "[ Lead your crew effectively ]"
+      },
+      {
+       "text": "[ Streamline your workflow. ]"
+      }
+     ],
+     "longHeadline": {
+      "text": "Ditch Whiteboards & Spreadsheets—OPS Streamlines Job Management for Trades Crews."
+     },
+     "descriptions": [
+      {
+       "text": "Register Your Company Now to Be Added to the Waitlist for Free Early Access to OPS."
+      },
+      {
+       "text": "Ops is the job management app built by trades, for trades."
+      },
+      {
+       "text": "Purpose Built to Replace the Chaos of Whiteboards, Notebooks, and Endless Micromanaging."
+      },
+      {
+       "text": "Simplify job management with OPS—track jobs, manage crews, and boost efficiency."
+      },
+      {
+       "text": "OPS helps you streamline your workflow—get jobs done faster and with less stress."
+      }
+     ],
+     "businessName": "OPS APP"
+    },
+    "resourceName": "customers/4454506598/ads/734402753890",
+    "id": "734402753890"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "name": "OPS Quiz UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/178322519751",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "19",
+   "costMicros": "8692748",
+   "impressions": "1977"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/178322519751~734402782243",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "responsiveDisplayAd": {
+     "headlines": [
+      {
+       "text": "[ Are You a Strong Leader? ]"
+      },
+      {
+       "text": "[ Test Your Leadership Now. ]"
+      },
+      {
+       "text": "[ Prove Your Leadership. ]"
+      },
+      {
+       "text": "[ Challenge Your Leadership. ]"
+      },
+      {
+       "text": "[ Think you are a Leader? ]"
+      }
+     ],
+     "longHeadline": {
+      "text": "Take the OPS leadership test now —identify your strengths and destroy weaknesses."
+     },
+     "descriptions": [
+      {
+       "text": "Test your leadership. Face the truth. Improve. No excuses. Get after it."
+      },
+      {
+       "text": "Leadership isn’t talk. It’s action. Take the test. Find out where you stand."
+      },
+      {
+       "text": "Weak leaders ignore the truth. Strong ones seek it. Take the test. Step up"
+      },
+      {
+       "text": "You think you’re a leader? Prove it. Take the test. Own the results."
+      },
+      {
+       "text": "No BS. No nonsense. Just a hard look at your leadership. Take the test now."
+      }
+     ],
+     "businessName": "OPS APP"
+    },
+    "resourceName": "customers/4454506598/ads/734402782243",
+    "id": "734402782243"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22277761109",
+   "name": "OPS Quiz Aus"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/176444287178",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "12",
+   "costMicros": "9919362",
+   "impressions": "1592"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/176444287178~734480433254",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "responsiveDisplayAd": {
+     "headlines": [
+      {
+       "text": "[ Are You a Strong Leader? ]"
+      },
+      {
+       "text": "[ Test Your Leadership Now. ]"
+      },
+      {
+       "text": "[ Prove Your Leadership. ]"
+      },
+      {
+       "text": "[ Challenge Your Leadership. ]"
+      },
+      {
+       "text": "[ Think you are a Leader? ]"
+      }
+     ],
+     "longHeadline": {
+      "text": "Take the OPS leadership test now —identify your strengths and destroy weaknesses."
+     },
+     "descriptions": [
+      {
+       "text": "Test your leadership. Face the truth. Improve. No excuses. Get after it."
+      },
+      {
+       "text": "Leadership isn’t talk. It’s action. Take the test. Find out where you stand."
+      },
+      {
+       "text": "Weak leaders ignore the truth. Strong ones seek it. Take the test. Step up"
+      },
+      {
+       "text": "You think you’re a leader? Prove it. Take the test. Own the results."
+      },
+      {
+       "text": "No BS. No nonsense. Just a hard look at your leadership. Take the test now."
+      }
+     ],
+     "businessName": "OPS APP"
+    },
+    "resourceName": "customers/4454506598/ads/734480433254",
+    "id": "734480433254"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "name": "OPS Join_Ops Page CA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/173191266182",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "1357",
+   "costMicros": "562296114",
+   "impressions": "15005"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/173191266182~736414840511",
+   "ad": {
+    "type": "RESPONSIVE_DISPLAY_AD",
+    "responsiveDisplayAd": {
+     "headlines": [
+      {
+       "text": "[ Lead your crew effectively ]"
+      },
+      {
+       "text": "[ Boost your crew efficiency ]"
+      },
+      {
+       "text": "[ Crush every project. ]"
+      },
+      {
+       "text": "[ Simplify job management. ]"
+      },
+      {
+       "text": "[ Streamline your workflow. ]"
+      }
+     ],
+     "longHeadline": {
+      "text": "Ditch Whiteboards & Spreadsheets—OPS Streamlines Job Management for Trades Crews."
+     },
+     "descriptions": [
+      {
+       "text": "Ops is the job management app built by trades, for trades."
+      },
+      {
+       "text": "Register Your Company Now to Be Added to the Waitlist for Free Early Access to OPS."
+      },
+      {
+       "text": "Simplify job management with OPS—track jobs, manage crews, and boost efficiency."
+      },
+      {
+       "text": "OPS will streamline your workflow. Get jobs done faster, with less stress."
+      },
+      {
+       "text": "Purpose Built to Replace the Chaos of Whiteboards, Notebooks, and Endless Micromanaging."
+      }
+     ],
+     "businessName": "OPS APP"
+    },
+    "resourceName": "customers/4454506598/ads/736414840511",
+    "id": "736414840511"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/172617484690",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "18",
+   "costMicros": "308841830",
+   "impressions": "1367"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "type": "RESPONSIVE_SEARCH_AD",
+    "responsiveSearchAd": {
+     "headlines": [
+      {
+       "text": "[ Efficient Job Management. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ OPS: Maximum Efficiency. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Trades, Execute. OPS. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Execute With Precision. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Dominate Jobs. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ OPS: Built by Trades. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Own Your Trade's Success. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Zero Slack. All Results. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Master Your Operations. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Crush Inefficiency. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Seize Control Of Your Jobs ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Streamline your workflow. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Simplify job management. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Crush every project. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Job management with maximum efficiency. Zero nonsense. Built by trades. Take ownership.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Ditch inefficient whiteboards & spreadsheets. Built for the leaders who demand execution.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Streamline your crew management with lethal precision. The only app built for execution.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Forget software built by clean-handed nerds. Created by tradesmen who know real work.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184818794544",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "9",
+   "costMicros": "111399824",
+   "impressions": "467"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "type": "RESPONSIVE_SEARCH_AD",
+    "responsiveSearchAd": {
+     "headlines": [
+      {
+       "text": "[ Efficient Job Management. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ OPS: Maximum Efficiency. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Trades, Execute. OPS. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Execute With Precision. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Dominate Jobs. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ OPS: Built by Trades. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Own Your Trade's Success. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Zero Slack. All Results. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Master Your Operations. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Crush Inefficiency. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Seize Control Of Your Jobs ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Streamline your workflow. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Simplify job management. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "[ Crush every project. ]",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Job management with maximum efficiency. Zero nonsense. Built by trades. Take ownership.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Ditch inefficient whiteboards & spreadsheets. Built for the leaders who demand execution.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Streamline your crew management with lethal precision. The only app built for execution.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Forget software built by clean-handed nerds. Created by tradesmen who know real work.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191503700528",
+   "name": "What Makes Us Different"
+  },
+  "metrics": {
+   "clicks": "224",
+   "costMicros": "41642587",
+   "impressions": "4258"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "Built By Railings Contractor"
+      },
+      {
+       "text": "Never Built In A Meeting Room"
+      },
+      {
+       "text": "We Deleted More Than We Built"
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "10 years commercial railings: got sick of apps that don't work: built this."
+      },
+      {
+       "text": "Every feature tested on real job sites. Overcomplicated ones got deleted."
+      },
+      {
+       "text": "Built by necessity on actual job sites. Not VC-funded guesswork."
+      },
+      {
+       "text": "Purpose-built through use. Every feature earned its place or got cut."
+      },
+      {
+       "text": "While others add complexity, we subtract problems. That's it."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/185497122123",
+   "name": "Value You Can't Get Elsewhere"
+  },
+  "metrics": {
+   "clicks": "264",
+   "costMicros": "58599729",
+   "impressions": "5172"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "Works When Wi-Fi Doesn't."
+      },
+      {
+       "text": "Saves min 2 Hours Per Week ."
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "See jobs, update status, navigate - all offline. Because that's when you need it."
+      },
+      {
+       "text": "Built for basements, job sites, and dead zones."
+      },
+      {
+       "text": "No learning curve. No training meetings. See jobs, update, done."
+      },
+      {
+       "text": "Everything you need to work. Nothing that wastes your time. Period."
+      },
+      {
+       "text": "Get back hours of wasted time spent coordinating, scheduling and communicating."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184222898285",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "861",
+   "costMicros": "208775355",
+   "impressions": "10520"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "No more \"what's my job?\"."
+      },
+      {
+       "text": "No more \"where's the job?\"."
+      },
+      {
+       "text": "From Whiteboard to Workforce."
+      },
+      {
+       "text": "No more \"send photos of job\"."
+      },
+      {
+       "text": "No training needed. Done."
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "2 Hours Saved Weekly = Saves you $4800 annually. Pays for itself immediately."
+      },
+      {
+       "text": "Zero learning curve = Zero training cost (Tested on old-timers)"
+      },
+      {
+       "text": "Move past whiteboards and spreadsheets. Job management built for field operations."
+      },
+      {
+       "text": "Scale from your truck. No office staff needed. Track jobs, schedule crew, get it done."
+      },
+      {
+       "text": "Not Jobber. Not enterprise software. Simple job management that works where you work."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190325086754",
+   "name": "Hire OPS/ ADvanced Value"
+  },
+  "metrics": {
+   "clicks": "8",
+   "costMicros": "2960000",
+   "impressions": "641"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "[ Hire OPS. ]"
+      },
+      {
+       "text": "[Be the first using OPS 2.0.3]"
+      },
+      {
+       "text": "[ Your Most Profitable Hire. ]"
+      },
+      {
+       "text": "[Built By Trades, For Trades.]"
+      },
+      {
+       "text": "[From Whiteboard to Workforce]"
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Hire OPS. Saves 2 hours weekly. Earns you $400/month. Even at $200, it pays you back."
+      },
+      {
+       "text": "Would you hire a crew member who pays for themselves? That's OPS. Hire OPS."
+      },
+      {
+       "text": "Built by trades for trades. 10 years in railings- needed better- built OPS. Period."
+      },
+      {
+       "text": "Better ROI than any crew member. Never calls in sick. Always ready to work. Hire OPS."
+      },
+      {
+       "text": "Your time worth $25/hour? OPS saves 8 hours monthly. That's $200 value for $90 cost."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/184254155901",
+   "name": "Ad group 1"
+  },
+  "metrics": {
+   "clicks": "201",
+   "costMicros": "997913957",
+   "impressions": "12035"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "type": "RESPONSIVE_SEARCH_AD",
+    "responsiveSearchAd": {
+     "headlines": [
+      {
+       "pinnedField": "HEADLINE_1",
+       "text": "Hire OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Earns $400/Month For You.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Better ROI Than Any Other Hire",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Built by Trades, for Trades.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "OPS Pays For Itself.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Investment, Not Expense,",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Saves 2.5+ Hours Weekly.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "122% or more ROI Every Month.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Your Most Profitable Hire.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Actually Works Offline.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Cut The Slack. Get OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "ServiceTitan too complex? OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Housecall Pro? OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Jobber is overcomplicated.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Built by trades for trades. 12 years in deck construction - needed better - built OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Would you hire a crew member who pays for themselves? That's OPS.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Your time worth $25/hour? OPS saves 8+ hours monthly. That's $200 value for $90 cost.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      },
+      {
+       "text": "Better ROI than any crew member. Never calls in sick. Always ready to work.",
+       "assetPerformanceLabel": "PENDING",
+       "policySummaryInfo": {
+        "reviewStatus": "REVIEWED",
+        "approvalStatus": "APPROVED"
+       }
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/187735663614",
+   "name": "What makes OPS diff"
+  },
+  "metrics": {
+   "clicks": "5",
+   "costMicros": "4966857",
+   "impressions": "169"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "[ Hire OPS. ]"
+      },
+      {
+       "text": "[Job Details Don't Get Missed]"
+      },
+      {
+       "text": "[ Google Sheets? Move On. ]"
+      },
+      {
+       "text": "[Built By Trades, For Trades.]"
+      },
+      {
+       "text": "[From Whiteboard to Workforce]"
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "From whiteboards to workforce. Job details don't get lost. No training needed. Period."
+      },
+      {
+       "text": "Not built for 50+ employee operations. Built for specialized trades with 1-10 crew."
+      },
+      {
+       "text": "Works without signal. Job details don't get lost. You can actually figure it out."
+      },
+      {
+       "text": "Stop digging through camera rolls for job photos. Everything organized by project. Period."
+      },
+      {
+       "text": "No more \"I thought you told him.\" Job scope with photos. Everyone sees the same thing."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/189797156780",
+   "name": "What makes OPS diff #2 - scheduling"
+  },
+  "metrics": {
+   "clicks": "0",
+   "costMicros": "0",
+   "impressions": "44"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "[ Hire OPS. ]"
+      },
+      {
+       "text": "[ Outgrew Your Whiteboard? ]"
+      },
+      {
+       "text": "[ Schedule from Your Truck. ]"
+      },
+      {
+       "text": "[Built By Trades, For Trades.]"
+      },
+      {
+       "text": "[ Stop Double-Booking Crew. ]"
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Using other job management software is a full-time job. OPS deletes a full-time workload."
+      },
+      {
+       "text": "Stop double-booking your crew. See who's where, when. Schedule from your truck. Done."
+      },
+      {
+       "text": "No more texting \"send me that photo from Tuesday.\" All job photos in one place. Simple."
+      },
+      {
+       "text": "Job photos stay with the job. Not buried in someone's camera roll. Works offline too."
+      },
+      {
+       "text": "Crew gets job details with photos. Sends updates back. No more missed scope on handoff."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/193139522321",
+   "name": "Black Friday"
+  },
+  "metrics": {
+   "clicks": "79",
+   "costMicros": "94246521",
+   "impressions": "1769"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "[ OPS Black Friday. ]"
+      },
+      {
+       "text": "[ Get 50% Off OPS ]"
+      },
+      {
+       "text": "[ Black Friday: Half Price. ]"
+      },
+      {
+       "text": "[Built By Trades, For Trades.]"
+      },
+      {
+       "text": "[From Whiteboard to Workforce]"
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Take advantage of the OPS Black Friday Deal. Grab 50% off for a whole year."
+      },
+      {
+       "text": "Black Friday Deal: Half Off for 1 Year - No Training Videos Needed."
+      },
+      {
+       "text": "50% Off the only job management tool built by trades, for trades."
+      },
+      {
+       "text": "The best ROI just got even better: 50% off OPS. Get any plan at the discount."
+      },
+      {
+       "text": "Not \"Up to 50% Off\". 50% off, PERIOD."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/191898724936",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "0",
+   "costMicros": "3292752",
+   "impressions": "159"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "Run an elite unit."
+      },
+      {
+       "text": "Stop reacting-Start operating."
+      },
+      {
+       "text": "From Whiteboard to Workforce."
+      },
+      {
+       "text": "Plan the work. Work the plan."
+      },
+      {
+       "text": "Own your operation."
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Elite operators don't wing it. Neither should your crew. Job details locked in."
+      },
+      {
+       "text": "Transform chaos into execution. Your crew operates with elite precision. Job done."
+      },
+      {
+       "text": "From whiteboard chaos to elite operations. Your crew knows the mission. Every time."
+      },
+      {
+       "text": "Whiteboard won't cut it for elite crews. Job management built for precision work."
+      },
+      {
+       "text": "Always ready. Never guessing. Your crew knows what, where, when before they roll out."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562054",
+   "name": "Advanced Value Propositions"
+  },
+  "metrics": {
+   "clicks": "230",
+   "costMicros": "155062109",
+   "impressions": "5043"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "No more \"what's my job?\"."
+      },
+      {
+       "text": "No more \"where's the job?\"."
+      },
+      {
+       "text": "From Whiteboard to Workforce."
+      },
+      {
+       "text": "No more \"send photos of job\"."
+      },
+      {
+       "text": "No training needed. Done."
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "2 Hours Saved Weekly = Saves you $4800 annually. Pays for itself immediately."
+      },
+      {
+       "text": "Zero learning curve = Zero training cost (Tested on old-timers)"
+      },
+      {
+       "text": "Move past whiteboards and spreadsheets. Job management built for field operations."
+      },
+      {
+       "text": "Scale from your truck. No office staff needed. Track jobs, schedule crew, get it done."
+      },
+      {
+       "text": "Not Jobber. Not enterprise software. Simple job management that works where you work."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "adGroup": {
+   "resourceName": "customers/4454506598/adGroups/190219562094",
+   "name": "Operating Unit"
+  },
+  "metrics": {
+   "clicks": "146",
+   "costMicros": "89741799",
+   "impressions": "4965"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "type": "APP_AD",
+    "appAd": {
+     "headlines": [
+      {
+       "text": "Run an elite unit."
+      },
+      {
+       "text": "Stop reacting-Start operating."
+      },
+      {
+       "text": "From Whiteboard to Workforce."
+      },
+      {
+       "text": "Plan the work. Work the plan."
+      },
+      {
+       "text": "Own your operation."
+      }
+     ],
+     "descriptions": [
+      {
+       "text": "Elite operators don't wing it. Neither should your crew. Job details locked in."
+      },
+      {
+       "text": "Transform chaos into execution. Your crew operates with elite precision. Job done."
+      },
+      {
+       "text": "From whiteboard chaos to elite operations. Your crew knows the mission. Every time."
+      },
+      {
+       "text": "Whiteboard won't cut it for elite crews. Job management built for precision work."
+      },
+      {
+       "text": "Always ready. Never guessing. Your crew knows what, where, when before they roll out."
+      }
+     ]
+    },
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  }
+ }
+]
