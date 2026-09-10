@@ -1,19 +1,7 @@
 import "server-only";
-import type { McpExposure } from "./mcp-exposure-catalog";
 
-/** P19-2 isolated protocol candidate. This is a complete, deck-only allowlist,
- * not an overlay or a replacement for an operator's multipurpose connection.
- * No active exposure catalogue, consent or policy manifest imports this object.
- * V28 manifest and v18 consent reservations remain unused: authority is v8.
- */
-export const MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE = Object.freeze({
-  revision: "2026-09-10.mcp-exposure.v23",
-  toolIds: Object.freeze(["get_deck_design_geometry"]),
-  grantableScopes: Object.freeze([
-    "ops.customers.read",
-    "ops.files.read",
-    "ops.jobs.read",
-    "ops.schedule.read",
-    "ops.site_visits.read",
-  ]),
-} as const satisfies McpExposure);
+/** V23 was an unpublished deck-only protocol candidate. Its approved local
+ * integration now has exactly the complete V14 tool/scope set. There is only
+ * one V23 definition and registration meaning. Manifest V28 and consent V18
+ * remain unused: existing manifests/policies and V9 consent are unchanged. */
+export { MCP_EXPOSURE_V23 as MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE } from "./mcp-exposure-catalog";

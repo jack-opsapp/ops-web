@@ -16,7 +16,7 @@ import {
 import {
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V14,
-  resolveActiveMcpExposure,
+  MCP_EXPOSURE_V23,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
   MCP_FINANCIAL_TRIAL_EXPOSURE,
@@ -59,22 +59,23 @@ export async function resolveOAuthExposureForSubject(input: {
   readonly userId: string;
   readonly companyId: string;
 }): Promise<McpExposure | null> {
-  const active = resolveActiveMcpExposure();
+  const ordinary = [MCP_EXPOSURE_V14, MCP_EXPOSURE_V23].find(
+    (exposure) => exposure.revision === input.client.exposure_revision
+  );
   if (
-    active === MCP_EXPOSURE_V14 &&
+    ordinary &&
     !input.client.disabled &&
-    input.client.exposure_revision === active.revision &&
     input.client.consent_catalog_revision === MCP_CONSENT_CATALOG_V9.revision &&
     input.client.scope_ceiling.length > 0 &&
     arraysEqual(
       input.client.scope_ceiling,
-      active.grantableScopes.filter((scope) =>
+      ordinary.grantableScopes.filter((scope) =>
         input.client.scope_ceiling.includes(scope)
       )
     ) &&
     input.client.scope === input.client.scope_ceiling.join(" ")
   )
-    return active;
+    return ordinary;
 
   if (
     clientMatchesExposure(

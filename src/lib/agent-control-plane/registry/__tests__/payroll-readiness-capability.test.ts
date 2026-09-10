@@ -107,6 +107,6 @@ describe("payroll readiness capability", () => {
     expect(
       capabilityManifestRevisionForExposure(MCP_EXPOSURE_V8.revision)
     ).toBe(PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION);
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-10.mcp-exposure.v23");
   });
 });

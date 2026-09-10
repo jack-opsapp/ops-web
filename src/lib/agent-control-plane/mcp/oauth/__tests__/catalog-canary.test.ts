@@ -83,7 +83,7 @@ describe("catalog trial authorization", () => {
       ).acceptedLabels
     ).toHaveLength(7);
     expect(resolveActiveMcpExposure().revision).toBe(
-      "2026-09-04.mcp-exposure.v14"
+      "2026-09-10.mcp-exposure.v23"
     );
     expect(resolveActiveMcpConsentCatalog().revision).toBe(
       "2026-09-04.mcp-consent-catalog.v9"

@@ -63,7 +63,7 @@ describe("financial readiness contract", () => {
       )
     ).toThrow("mismatch");
     expect(resolveActiveMcpExposure().revision).toBe(
-      "2026-09-04.mcp-exposure.v14"
+      "2026-09-10.mcp-exposure.v23"
     );
   });
 });

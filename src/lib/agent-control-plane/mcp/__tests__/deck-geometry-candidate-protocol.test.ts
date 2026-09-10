@@ -19,7 +19,7 @@ import { nativeDrawing } from "../../services/p2/deck-design/__tests__/deck-geom
 import { deckGeometryDrawingContentHash } from "../../services/p2/deck-design/deck-geometry-proof";
 import { MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE } from "../../registry/deck-geometry-exposure";
 import {
-  MCP_EXPOSURE_V2,
+  MCP_EXPOSURE_V14,
   resolveMcpExposure,
 } from "../../registry/mcp-exposure-catalog";
 import { DeckDesignGeometryResultV2Schema } from "../../contracts/deck-design-geometry-v2";
@@ -95,7 +95,7 @@ async function fixture(
       companyId: actor.companyId,
       scopes: actor.auth.channel === "mcp" ? [...actor.auth.scopeCeiling] : [],
       exposureRevision: options.legacy
-        ? MCP_EXPOSURE_V2.revision
+        ? MCP_EXPOSURE_V14.revision
         : MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision,
       tokenId: actor.auth.channel === "mcp" ? actor.auth.tokenId : "",
       expiresAtEpochSeconds: 4000000000,
@@ -120,9 +120,7 @@ async function fixture(
   };
   const handler = createMcpHandler(
     (context) =>
-      (options.legacy
-        ? createOpsMcpServer
-        : createDeckGeometryCandidateMcpServer)({
+      createOpsMcpServer({
         ...input,
         protocolEra: context.era,
       }),
@@ -167,7 +165,7 @@ async function fixture(
 }
 const body = (response: { result: { content: Array<{ text: string }> } }) =>
   JSON.parse(response.result.content[0].text);
-describe("dormant deck geometry result v2 protocol", () => {
+describe("full deck geometry successor protocol", () => {
   it("runs the original business arguments through real authorization, RPC, v2 proof and serializer", async () => {
     const f = await fixture();
     const response = await f.call();
@@ -182,16 +180,21 @@ describe("dormant deck geometry result v2 protocol", () => {
       /resultRevision|exposureRevision|v23/
     );
   });
-  it("keeps the candidate dormant and explicitly deck-only", async () => {
+  it("registers the complete V14 tool set through the normal V23 factory", async () => {
     const f = await fixture();
-    expect(() =>
-      resolveMcpExposure(MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision)
-    ).toThrow();
+    const legacy = await fixture({ legacy: true });
+    expect(
+      resolveMcpExposure(MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision).toolIds
+    ).toEqual(MCP_EXPOSURE_V14.toolIds);
     const response = await f.call({}, "tools/list");
-    expect(response.result.tools.map((t: { name: string }) => t.name)).toEqual([
-      "get_deck_design_geometry",
-    ]);
-    expect(() => createOpsMcpServer(f.input)).toThrow();
+    const oldResponse = await legacy.call({}, "tools/list");
+    expect(response.result.tools.map((t: { name: string }) => t.name)).toEqual(
+      oldResponse.result.tools.map((t: { name: string }) => t.name)
+    );
+    expect(response.result.tools).toHaveLength(35);
+    expect(
+      DeckDesignGeometryResultV2Schema.parse(body(await f.call()))
+    ).toHaveProperty("result_revision");
   });
   it("does not let caller fields choose another result or exposure", async () => {
     const f = await fixture();

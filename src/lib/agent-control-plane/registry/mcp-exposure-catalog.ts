@@ -376,6 +376,21 @@ export const MCP_EXPOSURE_V14 = Object.freeze({
   ),
 } as const satisfies McpExposure);
 
+/** Full successor for new registrations. Authority is exactly V14; only deck
+ * result representation changes. Existing pins remain immutable. */
+export const MCP_EXPOSURE_V23 = Object.freeze({
+  revision: "2026-09-10.mcp-exposure.v23",
+  toolIds: MCP_EXPOSURE_V14.toolIds,
+  grantableScopes: MCP_EXPOSURE_V14.grantableScopes,
+} as const satisfies McpExposure);
+
+export function isCustomerUpdateMcpExposure(revision: string): boolean {
+  return (
+    revision === MCP_EXPOSURE_V14.revision ||
+    revision === MCP_EXPOSURE_V23.revision
+  );
+}
+
 /** Dormant Phase 13 candidate. It is deliberately absent from the active
  * exposure catalogue and cannot be selected by registration or deployment. */
 export const MCP_EXPOSURE_V15 = Object.freeze({
@@ -438,9 +453,9 @@ export const MCP_EXPOSURE_V17 = Object.freeze({
   ),
 } as const satisfies McpExposure);
 
-export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V14.revision;
+export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V23.revision;
 
-/** Exact subject-bound catalog trial. Public registration remains V14. */
+/** Exact subject-bound catalog trial. Public registration uses the full V23 successor. */
 export const MCP_CATALOG_TRIAL_EXPOSURE = Object.freeze({
   revision: MCP_EXPOSURE_V19.revision,
   toolIds: Object.freeze([
@@ -462,7 +477,7 @@ export const MCP_CATALOG_TRIAL_EXPOSURE = Object.freeze({
   ]),
 } as const satisfies McpExposure);
 
-/** Recognized only for exact subject-bound trials; public registration stays v14. */
+/** Recognized only for exact subject-bound trials; public registration uses the full V23 successor. */
 export const MCP_FINANCIAL_TRIAL_EXPOSURE = Object.freeze({
   revision: MCP_EXPOSURE_V17.revision,
   toolIds: Object.freeze([
@@ -497,6 +512,7 @@ export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
     [MCP_EXPOSURE_V12.revision]: MCP_EXPOSURE_V12,
     [MCP_EXPOSURE_V13.revision]: MCP_EXPOSURE_V13,
     [MCP_EXPOSURE_V14.revision]: MCP_EXPOSURE_V14,
+    [MCP_EXPOSURE_V23.revision]: MCP_EXPOSURE_V23,
   });
 
 function requiredNonBlank(value: unknown, field: string): string {
@@ -631,7 +647,7 @@ function validateExposure(exposure: McpExposure): void {
         ? CATALOG_AUTHORING_CAPABILITY_MANIFEST
         : exposure.revision === MCP_EXPOSURE_V17.revision
           ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST
-          : exposure.revision === MCP_EXPOSURE_V14.revision
+          : isCustomerUpdateMcpExposure(exposure.revision)
             ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST
             : exposure.revision === MCP_EXPOSURE_V13.revision
               ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST
@@ -668,7 +684,7 @@ function validateExposure(exposure: McpExposure): void {
         ? CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS
         : exposure.revision === MCP_EXPOSURE_V17.revision
           ? FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
-          : exposure.revision === MCP_EXPOSURE_V14.revision
+          : isCustomerUpdateMcpExposure(exposure.revision)
             ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
             : exposure.revision === MCP_EXPOSURE_V13.revision
               ? DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
@@ -695,7 +711,7 @@ function validateExposure(exposure: McpExposure): void {
       exposure.revision === MCP_EXPOSURE_V11.revision ||
       exposure.revision === MCP_EXPOSURE_V12.revision ||
       exposure.revision === MCP_EXPOSURE_V13.revision ||
-      exposure.revision === MCP_EXPOSURE_V14.revision
+      isCustomerUpdateMcpExposure(exposure.revision)
         ? ["read", "prepare"]
         : ["read"],
   });
@@ -715,6 +731,7 @@ validateExposure(MCP_EXPOSURE_V11);
 validateExposure(MCP_EXPOSURE_V12);
 validateExposure(MCP_EXPOSURE_V13);
 validateExposure(MCP_EXPOSURE_V14);
+validateExposure(MCP_EXPOSURE_V23);
 // Validate both the full candidate and the separately restricted trial.
 validateExposure(MCP_EXPOSURE_V17);
 validateExposure(MCP_FINANCIAL_TRIAL_EXPOSURE);
@@ -728,7 +745,7 @@ export function capabilityManifestRevisionForExposure(
     ? CATALOG_AUTHORING_MANIFEST
     : exposureRevision === MCP_EXPOSURE_V17.revision
       ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
-      : exposureRevision === MCP_EXPOSURE_V14.revision
+      : isCustomerUpdateMcpExposure(exposureRevision)
         ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
         : exposureRevision === MCP_EXPOSURE_V13.revision
           ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION

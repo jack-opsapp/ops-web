@@ -19,7 +19,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MCP_EXPOSURE_V14 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import { MCP_EXPOSURE_V14, MCP_EXPOSURE_V23 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 const APP_URL = "https://app.opsapp.co";
 
 const mocks = vi.hoisted(() => {
@@ -483,7 +483,7 @@ describe("POST /api/mcp/oauth/register", () => {
       p_scope: MCP_EXPOSURE_V14.grantableScopes.join(" "),
       p_scope_ceiling: [...MCP_EXPOSURE_V14.grantableScopes],
       p_consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
-      p_exposure_revision: MCP_EXPOSURE_V14.revision,
+      p_exposure_revision: MCP_EXPOSURE_V23.revision,
       p_software_id: "claude-connector",
       p_software_version: null,
     });

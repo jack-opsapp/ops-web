@@ -9,6 +9,7 @@ import {
 import {
   ACTIVE_MCP_EXPOSURE_REVISION,
   MCP_EXPOSURE_V14,
+  MCP_EXPOSURE_V23,
   MCP_EXPOSURE_V15,
 } from "../mcp-exposure-catalog";
 
@@ -31,7 +32,7 @@ describe("customer message dormant catalogue", () => {
         "ops.communications.prepare",
       ].sort(),
     ]);
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V14.revision);
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V23.revision);
   });
 
   it("requires message, customer, correspondence, and job authority with exact approval", () => {

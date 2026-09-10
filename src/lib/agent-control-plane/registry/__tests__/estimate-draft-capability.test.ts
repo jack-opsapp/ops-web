@@ -87,7 +87,7 @@ describe("estimate draft dormant capability", () => {
   });
 
   it("makes v10 additive to v9 while the historical v2 catalogue stays immutable", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-10.mcp-exposure.v23");
     expect(MCP_EXPOSURE_V10.toolIds).toEqual([
       ...MCP_EXPOSURE_V9.toolIds,
       "prepare_estimate_from_past_job",

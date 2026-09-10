@@ -53,7 +53,7 @@ describe("financial trial OAuth boundary", () => {
       p_consent_catalog_revision: client.consent_catalog_revision,
     });
     expect(resolveActiveMcpExposure().revision).toBe(
-      "2026-09-04.mcp-exposure.v14"
+      "2026-09-10.mcp-exposure.v23"
     );
   });
   it.each([

@@ -53,7 +53,7 @@ describe("dispatch confirmation task dormant capability", () => {
   });
 
   it("keeps production v2 immutable and remints v18 into v19", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-10.mcp-exposure.v23");
     expect(DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION).toBe(
       "2026-09-03.capability-manifest.v19"
     );

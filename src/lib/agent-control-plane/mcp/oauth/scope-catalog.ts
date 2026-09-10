@@ -1,5 +1,5 @@
+import { isCustomerUpdateMcpExposure } from "../../registry/mcp-exposure-catalog";
 import {
-  MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V17,
   MCP_EXPOSURE_V19,
 } from "../../registry/mcp-exposure-catalog";
@@ -232,7 +232,7 @@ export function consentSnapshotForExposure(
       ? MCP_CONSENT_CATALOG_V14.revision
       : exposure.revision === MCP_EXPOSURE_V17.revision
         ? MCP_CONSENT_CATALOG_V12.revision
-        : exposure.revision === MCP_EXPOSURE_V14.revision
+        : isCustomerUpdateMcpExposure(exposure.revision)
           ? MCP_CONSENT_CATALOG_V9.revision
           : exposure.revision === MCP_EXPOSURE_V13.revision
             ? MCP_CONSENT_CATALOG_V8.revision
