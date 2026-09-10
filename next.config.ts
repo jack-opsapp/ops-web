@@ -15,6 +15,18 @@ const baseNextConfig: NextConfig = {
     "/api/internal/social/editorial/assignments/[id]/release": [
       "./docs/social/voice/*.md",
     ],
+    // The weekly journal writer's routes hand the journal voice, rhythm and
+    // product-fact documents to the cloud routine on every claim and draft.
+    "/api/internal/journal/editorial/claim": ["./docs/journal/voice/*.md"],
+    "/api/internal/journal/editorial/assignments/[id]/sources": [
+      "./docs/journal/voice/*.md",
+    ],
+    "/api/internal/journal/editorial/assignments/[id]/draft": [
+      "./docs/journal/voice/*.md",
+    ],
+    "/api/internal/journal/editorial/assignments/[id]/release": [
+      "./docs/journal/voice/*.md",
+    ],
   },
   eslint: {
     // Warnings from other agents' unused imports break the Vercel build.
