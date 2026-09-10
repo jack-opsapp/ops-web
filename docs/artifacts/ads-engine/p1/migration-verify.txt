@@ -1,0 +1,39 @@
+# Production verification — 20260909120000_ads_conversion_outbox.sql
+# Project ijeekuhbatykdomumfjx, applied via Supabase MCP apply_migration
+# (name ads_conversion_outbox) on 2026-09-09 ~02:35 UTC. Verified BY OBJECT.
+
+ledger   20260909023503 ads_conversion_outbox   md5(statements[1]) = 08f110c619ddfdf6db57ab36fe4212eb
+
+function ads_enqueue_conversion_event        security definer = true
+function ads_enqueue_trial_activation        security definer = true
+function ads_plan_annual_value               security definer = false (sql, immutable)
+function expire_attribution_click_ids        security definer = true
+function pmf_update_first_paid_at            security definer = false (unchanged posture)
+function record_first_touch_attribution      security definer = true
+function seed_trial_attribution_for_company  security definer = true
+
+trigger  projects_ads_enqueue_trial_activation  enabled (O)   <- new
+trigger  companies_seed_trial_attribution        enabled (O)   <- rides trial_started
+trigger  billing_events_first_paid               enabled (O)   <- rides paid
+
+column   trial_attributions.gbraid  text
+column   trial_attributions.wbraid  text
+table    ads_conversion_actions  kind, resource_name, google_id, name, synced_at
+table    ads_conversion_events   id, company_id, kind, occurred_at, value, currency, transaction_id,
+                                 state, attempts, next_attempt_at, last_error, sent_at, google_request_id, created_at
+
+rls      ads_conversion_actions = true
+rls      ads_conversion_events  = true
+
+priv     anon          ads_conversion_actions SELECT=false INSERT=false
+priv     anon          ads_conversion_events  SELECT=false INSERT=false
+priv     authenticated ads_conversion_actions SELECT=false INSERT=false
+priv     authenticated ads_conversion_events  SELECT=false INSERT=false
+priv     service_role  ads_conversion_actions SELECT=true  INSERT=true
+priv     service_role  ads_conversion_events  SELECT=true  INSERT=true
+fnpriv   ads_enqueue_conversion_event  anon=false authenticated=false service_role=true
+
+index    ads_conversion_events_pkey, ads_conversion_events_transaction_id_key,
+         ads_conversion_events_ready_idx (partial, state='queued'), ads_conversion_events_company_idx
+
+rows     ads_conversion_events = 0 at verification time

@@ -1,0 +1,5 @@
+{
+  "approved": true,
+  "reason": "approved",
+  "notes": "Biggest fix: description 3 repeats headline 8 (\"Free to start\") and headline 7 (\"Built by trades, for trades\") word for word, so Google can assemble an ad that says each of them twice. Rebuild that description around the offer's mechanism - what the free tier actually covers - and keep \"no credit card\" as its only reused phrase."
+}

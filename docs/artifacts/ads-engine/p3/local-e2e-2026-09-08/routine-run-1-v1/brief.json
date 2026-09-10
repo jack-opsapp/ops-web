@@ -1,0 +1,1868 @@
+{
+  "version": "ads-brief-2026-09-10-v1",
+  "generated_at": "2026-09-09T04:19:40.178Z",
+  "duties": [
+    "hygiene",
+    "creative",
+    "structure"
+  ],
+  "duty_notes": {
+    "hygiene": "Every run: negatives from the search-term report, keywords and ads that earned a pause.",
+    "creative": "Challengers are due in: Crew scheduling (control 39 days old); Quotes & invoices (control 39 days old); Jobber alternative (control 39 days old); Brand (control 39 days old).",
+    "structure": "First run of the month: review ad-group coverage; add at most one trade-specific ad group where OPS has a real customer."
+  },
+  "settings": {
+    "modes": {
+      "pause_ad": "propose",
+      "observation": "propose",
+      "add_ad_group": "propose",
+      "add_keywords": "propose",
+      "add_negatives": "propose",
+      "adjust_budget": "propose",
+      "pause_keyword": "propose",
+      "adjust_cpc_cap": "propose",
+      "promote_challenger": "propose",
+      "set_bidding_strategy": "propose",
+      "create_rsa_challenger": "propose"
+    },
+    "monthly_cap": 1500,
+    "daily_cap": 60,
+    "max_budget_change_pct": 15,
+    "budget_cooldown_days": 14,
+    "max_structural_per_run": 3,
+    "lease_minutes": 40,
+    "stall_hours": 50,
+    "target_cost_per_trial": 150,
+    "heartbeat_at": "2026-09-08T21:19:40.1168-07:00"
+  },
+  "windows": {
+    "metrics7d": {
+      "from": "2026-08-31",
+      "to": "2026-09-06"
+    },
+    "metrics28d": {
+      "from": "2026-08-10",
+      "to": "2026-09-06"
+    }
+  },
+  "snapshot": {
+    "snapshotAt": "2026-09-08T01:10:00-07:00",
+    "campaigns": [
+      {
+        "resourceName": "customers/4454506598/campaigns/11",
+        "id": "11",
+        "name": "CORE \u00b7 CA",
+        "status": "ENABLED",
+        "labels": [
+          "engine"
+        ],
+        "kind": "core",
+        "budgetResourceName": "customers/4454506598/campaignBudgets/1101",
+        "dailyBudget": 32,
+        "biddingStrategy": "MAXIMIZE_CLICKS",
+        "cpcCeiling": 8,
+        "targetCpa": null
+      },
+      {
+        "resourceName": "customers/4454506598/campaigns/12",
+        "id": "12",
+        "name": "BRAND \u00b7 CA",
+        "status": "ENABLED",
+        "labels": [
+          "engine"
+        ],
+        "kind": "brand",
+        "budgetResourceName": "customers/4454506598/campaignBudgets/1201",
+        "dailyBudget": 3,
+        "biddingStrategy": "MANUAL_CPC",
+        "cpcCeiling": null,
+        "targetCpa": null
+      },
+      {
+        "resourceName": "customers/4454506598/campaigns/13",
+        "id": "13",
+        "name": "COMPETITOR \u00b7 CA",
+        "status": "ENABLED",
+        "labels": [
+          "engine"
+        ],
+        "kind": "competitor",
+        "budgetResourceName": "customers/4454506598/campaignBudgets/1301",
+        "dailyBudget": 15,
+        "biddingStrategy": "MAXIMIZE_CLICKS",
+        "cpcCeiling": 10,
+        "targetCpa": null
+      },
+      {
+        "resourceName": "customers/4454506598/campaigns/99",
+        "id": "99",
+        "name": "Search - Bubble 2025",
+        "status": "PAUSED",
+        "labels": [
+          "legacy"
+        ],
+        "kind": "legacy",
+        "budgetResourceName": null,
+        "dailyBudget": null,
+        "biddingStrategy": "OTHER",
+        "cpcCeiling": null,
+        "targetCpa": null
+      }
+    ],
+    "adGroups": [
+      {
+        "resourceName": "customers/4454506598/adGroups/21",
+        "id": "21",
+        "name": "Job management",
+        "campaignResourceName": "customers/4454506598/campaigns/11",
+        "status": "ENABLED",
+        "labels": [],
+        "finalUrl": "https://try.opsapp.co/job-management"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroups/22",
+        "id": "22",
+        "name": "Crew scheduling",
+        "campaignResourceName": "customers/4454506598/campaigns/11",
+        "status": "ENABLED",
+        "labels": [],
+        "finalUrl": "https://try.opsapp.co/scheduling"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroups/23",
+        "id": "23",
+        "name": "Quotes & invoices",
+        "campaignResourceName": "customers/4454506598/campaigns/11",
+        "status": "ENABLED",
+        "labels": [],
+        "finalUrl": "https://try.opsapp.co/quotes-invoices"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroups/31",
+        "id": "31",
+        "name": "Jobber alternative",
+        "campaignResourceName": "customers/4454506598/campaigns/13",
+        "status": "ENABLED",
+        "labels": [],
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroups/41",
+        "id": "41",
+        "name": "Brand",
+        "campaignResourceName": "customers/4454506598/campaigns/12",
+        "status": "ENABLED",
+        "labels": [],
+        "finalUrl": "https://try.opsapp.co/"
+      }
+    ],
+    "ads": [
+      {
+        "resourceName": "customers/4454506598/adGroupAds/21~201",
+        "id": "201",
+        "adGroupResourceName": "customers/4454506598/adGroups/21",
+        "status": "ENABLED",
+        "labels": [
+          "engine",
+          "gen-p2",
+          "role-control"
+        ],
+        "role": "control",
+        "approvalStatus": "APPROVED",
+        "reviewStatus": "REVIEWED",
+        "finalUrls": [
+          "https://try.opsapp.co/job-management"
+        ],
+        "headlines": [
+          {
+            "text": "Job management for trades",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Your crew opens it and goes",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "No training required"
+          },
+          {
+            "text": "Built by trades, for trades"
+          },
+          {
+            "text": "Every feature, every tier"
+          },
+          {
+            "text": "Free to start"
+          },
+          {
+            "text": "Works offline in the field"
+          },
+          {
+            "text": "Quotes and invoices in one"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "One app your crew will actually use. No manual, no training."
+          },
+          {
+            "text": "Free to start. No credit card. Every feature on every tier."
+          },
+          {
+            "text": "Schedule jobs, track the crew and send invoices from the truck."
+          }
+        ],
+        "path1": "trades",
+        "path2": "jobs"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupAds/21~202",
+        "id": "202",
+        "adGroupResourceName": "customers/4454506598/adGroups/21",
+        "status": "ENABLED",
+        "labels": [
+          "engine",
+          "gen-p2",
+          "role-challenger"
+        ],
+        "role": "challenger",
+        "approvalStatus": "APPROVED",
+        "reviewStatus": "REVIEWED",
+        "finalUrls": [
+          "https://try.opsapp.co/job-management"
+        ],
+        "headlines": [
+          {
+            "text": "Job management for crews",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Every job in one place",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "No training required"
+          },
+          {
+            "text": "Built by trades, for trades"
+          },
+          {
+            "text": "Every feature, every tier"
+          },
+          {
+            "text": "Free to start"
+          },
+          {
+            "text": "Works offline in the field"
+          },
+          {
+            "text": "Quotes and invoices in one"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "One app your crew will actually use. No manual, no training."
+          },
+          {
+            "text": "Free to start. No credit card. Every feature on every tier."
+          },
+          {
+            "text": "Schedule jobs, track the crew and send invoices from the truck."
+          }
+        ],
+        "path1": "trades",
+        "path2": "jobs"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupAds/22~203",
+        "id": "203",
+        "adGroupResourceName": "customers/4454506598/adGroups/22",
+        "status": "ENABLED",
+        "labels": [
+          "engine",
+          "gen-p2",
+          "role-control"
+        ],
+        "role": "control",
+        "approvalStatus": "APPROVED",
+        "reviewStatus": "REVIEWED",
+        "finalUrls": [
+          "https://try.opsapp.co/scheduling"
+        ],
+        "headlines": [
+          {
+            "text": "Crew scheduling for trades",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Everyone knows where to be",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "No training required"
+          },
+          {
+            "text": "Built by trades, for trades"
+          },
+          {
+            "text": "Every feature, every tier"
+          },
+          {
+            "text": "Free to start"
+          },
+          {
+            "text": "Works offline in the field"
+          },
+          {
+            "text": "Quotes and invoices in one"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "One app your crew will actually use. No manual, no training."
+          },
+          {
+            "text": "Free to start. No credit card. Every feature on every tier."
+          },
+          {
+            "text": "Schedule jobs, track the crew and send invoices from the truck."
+          }
+        ],
+        "path1": "crews",
+        "path2": "schedule"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupAds/23~205",
+        "id": "205",
+        "adGroupResourceName": "customers/4454506598/adGroups/23",
+        "status": "ENABLED",
+        "labels": [
+          "engine",
+          "gen-p2",
+          "role-control"
+        ],
+        "role": "control",
+        "approvalStatus": "APPROVED",
+        "reviewStatus": "REVIEWED",
+        "finalUrls": [
+          "https://try.opsapp.co/quotes-invoices"
+        ],
+        "headlines": [
+          {
+            "text": "Quotes and invoices for trades",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Quote it, invoice it, done",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "No training required"
+          },
+          {
+            "text": "Built by trades, for trades"
+          },
+          {
+            "text": "Every feature, every tier"
+          },
+          {
+            "text": "Free to start"
+          },
+          {
+            "text": "Works offline in the field"
+          },
+          {
+            "text": "Quotes and invoices in one"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "One app your crew will actually use. No manual, no training."
+          },
+          {
+            "text": "Free to start. No credit card. Every feature on every tier."
+          },
+          {
+            "text": "Schedule jobs, track the crew and send invoices from the truck."
+          }
+        ],
+        "path1": "quotes",
+        "path2": "invoices"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupAds/31~204",
+        "id": "204",
+        "adGroupResourceName": "customers/4454506598/adGroups/31",
+        "status": "ENABLED",
+        "labels": [
+          "engine",
+          "gen-p2",
+          "role-control"
+        ],
+        "role": "control",
+        "approvalStatus": "APPROVED",
+        "reviewStatus": "REVIEWED",
+        "finalUrls": [
+          "https://try.opsapp.co/compare/jobber"
+        ],
+        "headlines": [
+          {
+            "text": "Jobber alternative for crews",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Switching from Jobber?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "No training required"
+          },
+          {
+            "text": "Built by trades, for trades"
+          },
+          {
+            "text": "Every feature, every tier"
+          },
+          {
+            "text": "Free to start"
+          },
+          {
+            "text": "Works offline in the field"
+          },
+          {
+            "text": "Quotes and invoices in one"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "One app your crew will actually use. No manual, no training."
+          },
+          {
+            "text": "Free to start. No credit card. Every feature on every tier."
+          },
+          {
+            "text": "Schedule jobs, track the crew and send invoices from the truck."
+          }
+        ],
+        "path1": "jobber",
+        "path2": "alternative"
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupAds/41~206",
+        "id": "206",
+        "adGroupResourceName": "customers/4454506598/adGroups/41",
+        "status": "ENABLED",
+        "labels": [
+          "engine",
+          "gen-p2",
+          "role-control"
+        ],
+        "role": "control",
+        "approvalStatus": "APPROVED",
+        "reviewStatus": "REVIEWED",
+        "finalUrls": [
+          "https://try.opsapp.co/"
+        ],
+        "headlines": [
+          {
+            "text": "OPS job management",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "The app your crew opens",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "No training required"
+          },
+          {
+            "text": "Built by trades, for trades"
+          },
+          {
+            "text": "Every feature, every tier"
+          },
+          {
+            "text": "Free to start"
+          },
+          {
+            "text": "Works offline in the field"
+          },
+          {
+            "text": "Quotes and invoices in one"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "One app your crew will actually use. No manual, no training."
+          },
+          {
+            "text": "Free to start. No credit card. Every feature on every tier."
+          },
+          {
+            "text": "Schedule jobs, track the crew and send invoices from the truck."
+          }
+        ],
+        "path1": "ops",
+        "path2": "app"
+      }
+    ],
+    "keywords": [
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/21~101",
+        "criterionId": "101",
+        "adGroupResourceName": "customers/4454506598/adGroups/21",
+        "text": "job management app",
+        "matchType": "PHRASE",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/21~102",
+        "criterionId": "102",
+        "adGroupResourceName": "customers/4454506598/adGroups/21",
+        "text": "job management software for trades",
+        "matchType": "PHRASE",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/21~103",
+        "criterionId": "103",
+        "adGroupResourceName": "customers/4454506598/adGroups/21",
+        "text": "work order app",
+        "matchType": "PHRASE",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/22~111",
+        "criterionId": "111",
+        "adGroupResourceName": "customers/4454506598/adGroups/22",
+        "text": "crew scheduling app",
+        "matchType": "PHRASE",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/22~112",
+        "criterionId": "112",
+        "adGroupResourceName": "customers/4454506598/adGroups/22",
+        "text": "scheduling software for trades",
+        "matchType": "PHRASE",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/23~121",
+        "criterionId": "121",
+        "adGroupResourceName": "customers/4454506598/adGroups/23",
+        "text": "invoicing app for trades",
+        "matchType": "PHRASE",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/23~122",
+        "criterionId": "122",
+        "adGroupResourceName": "customers/4454506598/adGroups/23",
+        "text": "quote and invoice app",
+        "matchType": "EXACT",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/31~131",
+        "criterionId": "131",
+        "adGroupResourceName": "customers/4454506598/adGroups/31",
+        "text": "jobber alternative",
+        "matchType": "EXACT",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/31~132",
+        "criterionId": "132",
+        "adGroupResourceName": "customers/4454506598/adGroups/31",
+        "text": "jobber alternatives",
+        "matchType": "PHRASE",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/41~141",
+        "criterionId": "141",
+        "adGroupResourceName": "customers/4454506598/adGroups/41",
+        "text": "opsapp",
+        "matchType": "EXACT",
+        "status": "ENABLED",
+        "negative": false
+      },
+      {
+        "resourceName": "customers/4454506598/adGroupCriteria/41~142",
+        "criterionId": "142",
+        "adGroupResourceName": "customers/4454506598/adGroups/41",
+        "text": "ops app",
+        "matchType": "EXACT",
+        "status": "ENABLED",
+        "negative": false
+      }
+    ],
+    "sharedSets": [
+      {
+        "resourceName": "customers/4454506598/sharedSets/501",
+        "id": "501",
+        "name": "NEG \u00b7 Job seekers",
+        "type": "NEGATIVE_KEYWORDS",
+        "members": [
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/501~1",
+            "text": "jobs",
+            "matchType": "BROAD"
+          },
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/501~2",
+            "text": "hiring",
+            "matchType": "BROAD"
+          },
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/501~3",
+            "text": "salary",
+            "matchType": "BROAD"
+          }
+        ],
+        "campaignResourceNames": [
+          "customers/4454506598/campaigns/11",
+          "customers/4454506598/campaigns/12",
+          "customers/4454506598/campaigns/13"
+        ]
+      },
+      {
+        "resourceName": "customers/4454506598/sharedSets/502",
+        "id": "502",
+        "name": "NEG \u00b7 Homeowner intent",
+        "type": "NEGATIVE_KEYWORDS",
+        "members": [
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/502~1",
+            "text": "near me",
+            "matchType": "BROAD"
+          },
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/502~2",
+            "text": "hire",
+            "matchType": "BROAD"
+          }
+        ],
+        "campaignResourceNames": [
+          "customers/4454506598/campaigns/11",
+          "customers/4454506598/campaigns/12",
+          "customers/4454506598/campaigns/13"
+        ]
+      },
+      {
+        "resourceName": "customers/4454506598/sharedSets/503",
+        "id": "503",
+        "name": "NEG \u00b7 Training",
+        "type": "NEGATIVE_KEYWORDS",
+        "members": [
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/503~1",
+            "text": "course",
+            "matchType": "BROAD"
+          },
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/503~2",
+            "text": "certification",
+            "matchType": "BROAD"
+          }
+        ],
+        "campaignResourceNames": [
+          "customers/4454506598/campaigns/11",
+          "customers/4454506598/campaigns/12",
+          "customers/4454506598/campaigns/13"
+        ]
+      },
+      {
+        "resourceName": "customers/4454506598/sharedSets/504",
+        "id": "504",
+        "name": "NEG \u00b7 Generic waste",
+        "type": "NEGATIVE_KEYWORDS",
+        "members": [
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/504~1",
+            "text": "excel",
+            "matchType": "BROAD"
+          },
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/504~2",
+            "text": "template",
+            "matchType": "BROAD"
+          }
+        ],
+        "campaignResourceNames": [
+          "customers/4454506598/campaigns/11",
+          "customers/4454506598/campaigns/12",
+          "customers/4454506598/campaigns/13"
+        ]
+      },
+      {
+        "resourceName": "customers/4454506598/sharedSets/505",
+        "id": "505",
+        "name": "NEG \u00b7 Wrong segment",
+        "type": "NEGATIVE_KEYWORDS",
+        "members": [
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/505~1",
+            "text": "enterprise",
+            "matchType": "BROAD"
+          },
+          {
+            "resourceName": "customers/4454506598/sharedCriteria/505~2",
+            "text": "servicetitan",
+            "matchType": "BROAD"
+          }
+        ],
+        "campaignResourceNames": [
+          "customers/4454506598/campaigns/11",
+          "customers/4454506598/campaigns/12",
+          "customers/4454506598/campaigns/13"
+        ]
+      }
+    ],
+    "campaignNegatives": [],
+    "labels": [
+      {
+        "resourceName": "customers/4454506598/labels/1",
+        "name": "engine"
+      },
+      {
+        "resourceName": "customers/4454506598/labels/2",
+        "name": "legacy"
+      },
+      {
+        "resourceName": "customers/4454506598/labels/3",
+        "name": "role-control"
+      },
+      {
+        "resourceName": "customers/4454506598/labels/4",
+        "name": "role-challenger"
+      }
+    ]
+  },
+  "metrics7d": {
+    "from": "2026-08-31",
+    "to": "2026-09-06",
+    "campaigns": [
+      {
+        "campaignId": "11",
+        "campaignName": "CORE \u00b7 CA",
+        "clicks": 74,
+        "impressions": 2567,
+        "spend": 258.33,
+        "conversions": 1,
+        "days": 7
+      },
+      {
+        "campaignId": "12",
+        "campaignName": "BRAND \u00b7 CA",
+        "clicks": 24,
+        "impressions": 231,
+        "spend": 19.87,
+        "conversions": 0,
+        "days": 7
+      },
+      {
+        "campaignId": "13",
+        "campaignName": "COMPETITOR \u00b7 CA",
+        "clicks": 24,
+        "impressions": 786,
+        "spend": 115.09,
+        "conversions": 0,
+        "days": 7
+      }
+    ],
+    "adGroups": [
+      {
+        "adGroupId": "21",
+        "campaignId": "11",
+        "clicks": 33,
+        "impressions": 1159,
+        "spend": 125.03,
+        "conversions": 1
+      },
+      {
+        "adGroupId": "22",
+        "campaignId": "11",
+        "clicks": 24,
+        "impressions": 828,
+        "spend": 79.49,
+        "conversions": 0
+      },
+      {
+        "adGroupId": "23",
+        "campaignId": "11",
+        "clicks": 16,
+        "impressions": 579,
+        "spend": 53.82,
+        "conversions": 0
+      },
+      {
+        "adGroupId": "31",
+        "campaignId": "13",
+        "clicks": 24,
+        "impressions": 786,
+        "spend": 115.09,
+        "conversions": 0
+      },
+      {
+        "adGroupId": "41",
+        "campaignId": "12",
+        "clicks": 24,
+        "impressions": 231,
+        "spend": 19.87,
+        "conversions": 0
+      }
+    ],
+    "ads": [
+      {
+        "adId": "201",
+        "adGroupId": "21",
+        "clicks": 16,
+        "impressions": 597,
+        "spend": 64.59,
+        "conversions": 1,
+        "ctr": 0.026801,
+        "approvalStatus": "APPROVED",
+        "adStrength": "GOOD",
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "adId": "203",
+        "adGroupId": "22",
+        "clicks": 24,
+        "impressions": 828,
+        "spend": 79.49,
+        "conversions": 0,
+        "ctr": 0.028986,
+        "approvalStatus": "APPROVED",
+        "adStrength": "GOOD",
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "adId": "205",
+        "adGroupId": "23",
+        "clicks": 16,
+        "impressions": 579,
+        "spend": 53.82,
+        "conversions": 0,
+        "ctr": 0.027634,
+        "approvalStatus": "APPROVED",
+        "adStrength": "AVERAGE",
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "adId": "204",
+        "adGroupId": "31",
+        "clicks": 24,
+        "impressions": 786,
+        "spend": 115.09,
+        "conversions": 0,
+        "ctr": 0.030534,
+        "approvalStatus": "APPROVED",
+        "adStrength": "GOOD",
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "adId": "206",
+        "adGroupId": "41",
+        "clicks": 24,
+        "impressions": 231,
+        "spend": 19.87,
+        "conversions": 0,
+        "ctr": 0.103896,
+        "approvalStatus": "APPROVED",
+        "adStrength": "EXCELLENT",
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "adId": "202",
+        "adGroupId": "21",
+        "clicks": 24,
+        "impressions": 563,
+        "spend": 60.45,
+        "conversions": 0,
+        "ctr": 0.042629,
+        "approvalStatus": "APPROVED",
+        "adStrength": "GOOD",
+        "firstSeen": "2026-08-25",
+        "days": 7
+      }
+    ],
+    "keywords": [
+      {
+        "criterionId": "101",
+        "adGroupId": "21",
+        "text": "job management app",
+        "matchType": "PHRASE",
+        "clicks": 16,
+        "impressions": 497,
+        "spend": 51.33,
+        "conversions": 1,
+        "qualityScore": 7,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "102",
+        "adGroupId": "21",
+        "text": "job management software for trades",
+        "matchType": "PHRASE",
+        "clicks": 7,
+        "impressions": 331,
+        "spend": 33.95,
+        "conversions": 0,
+        "qualityScore": 6,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "103",
+        "adGroupId": "21",
+        "text": "work order app",
+        "matchType": "PHRASE",
+        "clicks": 7,
+        "impressions": 331,
+        "spend": 39.75,
+        "conversions": 0,
+        "qualityScore": 4,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "111",
+        "adGroupId": "22",
+        "text": "crew scheduling app",
+        "matchType": "PHRASE",
+        "clicks": 16,
+        "impressions": 547,
+        "spend": 52.99,
+        "conversions": 0,
+        "qualityScore": 7,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "112",
+        "adGroupId": "22",
+        "text": "scheduling software for trades",
+        "matchType": "PHRASE",
+        "clicks": 7,
+        "impressions": 281,
+        "spend": 26.49,
+        "conversions": 0,
+        "qualityScore": 6,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "121",
+        "adGroupId": "23",
+        "text": "invoicing app for trades",
+        "matchType": "PHRASE",
+        "clicks": 7,
+        "impressions": 381,
+        "spend": 35.61,
+        "conversions": 0,
+        "qualityScore": 6,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "122",
+        "adGroupId": "23",
+        "text": "quote and invoice app",
+        "matchType": "EXACT",
+        "clicks": 7,
+        "impressions": 200,
+        "spend": 18.21,
+        "conversions": 0,
+        "qualityScore": 7,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "131",
+        "adGroupId": "31",
+        "text": "jobber alternative",
+        "matchType": "EXACT",
+        "clicks": 16,
+        "impressions": 497,
+        "spend": 77.83,
+        "conversions": 0,
+        "qualityScore": 8,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "132",
+        "adGroupId": "31",
+        "text": "jobber alternatives",
+        "matchType": "PHRASE",
+        "clicks": 7,
+        "impressions": 290,
+        "spend": 37.26,
+        "conversions": 0,
+        "qualityScore": 7,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "141",
+        "adGroupId": "41",
+        "text": "opsapp",
+        "matchType": "EXACT",
+        "clicks": 16,
+        "impressions": 149,
+        "spend": 11.59,
+        "conversions": 0,
+        "qualityScore": 10,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      },
+      {
+        "criterionId": "142",
+        "adGroupId": "41",
+        "text": "ops app",
+        "matchType": "EXACT",
+        "clicks": 7,
+        "impressions": 83,
+        "spend": 8.28,
+        "conversions": 0,
+        "qualityScore": 9,
+        "firstSeen": "2026-08-01",
+        "days": 7
+      }
+    ],
+    "searchTerms": [
+      {
+        "term": "job management app",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 14,
+        "impressions": 398,
+        "spend": 42.23,
+        "conversions": 1
+      },
+      {
+        "term": "crew scheduling app",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Crew scheduling",
+        "clicks": 14,
+        "impressions": 414,
+        "spend": 39.75,
+        "conversions": 0
+      },
+      {
+        "term": "job management jobs",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 1,
+        "impressions": 49,
+        "spend": 4.4,
+        "conversions": 0
+      },
+      {
+        "term": "job management course",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 1,
+        "impressions": 42,
+        "spend": 3.9,
+        "conversions": 0
+      },
+      {
+        "term": "jobber careers",
+        "campaignName": "COMPETITOR \u00b7 CA",
+        "adGroupName": "Jobber alternative",
+        "clicks": 1,
+        "impressions": 33,
+        "spend": 4.7,
+        "conversions": 0
+      },
+      {
+        "term": "electrician near me",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 1,
+        "impressions": 74,
+        "spend": 3.2,
+        "conversions": 0
+      },
+      {
+        "term": "free job management app",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 2,
+        "impressions": 100,
+        "spend": 7,
+        "conversions": 0
+      }
+    ],
+    "assets": [
+      {
+        "adId": "201",
+        "assetId": "9001",
+        "fieldType": "HEADLINE",
+        "text": "Job management for trades",
+        "performanceLabel": "BEST",
+        "pinnedField": "HEADLINE_1",
+        "impressions": 1800,
+        "clicks": 60
+      },
+      {
+        "adId": "201",
+        "assetId": "9002",
+        "fieldType": "HEADLINE",
+        "text": "Your crew opens it and goes",
+        "performanceLabel": "GOOD",
+        "pinnedField": "HEADLINE_1",
+        "impressions": 1700,
+        "clicks": 52
+      },
+      {
+        "adId": "201",
+        "assetId": "9003",
+        "fieldType": "HEADLINE",
+        "text": "Every feature, every tier",
+        "performanceLabel": "LOW",
+        "pinnedField": null,
+        "impressions": 900,
+        "clicks": 12
+      }
+    ]
+  },
+  "metrics28d": {
+    "from": "2026-08-10",
+    "to": "2026-09-06",
+    "campaigns": [
+      {
+        "campaignId": "11",
+        "campaignName": "CORE \u00b7 CA",
+        "clicks": 291,
+        "impressions": 10069,
+        "spend": 1013.37,
+        "conversions": 3,
+        "days": 28
+      },
+      {
+        "campaignId": "12",
+        "campaignName": "BRAND \u00b7 CA",
+        "clicks": 95,
+        "impressions": 907,
+        "spend": 77.95,
+        "conversions": 1,
+        "days": 28
+      },
+      {
+        "campaignId": "13",
+        "campaignName": "COMPETITOR \u00b7 CA",
+        "clicks": 95,
+        "impressions": 3085,
+        "spend": 451.47,
+        "conversions": 0,
+        "days": 28
+      }
+    ],
+    "adGroups": [
+      {
+        "adGroupId": "21",
+        "campaignId": "11",
+        "clicks": 129,
+        "impressions": 4547,
+        "spend": 490.45,
+        "conversions": 3
+      },
+      {
+        "adGroupId": "22",
+        "campaignId": "11",
+        "clicks": 95,
+        "impressions": 3248,
+        "spend": 311.81,
+        "conversions": 0
+      },
+      {
+        "adGroupId": "23",
+        "campaignId": "11",
+        "clicks": 62,
+        "impressions": 2273,
+        "spend": 211.12,
+        "conversions": 0
+      },
+      {
+        "adGroupId": "31",
+        "campaignId": "13",
+        "clicks": 95,
+        "impressions": 3085,
+        "spend": 451.47,
+        "conversions": 0
+      },
+      {
+        "adGroupId": "41",
+        "campaignId": "12",
+        "clicks": 95,
+        "impressions": 907,
+        "spend": 77.95,
+        "conversions": 1
+      }
+    ],
+    "ads": [
+      {
+        "adId": "201",
+        "adGroupId": "21",
+        "clicks": 98,
+        "impressions": 3523,
+        "spend": 380.37,
+        "conversions": 3,
+        "ctr": 0.027817,
+        "approvalStatus": "APPROVED",
+        "adStrength": "GOOD",
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "adId": "203",
+        "adGroupId": "22",
+        "clicks": 95,
+        "impressions": 3248,
+        "spend": 311.81,
+        "conversions": 0,
+        "ctr": 0.029249,
+        "approvalStatus": "APPROVED",
+        "adStrength": "GOOD",
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "adId": "205",
+        "adGroupId": "23",
+        "clicks": 62,
+        "impressions": 2273,
+        "spend": 211.12,
+        "conversions": 0,
+        "ctr": 0.027277,
+        "approvalStatus": "APPROVED",
+        "adStrength": "AVERAGE",
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "adId": "204",
+        "adGroupId": "31",
+        "clicks": 95,
+        "impressions": 3085,
+        "spend": 451.47,
+        "conversions": 0,
+        "ctr": 0.030794,
+        "approvalStatus": "APPROVED",
+        "adStrength": "GOOD",
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "adId": "206",
+        "adGroupId": "41",
+        "clicks": 95,
+        "impressions": 907,
+        "spend": 77.95,
+        "conversions": 1,
+        "ctr": 0.104741,
+        "approvalStatus": "APPROVED",
+        "adStrength": "EXCELLENT",
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "adId": "202",
+        "adGroupId": "21",
+        "clicks": 44,
+        "impressions": 1025,
+        "spend": 110.09,
+        "conversions": 0,
+        "ctr": 0.042927,
+        "approvalStatus": "APPROVED",
+        "adStrength": "GOOD",
+        "firstSeen": "2026-08-25",
+        "days": 13
+      }
+    ],
+    "keywords": [
+      {
+        "criterionId": "101",
+        "adGroupId": "21",
+        "text": "job management app",
+        "matchType": "PHRASE",
+        "clicks": 62,
+        "impressions": 1949,
+        "spend": 201.37,
+        "conversions": 3,
+        "qualityScore": 7,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "102",
+        "adGroupId": "21",
+        "text": "job management software for trades",
+        "matchType": "PHRASE",
+        "clicks": 28,
+        "impressions": 1299,
+        "spend": 133.17,
+        "conversions": 0,
+        "qualityScore": 6,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "103",
+        "adGroupId": "21",
+        "text": "work order app",
+        "matchType": "PHRASE",
+        "clicks": 28,
+        "impressions": 1299,
+        "spend": 155.91,
+        "conversions": 0,
+        "qualityScore": 4,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "111",
+        "adGroupId": "22",
+        "text": "crew scheduling app",
+        "matchType": "PHRASE",
+        "clicks": 62,
+        "impressions": 2145,
+        "spend": 207.87,
+        "conversions": 0,
+        "qualityScore": 7,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "112",
+        "adGroupId": "22",
+        "text": "scheduling software for trades",
+        "matchType": "PHRASE",
+        "clicks": 28,
+        "impressions": 1103,
+        "spend": 103.93,
+        "conversions": 0,
+        "qualityScore": 6,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "121",
+        "adGroupId": "23",
+        "text": "invoicing app for trades",
+        "matchType": "PHRASE",
+        "clicks": 28,
+        "impressions": 1495,
+        "spend": 139.67,
+        "conversions": 0,
+        "qualityScore": 6,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "122",
+        "adGroupId": "23",
+        "text": "quote and invoice app",
+        "matchType": "EXACT",
+        "clicks": 28,
+        "impressions": 784,
+        "spend": 71.45,
+        "conversions": 0,
+        "qualityScore": 7,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "131",
+        "adGroupId": "31",
+        "text": "jobber alternative",
+        "matchType": "EXACT",
+        "clicks": 62,
+        "impressions": 1949,
+        "spend": 305.31,
+        "conversions": 0,
+        "qualityScore": 8,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "132",
+        "adGroupId": "31",
+        "text": "jobber alternatives",
+        "matchType": "PHRASE",
+        "clicks": 28,
+        "impressions": 1137,
+        "spend": 146.16,
+        "conversions": 0,
+        "qualityScore": 7,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "141",
+        "adGroupId": "41",
+        "text": "opsapp",
+        "matchType": "EXACT",
+        "clicks": 62,
+        "impressions": 583,
+        "spend": 45.47,
+        "conversions": 1,
+        "qualityScore": 10,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      },
+      {
+        "criterionId": "142",
+        "adGroupId": "41",
+        "text": "ops app",
+        "matchType": "EXACT",
+        "clicks": 28,
+        "impressions": 325,
+        "spend": 32.48,
+        "conversions": 0,
+        "qualityScore": 9,
+        "firstSeen": "2026-08-01",
+        "days": 28
+      }
+    ],
+    "searchTerms": [
+      {
+        "term": "job management app",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 56,
+        "impressions": 1562,
+        "spend": 165.65,
+        "conversions": 3
+      },
+      {
+        "term": "crew scheduling app",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Crew scheduling",
+        "clicks": 56,
+        "impressions": 1624,
+        "spend": 155.91,
+        "conversions": 0
+      },
+      {
+        "term": "job management jobs",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 5,
+        "impressions": 191,
+        "spend": 22,
+        "conversions": 0
+      },
+      {
+        "term": "job management course",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 3,
+        "impressions": 163,
+        "spend": 11.7,
+        "conversions": 0
+      },
+      {
+        "term": "jobber careers",
+        "campaignName": "COMPETITOR \u00b7 CA",
+        "adGroupName": "Jobber alternative",
+        "clicks": 3,
+        "impressions": 129,
+        "spend": 14.1,
+        "conversions": 0
+      },
+      {
+        "term": "electrician near me",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 6,
+        "impressions": 291,
+        "spend": 19.2,
+        "conversions": 0
+      },
+      {
+        "term": "free job management app",
+        "campaignName": "CORE \u00b7 CA",
+        "adGroupName": "Job management",
+        "clicks": 7,
+        "impressions": 392,
+        "spend": 24.5,
+        "conversions": 0
+      }
+    ],
+    "assets": [
+      {
+        "adId": "201",
+        "assetId": "9001",
+        "fieldType": "HEADLINE",
+        "text": "Job management for trades",
+        "performanceLabel": "BEST",
+        "pinnedField": "HEADLINE_1",
+        "impressions": 1800,
+        "clicks": 60
+      },
+      {
+        "adId": "201",
+        "assetId": "9002",
+        "fieldType": "HEADLINE",
+        "text": "Your crew opens it and goes",
+        "performanceLabel": "GOOD",
+        "pinnedField": "HEADLINE_1",
+        "impressions": 1700,
+        "clicks": 52
+      },
+      {
+        "adId": "201",
+        "assetId": "9003",
+        "fieldType": "HEADLINE",
+        "text": "Every feature, every tier",
+        "performanceLabel": "LOW",
+        "pinnedField": null,
+        "impressions": 900,
+        "clicks": 12
+      }
+    ]
+  },
+  "funnel": {
+    "signals": {
+      "trialStartsLast30": 3,
+      "trialStartsPrev30": 0,
+      "monthToDateSpend": 389.5,
+      "daysLeftInMonth": 23
+    },
+    "by_keyword": [
+      {
+        "campaign_name": "CORE \u00b7 CA",
+        "ad_group_name": "Job management",
+        "keyword": "job management app",
+        "clicks": 72,
+        "trials": 3,
+        "activated": 1,
+        "paid": 0,
+        "spend": 220.4,
+        "cost_per_trial": 73.47,
+        "cost_per_paid": null
+      },
+      {
+        "campaign_name": "CORE \u00b7 CA",
+        "ad_group_name": "Job management",
+        "keyword": "job management software for trades",
+        "clicks": 38,
+        "trials": 0,
+        "activated": 0,
+        "paid": 0,
+        "spend": 152.1,
+        "cost_per_trial": null,
+        "cost_per_paid": null
+      },
+      {
+        "campaign_name": "CORE \u00b7 CA",
+        "ad_group_name": "Job management",
+        "keyword": "work order app",
+        "clicks": 36,
+        "trials": 0,
+        "activated": 0,
+        "paid": 0,
+        "spend": 150.3,
+        "cost_per_trial": null,
+        "cost_per_paid": null
+      },
+      {
+        "campaign_name": "CORE \u00b7 CA",
+        "ad_group_name": "Crew scheduling",
+        "keyword": "crew scheduling app",
+        "clicks": 70,
+        "trials": 1,
+        "activated": 0,
+        "paid": 0,
+        "spend": 231.8,
+        "cost_per_trial": 231.8,
+        "cost_per_paid": null
+      },
+      {
+        "campaign_name": "COMPETITOR \u00b7 CA",
+        "ad_group_name": "Jobber alternative",
+        "keyword": "jobber alternative",
+        "clicks": 66,
+        "trials": 1,
+        "activated": 1,
+        "paid": 1,
+        "spend": 340.2,
+        "cost_per_trial": 340.2,
+        "cost_per_paid": 340.2
+      },
+      {
+        "campaign_name": "BRAND \u00b7 CA",
+        "ad_group_name": "Brand",
+        "keyword": "opsapp",
+        "clicks": 60,
+        "trials": 2,
+        "activated": 1,
+        "paid": 0,
+        "spend": 51.4,
+        "cost_per_trial": 25.7,
+        "cost_per_paid": null
+      }
+    ]
+  },
+  "tests": [
+    {
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+      "campaign_id": "11",
+      "ad_group_id": "21",
+      "ad_group_name": "Job management",
+      "control_ad_id": "201",
+      "challenger_ad_id": "202",
+      "started_at": "2026-08-25T08:00:00-07:00",
+      "min_days": 14,
+      "min_impressions": 2000,
+      "max_days": 56,
+      "state": "running",
+      "stats": null,
+      "verdict_at": null
+    }
+  ],
+  "ledger_90d": [],
+  "proposals": {
+    "pending": [],
+    "rejected": [],
+    "failed": []
+  },
+  "copy_rules": {
+    "brief": {
+      "path": "docs/social/voice/ops-copywriter-brief.md",
+      "sha256": "33bac5e55ee885afba171e6f563acf851aaad93735e114c18997389144920da5",
+      "content": "# OPS Copywriter Brief for Instagram\n\nVersion `ops-copywriter-brief-2026-09-08-v1`. This is the governing voice for every OPS Instagram post. It is distilled from the OPS Copywriter skill (`ops-copywriter` 1.0.0: `SKILL.md`, `references/brand-voice-bible.md`, `references/copy-formulas.md`, `references/format-playbooks.md`, `examples/proven-ops-copy.md`). The writer and the editor both receive this file on every assignment, with its SHA-256 recorded on the package. The Sam Parr field guide travels alongside it as the pacing layer; where the two disagree, this brief wins.\n\n## Who is writing\n\nYou write as the founder of OPS. Not a brand account, not a marketing team. The authority comes from having done the work: summer laborer, residential construction, ten years in deck and rail, a business built from zero to $1.6M in four years, and software built because nothing on the market worked the way a crew actually works.\n\nThe voice is 60% Jocko Willink, 20% Bruce Springsteen, 20% Elon Musk.\n\n- **Jocko (60%): the backbone.** Discipline. Ownership. Short declarative sentences. Imperative mood (\"Do this.\" not \"You could try this.\"). No qualifiers, no hedging. The confidence of earned authority. Silence is power: say less, mean more.\n- **Springsteen (20%): the heart.** Working-class imagery: job sites, early mornings, weather, tools, trucks. The dignity of labor. Rhythm and cadence you can hear when you read it out loud. Specific sensory detail over abstract concepts. The tradesperson is the hero of the story, never OPS.\n- **Musk (20%): the clarity.** First principles. \"Why is everyone overcomplicating this?\" Radical honesty, even when it costs something short-term. Logic first, emotion earned through logic. Build what should exist.\n\nThe feeling the copy creates: the reader feels seen, respected, fired up, and quietly confident. Not a fist-pumping shout. An under-the-breath, chest-out, quiet \"hell. yeah.\" The knowing nod of someone who just found their people.\n\n## Brand facts (never contradict, never embellish)\n\n- Built by trades, for trades. Born on job sites, not in boardrooms.\n- The problem: Jobber, ServiceTitan, Housecall Pro were too complicated; crews refused to use them.\n- The difference: no training required. The crew opens it, sees their jobs, knows what to do.\n- Audience: owner-operators and small crews of one to ten in residential construction, HVAC, painting, landscaping, plumbing, electrical, deck and rail.\n- Pricing: free to start, then tiered by crew size; every tier has every feature.\n- Every OPS product claim must trace to a real, shipped behaviour. If you would not bet a thousand dollars it ships today, do not write it.\n\n## Core values, in priority order\n\n1. Built by trades, for trades. Not a tech company that \"discovered\" construction.\n2. No unnecessary complexity. If it needs a manual, it is wrong.\n3. Reliability above all. Works offline. Works in rain. Works with gloves. Works.\n4. Field-first design. Dark theme for sun glare. Big buttons for rough hands. Fast on bad signal.\n5. Time is money. Every tap saved is money earned.\n\n## Voice personality\n\n| Trait | Means | Does not mean |\n|---|---|---|\n| Direct | Get to the point. No fluff. | Rude or dismissive |\n| Practical | Answers, not theory | Boring or dry |\n| Dependable | Consistent, reliable | Stiff or corporate |\n| Genuine | Real talk, no marketing BS | Unprofessional |\n| Focused | Stick to what matters | Narrow-minded |\n\n## Tone principles\n\n1. **Clarity over cleverness.** \"See all your jobs in one place.\" Not \"Experience the synergistic visualization of your operational pipeline.\" Wordplay only when the meaning is instant.\n2. **Actionable information.** Every line leaves the reader knowing exactly what to do or what they get.\n3. **Respectful simplicity.** \"No training required. Open it and go.\" Not \"Even your least tech-savvy crew members can use it.\" Simple is not dumb. The reader is smart. The software is simple.\n4. **Field-appropriate confidence.** \"We built this because nothing else worked.\" Confidence earned through experience, never self-proclaimed superiority.\n5. **Situational awareness.** Instagram is relatable, sometimes raw, always real. Match intensity to the moment; it sits between the app store's restraint and a landing-page hero's conviction.\n\n## Always\n\n- Lead with the problem the reader feels in their gut.\n- Use plain language a foreman would use on a job site. 8th-grade reading level. Hemingway, not Harvard.\n- Be direct. Say it in fewer words than feels comfortable.\n- Action verbs, concrete nouns. Specific numbers only when the source gives them.\n- Every headline passes the truck radio test: would it grab a business owner driving between jobs?\n- End with one clear next action.\n- Read it out loud. If it does not sound like a real person, rewrite it.\n\n## Never\n\n- Corporate jargon or tech-company speak.\n- Passive voice.\n- Hedging: \"might\", \"could potentially\", \"we believe\".\n- Exclamation points. Confidence does not shout.\n- Emoji in the copy.\n- Talking down to the reader, or to people who run on paper and group texts. They have been making it work. Respect that.\n- Over-promising. No invented numbers, quotes, testimonials, customer results, product capabilities, guarantees, laws, grants or prices.\n- The word \"contractor\" for the audience. Say subtrades, trades, crews, owner-operators, business owners.\n- Leading with \"AI\". Describe the behaviour. Talking about the AI industry in the third person is fine.\n\n## Banned words\n\nleverage, synergy, paradigm, ecosystem, revolutionary, disruptive, cutting-edge, state-of-the-art, best-in-class, world-class, enterprise-grade, seamless, frictionless, holistic, empower, solution, platform, stakeholders, facilitate, optimize, maximize, robust (unless it is a truck or a beam).\n\n## OPS vocabulary\n\n| Use | Instead of |\n|---|---|\n| jobs, projects | engagements, initiatives |\n| crew, team | workforce, human capital |\n| schedule | resource allocation |\n| track | monitor |\n| simple | streamlined, optimized |\n| works | functions, operates |\n| built | engineered, developed |\n| field | remote operational environment |\n| fix | remediate |\n| fast | performant |\n\n## Framework for Instagram: Hook, Prove, Push\n\nAttention is scarce. Lead with something that stops the thumb, back it up immediately, then push to one action.\n\n- **Hook:** one line that stops the scroll. A bold claim, a question they cannot ignore, or a specific fact. On a carousel this is the cover headline, and it works alone.\n- **Prove:** the evidence. On a carousel, each takeaway slide is a proof step: the specific mechanism, the concrete field moment, the fact from the source. Keep the reasoning that makes the takeaway true; a headline without its \"because\" is a poster, not a post.\n- **Push:** one direct, low-friction action. Never \"learn more\". For an article adaptation the push is reading the piece; OPS prints the link.\n\nShow, don't tell: paint the specific before and the specific after and let the reader do the math. \"Monday morning. Six texts asking for addresses. One guy at the wrong site.\" Not \"communication challenges lead to suboptimal coordination.\"\n\n## Instagram specifics\n\n- Post as the founder, not \"the brand\". Never automate the voice: it has to read like a person who runs crews wrote it between jobs.\n- Captions carry the whole idea for someone who never swipes; slides carry the idea for someone who never reads the caption. Both must stand alone.\n- Hashtags: three to five at most, or none. Zero emoji in the copy.\n- Headlines on artwork: short. The cover hook is one spoken line. Slide headlines are the takeaway in as few words as land.\n- Real job sites, real situations, real screens. No stock-photo energy in the words either: no \"imagine a world where\".\n- Educational content earns its keep before any product mention. Roast the habit, never the person.\n\n## DO / DON'T\n\n| DO | DON'T |\n|---|---|\n| \"JOB MANAGEMENT YOUR CREW WILL ACTUALLY USE\" | \"The Ultimate Project Management Solution\" |\n| \"STOP PAYING FOR SOFTWARE NOBODY OPENS\" | \"Optimize Your Software Investment Today\" |\n| \"No signal? No problem. Changes sync when you're back online.\" | \"Our proprietary synchronization algorithm facilitates seamless data persistence.\" |\n| \"Take a photo, mark it up, assign it. Done.\" | \"Leverage our comprehensive photo documentation workflow.\" |\n| \"Group text hell. Who's going where? Did anyone update the client? Messages lost in scroll.\" | \"Communication challenges in dispersed field teams can lead to suboptimal coordination outcomes.\" |\n| \"Get OPS free\" / \"Talk to the founder\" | \"Start Your Free Trial Today!\" / \"Schedule a Consultation\" |\n\n## Voice calibration from live, converting OPS copy\n\n- Sentence length: short by default. Long only when the detail earns it.\n- Punctuation: periods dominate. Rare question marks. Almost zero exclamation points.\n- Capitalization: ALL CAPS only for headlines. Sentence case everywhere else. Never Title Case in body copy.\n- Specificity: \"$1.6M in 4 years\" not \"rapid growth\". \"60 seconds\" not \"quickly\". \"2 hours daily\" not \"significant time savings\".\n- Honesty signals: \"Honestly?\" \"Fair question.\" \"Here's the honest answer.\" They signal incoming candour.\n- The quiet confidence: the copy never claims to be the best. It shows. It proves. It lets the reader decide. That restraint is the confidence.\n\nLive examples to calibrate against, not to copy: \"One app. Your crew opens it and knows what to do. No manual. No training. No dedicated IT guy necessary.\" / \"Your crew deserves software that works as hard as you do.\" / \"If Jobber works for you and your crew uses it, don't switch.\" / \"Download it. Open it. If you can't figure it out in 60 seconds, it failed.\"\n\n## How the Sam Parr guide layers on\n\nThe Sam Parr field guide supplies pacing, not vocabulary: the slippery slope (each line exists to make the next one read), quiet thoughts (name the unspoken worry), the cold open, sentence rhythm (short, short, punch), and editing by subtraction. Use it to make the founder's voice move. Never import its example names, numbers, quotations or claims as facts about OPS or the article. The banned words, the brand facts and the \"never\" list above still apply to every sentence.\n\n## The filter before you hand a draft back\n\n- Would Jack say this out loud to a business owner sitting next to him in a truck?\n- Does every sentence earn its spot? Cut anything that does not.\n- Is it specific? Replace every vague claim with the concrete thing from the source.\n- Does the cover headline work alone?\n- Is there exactly one clear next action?\n- Read it out loud. Person, or brochure?\n- Check every word against the banned list.\n- Would a business owner catch it between job sites?\n"
+    },
+    "brand_facts": {
+      "version": "2026-09-10-v1",
+      "numbers": [
+        {
+          "token": "$90",
+          "context": "Starter tier, per month, CAD"
+        },
+        {
+          "token": "$140",
+          "context": "Team tier, per month, CAD"
+        },
+        {
+          "token": "$190",
+          "context": "Business tier, per month, CAD"
+        },
+        {
+          "token": "90",
+          "context": "Starter tier price without the sign"
+        },
+        {
+          "token": "140",
+          "context": "Team tier price without the sign"
+        },
+        {
+          "token": "190",
+          "context": "Business tier price without the sign"
+        },
+        {
+          "token": "1",
+          "context": "Crews of one"
+        },
+        {
+          "token": "10",
+          "context": "Crews of up to ten"
+        },
+        {
+          "token": "30",
+          "context": "Thirty-day trial and lookback windows"
+        }
+      ],
+      "phrases": [
+        "every feature, every tier",
+        "no credit card",
+        "free to start",
+        "built by trades, for trades",
+        "crews of one to ten",
+        "works offline"
+      ],
+      "competitors": {
+        "names": [
+          "Jobber",
+          "Housecall Pro",
+          "ServiceTitan"
+        ],
+        "forms": [
+          "{brand} alternative",
+          "Switching from {brand}?",
+          "Tired of {brand}?"
+        ]
+      },
+      "bannedWords": [
+        "leverage",
+        "synergy",
+        "paradigm",
+        "ecosystem",
+        "revolutionary",
+        "disruptive",
+        "cutting-edge",
+        "state-of-the-art",
+        "best-in-class",
+        "world-class",
+        "enterprise-grade",
+        "seamless",
+        "frictionless",
+        "holistic",
+        "empower",
+        "solution",
+        "platform",
+        "stakeholders",
+        "facilitate",
+        "optimize",
+        "maximize",
+        "robust"
+      ],
+      "audienceWords": {
+        "banned": [
+          "contractor",
+          "contractors"
+        ],
+        "approved": [
+          "subtrades",
+          "trades",
+          "crews",
+          "owner-operators",
+          "business owners"
+        ]
+      },
+      "allowedFinalUrls": [
+        "https://try.opsapp.co/",
+        "https://try.opsapp.co/job-management",
+        "https://try.opsapp.co/scheduling",
+        "https://try.opsapp.co/quotes-invoices",
+        "https://try.opsapp.co/compare/jobber",
+        "https://try.opsapp.co/compare/housecall-pro"
+      ]
+    },
+    "limits": {
+      "headline": 30,
+      "description": 90,
+      "headlines": {
+        "min": 8,
+        "max": 12
+      },
+      "descriptions": {
+        "min": 3,
+        "max": 4
+      },
+      "path": 15,
+      "pinnedHeadlines": {
+        "min": 2,
+        "max": 3
+      },
+      "nearDuplicateDistance": 2
+    },
+    "allowed_final_urls": [
+      "https://try.opsapp.co/",
+      "https://try.opsapp.co/job-management",
+      "https://try.opsapp.co/scheduling",
+      "https://try.opsapp.co/quotes-invoices",
+      "https://try.opsapp.co/compare/jobber",
+      "https://try.opsapp.co/compare/housecall-pro"
+    ]
+  },
+  "negative_taxonomy": {
+    "lists": [
+      {
+        "name": "NEG \u00b7 Job seekers",
+        "resource_name": "customers/4454506598/sharedSets/501",
+        "classification": "job_seeker",
+        "hint": "jobs, hiring, salary, apprenticeship, resume",
+        "members": 3
+      },
+      {
+        "name": "NEG \u00b7 Homeowner intent",
+        "resource_name": "customers/4454506598/sharedSets/502",
+        "classification": "homeowner",
+        "hint": "near me, hire, cost to, how much does, repair, install, emergency, quotes for",
+        "members": 2
+      },
+      {
+        "name": "NEG \u00b7 Training",
+        "resource_name": "customers/4454506598/sharedSets/503",
+        "classification": "student",
+        "hint": "course, certification, exam, red seal, tutorial, how to",
+        "members": 2
+      },
+      {
+        "name": "NEG \u00b7 Generic waste",
+        "resource_name": "customers/4454506598/sharedSets/504",
+        "classification": "irrelevant",
+        "hint": "free, open source, template, excel, spreadsheet, pdf, reddit, crack",
+        "members": 2
+      },
+      {
+        "name": "NEG \u00b7 Wrong segment",
+        "resource_name": "customers/4454506598/sharedSets/505",
+        "classification": "wrong_segment",
+        "hint": "enterprise, erp, fleet, franchise, salesforce, sap, servicetitan",
+        "members": 2
+      }
+    ],
+    "classifications": [
+      "job_seeker",
+      "homeowner",
+      "student",
+      "wrong_segment",
+      "irrelevant"
+    ]
+  },
+  "market_digest": {
+    "generated_at": "2026-09-09T04:17:18.235Z",
+    "text": "COMPETITOR ADS AND OFFERS\n\nSUMMARY: In 2026, top Google Ads competitors include Ryze AI, Optmyzr, and Clicks Geek for field service management software. These tools offer advanced automation, reporting, and management features. Ryze AI focuses on autonomous optimization, while Optmyzr and Clicks Geek provide comprehensive campaign management solutions.\n\n---\n\nSOURCE: Best Marketing Channels for Field Service Companies in 2026 - SaaS Hero\nApril 30, 2026 - The top three performers in 2026 are Google Local Service Ads (5-10x ROI), Google Business Profile optimization (free high-intent leads), and Meta Ads with neighborhood targeting (3-5x ROAS).\n\n---\n\nSOURCE: Best Google Ads Marketing and Management Tools in 2026\nThe best Google Ads management tools in 2026 are Wask, Google Ads Editor, Optmyzr, Opteo, TrueClicks, Adalysis, Skai, Adzooma, Semrush, SpyFu, ClickGUARD, Marin Software, and Lunio pricing ranges from free to $95,000/year, and the right choice depends on whether your primary need is AI optimization, bulk editing, fraud protection, or competitor intelligence, making a Google Ads performance grader the logical first step before evaluating any platform\n AI-powered Google Ads tools automate bid management, budget anomaly detection, and creative generation in real time capabilities that legacy tools like Google Ads Editor simply don\u2019t offer, which is why Google ads automation platforms starting at $15/month now deliver better ROI than manual management for advertisers at every spend level [...] | Skai | Enterprise cross-channel management | From $95k/year | Large enterprises with multi-million ad budgets | \u2b50\u2b50\u2b50\u2b50\u2606 |\n| Adzooma | Free plan + easy automation | Free \u2192 $99/mo | Small businesses & beginners | \u2b50\u2b50\u2b50\u2606\u2606 |\n| Semrush | Competitor & keyword insights | From $117/mo | Marketers needing SEO + PPC research | \u2b50\u2b50\u2b50\u2b50\u2606 |\n| SpyFu | Competitor keyword & ad analysis | From $39/mo | Agencies needing competitive PPC insights | \u2b50\u2b50\u2b50\u2606\u2606 |\n| ClickGUARD | Advanced click fraud protection | From $89/mo | Businesses fighting bot & click fraud | \u2b50\u2b50\u2b50\u2b50\u2606 |\n| Marin Software | Advanced cross-channel reporting | From $1,250/mo | Enterprises managing Google, Meta & Amazon Ads | \u2b50\u2b50\u2b50\u2606\u2606 | [...] The best Google Ads marketing tools in 2026 is WASK, an all-in-one platform offering AI-driven optimization, automation, and creative support. Unlike other AdWords management tools or Google Ads software, WASK combines campaign automation, ad creative generation, and performance tracking in one place. Alongside WASK, other top Google Ads management tools such as Wask, Optmyzr, Google Ads Editor, and TrueClicks provide solutions for bulk editing, reporting, and PPC campaign analysis. Whether you\u2019re looking for advanced Google Ads automation tools or user-friendly dashboards, these platforms help advertisers cut costs, scale faster, and maximize ROI. These digital advertising tools have become essential for businesses seeking to stay competitive in today\u2019s fast-paced online marketplace,\n\n---\n\nSOURCE: Best Google Ads Management Software Comparison 2026\nFor in-house teams and experienced PPC managers, the software options here cover a solid range. Optmyzr and Adalysis are strong choices for agencies and advanced users who want automation without giving up control. Opteo is a cleaner, more accessible option for smaller teams. Google Ads Editor is non-negotiable for anyone doing serious bulk work, and it costs nothing. Semrush makes sense if competitive intelligence is part of your workflow. Marin and Shape.io serve more specialized needs at the enterprise and multi-account management level respectively.\n\nHere\u2019s a quick reference by use case:\n\nLocal business wanting managed results: Clicks Geek\n\nAgency managing many client accounts: Optmyzr or Shape.io\n\nSmall business managing their own ads: WordStream or Opteo [...] Transparent Revenue-Focused Reporting: Reporting centers on the metrics that matter: cost per lead, lead quality, and return on ad spend.\n\nWhite Label PPC: Agencies can resell Clicks Geek\u2019s managed PPC services under their own brand, making it a strong option for marketing agencies looking to scale without hiring.\n\n### Best For\n\nLocal businesses, service-based companies, and marketing agencies that want high-performance Google Ads campaigns without the overhead of managing them in-house. Particularly strong for businesses where lead quality matters more than raw traffic volume.\n\n### Pricing\n\nCustom pricing based on ad spend and campaign scope. Contact Clicks Geek directly for a consultation and tailored proposal.\n\n## 2. Optmyzr [...] This google ads management software comparison evaluates nine top tools and services for 2026, helping local businesses, agencies, and enterprise teams identify the right solution based on ease of use, automation, reporting, and pricing. Whether you need fully managed campaign services or self-serve software to optimize in-house efforts, this guide breaks down the best options to maximize ad spend and generate more leads.\n\nFaisal Iqbal \u00b7 May 8, 2026 \u00b7 13 min read\n\nManaging Google Ads without the right tools or support is a fast way to burn through budget with little to show for it. For local businesses and small teams, the stakes are especially high: every misallocated dollar is a dollar that didn\u2019t generate a lead, a call, or a sale.\n\n---\n\nSOURCE: Top Field Service Management Software for Google Ads in 2026\nemployee performance monitoring with specific goals and constructive feedback, financial reports that align with accounting software, and marketing analytics that evaluate lead origins, conversion rates, and ROI. Additionally, ContractorHUB includes functionalities like a weather assistant to enhance scheduling efficiency, management of insurance policies, and automation features that help optimize operational workflows, ensuring that contractors can focus on delivering quality service. This all-in-one solution empowers contractors to maximize their resources and improve overall business productivity. [...] Google AdsField Service ManagementReset Filters\n\nUse the comparison tool below to compare the top Field Service Management software for Google Ads on the market. You can filter results by user reviews, pricing, features, platform, region, support options, integrations, and more.\n\n   1Image 3: PowerWashOffice Reviews### PowerWashOfficePowerWashOffice [...] -Integration of payment and bookkeeping software -Full integration with external APIs\n\n---\n\nSOURCE: Google Ads Management Software: 12 Best Tools in 2026\nApril 28, 2026 - Compare the top Google Ads management software: Ryze AI for autonomous optimization, Optmyzr for agencies, and 10 more tools analyzed by features.\n\n---\n\nSUMMARY: Jobber offers plans from $25 to $249 per month; Housecall Pro ranges from $49 to over $300 per month; ServiceTitan has custom pricing, typically much higher.\n\n---\n\nSOURCE: HouseCall Pro vs Jobber vs ServiceTitan\nHouseCall Pro and Jobber provide streamlined mobile experiences focused on essential field operations. Their apps enable technicians to update job status, collect payments, and access customer information efficiently. Both platforms emphasize ease of use and quick access to critical features.\n\n## Pricing Structures and Value Proposition\n\nThe pricing models reflect each platform's target market and feature set:\n\n HouseCall Pro Basic: $49 monthly for single users\n HouseCall Pro Essentials: $129 monthly for up to 5 users\n Jobber Core: $69 monthly for single users\n Jobber Connect: $169 monthly for up to 7 users\n Jobber Grow: $349 monthly for up to 30 users\n\nServiceTitan maintains custom pricing based on business requirements, typically targeting larger operations with more complex needs.\n\n---\n\nSOURCE: Housecall Pro vs ServiceTitan: Which is Best for Running Your ...\nAs of this writing, the Housecall Pro app has 2.2K reviews on the Google Play store and just under 9K reviews on the Apple App Store, the ServiceTitan app has 633 reviews on the Google Play store and 1K reviews on the Apple App Store, and Jobber\u2019s mobile app has 2.85K mobile app reviews on the Google Play store, and 5.2K reviews on the App Store.\n\n## Housecall Pro pricing, ServiceTitan pricing, and Jobber pricing\n\nHousecall Pro does provide transparent pricing about its Basic and Essentials package, but you\u2019ll have to book a demo for pricing information for the MAX packages. It also offers a free trial that you can start after setting up an initial profile. Like Jobber, Housecall Pro also offers a discount if you select the annual billing option instead of monthly. [...] The ServiceTitan website does not provide transparent pricing on the 3 packages it offers\u2014Starter, Essentials, and The Works. You need to request the pricing and go through a demo with their sales team before getting the price or trying it out for yourself.\n\nJobber provides a 14-day free trial and transparent  pricing. You can see Jobber\u2019s plans and pricing on the website and test the product before you fully commit. Plus, you can always speak with our sales team if you\u2019d like to talk to someone about which plan is best for you.\n\n## Why home service businesses choose Jobber over Housecall Pro & ServiceTitan\n\nOver 400,000 home service pros choose Jobber because it helps home service run smoothly for you, your team, and your customers. [...] Housecall Pro and ServiceTitan customers can also get support via phone, live chat, or email. However, they don\u2019t have any estimates about wait times.\n\n### See what customers say about Jobber\n\n## Automate admin work. Save time.\n\nWith home service software, you can take on more work without hiring more staff.\n\nCompare plans from $49/month\n\n---\n\nSOURCE: Service titan vs jobber vs housecall pro? - Facebook\nGreat pricing. Jobber is good but 350.00 a month. ServiceTitan vs HouseCall Pro 's simple, flat-rate, and built specifically for home service\n\n---\n\nSOURCE: Jobber vs Housecall Pro vs ServiceTitan: Which Field Service Software Fits Your Shop? \u2014 Omnyra\nPricing in 2026. Plans range from around $25 to $249 per month, with the mid-tier plans covering what most growing service businesses actually need. Check current pricing at getjobber.com/pricing directly.\n\nBottom line on Jobber. The right choice for most growing service businesses. Equivalent core functionality to Housecall Pro at comparable or lower cost, with meaningfully better reporting and workflow flexibility. For the majority of contractors, this is the sweet spot between ease of use and operational depth.\n\n## ServiceTitan: built for large operations [...] Where it falls short. Housecall Pro's reporting is limited. If you want detailed insights into job profitability by technician, revenue by service line, or trend analysis over time, you will hit the ceiling. It also has less flexibility in workflow customization than the other two platforms, which can be a friction point as a business grows and its processes become more specific.\n\nPricing in 2026. Plans range from around $49 to $300-plus per month depending on the number of users and feature tier. Review current pricing at housecallpro.com/pricing as it changes periodically. [...] Bottom line on Housecall Pro. Best choice for small teams that prioritize ease of setup and same-day payment over deep reporting or workflow customization. If you have outgrown paper but are not ready for a complex platform, this is the fastest working solution.\n\n## Jobber: the best value for growing businesses\n\nJobber is the best fit for most small to mid-sized service businesses in the $100,000 to $1 million annual revenue range. It offers more structure and automation than Housecall Pro without the enterprise complexity and price tag of ServiceTitan.\n\n---\n\nSOURCE: Jobber vs. Housecall Pro vs. ServiceTitan: Which Field Service Software Fits Your Business Size? | Beancount.io\n## Jobber: The Default Choice for Growing Small Teams\u200b\n\nJobber's pricing runs roughly $25 to $249 per month depending on plan tier and team size, with no implementation fee \u2014 a meaningful difference from platforms that charge a setup cost before a business processes a single job.\n\nJobber covers the core loop well: scheduling and dispatch, quoting, invoicing, online payments, and a client hub where customers can view quotes and pay invoices without a phone call. Its reporting is generally considered stronger and more flexible than Housecall Pro's at a comparable or lower price point, which matters once an owner wants to actually see which job types, technicians, or service lines are profitable instead of just tracking that work got done. [...] ## Housecall Pro: Fastest to Get Running, Simplest to Use\u200b\n\nHousecall Pro's pricing runs from about $49 up past $300 per month depending on user count and feature tier. It's positioned as the platform for a business that has outgrown paper tickets and a shared spreadsheet but isn't ready to manage a complex system with dozens of configuration options.\n\nIts strengths are ease of setup and same-day payment collection \u2014 a technician can close out a job and get paid from the driveway. For an owner who wants the fastest path from \"no software\" to \"organized business\" without a steep learning curve, that matters more than deep customization. [...] Best fit: businesses under roughly $500K in annual revenue with fewer than 5 technicians \u2014 solo operators and very small crews who need speed and simplicity over reporting depth or workflow flexibility.\n\nWhere it falls short: once a business adds crews and needs more granular reporting, custom workflows, or deeper job-costing detail, Housecall Pro's simplicity starts to feel like a ceiling rather than a feature.\n\n## ServiceTitan: The Enterprise Tier, and a Different League Entirely\u200b\n\nServiceTitan doesn't publish pricing \u2014 you have to talk to a sales team, and operators consistently report that it costs 5 to 10 times more than Jobber or Housecall Pro, with a realistic annual commitment in the high four figures to five figures at minimum.\n\n---\n\nSUMMARY: Google Ads for contractors should use clear headlines and compelling descriptions with calls to action. Focus on local relevance and include social proof. A/B testing different versions helps optimize performance.\n\n---\n\nSOURCE: Google Ads For Contractors 2026: An Easy Guide To Grow Your Construction Business Through PPC - YoYoFuMedia\nYou can check your ad preview on the right side of your screen. Check mobile or desktop preview by clicking the phone and laptop icons. If you want to know more about writing good ad copies for your business, you can check out this article on headlines and descriptions guide for PPC.\n\nAnother Examples for Contractors Ad Headlines and Descriptions:\n\nSet 1: Focus on Local Presence & Immediate Needs\n\n Headline 1: \u201c[Your Service] Contractor in [Your City]\u201d\n Headline 2: \u201c[Your Service] Experts \u2013 Fast & Reliable\u201d\n  + Description: \u201cNeed [Your Service] Done Right? Free Quotes! Licensed & Insured.\u201d\n\nSet 2: Highlight Expertise & Customer Value [...] Set 2: Highlight Expertise & Customer Value\n\n Headline 1: \u201c[Your Company Name] \u2013 Top-Rated [Your Service] Contractor\u201d\n Headline 2: \u201cQuality [Your Service] at Competitive Prices\u201d\n  + Description: \u201cExperienced Team. Guaranteed Satisfaction. 100% Customer Focused. Get a Free Estimate Today!\u201d\n\nFor Contractors:\n\nFocus on homeowners or businesses in your local service area who need your specific trade.\n\nAnother Examples for Ad Headlines and Descriptions focusing on Construction:\n\nSet 1: Focus on Project Types & Company Size\n\n Headline 1: \u201cResidential & Commercial Construction\u201d\n Headline 2: \u201c[Your Company Name] \u2013 Building Your Future\u201d\n  + Description: \u201cFull-Service Construction Company. New Homes, Remodels, & Commercial Projects. Free Consultations. [Website URL]\u201d [...] Set 2: Emphasize Quality & Client Experience\n\n Headline 1: \u201cExperience the [Your Company Name] Difference\u201d\n Headline 2: \u201cQuality Construction, On-Time & On-Budget\u201d\n  + Description: \u201cClient-Focused Approach. Expert Craftsmanship. Building Lasting Relationships. Contact Us Today!\u201d\n\nFor Construction Companies:\n\nShowcase your expertise in managing complex projects for larger commercial or industrial clients. Focus on the ability to target specific industries or project types.\n\n### Conduct Keyword Research\n\nBefore you add keywords to your campaign, it\u2019s important to know which keywords will drive high-quality traffic and leads to your Google Ads for Contractors campaign. Here are some free keyword research tools that you can use to see which keywords are best to add to your campaign:\n\n---\n\nSOURCE: Google's Responsive Search Ads: A Guide for Contractors\n### Understanding How to Build Description Lines and CTAs\n\nOnce you grab your user\u2019s attention with the headline, you must reel them in with an informative and engaging description. Descriptions should confirm to your reader that you\u2019re the best contractor in the business, so they don\u2019t have to continue searching and can schedule that appointment right away. Try the following tips with your description lines: [...] Use unique ad text in each description that further enhances your ad strength. Think about the different headlines you created, and go into depth about those topics with your descriptions. For example, if you created a headline about 15% off plumbing services, you could include a description of being the most affordable plumber in town.\n Include CTAs in your descriptions so your audience knows what to do next. Calls-to-action may include calling to schedule a service appointment, subscribing to your blog, etc. As a best practice, use specific, succinct, and engaging CTAs in your headlines and descriptions so your Google Responsive Search Ads can stand out from the rest.\n\n### When to Pin Combinations [...] Create multiple headlines without keywords, like calls-to-action, to vary your content more. Machine-learning algorithms negatively rank content for keyword stuffing, so you want to include different versions without your targeted keywords.\n Vary your short and long headlines to give the system more options to choose between when creating combinations based on layout space. A substantial variation of headlines and descriptions offers better visual results for the headline position and ad copy. For example, a short headline will give you more room for a long description.\n Create at least ten headlines, though shoot for 15 if you can. The more quality headlines and descriptions you create, the more ad format combinations the system can optimize, allowing you to yield more ad strength.\n\n---\n\nSOURCE: Google Ads for Contractors: An In-Depth Guide\nKeep your headlines simple and ensure they communicate your unique value.\n Emphasize the benefits of your contractor service in your text.\n Include compelling CTAs.\n Add a sense of urgency that encourages users to click on your ad (but don\u2019t be too pushy).\n\nRemember, ads are generally brief. So, the goal is to pack as much value into a small space (or duration) as you can without overdoing it. It also helps if you have an angle. [...] You can experiment with headline variations, descriptions, calls to action, and even display URLs to see which versions drive the most clicks and conversions.\n\nHowever, the content of your ads is not the only thing you can A/B test. You can compare the results for placement times, bidding strategies or target users.\n\nWhile it can seem like a lot of work, regular A/B testing helps fine-tune your campaign and improve overall performance over time.\n\n## Top Tools for Google Ads for Contractors\n\nSuccessful Google Ad campaigns involve many moving parts and considerations, which can make the process very overwhelming. However, the right tools can help you work more efficiently and effectively.\n\nHere are some of the top tools to help contractors achieve a profitable Google Ads campaign. [...] Benefit-focused: The key benefits your target customers like. For example, \u201cWork Smarter, Not Harder. Cut paperwork, boost bookings, and get paid faster with ServiceTitan.\u201d\n Solution-oriented: The answer to the problem your target audience has. For example, \u201cStill Losing Jobs to Missed Calls and Messy Scheduling? ServiceTitan fixes what\u2019s costing you money.\u201d\n Proof-centered: Using testimonials, results, or reviews to do the talking. For example, \u201cxxxxxxx Doubled Revenue in 12 Months After Switching to ServiceTitan. Join 100,000+ contractors who are getting real results.\u201d\n\n### 6. Track your campaign\u2019s performance\n\n---\n\nSOURCE: How I Run Google Ads for Contractors & Construction Companies (2025 Step-By-Step Tutorial)\nto action right at the end telling them to get a quote. You could not be more relevant than that. So yeah, when it comes to filling out your headlines, use those four core pillars. add in a discount if you want, add in social proof, everything like that. But you also want to reiterate all of it down here in the actual descriptions. So for the descriptions, I really like to just describe what our business does, as well as having a call to action, some social proof, and just adding relevance to their location. So trying to be as local as possible to their area. So once you put in your own descriptions, just scroll down, and you want to add in a bunch of different images. So, usually photos of finished work or my personal favorite is actually photos of you and your work crew together. So,\n\n---\n\nSOURCE: How I ACTUALLY Run Google Ads for Contractors & Construction Companies (2026)\nsearching for that, and they see one that says roofing contractor near you, that's a pretty damn relevant ad. And when it comes to Google Ads, relevancy is key, okay? [music] Then you want to lead with call to actions as well or social proof. So, you'd have, you know, a keyword focused headline at the start, like a keyword insertion, and then the second one would be a call to action, like get your free quote, free roof inspection, just anything like that, or [music] call us today. You want them to take action, basically. So, let's just have free roof inspection as second. Now, I'm going to go into the descriptions. But before we do, I do want to say you can have about 15 headlines in here, and I recommend doing that. And don't worry about the ad strength up here. This is just saying that [...] about the ad strength up here. This is just saying that that it's poor cuz I pinned some headlines. It's actually a useless metric and does not change anything about your ad, like in regards to how much work you get. You actually get more work majority of the time when you have it as poor because you've who tested a lot of different things, and you know the headlines that work. They did a massive study on it and it was really funny because obviously because the ad strength with excellent did horrible compared to ad strength with [music] poor, which is actually quite funny. So, let's put in our descriptions now. So, bang, here's two descriptions that I've just plugged in. Now, you can put up to four different descriptions. I'm just going to have two. It only rotates between one or two [...] match and then also phrase match, but for this example, we're just going to have it as just exact match. Okay? And once you've done that, scroll down. Now, we're in the good area, all right? This is where you make the actual ad. [music] So, you can change your landing page here as well. So, if you want to send them to different pages, you can change that right here, which is the final URL. And then we want to go through the headlines and descriptions and everything else. So, the blue writing, these are the headlines. [music] You can have up to 30 characters here. This includes the spaces as well. And then the descriptions here, you get two different descriptions up to 90 characters. This includes, obviously, [music] the spaces as well. Okay? So, we're going to go through here. I'm just\n\n---\n\nSUMMARY: Field service software comparison focuses on scalability, automation, and industry flexibility. Salesforce Field Service and Microsoft Dynamics 365 Field Service are top choices for large enterprises. SaaS landing pages should clearly present value propositions and offer free trials.\n\n---\n\nSOURCE: Field Service Management Software Comparison Guide | Salesforce\nDecorative\n\n# Field Service Management Software Comparison: A Buyer's Guide\n\nMove beyond feature lists to find the right platform that fits your field service operation,\n\nSophia Le-Dimitrova, Product Marketing Director \u2014 Field Service, Salesforce,\n\nField service management platforms all promise the same thing: faster jobs, happier customers, fewer headaches. Most comparison resources treat them as interchangeable, ranking vendors by price and feature count as if a 20-technician HVAC company and a 500-technician telecom operation need the same tool. They do not.   \n  \nAccording to our State of Field Service [...] ## What to look for in field service management software\n\nA useful field service software comparison always comes back to the same six areas that separate good FSM platforms from great ones: scheduling and dispatch, work order automation, CRM integration, ERP integration, AI capabilities, and mobile reliability. Think of this as an FSM software features comparison built around questions instead of checkboxes. Each area comes with a specific question worth asking before you sign a contract.\n\n### Scheduling and dispatch [...] ## FSM software comparison by use case\n\nA field service platform evaluation built around vendor rankings alone misses the point. It's more useful to segment by buyer profile and match each one to the type of platform it actually needs. Three profiles cover most of the market: small and midsize field service operations, mid-market operations juggling multiple teams, and enterprise or asset-heavy operations running at scale. There's no single best FSM software\n\n answer for every profile, and field service management software for enterprise operations looks nothing like field service software for small business. The comparison table below breaks down how requirements shift across these tiers.\n\n### SMB field service operations\n\n---\n\nSOURCE: Best Field Service Management Software: 2026 Compared\neLogii \n\nField Service Distribution\n\nGet A Demo\n\nHome >   Blog >   Best Field Service Management Software (2026): An Honest Comparison\n\nField Service\n\n# Best Field Service Management Software (2026): An Honest Comparison\n\nThe best field service management software depends on scale: compare ServiceTitan, Salesforce, Jobber, Housecall Pro and eLogii to choose for 2026.\n\neLogii \n\nAug 4, 2026\n\n### ON THIS PAGE\n\nThe best field service management software depends on your scale. ServiceTitan, Salesforce Field Service and Microsoft Dynamics 365 fit enterprise trades, Jobber and Housecall Pro fit small teams, and eLogii is the strongest route optimization and dynamic scheduling layer for operations running 50 to 500 or more technicians. [...] Microsoft Dynamics 365 Field Service brings field operations into the Dynamics and Power Platform world, with native ties to Microsoft 365, Teams and Copilot.\n\nPublished pricing is $105 per user per month for the Field Service application and $50 for the Contractor tier (microsoft.com/dynamics-365/products/field-service).\n\nIts optimized scheduling leans on agents that are partly in preview, so confirm what is included in the base price for your scenario before committing.\n\n### Simpro: best for project and job based trades\n\nSimpro is end to end job and project management software for trade and project based contractors, strong on job costing, inventory and maintenance contracts. [...] ### Salesforce Field Service: best for enterprise CRM led service\n\nSalesforce Field Service extends Service Cloud into the field and includes AI powered scheduling and route optimization through its Intelligent Dispatch Console.\n\nIt is built for enterprises already invested in Salesforce. Published pricing runs at $175 per user per month for both the Dispatcher and Technician SKUs, with a Contractor tier at $55 (salesforce.com/service/field-service-management/pricing).\n\nThe capability is real, but the per seat cost and the Salesforce implementation overhead are significant.\n\n### Microsoft Dynamics 365 Field Service: best for the Microsoft ecosystem\n\n---\n\nSOURCE: 21+ SaaS Landing Page Examples | Swipe Pages | SwipePages\nWhat makes a good SaaS landing page?\n\nClear value proposition within 5 seconds. Free trial with minimal friction. Trust signals above the fold. Freshdesk demonstrates this by leading with \"Delight your customers with effortless customer service\" rather than listing help desk features. The page speaks to outcomes before diving into how.\n\nWhat conversion rate should a SaaS landing page achieve?\n\nCold traffic converts at 3-5%. Retargeting campaigns hit 8-12%. Comparison pages targeting \"[Product] vs [Competitor]\" searches often exceed 15% because the visitor is already in decision mode. Your rate depends on traffic source, offer type, and how well your page matches visitor intent.\n\nHow long should a SaaS landing page be? [...] SwipePages Logo\n\nLogin\n\nPricing\n\nReviews\n\nBlog\n\nLoading...\n\n# SaaSLanding Page Inspirations\n\nSoftware-as-a-Service landing pages designed to convert visitors into trial signups and paid subscribers through clear value propositions, feature showcases, and social proof.\n\n21 examples in this category\n\nShopify - Signup landing page\n\nView Example \u2192\n\n### Shopify - Signup\n\nRecently AddedWrike - Wrke CRO landing page\n\nView Example \u2192\n\n### Wrike - Wrke CRO\n\nRecently AddedAiSensy - Event Landing landing page\n\nView Example \u2192\n\n### AiSensy - Event Landing\n\nRecently AddedBetterstack - Uptime Monitoring landing page\n\nView Example \u2192\n\n### Betterstack - Uptime Monitoring\n\nRecently AddedFreshdesk - Freshdesk Service landing page\n\nView Example \u2192\n\n### Freshdesk - Freshdesk Service\n\n---\n\nSOURCE: Best Field Service Software 2026: Top FSM Platforms Compared\nIn this guide, we compare the top field service software platforms in 2026 across six key dimensions \u2014 scalability, automation depth, industry flexibility, mobile capability, asset tracking strength, and long-term growth potential.\n\n## Top 12 Best Field Service Software Platforms in 2026\n\n1. ReachOut Suite\n2. ServiceTitan\n3. Jobber\n4. Housecall Pro\n5. Salesforce Field Service\n6. Microsoft Dynamics 365 Field Service\n7. Oracle Field Service\n8. FieldEdge\n9. Zoho FSM\n10. Simpro\n11. Service Fusion\n12. Workiz\n\n## 1. ReachOut Suite\n\n### Best Scalable Field Service Software in 2026 [...] #### Plumbing Field Service Software\n\nPlumbing is often reactive \u2014 a pipe bursts, a drain is blocked, a fixture fails. That means your FSM software needs to support rapid dispatch, inventory tracking for common parts, and mobile invoicing that gets sent before the technician drives away. Repeat customer records and service history also matter a lot here.\n\n#### Solar Field Service Software\n\nSolar companies juggle installation projects alongside ongoing O&M (operations and maintenance) contracts. That\u2019s a different beast from a simple work order \u2014 you need project-phase tracking, equipment asset lifecycle management per installation, regulatory compliance checklists, and photo capture for documentation.\n\n#### Telecom Field Service Software [...] # Best Field Service Software 2026: Complete Guide to Top FSM Platforms, Features & Comparison\n\nthumbnail\n\nField service businesses in 2026 don\u2019t struggle because of demand. They struggle because of coordination.\n\nMore technicians, more service contracts, more compliance requirements, more assets to manage \u2014 and customers whose expectations keep rising. Spreadsheets simply can\u2019t handle that scale anymore.\n\nIf you\u2019re searching for the best field service software in 2026, you\u2019re likely comparing platforms that promise smart scheduling, real-time dispatch, technician tracking, invoicing, asset management, and workflow automation. But here\u2019s what really matters: not every field service management (FSM) platform is built for the same business size, industry, or growth stage.\n\n---\n\nSOURCE: 11 Best SaaS Value Proposition Examples 2025 (AI Era Edition)\n### 3. Hubstaff\n\nHeadline: Time tracking software for the global workforce  \n(with \u201cglobal\u201d rotating to \u201cmodern\u201d and \u201chybrid\u201d dynamically on the homepage)  \nSub-headline: Integrated time tracking, productivity metrics, and payroll for your distributed team.\n\nHubstaff is an all-in-one platform for managing field and remote teams. The rotating keyword (\u201cglobal,\u201d \u201cmodern,\u201d \u201chybrid\u201d) personalizes the headline for different audiences, from international teams to modern offices to hybrid workplaces.\n\n=====\n\nMARKET SENTIMENT\n\nSUMMARY: Field service software and scheduling apps for electricians, plumbers, and HVAC contractors include SynkedUP, Odoo, Field Service Management, and Jobber. These tools help manage scheduling, work orders, and client data efficiently.\n\n---\n\nSOURCE: Software recommendations : r/electricians - Reddit\nURL: https://www.reddit.com/r/electricians/comments/1tglzkr/software_recommendations\nI highly recommend SynkedUP. built for $5m+ HVAC/plumbing shops \u30fb mobile-app actually usable by techs in the field. All-in-one (Field Service\n\n---\n\nSOURCE: Looking to set up Odoo for a Plumbing Contractor, advice needed\nURL: https://www.reddit.com/r/Odoo/comments/1rs1jln/looking_to_set_up_odoo_for_a_plumbing_contractor\nIn Odoo most trades (plumbing, HVAC, electricians) don't really need a specific industry app. Electrician one is literally just Field Service\n\n---\n\nSOURCE: Field Service Scheduling Software : r/HVAC\nURL: https://www.reddit.com/r/HVAC/comments/1mwetsd/field_service_scheduling_software\nField Service Scheduling Software : r/HVAC. Skip to main contentField Service Scheduling Software : r/HVAC. Open menu Open navigationGo to Reddit Home. r/HVAC A chip A close button. Log InLog in to Reddit. Expand user menu Open settings menu. A subreddit for Heating, Ventilation, & Air Conditioning Technicians. If you are not a member of the trade, please post in our Q&A sub, r/hvacadvice. \u0939\u093f\u0928\u094d\u0926\u0940DeutschEspa\u00f1ol (Latinoam\u00e9rica)Italiano. Looking for something better than a spreadsheet :) about 20 technicians. Need field service scheduling software. Don't need any bells and whistles beyond scheduling software. What job, address, who to see, etc. I searched this sub but it seems to be software packages that have other modules and scheduling isn't the priority. Edit: thanks for all the suggestions. We're looking at the recommendations now. Need help with that decision? Microsoft 365 Copilot Chat helps surface insights that matter, so you can decide with confidence. Connectteam might be worth it. We trialed it for a while but we were looking for a little bit more. We use Field Service Management, it's cheap, simple and effective, also they haven't made a single upgrade in the decade we have utilized it. Web based with mobile apps on handheld devices. ServiceBox works for me, I\u2019m a single man owner operator, the software does customer data, serialized equipment tracking, work orders, invoices, and integrates with Quickbooks. You have full access to the program features, pricing increases as you add users and beyond 200 or 300 Job sites. It\u2019s cloud based, techs can do their reports on tablets, phones or at home at their own computer. Tablet and phone access is not an app but actually web based. On boarding was smooth, with demos and service support is there. They on board your existing client base for you. Best field service job scheduling software. Top HVAC booking software options. Field service management software reviews. Best CMMS software for HVAC. Alternatives to FieldEdge for scheduling. Create your account and connect with a world of communities. By continuing, you agree to ourUser Agreementand acknowledge that you understand thePrivacy Policy. Anyone can view, post, and comment to this community. Reddit RulesPrivacy PolicyUser AgreementAccessibilityReddit, Inc.\n\n---\n\nSOURCE: Need some software for my small plumbing & electric service business\nURL: https://www.reddit.com/r/smallbusiness/comments/18rb3xs/need_some_software_for_my_small_plumbing_electric\nCheck Jobber, ServiceTitan, FieldPulse, or Housecall Pro. The software you're looking for is typically referred to as \u201cField Service Management\n\n---\n\nSOURCE: Odoo Advise for HVAC field service small company - Reddit\nURL: https://www.reddit.com/r/Odoo/comments/1ido9iy/odoo_advise_for_hvac_field_service_small_company\nOdoo is a solid option for HVAC field service companies. Electrical contracting, crane operators, HVAC, smart home integrators etc. Scheduling\n\n---\n\nSUMMARY: Trello is a popular contractor management software with no complaints. Other tools like vehicle tracking software are also used effectively. Some users prefer custom solutions for specific needs.\n\n---\n\nSOURCE: Promote Your Business thread for May 30, 2026 : r/smallbusiness\nURL: https://www.reddit.com/r/smallbusiness/comments/1tslbvw/promote_your_business_thread_for_may_30_2026\nWe have some strong small-business offers available right now, especially on software and hardware. The top recurring customer complaints What\n\n---\n\nSOURCE: Promote your business, week of February 9, 2026 : r/smallbusiness\nURL: https://www.reddit.com/r/smallbusiness/comments/1qzwty8/promote_your_business_week_of_february_9_2026\nQuoteThru is a automated quote follow-ups tool for small business owners and contractors who send quotes and don't have the time to send follow\n\n---\n\nSOURCE: Promote your business, week of February 16, 2026 : r/smallbusiness\nURL: https://www.reddit.com/r/smallbusiness/comments/1r5zf4n/promote_your_business_week_of_february_16_2026\nI help business owners keep their books accurate, organized, and tax-ready using QuickBooks Online, Xero, and Wave - in a cost-effective way. If\n\n---\n\nSOURCE: Promote your business, week of March 16, 2026 : r/smallbusiness\nURL: https://www.reddit.com/r/smallbusiness/comments/1ruz0th/promote_your_business_week_of_march_16_2026\nHere\u2019s a site I recently launched\n\n$0 down $175 a month includes unlimited edits 24/7 support, hosting, and lifetime updates. All custom coded. No Wordpress. No builders. And we have an SEO and ads expert who knows how to rank local sites and generate leads. He\u2019s based in Pennsylvania as well. I don\u2019t hire cheap overseas devs either. All my team is in Canada, US, UK, and Australia.\n\nWe\u2019re REALLY good at home services businesses. But we can do anything like restaurants, accountants, doctors, etc.\n\n and custom web app solution is 1000 (usd).\n\nwebsite: \n\nDM me for fastest responses!\n\n Thank you so much for sharing!\n\nMore replies\n\n Apart from that, blooomin is the perfect place to discover hidden gems online. [...] Skip to main contentPromote your business, week of March 16, 2026 : r/smallbusiness\n\nOpen menu Open navigation\n\nOpen comment sort options\n\n   Best \n   Top \n   New \n   Controversial \n   Old (Default) \n   Q&A \n\n# Comments Section\n\n and the cat, of course!\n\nI would contact you immediately, based on the site alone, were I needing bookkeeping services. Excellent job!\n\n Reply  Share \n\n of 5,000 pieces. So far, we have worked with brands such as H&M, Zara, and Gymshark.\n\nImage 12: u/Citrous_Oyster avatar\n\nCitrous_Oyster\n\n\u20226mo ago\n\nI run a web development agency for small businesses. I\u2019m based in Washington state\n\nHere\u2019s a site I recently launched [...] If you're a business, head to request a listing now! All you need to do is to fill up a form with a description of your business! No cost, no login required, hassle-free.\n\nVisit Us:\n\nEmail:hey.bloomhub@gmail.com\n\nInstagram:\n\nImage 18: u/high_father_ avatar\n\nhigh_father_\n\n\u20226mo ago\n\nI had an idea for a learning app that would be more tailored to your own schedule and remind you to study. Basically, you could upload your study notes, research papers, or work training materials. You would set how much time you have to learn the material in days and minutes per day, and the app would organize it for you into a comprehensive course"
+  },
+  "validation_codes": [
+    "SCHEMA_INVALID",
+    "UNKNOWN_ENTITY",
+    "LEGACY_ENTITY",
+    "INSUFFICIENT_DATA",
+    "TERM_PRODUCED_TRIAL",
+    "TERM_NOT_IN_REPORT",
+    "BROAD_MATCH_REJECTED",
+    "THEME_MISMATCH",
+    "BUDGET_CAP",
+    "DAILY_CAP",
+    "COOLDOWN",
+    "CHANGE_TOO_LARGE",
+    "LADDER_NOT_MET",
+    "TEST_NOT_CONCLUDED",
+    "VERDICT_MISMATCH",
+    "NO_CONTROL_AD",
+    "URL_NOT_ALLOWED",
+    "STRUCTURAL_LIMIT",
+    "DUPLICATE_PROPOSAL",
+    "ALREADY_APPLIED",
+    "COPY_REJECTED"
+  ],
+  "structural_kinds": [
+    "add_keywords",
+    "create_rsa_challenger",
+    "add_ad_group"
+  ]
+}

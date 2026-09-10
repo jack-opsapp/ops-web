@@ -5,10 +5,15 @@
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 import type {
+  AdsClickMap,
   AdsDailyAccount,
+  AdsDailyAd,
+  AdsDailyAdGroup,
+  AdsDailyAsset,
   AdsDailyCampaign,
   AdsDailyKeyword,
   AdsDailySearchTerm,
+  AdsEntity,
   AdsSyncStatus,
 } from "./ads-history-types";
 import type {
@@ -65,8 +70,54 @@ export async function upsertDailyKeywords(rows: Omit<AdsDailyKeyword, "synced_at
   const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
   const { error } = await db()
     .from("ads_daily_keyword")
-    .upsert(withTimestamp, { onConflict: "date,keyword" });
+    .upsert(withTimestamp, { onConflict: "date,ad_group_id,criterion_id" });
   throwAdsHistoryDatabaseError("daily keyword upsert", error);
+}
+
+export async function upsertDailyAdGroups(rows: Omit<AdsDailyAdGroup, "synced_at">[]): Promise<void> {
+  if (rows.length === 0) return;
+  const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
+  const { error } = await db()
+    .from("ads_daily_ad_group")
+    .upsert(withTimestamp, { onConflict: "date,ad_group_id" });
+  throwAdsHistoryDatabaseError("daily ad group upsert", error);
+}
+
+export async function upsertDailyAds(rows: Omit<AdsDailyAd, "synced_at">[]): Promise<void> {
+  if (rows.length === 0) return;
+  const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
+  const { error } = await db()
+    .from("ads_daily_ad")
+    .upsert(withTimestamp, { onConflict: "date,ad_id" });
+  throwAdsHistoryDatabaseError("daily ad upsert", error);
+}
+
+export async function upsertDailyAssets(rows: Omit<AdsDailyAsset, "synced_at">[]): Promise<void> {
+  if (rows.length === 0) return;
+  const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
+  const { error } = await db()
+    .from("ads_daily_asset")
+    .upsert(withTimestamp, { onConflict: "date,ad_id,asset_id,field_type" });
+  throwAdsHistoryDatabaseError("daily asset upsert", error);
+}
+
+export async function upsertClickMap(rows: Omit<AdsClickMap, "synced_at">[]): Promise<void> {
+  if (rows.length === 0) return;
+  const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
+  const { error } = await db()
+    .from("ads_click_map")
+    .upsert(withTimestamp, { onConflict: "gclid" });
+  throwAdsHistoryDatabaseError("click map upsert", error);
+}
+
+export async function upsertEntitySnapshot(rows: Omit<AdsEntity, "snapshot_at">[]): Promise<void> {
+  if (rows.length === 0) return;
+  const snapshotAt = new Date().toISOString();
+  const withTimestamp = rows.map((r) => ({ ...r, snapshot_at: snapshotAt }));
+  const { error } = await db()
+    .from("ads_entities")
+    .upsert(withTimestamp, { onConflict: "resource_name" });
+  throwAdsHistoryDatabaseError("entity snapshot upsert", error);
 }
 
 export async function upsertDailySearchTerms(rows: Omit<AdsDailySearchTerm, "synced_at">[]): Promise<void> {

@@ -13,6 +13,10 @@ describe("deriveAttributionChannel", () => {
       "google_ads"
     );
   });
+  it("google_ads when gbraid or wbraid present", () => {
+    expect(deriveAttributionChannel({ gbraid: "gb" })).toBe("google_ads");
+    expect(deriveAttributionChannel({ wbraid: "wb" })).toBe("google_ads");
+  });
   it("meta_ads when fbclid present", () => {
     expect(deriveAttributionChannel({ fbclid: "xyz" })).toBe("meta_ads");
   });
@@ -95,7 +99,17 @@ describe("deriveAttributionChannel", () => {
       channel: "google_ads",
       basis: "verified_click_id",
       confidence: 1,
-      reason: "gclid_present",
+      reason: "google_click_id_present",
+    });
+    expect(classifyAttribution({ gbraid: "gb", utm_source: "newsletter" })).toMatchObject({
+      channel: "google_ads",
+      basis: "verified_click_id",
+      confidence: 1,
+      reason: "google_click_id_present",
+    });
+    expect(classifyAttribution({ wbraid: "wb", fbclid: "fb" })).toMatchObject({
+      channel: "google_ads",
+      reason: "google_click_id_present",
     });
   });
 });

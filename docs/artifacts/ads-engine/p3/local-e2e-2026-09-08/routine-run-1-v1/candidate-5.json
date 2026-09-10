@@ -1,0 +1,52 @@
+{
+  "ad_group": "customers/4454506598/adGroups/23",
+  "hypothesis": "Control leads with the workflow, quote it and invoice it. Lead with the money instead: the invoice goes out from the driveway. If getting paid sooner is the sharper hook, this ad group produces its first trial.",
+  "headlines": [
+    {
+      "text": "Quote on site, invoice today",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Get paid without the chase",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Quotes and invoices in one"
+    },
+    {
+      "text": "Invoice before you drive off"
+    },
+    {
+      "text": "No training required"
+    },
+    {
+      "text": "Built by trades, for trades"
+    },
+    {
+      "text": "Works offline in the field"
+    },
+    {
+      "text": "Your crew opens it and goes"
+    },
+    {
+      "text": "Crews of one to ten"
+    },
+    {
+      "text": "Free to start"
+    }
+  ],
+  "descriptions": [
+    {
+      "text": "Quote it in the driveway. Invoice it when the work is done. Same app."
+    },
+    {
+      "text": "No more Sunday paperwork. The invoice goes out from the job."
+    },
+    {
+      "text": "Free to start. Every feature, every tier. Nothing to unlock later."
+    }
+  ],
+  "path1": "quotes",
+  "path2": "invoices",
+  "final_url": "https://try.opsapp.co/quotes-invoices"
+}

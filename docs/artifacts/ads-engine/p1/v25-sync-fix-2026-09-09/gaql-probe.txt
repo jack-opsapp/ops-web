@@ -1,0 +1,56 @@
+
+── campaign (v25 date-time fields, as the entity snapshot sends it)
+   HTTP 200  rows=3
+   [
+     {
+       "campaign": {
+         "resourceName": "customers/4454506598/campaigns/22263645060",
+         "status": "PAUSED",
+         "name": "OPS Join_Ops Page US",
+         "id": "22263645060",
+         "startDateTime": "2025-02-21 10:28:17"
+       }
+     },
+     {
+       "campaign": {
+         "resourceName": "customers/4454506598/campaigns/22263922986",
+         "status": "PAUSED",
+         "name": "OPS Quiz NA",
+         "id": "22263922986",
+         "startDateTime": "2025-02-21 12:42:52"
+       }
+     },
+     {
+       "campaign": {
+         "resourceName": "customers/4454506598/campaigns/22267088788",
+         "status": "PAUSED",
+         "name": "OPS Index Page",
+         "id": "22267088788",
+         "startDateTime": "2025-02-20 00:05:00"
+       }
+     }
+   ]
+
+── campaign (the v25-removed names, expected UNRECOGNIZED_FIELD)
+   HTTP 400  rows=0  errors=["UNRECOGNIZED_FIELD: Unrecognized fields in the query: 'campaign.start_date', 'campaign.end_date'."]
+
+── shared_set
+   HTTP 200  rows=1
+   [
+     {
+       "sharedSet": {
+         "resourceName": "customers/4454506598/sharedSets/11814032032",
+         "type": "BRANDS",
+         "status": "ENABLED",
+         "id": "11814032032",
+         "name": "Competitors",
+         "memberCount": "4"
+       }
+     }
+   ]
+
+── campaign_shared_set (as the entity snapshot sends it: status != 'REMOVED')
+   HTTP 200  rows=0
+
+── campaign_shared_set (no status filter)
+   HTTP 200  rows=0

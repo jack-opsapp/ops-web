@@ -1,0 +1,52 @@
+{
+  "ad_group": "customers/4454506598/adGroups/31",
+  "hypothesis": "Control leads with the crew and the switch. Lead with tier honesty instead: nothing is locked behind a bigger plan. If the switcher's real question is what they lose by moving, this ad answers it before the click.",
+  "headlines": [
+    {
+      "text": "Tired of Jobber?",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Nothing locked behind a tier",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Jobber alternative"
+    },
+    {
+      "text": "Priced by crew size"
+    },
+    {
+      "text": "Free to start"
+    },
+    {
+      "text": "No training required"
+    },
+    {
+      "text": "Built by trades, for trades"
+    },
+    {
+      "text": "Works offline in the field"
+    },
+    {
+      "text": "Crews of one to ten"
+    },
+    {
+      "text": "Your crew opens it and goes"
+    }
+  ],
+  "descriptions": [
+    {
+      "text": "The crew opens it and knows what to do. No manual, no training."
+    },
+    {
+      "text": "Free to start, then priced by crew size. Every feature, every tier."
+    },
+    {
+      "text": "Works offline when the site has no bars. Changes sync when you are back."
+    }
+  ],
+  "path1": "compare",
+  "path2": "pricing",
+  "final_url": "https://try.opsapp.co/compare/jobber"
+}

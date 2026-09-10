@@ -1,0 +1,38 @@
+# Disposable database after two live sync runs (ops_ads_p1_sync)
+
+## ads_entities by type
+     entity_type     | count 
+---------------------+-------
+ keyword             |  1583
+ campaign_budget     |    24
+ ad                  |    23
+ ad_group            |    22
+ campaign            |    21
+ shared_criterion    |     4
+ campaign_shared_set |     1
+ shared_set          |     1
+(8 rows)
+
+## the entity_type check the follow-up migration installed
+                                                                                                               pg_get_constraintdef                                                                                                                
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ CHECK ((entity_type = ANY (ARRAY['campaign'::text, 'campaign_budget'::text, 'ad_group'::text, 'ad'::text, 'keyword'::text, 'negative_keyword'::text, 'shared_set'::text, 'shared_criterion'::text, 'campaign_shared_set'::text, 'label'::text])))
+(1 row)
+
+## sync ledger
+        id        |  status  | last_synced_date | error 
+------------------+----------+------------------+-------
+ backfill         | idle     |                  | 
+ daily-sync       | complete | 2026-09-08       | 
+ engine-readiness | complete |                  | 
+ provider-access  | complete |                  | 
+(4 rows)
+
+## a campaign row, showing the v25 date-time field landed in the payload
+               resource_name                |         name         | status |   start_date_time   
+--------------------------------------------+----------------------+--------+---------------------
+ customers/4454506598/campaigns/22263645060 | OPS Join_Ops Page US | PAUSED | 2025-02-21 10:28:17
+ customers/4454506598/campaigns/22263922986 | OPS Quiz NA          | PAUSED | 2025-02-21 12:42:52
+ customers/4454506598/campaigns/22267088788 | OPS Index Page       | PAUSED | 2025-02-20 00:05:00
+(3 rows)
+

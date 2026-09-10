@@ -1,0 +1,49 @@
+{
+  "ad_group": "customers/4454506598/adGroups/22",
+  "hypothesis": "Control leads with the crew knowing where to be. This one leads with the offline promise: the schedule and the changes survive a basement, a backroad and a dead bar of signal. Same offer, different reason to click.",
+  "headlines": [
+    {
+      "text": "Scheduling that works offline",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Changes sync when back online",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Today's jobs, on every phone"
+    },
+    {
+      "text": "Dispatch from the truck"
+    },
+    {
+      "text": "The whole week in one place"
+    },
+    {
+      "text": "No training required"
+    },
+    {
+      "text": "Built by trades, for trades"
+    },
+    {
+      "text": "Free to start"
+    },
+    {
+      "text": "Crews of one to ten"
+    }
+  ],
+  "descriptions": [
+    {
+      "text": "The schedule works offline. Changes sync the moment the phone finds signal again."
+    },
+    {
+      "text": "Move a job and the crew sees it. No group text, no calls asking for the address."
+    },
+    {
+      "text": "Free to start. No credit card. Built by trades, for trades."
+    }
+  ],
+  "path1": "scheduling",
+  "path2": "offline",
+  "final_url": "https://try.opsapp.co/scheduling"
+}

@@ -69,12 +69,16 @@
       "schedule": "8-59/20 * * * *"
     },
     {
-      "path": "/api/cron/ads-briefing",
-      "schedule": "34 12 * * 1"
-    },
-    {
       "path": "/api/cron/ads-sync",
       "schedule": "4 8 * * *"
+    },
+    {
+      "path": "/api/cron/ads-engine",
+      "schedule": "59 14 * * *"
+    },
+    {
+      "path": "/api/cron/ads-conversions",
+      "schedule": "41 * * * *"
     },
     {
       "path": "/api/cron/app-store-sync",

@@ -1,0 +1,29 @@
+Production verification of 20260910120000_ads_engine.sql — 2026-09-08, verified by OBJECT (never by ledger version).
+Project ijeekuhbatykdomumfjx. Applied through the Supabase MCP apply_migration (ledger row: 20260909012547 ads_engine; the ledger version is not the filename and is not used as proof).
+
+tables (rowsecurity):
+  ads_changes true | ads_engine_alerts true | ads_engine_runs true | ads_engine_settings true | ads_proposals true | ads_tests true
+
+functions (all prosecdef=false, proconfig search_path=""):
+  accept_ads_proposal(uuid,uuid,text,text,integer,jsonb,jsonb,text,text)
+  ads_engine_modes_valid(jsonb)
+  check_ads_engine_stall(text,text,integer,boolean)
+  checkpoint_ads_engine_run(uuid,uuid,text[],text)
+  claim_ads_engine_run(uuid,text)
+  expire_ads_proposals()
+  mark_ads_proposal_applied(uuid,text,jsonb,text[],text,text)
+  notify_ads_engine(text,text)
+  record_ads_engine_submission(uuid,uuid,integer,jsonb)
+  release_ads_engine_run(uuid,uuid,text,text)
+  review_ads_proposal(uuid,text,text,text)
+
+privileges:
+  anon SELECT on any engine table: false
+  authenticated SELECT on any engine table: false
+  service_role SELECT on every engine table: true
+  anon EXECUTE claim_ads_engine_run: false
+  service_role EXECUTE claim_ads_engine_run: true
+
+settings row (singleton): modes all "propose"; monthly_cap 1500; daily_cap 60; max_budget_change_pct 15; budget_cooldown_days 14; max_structural_per_run 3; lease_minutes 40; stall_hours 50; target_cost_per_trial 150; heartbeat_at null; stall_notified_on null.
+
+Local proof: node tests/sql/ads-engine-runtime.mjs → PASS (PG17 harness, /private/tmp/ops-editorial-pg).

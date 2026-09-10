@@ -1,0 +1,49 @@
+{
+  "ad_group": "customers/4454506598/adGroups/23",
+  "hypothesis": "Control leads with the workflow, quote it and invoice it. This one leads with price: free to start, then $90 a month, every feature on every tier and the next rung named out loud.",
+  "headlines": [
+    {
+      "text": "Free, then $90 a month",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "Quotes and invoices for crews",
+      "pinnedField": "HEADLINE_1"
+    },
+    {
+      "text": "$140 when the crew grows"
+    },
+    {
+      "text": "No credit card to start"
+    },
+    {
+      "text": "Send the quote from the truck"
+    },
+    {
+      "text": "Invoice before you leave site"
+    },
+    {
+      "text": "No training required"
+    },
+    {
+      "text": "Built by trades, for trades"
+    },
+    {
+      "text": "Works offline"
+    }
+  ],
+  "descriptions": [
+    {
+      "text": "Free to start, no credit card. Every feature, every tier, from the first quote."
+    },
+    {
+      "text": "Quote on site, invoice from the truck. Paperwork done before you drive off."
+    },
+    {
+      "text": "$140 when the crew grows past starter. No feature held back to sell you up."
+    }
+  ],
+  "path1": "quotes",
+  "path2": "pricing",
+  "final_url": "https://try.opsapp.co/quotes-invoices"
+}

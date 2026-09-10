@@ -1,0 +1,23 @@
+# Production verification — 20260909123000_ads_warehouse_grain.sql
+# Project ijeekuhbatykdomumfjx, applied via Supabase MCP apply_migration
+# (name ads_warehouse_grain) on 2026-09-09 04:17 UTC. Verified BY OBJECT.
+
+ledger   20260909041702 ads_warehouse_grain   md5(statements[1]) = d73f776435cef70f526fa40478e62d90
+         (equals the md5 of the file with its trailing newline stripped)
+
+rel      ads_daily_ad_group   table  rls=true   pk (date, ad_group_id)
+rel      ads_daily_ad         table  rls=true   pk (date, ad_id)
+rel      ads_daily_asset      table  rls=true   pk (date, ad_id, asset_id, field_type)
+rel      ads_daily_keyword    table  rls=true   pk (date, ad_group_id, criterion_id)   <- recreated
+         columns: date, campaign_id, campaign_name, ad_group_id, ad_group_name, criterion_id, keyword,
+                  match_type, status, quality_score, spend, clicks, impressions, conversions, average_cpc, synced_at
+rel      ads_entities         table  rls=true   pk (resource_name)
+rel      ads_click_map        table  rls=true   pk (gclid)
+rel      ads_funnel_by_keyword view  (owner-run; no security_invoker)
+
+priv     anon / authenticated  SELECT=false on every table and on the view
+priv     service_role          SELECT=true  on every table and on the view
+
+index    ads_daily_ad_group_date_idx, ads_daily_ad_date_idx, ads_daily_asset_date_idx,
+         ads_daily_keyword_date_idx, ads_daily_keyword_spend_idx, ads_entities_type_idx,
+         ads_click_map_click_date_idx (+ the six primary keys)

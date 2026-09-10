@@ -1,0 +1,17 @@
+FILED add_negatives NEG · Job seekers — "job management jobs", "jobber careers", 8 clicks and $36.10, no trial
+FILED add_negatives NEG · Homeowner intent — "electrician near me", 6 clicks and $19.20, no trial
+FILED add_negatives NEG · Training — "job management course", 3 clicks and $11.70, no trial
+FILED add_negatives NEG · Generic waste — "free job management app", 7 clicks and $24.50, no trial
+FILED observation COMPETITOR · CA — $451.47 and zero Google conversions, but it holds the account's only paying customer at $340.20; the conversion import is wrong, do not pause on that column
+FILED observation BRAND · CA — capped at $3 a day while delivering trials at $25.70 against a $150 target; room exists under the $1,500 monthly cap, flagged for the run where bidding is a duty
+DROPPED create_rsa_challenger Crew scheduling — independent editor rejected twice: unsupported_claim, then repetitive
+DROPPED create_rsa_challenger Quotes & invoices — independent editor rejected twice: unsupported_claim, then repetitive
+DROPPED create_rsa_challenger Jobber alternative — independent editor rejected twice: unsupported_claim, then repetitive
+DROPPED create_rsa_challenger Brand — not written; the 3-proposal structural budget went to the three ad groups carrying the most evidence
+DROPPED pause_keyword "crew scheduling app" and "jobber alternative" — 62 clicks and no Google conversion each, but the funnel shows a trial on both and a paying customer on one; the pause rule is not met
+DROPPED pause_ad — every enabled ad outside the running test is the only ad in its group, so nothing has lost to a sibling
+DROPPED add_keywords — the only search term that produced trials, "job management app", is already covered by an exact-text phrase keyword
+DROPPED add_ad_group — no trade in the funnel shows a paying customer or repeated trials; the one paid customer came through the Jobber comparison, not a trade
+hygiene: read all 7 search terms and 11 keywords over 2026-08-10..2026-09-06, classified 5 no-trial terms into 4 shared lists, checked both pause candidates against the funnel before letting them go
+creative: 4 controls are 39 days old and due; wrote challengers for the 3 with the most evidence (Crew scheduling, Quotes & invoices, Jobber alternative), revised each once on the editor's notes, and dropped all 3 when the editor held; no challenger ships that the voice check rejected
+structure: reviewed ad-group coverage against the search-term report and the funnel; no uncovered converting term and no trade with a paying customer, so nothing structural was warranted even with the budget free
