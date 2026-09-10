@@ -98,14 +98,19 @@ const DONE_KEY: Record<string, [string, string]> = {
   sent: ["weekly.done.sent", "TEST SENT TO YOUR INBOX."],
 };
 
+// OPS-Web replaces Tailwind's numeric spacing scale with an 8px unit, so every
+// spacing value here is the DESIGN.md measure written in px: panel header
+// 22/30, panel body 16/30/34, 24px between panels, buttons 9/16 at 36px.
+//
 // Prose inside the preview: Mohave body on the dark canvas, headings in
 // sentence case (Cake Mono is uppercase-only), links in the secondary text
 // tone, never the accent.
 const PROSE =
-  "max-w-[68ch] font-mohave text-body text-text-secondary [&_p]:mb-4 [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:font-mohave [&_h2]:text-body-lg [&_h2]:text-text [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-text [&_a]:text-text-secondary [&_a]:underline [&_a:hover]:text-text [&_strong]:text-text [&_blockquote]:my-6 [&_blockquote]:border-l [&_blockquote]:border-line [&_blockquote]:pl-4 [&_blockquote]:text-text [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-2";
+  "max-w-[68ch] font-mohave text-body text-text-secondary [&_p]:mb-[16px] [&_h2]:mb-[12px] [&_h2]:mt-[32px] [&_h2]:font-mohave [&_h2]:text-body-lg [&_h2]:text-text [&_h3]:mb-[8px] [&_h3]:mt-[24px] [&_h3]:text-text [&_a]:text-text-secondary [&_a]:underline [&_a:hover]:text-text [&_strong]:text-text [&_blockquote]:my-[24px] [&_blockquote]:border-l [&_blockquote]:border-line [&_blockquote]:pl-[16px] [&_blockquote]:text-text [&_ul]:mb-[16px] [&_ul]:list-disc [&_ul]:pl-[20px] [&_ol]:mb-[16px] [&_ol]:list-decimal [&_ol]:pl-[20px] [&_li]:mb-[8px]";
 
+const MONO_LABEL = "font-mono text-micro uppercase tracking-authority text-text-tertiary";
 const BUTTON =
-  "rounded border px-4 py-2 font-cakemono text-cake-button uppercase transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent disabled:opacity-40 motion-reduce:transition-none";
+  "min-h-[36px] rounded border px-[16px] py-[9px] font-cakemono text-cake-button uppercase transition-colors duration-150 ease-smooth focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent disabled:opacity-40 motion-reduce:transition-none";
 const PRIMARY = `${BUTTON} border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black`;
 const SECONDARY = `${BUTTON} border-line text-text-secondary hover:text-text`;
 const DESTRUCTIVE = `${BUTTON} border-rose-line bg-rose-soft text-rose`;
@@ -220,7 +225,7 @@ export function WeeklyPostPanel() {
       ref={sectionRef}
       id="weekly-post"
       aria-labelledby="weekly-post-status"
-      className="mb-8 rounded-panel border border-line"
+      className="mb-[24px] rounded-panel border border-line"
     >
       <button
         type="button"
@@ -228,19 +233,20 @@ export function WeeklyPostPanel() {
         aria-expanded={open}
         aria-controls="weekly-post-preview"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full flex-wrap items-baseline gap-x-4 gap-y-1 px-6 py-4 text-left focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent"
+        className="flex w-full flex-wrap items-baseline gap-x-[16px] gap-y-[4px] px-[30px] py-[22px] text-left focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent"
       >
-        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-tertiary">
-          {t("weekly.label", "// WEEKLY POST")}
-        </span>
-        <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-secondary [font-feature-settings:'tnum'_1,'zero'_1]">
+        <span className={MONO_LABEL}>{t("weekly.label", "// WEEKLY POST")}</span>
+        <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-secondary">
           {statusLine()}
         </span>
         {title && <span className="min-w-0 flex-1 truncate font-mohave text-body text-text">{title}</span>}
       </button>
 
       {open && (
-        <div id="weekly-post-preview" className="flex flex-col gap-6 border-t border-line px-6 py-6">
+        <div
+          id="weekly-post-preview"
+          className="flex flex-col gap-[24px] border-t border-line px-[30px] pb-[34px] pt-[16px]"
+        >
           {query.isError && (
             <button type="button" onClick={() => void query.refetch()} className={`${SECONDARY} self-start`}>
               {t("weekly.retry", "RETRY")}
@@ -274,10 +280,10 @@ export function WeeklyPostPanel() {
           )}
 
           {pack && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-[8px]">
               <h2 className="font-cakemono text-cake-display font-light uppercase text-text">{pack.article.title}</h2>
               <p className="max-w-[68ch] font-mohave text-body text-text-secondary">{pack.article.subtitle}</p>
-              <p className="font-mono text-micro uppercase tracking-[0.12em] text-text-tertiary [font-feature-settings:'tnum'_1,'zero'_1]">
+              <p className="font-mono text-micro uppercase tracking-[0.12em] text-text-tertiary">
                 {[
                   pack.article.category.replace(/-/g, " ").toUpperCase(),
                   `${pack.word_count.toLocaleString("en-US")} ${t("weekly.facts.words", "WORDS")}`,
@@ -290,7 +296,7 @@ export function WeeklyPostPanel() {
           )}
 
           {assignment && (canPublish || canStop || canWriteAnother || liveUrl || pack) && (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-[12px]">
               {canPublish && (
                 <button type="button" disabled={busy !== null} onClick={() => void act("publish_now")} className={PRIMARY}>
                   {confirming === "publish_now"
@@ -344,9 +350,9 @@ export function WeeklyPostPanel() {
           )}
 
           {pack && pack.article.faqs.length > 0 && (
-            <div className="flex max-w-[68ch] flex-col gap-3">
-              <p className="font-mono text-micro uppercase tracking-[0.16em] text-text-tertiary">{t("weekly.faqs", "// FAQS")}</p>
-              <dl className="flex flex-col gap-4">
+            <div className="flex max-w-[68ch] flex-col gap-[12px]">
+              <p className={MONO_LABEL}>{t("weekly.faqs", "// FAQS")}</p>
+              <dl className="flex flex-col gap-[16px]">
                 {pack.article.faqs.map((faq) => (
                   <div key={faq.question}>
                     <dt className="font-mohave text-body text-text">{faq.question}</dt>
@@ -358,11 +364,11 @@ export function WeeklyPostPanel() {
           )}
 
           {pack && (
-            <div className="flex max-w-[68ch] flex-col gap-3">
-              <p className="font-mono text-micro uppercase tracking-[0.16em] text-text-tertiary">{t("weekly.sources", "// SOURCES")}</p>
-              <ul className="flex flex-col gap-2">
+            <div className="flex max-w-[68ch] flex-col gap-[12px]">
+              <p className={MONO_LABEL}>{t("weekly.sources", "// SOURCES")}</p>
+              <ul className="flex flex-col gap-[8px]">
                 {pack.citations.map((citation) => (
-                  <li key={citation.final_url} className="flex flex-wrap items-baseline gap-3">
+                  <li key={citation.final_url} className="flex flex-wrap items-baseline gap-[12px]">
                     <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-tertiary">
                       {citation.role === "primary" ? t("weekly.primary", "PRIMARY") : t("weekly.supporting", "SUPPORTING")}
                     </span>
@@ -374,8 +380,7 @@ export function WeeklyPostPanel() {
               </ul>
               {pack.editor_notes && (
                 <p className="font-mohave text-body-sm text-text-tertiary">
-                  <span className="font-mono text-micro uppercase tracking-[0.16em]">{t("weekly.editor", "// EDITOR")}</span>{" "}
-                  {pack.editor_notes}
+                  <span className={MONO_LABEL}>{t("weekly.editor", "// EDITOR")}</span> {pack.editor_notes}
                 </p>
               )}
             </div>
