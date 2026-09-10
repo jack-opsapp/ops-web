@@ -114,6 +114,11 @@ function matchTypeOf(value: unknown): MatchType {
 
 function biddingOf(value: unknown): BiddingStrategy {
   switch (value) {
+    // Google calls Maximize Clicks TARGET_SPEND, on the campaign field and in
+    // the strategy enum alike (v25 campaign.proto:1043). MAXIMIZE_CLICKS is
+    // accepted too so a hand-written fixture still reads.
+    case "TARGET_SPEND":
+      return "MAXIMIZE_CLICKS";
     case "MANUAL_CPC":
     case "MAXIMIZE_CLICKS":
     case "MAXIMIZE_CONVERSIONS":
@@ -203,7 +208,13 @@ export function mapEntitySnapshot(rows: EntityRow[]): EntitySnapshot {
         const name = str(resource.name) ?? row.name ?? "";
         const campaignLabels = resolveLabels(row, resource);
         const strategy = biddingOf(resource.biddingStrategyType);
-        const maximizeClicks = isRecord(resource.maximizeClicks) ? resource.maximizeClicks : null;
+        // The bid ceiling lives on target_spend; maximizeClicks is read as a
+        // fallback only because older fixtures spell it that way.
+        const maximizeClicks = isRecord(resource.targetSpend)
+          ? resource.targetSpend
+          : isRecord(resource.maximizeClicks)
+            ? resource.maximizeClicks
+            : null;
         const targetCpa = isRecord(resource.targetCpa) ? resource.targetCpa : null;
         const maximizeConversions = isRecord(resource.maximizeConversions) ? resource.maximizeConversions : null;
         const budgetResourceName = str(resource.campaignBudget);

@@ -1,0 +1,2866 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "81",
+   "conversions": 5,
+   "costMicros": "62028480"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2036~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2036"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 1,
+   "costMicros": "6660087"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 5,
+   "costMicros": "8080000"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2554~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2554"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "78",
+   "conversions": 13,
+   "costMicros": "49691260"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2826~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2826"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "35",
+   "conversions": 1,
+   "costMicros": "33481017"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "106",
+   "conversions": 18,
+   "costMicros": "130045473"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "112",
+   "conversions": 25,
+   "costMicros": "148690567"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "64",
+   "conversions": 15,
+   "costMicros": "105621730"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 1,
+   "costMicros": "8040000"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "80000"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2616~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2616"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "26",
+   "conversions": 6,
+   "costMicros": "39408124"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "2230000"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "2190000"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "27",
+   "conversions": 0,
+   "costMicros": "79808919"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "66",
+   "conversions": 0,
+   "costMicros": "214443127"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "19579247"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~AREA_OF_INTEREST",
+   "locationType": "AREA_OF_INTEREST",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "clicks": "83",
+   "conversions": 3,
+   "costMicros": "39253273"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 1,
+   "costMicros": "1474788"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2634~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2634"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "clicks": "213",
+   "conversions": 22,
+   "costMicros": "43011694"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2710~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2710"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "clicks": "25",
+   "conversions": 1,
+   "costMicros": "7213181"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2784~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2784"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "clicks": "1011",
+   "conversions": 22,
+   "costMicros": "246303859"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "metrics": {
+   "clicks": "43",
+   "conversions": 0,
+   "costMicros": "10529817"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 0,
+   "costMicros": "2243956"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2634~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2634"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "metrics": {
+   "clicks": "188",
+   "conversions": 5,
+   "costMicros": "41147206"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2710~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2710"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "metrics": {
+   "clicks": "16",
+   "conversions": 0,
+   "costMicros": "5995965"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2784~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2784"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "metrics": {
+   "clicks": "119",
+   "conversions": 1,
+   "costMicros": "35753533"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "21089"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2004~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2004"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "206680"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2024~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2024"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "31",
+   "conversions": 0,
+   "costMicros": "1140185"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2050~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2050"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 0,
+   "costMicros": "175564"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2076~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2076"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "448274"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2144~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2144"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "25801"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2170~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2170"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 0,
+   "costMicros": "214250"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2231~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2231"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "216771"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2288~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2288"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "94247"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2332~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2332"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "114384"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2356~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2356"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "107270"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2360~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2360"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "12798"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2404~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2404"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "10",
+   "conversions": 0,
+   "costMicros": "254763"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2524~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2524"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "259922"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2566~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2566"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "90",
+   "conversions": 0,
+   "costMicros": "4175511"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2586~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2586"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "126309"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2608~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2608"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "689653"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2634~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2634"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "63383"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2704~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2704"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "289",
+   "conversions": 6,
+   "costMicros": "25387573"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2710~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2710"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 1,
+   "costMicros": "3835996"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2784~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2784"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "22472"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2800~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2800"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "5882"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2834~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2834"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "50846"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2894~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2894"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "name": "OPS Quiz UK"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "224687"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2208~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2208"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "name": "OPS Quiz UK"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "244467"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2246~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2246"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "name": "OPS Quiz UK"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "1355573"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2372~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2372"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "name": "OPS Quiz UK"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "costMicros": "2412345"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2752~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2752"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "name": "OPS Quiz UK"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "4455676"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2826~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2826"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271202912",
+   "name": "OPS Join_Ops Page Aus"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "8254362"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2036~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2036"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271202912",
+   "name": "OPS Join_Ops Page Aus"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 1,
+   "costMicros": "1372135"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2554~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2554"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22277761109",
+   "name": "OPS Quiz Aus"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "costMicros": "6505261"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2036~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2036"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22277761109",
+   "name": "OPS Quiz Aus"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "3414101"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2554~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2554"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 1,
+   "costMicros": "1008252"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2036~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2036"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "2277681"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "2367812"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2554~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2554"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "3881147"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2826~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2826"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "11",
+   "conversions": 0,
+   "costMicros": "4302948"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "80",
+   "conversions": 2,
+   "costMicros": "17454895"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2208~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2208"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "306",
+   "conversions": 3,
+   "costMicros": "73412754"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2246~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2246"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "228",
+   "conversions": 7,
+   "costMicros": "53526075"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2372~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2372"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "40",
+   "conversions": 3,
+   "costMicros": "8978787"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2578~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2578"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "520",
+   "conversions": 19,
+   "costMicros": "108139082"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2752~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2752"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "47",
+   "conversions": 0,
+   "costMicros": "21796841"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2826~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2826"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "256",
+   "conversions": 4,
+   "costMicros": "104081385"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "105",
+   "conversions": 1,
+   "costMicros": "96069039"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "name": "OPS Join_Ops Page CA"
+  },
+  "metrics": {
+   "clicks": "1357",
+   "conversions": 33,
+   "costMicros": "562296114"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "49",
+   "conversions": 1,
+   "costMicros": "78663699"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "104080000"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "204761830"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "111399824"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2826~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2826"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "56",
+   "conversions": 1,
+   "costMicros": "1747573"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2004~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2004"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 1,
+   "costMicros": "599516"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2008~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2008"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "24",
+   "conversions": 1,
+   "costMicros": "2092497"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2012~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2012"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 1,
+   "costMicros": "1127614"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2024~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2024"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "96142"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2031~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2031"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "75",
+   "conversions": 7,
+   "costMicros": "5547471"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2050~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2050"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "1119346"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2051~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2051"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "856789"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2064~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2064"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "595844"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2068~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2068"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "71000"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2084~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2084"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "22",
+   "conversions": 1,
+   "costMicros": "1783611"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2104~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2104"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "89604"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2108~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2108"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "34",
+   "conversions": 2,
+   "costMicros": "2508730"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2116~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2116"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 1,
+   "costMicros": "872329"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2120~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2120"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "23",
+   "conversions": 2,
+   "costMicros": "38668021"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "91801"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2144~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2144"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 1,
+   "costMicros": "518702"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2148~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2148"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "280421"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2152~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2152"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 1,
+   "costMicros": "2201933"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2156~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2156"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "16",
+   "conversions": 3,
+   "costMicros": "1000715"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2178~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2178"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "37",
+   "conversions": 2,
+   "costMicros": "3326558"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2180~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2180"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "412657"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2188~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2188"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "7600"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2204~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2204"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 1,
+   "costMicros": "2056972"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2214~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2214"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 1,
+   "costMicros": "619754"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2218~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2218"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "644760"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2222~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2222"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "40",
+   "conversions": 0,
+   "costMicros": "3183985"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2231~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2231"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "1012594"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2266~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2266"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "15",
+   "conversions": 0,
+   "costMicros": "2087921"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2268~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2268"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 1,
+   "costMicros": "405169"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2270~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2270"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "11",
+   "conversions": 1,
+   "costMicros": "1745229"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2275~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2275"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "155544"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2276~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2276"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "36",
+   "conversions": 1,
+   "costMicros": "2685951"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2288~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2288"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 1,
+   "costMicros": "737958"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2320~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2320"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "40",
+   "conversions": 6,
+   "costMicros": "3757633"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2324~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2324"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 0,
+   "costMicros": "338092"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2328~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2328"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "19",
+   "conversions": 0,
+   "costMicros": "1614540"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2332~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2332"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "754918"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2340~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2340"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "49",
+   "conversions": 4,
+   "costMicros": "3159941"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2356~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2356"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "30",
+   "conversions": 2,
+   "costMicros": "1370980"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2364~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2364"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "79",
+   "conversions": 4,
+   "costMicros": "7231438"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2368~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2368"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "36",
+   "conversions": 1,
+   "costMicros": "3344995"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2384~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2384"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "144573"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2388~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2388"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 1,
+   "costMicros": "855953"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2398~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2398"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "408951"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2404~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2404"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "621564"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2417~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2417"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "25",
+   "conversions": 1,
+   "costMicros": "1381504"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2418~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2418"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "252241"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2422~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2422"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "13",
+   "conversions": 1,
+   "costMicros": "1812955"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2430~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2430"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 1,
+   "costMicros": "686085"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2434~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2434"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "118096"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2440~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2440"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "1089703"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2450~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2450"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "181963"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2454~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2454"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 1,
+   "costMicros": "599095"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2462~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2462"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "673619"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2466~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2466"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "32",
+   "conversions": 2,
+   "costMicros": "1788963"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2478~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2478"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "178161"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2484~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2484"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "35",
+   "conversions": 1,
+   "costMicros": "2234278"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2496~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2496"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 2,
+   "costMicros": "326163"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2498~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2498"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "1211093"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2504~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2504"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 1,
+   "costMicros": "140075"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2508~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2508"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "135",
+   "conversions": 7,
+   "costMicros": "8239072"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2524~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2524"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "810"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2558~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2558"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "136571"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2562~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2562"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 1,
+   "costMicros": "146048"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2584~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2584"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "848570"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2586~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2586"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "211481"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2591~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2591"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "259414"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2608~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2608"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 1,
+   "costMicros": "295872"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2626~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2626"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 0,
+   "costMicros": "820194"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2630~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2630"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "10",
+   "conversions": 2,
+   "costMicros": "1124603"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2646~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2646"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "32",
+   "conversions": 0,
+   "costMicros": "1817687"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2686~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2686"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "costMicros": "28673"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2694~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2694"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "15",
+   "conversions": 0,
+   "costMicros": "1695134"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2704~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2704"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "784107"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2706~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2706"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "98788"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2716~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2716"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 1,
+   "costMicros": "21425"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2724~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2724"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "46252"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2736~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2736"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 1,
+   "costMicros": "36188"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2740~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2740"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 1,
+   "costMicros": "314204"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2760~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2760"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 1,
+   "costMicros": "390756"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2764~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2764"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 1,
+   "costMicros": "256771"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2768~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2768"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "226011"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2780~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2780"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "206540"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2788~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2788"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "368564"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2807~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2807"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 2,
+   "costMicros": "863179"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2818~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2818"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "369088"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2833~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2833"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "21",
+   "conversions": 1,
+   "costMicros": "1230874"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2834~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2834"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "56",
+   "conversions": 6,
+   "costMicros": "121724563"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "58372"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2854~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2854"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 0,
+   "costMicros": "228878"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2860~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2860"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "21",
+   "conversions": 1,
+   "costMicros": "3433680"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2862~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2862"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "382223"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2894~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2894"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "costMicros": "618358"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2900~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2900"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "60",
+   "conversions": 4,
+   "costMicros": "59055561"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "26",
+   "conversions": 3,
+   "costMicros": "38697817"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "48",
+   "conversions": 3,
+   "costMicros": "197858933"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "60",
+   "conversions": 3,
+   "costMicros": "505802978"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "7898622"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "263",
+   "conversions": 22,
+   "costMicros": "157159205"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "113",
+   "conversions": 9,
+   "costMicros": "87644703"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "342",
+   "conversions": 0,
+   "costMicros": "202939686"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2124~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2124"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "329",
+   "conversions": 0,
+   "costMicros": "288566826"
+  },
+  "geographicView": {
+   "resourceName": "customers/4454506598/geographicViews/2840~LOCATION_OF_PRESENCE",
+   "locationType": "LOCATION_OF_PRESENCE",
+   "countryCriterionId": "2840"
+  }
+ }
+]

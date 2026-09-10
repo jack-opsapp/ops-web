@@ -1,0 +1,627 @@
+{
+  "pulledAt": "2026-09-10T05:02:28.475Z",
+  "accountDate": "2026-09-09",
+  "timezone": "America/Vancouver",
+  "source": "KeywordPlanIdeaService.GenerateKeywordIdeas (v25)",
+  "customerId": "5448339076",
+  "language": "languageConstants/1000",
+  "geoTargetConstants": {
+    "US": "geoTargetConstants/2840",
+    "CA": "geoTargetConstants/2124"
+  },
+  "network": "GOOGLE_SEARCH",
+  "currency": "CAD",
+  "seedCount": 41,
+  "ideasReturned": {
+    "US": 2382,
+    "CA": 2346
+  },
+  "unreturnedSeeds": [
+    "housecall pro alternatives"
+  ],
+  "zeroVolumeSeeds": [
+    "switch from jobber"
+  ],
+  "terms": [
+    {
+      "term": "field service management software",
+      "US": {
+        "monthlySearches": 22200,
+        "competition": "LOW",
+        "lowTopOfPageBid": 55.19,
+        "highTopOfPageBid": 119.01
+      },
+      "CA": {
+        "monthlySearches": 1000,
+        "competition": "LOW",
+        "lowTopOfPageBid": 28.3,
+        "highTopOfPageBid": 113.12
+      }
+    },
+    {
+      "term": "jobber pricing",
+      "US": {
+        "monthlySearches": 4400,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 9.79,
+        "highTopOfPageBid": 60.24
+      },
+      "CA": {
+        "monthlySearches": 1000,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 12.06,
+        "highTopOfPageBid": 76.63
+      }
+    },
+    {
+      "term": "landscaping software",
+      "US": {
+        "monthlySearches": 1600,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 3.78,
+        "highTopOfPageBid": 44.62
+      },
+      "CA": {
+        "monthlySearches": 170,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 2.73,
+        "highTopOfPageBid": 26.57
+      }
+    },
+    {
+      "term": "housecall pro pricing",
+      "US": {
+        "monthlySearches": 1300,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 11.6,
+        "highTopOfPageBid": 65.09
+      },
+      "CA": {
+        "monthlySearches": 140,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 12.92,
+        "highTopOfPageBid": 57.5
+      }
+    },
+    {
+      "term": "cleaning business software",
+      "US": {
+        "monthlySearches": 880,
+        "competition": "LOW",
+        "lowTopOfPageBid": 16.72,
+        "highTopOfPageBid": 110.19
+      },
+      "CA": {
+        "monthlySearches": 90,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 8.28,
+        "highTopOfPageBid": 43.32
+      }
+    },
+    {
+      "term": "cleaning company software",
+      "US": {
+        "monthlySearches": 880,
+        "competition": "LOW",
+        "lowTopOfPageBid": 16.72,
+        "highTopOfPageBid": 110.19
+      },
+      "CA": {
+        "monthlySearches": 90,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 8.28,
+        "highTopOfPageBid": 43.32
+      }
+    },
+    {
+      "term": "roofing software",
+      "US": {
+        "monthlySearches": 720,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 17.45,
+        "highTopOfPageBid": 75.88
+      },
+      "CA": {
+        "monthlySearches": 70,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 13.82,
+        "highTopOfPageBid": 43.81
+      }
+    },
+    {
+      "term": "jobber cost",
+      "US": {
+        "monthlySearches": 590,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 8.84,
+        "highTopOfPageBid": 52.45
+      },
+      "CA": {
+        "monthlySearches": 70,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 4.96,
+        "highTopOfPageBid": 30.38
+      }
+    },
+    {
+      "term": "servicetitan pricing",
+      "US": {
+        "monthlySearches": 590,
+        "competition": "LOW",
+        "lowTopOfPageBid": 27.29,
+        "highTopOfPageBid": 137.74
+      },
+      "CA": {
+        "monthlySearches": 50,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 25.81,
+        "highTopOfPageBid": 138.07
+      }
+    },
+    {
+      "term": "landscaping business software",
+      "US": {
+        "monthlySearches": 480,
+        "competition": "LOW",
+        "lowTopOfPageBid": 14.34,
+        "highTopOfPageBid": 137.74
+      },
+      "CA": {
+        "monthlySearches": 50,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 6.18,
+        "highTopOfPageBid": 84.1
+      }
+    },
+    {
+      "term": "how much does jobber cost",
+      "US": {
+        "monthlySearches": 390,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 7.45,
+        "highTopOfPageBid": 38.37
+      },
+      "CA": {
+        "monthlySearches": 40,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 5.96,
+        "highTopOfPageBid": 30.38
+      }
+    },
+    {
+      "term": "lawn care software",
+      "US": {
+        "monthlySearches": 390,
+        "competition": "LOW",
+        "lowTopOfPageBid": 15.87,
+        "highTopOfPageBid": 103.88
+      },
+      "CA": {
+        "monthlySearches": 30,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 11.44,
+        "highTopOfPageBid": 40.97
+      }
+    },
+    {
+      "term": "jobber plans",
+      "US": {
+        "monthlySearches": 320,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 8.13,
+        "highTopOfPageBid": 62.53
+      },
+      "CA": {
+        "monthlySearches": 140,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 9.53,
+        "highTopOfPageBid": 69.04
+      }
+    },
+    {
+      "term": "jobber alternative",
+      "US": {
+        "monthlySearches": 260,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 25.49,
+        "highTopOfPageBid": 102.19
+      },
+      "CA": {
+        "monthlySearches": 70,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 20.61,
+        "highTopOfPageBid": 102.18
+      }
+    },
+    {
+      "term": "jobber alternatives",
+      "US": {
+        "monthlySearches": 260,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 25.42,
+        "highTopOfPageBid": 101.92
+      },
+      "CA": {
+        "monthlySearches": 70,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 20.61,
+        "highTopOfPageBid": 102.18
+      }
+    },
+    {
+      "term": "cleaning business app",
+      "US": {
+        "monthlySearches": 260,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 11.8,
+        "highTopOfPageBid": 110.19
+      },
+      "CA": {
+        "monthlySearches": 20,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 13.18,
+        "highTopOfPageBid": 84.8
+      }
+    },
+    {
+      "term": "servicetitan competitors",
+      "US": {
+        "monthlySearches": 210,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 27.55,
+        "highTopOfPageBid": 75.75
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 11.5,
+        "highTopOfPageBid": 43.64
+      }
+    },
+    {
+      "term": "lawn care business app",
+      "US": {
+        "monthlySearches": 210,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 10.85,
+        "highTopOfPageBid": 63.8
+      },
+      "CA": {
+        "monthlySearches": 30,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 9.31,
+        "highTopOfPageBid": 54.09
+      }
+    },
+    {
+      "term": "roofing contractor software",
+      "US": {
+        "monthlySearches": 210,
+        "competition": "LOW",
+        "lowTopOfPageBid": 18.51,
+        "highTopOfPageBid": 182.64
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "LOW",
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "plumbing business software",
+      "US": {
+        "monthlySearches": 210,
+        "competition": "LOW",
+        "lowTopOfPageBid": 64.68,
+        "highTopOfPageBid": 445.05
+      },
+      "CA": {
+        "monthlySearches": 30,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "hvac scheduling software",
+      "US": {
+        "monthlySearches": 210,
+        "competition": "LOW",
+        "lowTopOfPageBid": 60.7,
+        "highTopOfPageBid": 730.48
+      },
+      "CA": {
+        "monthlySearches": 20,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 21.59,
+        "highTopOfPageBid": 943.58
+      }
+    },
+    {
+      "term": "housecall pro cost",
+      "US": {
+        "monthlySearches": 170,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 11.05,
+        "highTopOfPageBid": 60.82
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 4.46,
+        "highTopOfPageBid": 47.89
+      }
+    },
+    {
+      "term": "how much is housecall pro",
+      "US": {
+        "monthlySearches": 170,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 11.05,
+        "highTopOfPageBid": 55.12
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 22.82,
+        "highTopOfPageBid": 77.93
+      }
+    },
+    {
+      "term": "housecall pro alternative",
+      "US": {
+        "monthlySearches": 140,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 49.75,
+        "highTopOfPageBid": 115.91
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 21.81,
+        "highTopOfPageBid": 70.16
+      }
+    },
+    {
+      "term": "roofing business software",
+      "US": {
+        "monthlySearches": 140,
+        "competition": "LOW",
+        "lowTopOfPageBid": 22.27,
+        "highTopOfPageBid": 81.25
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "HIGH",
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "job management app",
+      "US": {
+        "monthlySearches": 140,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 15.88,
+        "highTopOfPageBid": 71.23
+      },
+      "CA": {
+        "monthlySearches": 30,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 21.03,
+        "highTopOfPageBid": 158.23
+      }
+    },
+    {
+      "term": "jobber competitors",
+      "US": {
+        "monthlySearches": 110,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 27.28,
+        "highTopOfPageBid": 102.19
+      },
+      "CA": {
+        "monthlySearches": 30,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 13.84,
+        "highTopOfPageBid": 55.23
+      }
+    },
+    {
+      "term": "janitorial software",
+      "US": {
+        "monthlySearches": 110,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 14.46,
+        "highTopOfPageBid": 83.07
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "contractor scheduling app",
+      "US": {
+        "monthlySearches": 110,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 32.96,
+        "highTopOfPageBid": 82.84
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 44.3,
+        "highTopOfPageBid": 124.17
+      }
+    },
+    {
+      "term": "contractor invoicing app",
+      "US": {
+        "monthlySearches": 110,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 23.19,
+        "highTopOfPageBid": 82.84
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "servicetitan alternative",
+      "US": {
+        "monthlySearches": 90,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 27.55,
+        "highTopOfPageBid": 85.7
+      },
+      "CA": {
+        "monthlySearches": 20,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 27.61,
+        "highTopOfPageBid": 56.38
+      }
+    },
+    {
+      "term": "electrician scheduling software",
+      "US": {
+        "monthlySearches": 90,
+        "competition": "LOW",
+        "lowTopOfPageBid": 55.23,
+        "highTopOfPageBid": 1372.28
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "LOW",
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "housecall pro competitors",
+      "US": {
+        "monthlySearches": 70,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 47.99,
+        "highTopOfPageBid": 141.31
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": null,
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "crew scheduling app",
+      "US": {
+        "monthlySearches": 70,
+        "competition": "LOW",
+        "lowTopOfPageBid": 14.64,
+        "highTopOfPageBid": 63.22
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": null,
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "alternatives to jobber",
+      "US": {
+        "monthlySearches": 40,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 27.55,
+        "highTopOfPageBid": 117.76
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 34.49,
+        "highTopOfPageBid": 102.18
+      }
+    },
+    {
+      "term": "free jobber alternatives",
+      "US": {
+        "monthlySearches": 30,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 11.34,
+        "highTopOfPageBid": 57.57
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 8.54,
+        "highTopOfPageBid": 36.76
+      }
+    },
+    {
+      "term": "software like jobber",
+      "US": {
+        "monthlySearches": 20,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 35.98,
+        "highTopOfPageBid": 136.57
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "HIGH",
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "apps similar to jobber",
+      "US": {
+        "monthlySearches": 20,
+        "competition": "HIGH",
+        "lowTopOfPageBid": 14.86,
+        "highTopOfPageBid": 61.94
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": null,
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    },
+    {
+      "term": "job management software for trades",
+      "US": {
+        "monthlySearches": 20,
+        "competition": "LOW",
+        "lowTopOfPageBid": 24.82,
+        "highTopOfPageBid": 82.84
+      },
+      "CA": {
+        "monthlySearches": 10,
+        "competition": "MEDIUM",
+        "lowTopOfPageBid": 8.44,
+        "highTopOfPageBid": 23.51
+      }
+    },
+    {
+      "term": "switch from jobber",
+      "US": {
+        "monthlySearches": 0,
+        "competition": null,
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      },
+      "CA": {
+        "monthlySearches": 0,
+        "competition": null,
+        "lowTopOfPageBid": null,
+        "highTopOfPageBid": null
+      }
+    }
+  ]
+}

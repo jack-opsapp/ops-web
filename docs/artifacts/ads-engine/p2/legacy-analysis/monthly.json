@@ -1,0 +1,576 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "clicks": "303",
+   "conversions": 27,
+   "costMicros": "84675507"
+  },
+  "segments": {
+   "month": "2025-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "clicks": "781",
+   "conversions": 13,
+   "costMicros": "194137387"
+  },
+  "segments": {
+   "month": "2025-03-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263645060",
+   "name": "OPS Join_Ops Page US"
+  },
+  "metrics": {
+   "clicks": "253",
+   "conversions": 9,
+   "costMicros": "58443901"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "metrics": {
+   "clicks": "225",
+   "conversions": 6,
+   "costMicros": "59227126"
+  },
+  "segments": {
+   "month": "2025-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22263922986",
+   "name": "OPS Quiz NA"
+  },
+  "metrics": {
+   "clicks": "146",
+   "conversions": 0,
+   "costMicros": "36443351"
+  },
+  "segments": {
+   "month": "2025-03-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22267088788",
+   "name": "OPS Index Page"
+  },
+  "metrics": {
+   "clicks": "495",
+   "conversions": 7,
+   "costMicros": "37649623"
+  },
+  "segments": {
+   "month": "2025-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271198871",
+   "name": "OPS Quiz UK"
+  },
+  "metrics": {
+   "clicks": "19",
+   "conversions": 0,
+   "costMicros": "8692748"
+  },
+  "segments": {
+   "month": "2025-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22271202912",
+   "name": "OPS Join_Ops Page Aus"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 1,
+   "costMicros": "9626497"
+  },
+  "segments": {
+   "month": "2025-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22277761109",
+   "name": "OPS Quiz Aus"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "9919362"
+  },
+  "segments": {
+   "month": "2025-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "58",
+   "conversions": 14,
+   "costMicros": "43503743"
+  },
+  "segments": {
+   "month": "2025-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "184",
+   "conversions": 12,
+   "costMicros": "128315013"
+  },
+  "segments": {
+   "month": "2025-03-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "1959928"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "88",
+   "conversions": 3,
+   "costMicros": "24014531"
+  },
+  "segments": {
+   "month": "2025-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "465",
+   "conversions": 14,
+   "costMicros": "95108512"
+  },
+  "segments": {
+   "month": "2025-03-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281576841",
+   "name": "OPS Join_Ops Page UK"
+  },
+  "metrics": {
+   "clicks": "668",
+   "conversions": 17,
+   "costMicros": "164185391"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "119",
+   "conversions": 18,
+   "costMicros": "134045864"
+  },
+  "segments": {
+   "month": "2025-03-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "243",
+   "conversions": 4,
+   "costMicros": "100080994"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "133",
+   "conversions": 25,
+   "costMicros": "156017442"
+  },
+  "segments": {
+   "month": "2025-03-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "84",
+   "conversions": 1,
+   "costMicros": "88742164"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "name": "OPS Join_Ops Page CA"
+  },
+  "metrics": {
+   "clicks": "354",
+   "conversions": 8,
+   "costMicros": "168410407"
+  },
+  "segments": {
+   "month": "2025-03-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "name": "OPS Join_Ops Page CA"
+  },
+  "metrics": {
+   "clicks": "94",
+   "conversions": 4,
+   "costMicros": "40012676"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "name": "OPS Join_Ops Page CA"
+  },
+  "metrics": {
+   "clicks": "124",
+   "conversions": 1,
+   "costMicros": "40187996"
+  },
+  "segments": {
+   "month": "2025-05-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22304613329",
+   "name": "OPS Join_Ops Page CA"
+  },
+  "metrics": {
+   "clicks": "785",
+   "conversions": 20,
+   "costMicros": "313685035"
+  },
+  "segments": {
+   "month": "2025-06-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "111",
+   "conversions": 16,
+   "costMicros": "182887680"
+  },
+  "segments": {
+   "month": "2025-03-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "costMicros": "1397749"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "18",
+   "conversions": 0,
+   "costMicros": "308841830"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "costMicros": "111399824"
+  },
+  "segments": {
+   "month": "2025-04-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "costMicros": "131776"
+  },
+  "segments": {
+   "month": "2025-09-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "costMicros": "118412"
+  },
+  "segments": {
+   "month": "2025-11-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1328",
+   "conversions": 87,
+   "costMicros": "301397483"
+  },
+  "segments": {
+   "month": "2025-12-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 4,
+   "costMicros": "10662752"
+  },
+  "segments": {
+   "month": "2026-01-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "costMicros": "450000"
+  },
+  "segments": {
+   "month": "2025-10-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "costMicros": "2110000"
+  },
+  "segments": {
+   "month": "2025-11-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "85",
+   "conversions": 7,
+   "costMicros": "99613378"
+  },
+  "segments": {
+   "month": "2025-12-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 3,
+   "costMicros": "407200000"
+  },
+  "segments": {
+   "month": "2025-10-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "195",
+   "conversions": 3,
+   "costMicros": "590713957"
+  },
+  "segments": {
+   "month": "2025-11-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "7898622"
+  },
+  "segments": {
+   "month": "2025-12-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "368",
+   "conversions": 28,
+   "costMicros": "235924297"
+  },
+  "segments": {
+   "month": "2026-01-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 3,
+   "costMicros": "8879611"
+  },
+  "segments": {
+   "month": "2026-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "400",
+   "conversions": 0,
+   "costMicros": "333742632"
+  },
+  "segments": {
+   "month": "2026-02-01"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "278",
+   "conversions": 0,
+   "costMicros": "177343127"
+  },
+  "segments": {
+   "month": "2026-03-01"
+  }
+ }
+]
