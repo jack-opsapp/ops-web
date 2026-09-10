@@ -1,0 +1,751 @@
+<title>Ads Awaiting Your Word</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mohave:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  /* OPS runs one visual world on purpose: pure black canvas, hairlines, no
+     shadows, one steel-blue accent. Single theme by design — every colour is
+     painted explicitly so the page holds on any host ground. */
+  :root {
+    --ground: #000000;
+    --panel: #0A0A0A;
+    --raised: #141414;
+    --ink: #EDEDED;
+    --ink-2: #B5B5B5;
+    --ink-3: #8A8A8A;
+    --ink-4: #6A6A6A;
+    --line: rgba(255, 255, 255, 0.10);
+    --line-soft: rgba(255, 255, 255, 0.06);
+    --accent: #6F94B0;
+    --olive: #9DB582;
+    --tan: #C4A868;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Mohave", "Helvetica Neue", Arial, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 56px 24px 96px; }
+  .num, code, .lbl, dt, .role, .serp-url, .pool summary {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums slashed-zero;
+  }
+
+  /* ── Masthead ─────────────────────────────────────────────────────────── */
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 18px;
+  }
+  h1 {
+    font-size: clamp(34px, 6vw, 56px); font-weight: 700; line-height: 1.04;
+    letter-spacing: 0.03em; text-transform: uppercase; text-wrap: balance;
+    margin: 0 0 20px;
+  }
+  .standfirst {
+    font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0 0 40px;
+  }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  /* ── The count strip ──────────────────────────────────────────────────── */
+  .tally {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1px; background: var(--line-soft);
+    border: 1px solid var(--line); margin: 0 0 12px;
+  }
+  .tally div { background: var(--panel); padding: 18px 20px; }
+  .tally dt {
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-3); margin: 0 0 6px;
+  }
+  .tally dd {
+    margin: 0; font-family: var(--mono); font-size: 26px; font-weight: 500;
+    line-height: 1; color: var(--ink);
+  }
+  .tally dd small {
+    display: block; font-size: 11px; font-weight: 400; color: var(--ink-3);
+    margin-top: 7px; letter-spacing: 0.04em;
+  }
+  .paused-note {
+    font-family: var(--mono); font-size: 12px; color: var(--tan);
+    margin: 0 0 48px; letter-spacing: 0.02em;
+  }
+
+  /* ── Section rules ────────────────────────────────────────────────────── */
+  h2 {
+    font-size: 26px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; margin: 0;
+  }
+  .campaign { margin: 0 0 64px; }
+  .campaign-head {
+    border-top: 1px solid var(--line); padding-top: 22px; margin-bottom: 30px;
+  }
+  .facts { display: flex; flex-wrap: wrap; gap: 26px; margin: 14px 0 12px; }
+  .facts div { display: flex; flex-direction: column; gap: 3px; }
+  .facts dt {
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .facts dd { margin: 0; font-size: 14px; color: var(--ink); }
+  .why { color: var(--ink-2); font-size: 15px; max-width: 64ch; margin: 0; }
+
+  /* ── Ad group ─────────────────────────────────────────────────────────── */
+  .group { margin: 0 0 34px; }
+  .group-head { margin-bottom: 16px; }
+  h3 {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink); margin: 0 0 10px;
+  }
+  .buys { margin: 0 0 6px; font-size: 13px; color: var(--ink-3); }
+  .lbl {
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-4); margin-right: 8px;
+  }
+  code {
+    font-size: 12px; color: var(--ink-2); background: var(--raised);
+    border: 1px solid var(--line-soft); padding: 2px 7px;
+    margin: 0 4px 4px 0; display: inline-block; border-radius: 3px;
+  }
+  code.url { color: var(--ink-2); }
+
+  /* ── The ads. Two per group: control and challenger. ──────────────────── */
+  .ads { display: grid; gap: 14px; }
+  @media (min-width: 760px) { .ads { grid-template-columns: 1fr 1fr; } }
+  .ad {
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .ad-role { display: flex; flex-direction: column; gap: 6px; }
+  .role {
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    width: fit-content; padding: 3px 8px; border: 1px solid;
+  }
+  .role-control { color: var(--olive); border-color: rgba(157, 181, 130, 0.4); }
+  .role-challenger { color: var(--tan); border-color: rgba(196, 168, 104, 0.4); }
+  .angle { font-size: 13px; color: var(--ink-3); line-height: 1.45; }
+
+  /* The ad as a searcher meets it: a result on a results page. */
+  .serp {
+    border-left: 2px solid var(--line); padding-left: 14px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .serp-url { font-size: 12px; color: var(--ink-3); }
+  .serp-tag {
+    color: var(--ink); font-weight: 700; letter-spacing: 0.06em;
+    margin-right: 6px;
+  }
+  .serp-title {
+    margin: 0; font-size: 17px; font-weight: 500; line-height: 1.3;
+    color: var(--accent); letter-spacing: 0.01em;
+  }
+  .serp-body { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+
+  .pool { margin-top: auto; }
+  .pool summary {
+    font-size: 11px; color: var(--ink-4); cursor: pointer; letter-spacing: 0.03em;
+  }
+  .pool summary:hover { color: var(--ink-3); }
+  .pool summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .pool ul {
+    margin: 10px 0 0; padding-left: 16px; font-size: 13px; color: var(--ink-3);
+    columns: 2; column-gap: 20px;
+  }
+  .pool li { margin-bottom: 3px; break-inside: avoid; }
+
+  /* ── Closing: what is left ────────────────────────────────────────────── */
+  .steps { border-top: 1px solid var(--line); padding-top: 30px; margin-top: 20px; }
+  .steps ol { margin: 22px 0 0; padding: 0; list-style: none; counter-reset: step; }
+  .steps li {
+    counter-increment: step; padding: 16px 0 16px 52px; position: relative;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute; left: 0; top: 17px; font-family: var(--mono);
+    font-size: 12px; color: var(--ink-4); letter-spacing: 0.08em;
+  }
+  .steps b { display: block; font-weight: 600; font-size: 16px; margin-bottom: 3px; }
+  .steps span { color: var(--ink-3); font-size: 14px; }
+  .stop {
+    margin-top: 34px; border: 1px solid rgba(196, 168, 104, 0.35);
+    padding: 18px 20px; color: var(--ink-2); font-size: 14px;
+  }
+  .stop b { color: var(--tan); }
+  footer {
+    margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line-soft);
+    font-family: var(--mono); font-size: 11px; color: var(--ink-4);
+    letter-spacing: 0.04em;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Google Ads · account rebuild · 2026-09-09-v1</p>
+  <h1>Twenty-four ads<br>awaiting your word</h1>
+  <p class="standfirst">
+    The ad account is rebuilt and <strong>every campaign is switched off</strong>. Nothing
+    has spent a cent and nothing can until someone calls the one route that turns
+    campaigns on. What follows is every ad, written the way a searcher meets it, so
+    you can read them the way they will actually be read.
+  </p>
+
+  <dl class="tally">
+    <div><dt>Campaigns</dt><dd>5<small>all paused</small></dd></div>
+    <div><dt>Ad groups</dt><dd>12<small>one page each</small></dd></div>
+    <div><dt>Ads</dt><dd>24<small>24 in review</small></dd></div>
+    <div><dt>Keywords</dt><dd>54<small>no broad match</small></dd></div>
+    <div><dt>Blocked terms</dt><dd>100<small>across 5 lists</small></dd></div>
+    <div><dt>Per day</dt><dd>$50<small>$43 of it in the US</small></dd></div>
+  </dl>
+  <p class="paused-note">
+    Spent so far: $0.00 — and that stays true until you say otherwise.
+  </p>
+
+  
+    <section class="campaign" id="brand---na">
+      <header class="campaign-head">
+        <h2>BRAND · NA</h2>
+        <dl class="facts">
+          <div><dt>Per day</dt><dd class="num">$3</dd></div>
+          <div><dt>Ceiling</dt><dd class="num">$2 max per click</dd></div>
+          <div><dt>Runs in</dt><dd>United States + Canada</dd></div>
+        </dl>
+        <p class="why">People typing our name. Cheapest clicks in the account, and the only campaign that runs in both countries.</p>
+      </header>
+      
+      <div class="group">
+        <div class="group-head">
+          <h3>Brand</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>opsapp</code><code>ops app</code><code>opsapp.co</code><code>ops job management</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">The crew actually opens it — the whole product in one line.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/trades/ops</div>
+            <h4 class="serp-title">OPS — job management | OPS for trades | Built by trades, for trades</h4>
+            <p class="serp-body">Jobs, crews, quotes and invoices in one app your crew opens without training. Built by a trades owner who got tired of software nobody on the crew would open. Free to start, no credit card. Every feature at every tier, from $90 a month. Works offline. Changes sync the moment signal comes back.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Your crew will actually use it</li><li>One app for the whole crew</li><li>Works offline on site</li><li>Free to start</li><li>No credit card</li><li>Every feature, every tier</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">Price first: one price for the crew, nothing held back.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/trades/ops</div>
+            <h4 class="serp-title">Job management from $90 | $140 for the whole crew | Every feature, every tier</h4>
+            <p class="serp-body">$90, $140 or $190 a month. Every feature included at every tier. No add-ons. Start free with no credit card. Keep going only if your crew actually uses it. Jobs, schedule, quotes and invoices in one app that works without signal. Built by a trades owner who scaled a crew on it before anyone else could buy it.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>No credit card to start</li><li>OPS runs your whole day</li><li>Quotes, jobs, invoices</li><li>Crew opens it, gets to work</li><li>Offline on every job site</li><li>Built by trades, for trades</li><li>One price, no add-ons</li></ul>
+          </details>
+        </article></div>
+      </div>
+    </section>
+    <section class="campaign" id="pricing---us">
+      <header class="campaign-head">
+        <h2>PRICING · US</h2>
+        <dl class="facts">
+          <div><dt>Per day</dt><dd class="num">$18</dd></div>
+          <div><dt>Ceiling</dt><dd class="num">$9 max per click</dd></div>
+          <div><dt>Runs in</dt><dd>United States</dd></div>
+        </dl>
+        <p class="why">The biggest measured pocket by a wide margin — 5,700 US searches a month for what Jobber and Housecall Pro cost. It is also the exact moment our published price beats an incumbent who hides theirs.</p>
+      </header>
+      
+      <div class="group">
+        <div class="group-head">
+          <h3>Jobber pricing</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>jobber pricing</code><code>jobber pricing</code><code>jobber cost</code><code>jobber plans</code><code>how much does jobber cost</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/compare/jobber</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Published price against an incumbent who hides theirs.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/pricing</div>
+            <h4 class="serp-title">Jobber alternative | Switching from Jobber? | Compare the real prices</h4>
+            <p class="serp-body">OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table. Every feature at every tier. No upsell, no add-on, no seat you forgot you bought. Start free with no credit card. Built by a trades owner for crews of 1 to 10. Compare line by line, then decide. The numbers are on the page, not behind a call.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>$140 for the whole crew</li><li>No per-user pricing</li><li>Every feature, every tier</li><li>Free to start, no card</li><li>See the math yourself</li><li>One price, no add-ons</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">Per-seat billing punishes hiring; OPS charges for the crew.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/pricing</div>
+            <h4 class="serp-title">Tired of Jobber? | Jobber alternative | Add a crew, not a bill</h4>
+            <p class="serp-body">Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat. $90, $140 or $190 a month, every feature included. Add crew without adding cost. Start free, no credit card. Cancel whenever the crew says it is not for them. One app for jobs, schedule, quotes and invoices. It works with no signal.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>$140 covers the crew</li><li>Seats do not cost extra</li><li>Every feature, every tier</li><li>Free to start</li><li>No credit card</li><li>Built by trades, for trades</li><li>Works offline on site</li></ul>
+          </details>
+        </article></div>
+      </div>
+      <div class="group">
+        <div class="group-head">
+          <h3>Housecall Pro pricing</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>housecall pro pricing</code><code>housecall pro pricing</code><code>housecall pro cost</code><code>how much is housecall pro</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/compare/housecall-pro</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Published price against an incumbent who hides theirs.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/housecall-pro/compare/pricing</div>
+            <h4 class="serp-title">Housecall Pro alternative | Switching from Housecall Pro? | Compare the real prices</h4>
+            <p class="serp-body">OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table. Every feature at every tier. No upsell, no add-on, no seat you forgot you bought. Start free with no credit card. Built by a trades owner for crews of 1 to 10. Compare line by line, then decide. The numbers are on the page, not behind a call.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>$140 for the whole crew</li><li>No per-user pricing</li><li>Every feature, every tier</li><li>Free to start, no card</li><li>See the math yourself</li><li>One price, no add-ons</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">Per-seat billing punishes hiring; OPS charges for the crew.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/housecall-pro/compare/pricing</div>
+            <h4 class="serp-title">Tired of Housecall Pro? | Housecall Pro alternative | Add a crew, not a bill</h4>
+            <p class="serp-body">Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat. $90, $140 or $190 a month, every feature included. Add crew without adding cost. Start free, no credit card. Cancel whenever the crew says it is not for them. One app for jobs, schedule, quotes and invoices. It works with no signal.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>$140 covers the crew</li><li>Seats do not cost extra</li><li>Every feature, every tier</li><li>Free to start</li><li>No credit card</li><li>Built by trades, for trades</li><li>Works offline on site</li></ul>
+          </details>
+        </article></div>
+      </div>
+    </section>
+    <section class="campaign" id="switch---us">
+      <header class="campaign-head">
+        <h2>SWITCH · US</h2>
+        <dl class="facts">
+          <div><dt>Per day</dt><dd class="num">$10</dd></div>
+          <div><dt>Ceiling</dt><dd class="num">$12 max per click</dd></div>
+          <div><dt>Runs in</dt><dd>United States</dd></div>
+        </dl>
+        <p class="why">Small but the highest intent in the account: someone already looking for a way out. Exact match, tight budget, highest bid ceiling.</p>
+      </header>
+      
+      <div class="group">
+        <div class="group-head">
+          <h3>Jobber alternative</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>jobber alternative</code><code>jobber alternative</code><code>jobber competitors</code><code>alternatives to jobber</code><code>software like jobber</code><code>apps similar to jobber</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/compare/jobber</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Crews quit software they will not open; this one they open.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/switch</div>
+            <h4 class="serp-title">Jobber alternative | Switching from Jobber? | Software the crew opens</h4>
+            <p class="serp-body">Most crews quit software because it is too much app. OPS opens and shows the job. Bring your jobs, clients and quotes across. Free to start, no credit card. $140 a month for the whole crew, every feature included. Not per seat. Built by a trades owner who could not get his own crew to use anything else.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>No training day required</li><li>Move your jobs over free</li><li>Every feature, every tier</li><li>$140 for the whole crew</li><li>Works offline on site</li><li>Built by trades, for trades</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">Switching costs a morning, not a quarter.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/switch</div>
+            <h4 class="serp-title">Tired of Jobber? | Jobber alternative | Switch in an afternoon</h4>
+            <p class="serp-body">Switching costs a morning, not a quarter. Your jobs and clients come with you. $90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons. Start free with no credit card and see whether the crew opens it on day 1. Built by trades, for trades. It works with no signal and syncs when it returns.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Keep your job history</li><li>$140 for the whole crew</li><li>No per-seat billing</li><li>Free to start, no card</li><li>Every feature, every tier</li><li>Offline on every site</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article></div>
+      </div>
+      <div class="group">
+        <div class="group-head">
+          <h3>Housecall Pro alternative</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>housecall pro alternative</code><code>housecall pro alternative</code><code>housecall pro competitors</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/compare/housecall-pro</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Crews quit software they will not open; this one they open.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/housecall-pro/compare/switch</div>
+            <h4 class="serp-title">Housecall Pro alternative | Switching from Housecall Pro? | Software the crew opens</h4>
+            <p class="serp-body">Most crews quit software because it is too much app. OPS opens and shows the job. Bring your jobs, clients and quotes across. Free to start, no credit card. $140 a month for the whole crew, every feature included. Not per seat. Built by a trades owner who could not get his own crew to use anything else.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>No training day required</li><li>Move your jobs over free</li><li>Every feature, every tier</li><li>$140 for the whole crew</li><li>Works offline on site</li><li>Built by trades, for trades</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">Switching costs a morning, not a quarter.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/housecall-pro/compare/switch</div>
+            <h4 class="serp-title">Tired of Housecall Pro? | Housecall Pro alternative | Switch in an afternoon</h4>
+            <p class="serp-body">Switching costs a morning, not a quarter. Your jobs and clients come with you. $90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons. Start free with no credit card and see whether the crew opens it on day 1. Built by trades, for trades. It works with no signal and syncs when it returns.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Keep your job history</li><li>$140 for the whole crew</li><li>No per-seat billing</li><li>Free to start, no card</li><li>Every feature, every tier</li><li>Offline on every site</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article></div>
+      </div>
+      <div class="group">
+        <div class="group-head">
+          <h3>ServiceTitan alternative</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>servicetitan alternative</code><code>servicetitan alternative</code><code>servicetitan competitors</code><code>servicetitan pricing</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/compare/servicetitan</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Built for a crew of ten, not for a call centre.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/servicetitan/compare/switch</div>
+            <h4 class="serp-title">ServiceTitan alternative | Switching from ServiceTitan? | Built for small crews</h4>
+            <p class="serp-body">Built for crews of 1 to 10, not for a call centre. No rollout, no onboarding fee. $90, $140 or $190 a month. Every feature at every tier. Start free, no card. Your crew opens it and sees today's jobs. That is the whole training. Built by a trades owner who needed it to work in a truck with no signal.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>No enterprise rollout</li><li>$140 for the whole crew</li><li>No onboarding fee</li><li>Free to start, no card</li><li>Every feature, every tier</li><li>Crews of 1 to 10</li><li>Works offline on site</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">The price is on the page, not behind a discovery call.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/servicetitan/compare/switch</div>
+            <h4 class="serp-title">Tired of ServiceTitan? | ServiceTitan alternative | $140 for the whole crew</h4>
+            <p class="serp-body">The price is $90, $140 or $190 a month. No quote, no discovery call, no contract. Every feature at every tier. Nothing is held back for a bigger plan. Start free with no credit card. Keep it only if the crew opens it. Jobs, schedule, quotes and invoices in one app that works with no signal.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>No quote, no sales call</li><li>Prices on the page</li><li>Every feature, every tier</li><li>Free to start</li><li>No credit card</li><li>Built by trades, for trades</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article></div>
+      </div>
+    </section>
+    <section class="campaign" id="trade---us">
+      <header class="campaign-head">
+        <h2>TRADE · US</h2>
+        <dl class="facts">
+          <div><dt>Per day</dt><dd class="num">$12</dd></div>
+          <div><dt>Ceiling</dt><dd class="num">$9 max per click</dd></div>
+          <div><dt>Runs in</dt><dd>United States</dd></div>
+        </dl>
+        <p class="why">Cleaning, landscaping and roofing have real US volume and almost none in Canada — which is why they are a US campaign rather than the month-two addition the original plan assumed.</p>
+      </header>
+      
+      <div class="group">
+        <div class="group-head">
+          <h3>Cleaning</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>cleaning business software</code><code>cleaning business software</code><code>cleaning company software</code><code>janitorial software</code><code>cleaning business app</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/for/cleaning</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Names the trade and shows the day: stops on one screen.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/cleaning/cleaning/crews</div>
+            <h4 class="serp-title">Cleaning business software | Software for cleaning crews | Run every clean from one app</h4>
+            <p class="serp-body">Assign the route, track the clean, invoice from the phone before you leave. Your crew opens it and sees today's stops. No training day, no manual. $90, $140 or $190 a month for the crew. Every feature at every tier. Free to start with no credit card. Built by a trades owner, not an office.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Crew sees the day up front</li><li>Schedules, jobs, invoices</li><li>$140 for the whole crew</li><li>Free to start, no card</li><li>Every feature, every tier</li><li>Works offline on site</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">The alternative is group texts and paper, and it loses work.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/cleaning/cleaning/crews</div>
+            <h4 class="serp-title">Cleaning crews, one app | Cleaning business software | Stop running on group texts</h4>
+            <p class="serp-body">Group texts and paper schedules lose stops. One app holds the whole route. Photos, notes and sign-off land on the job, not in someone's camera roll. $90, $140 or $190 a month, every feature included. Start free, no card. Built by a trades owner who ran a crew on it before selling it to anyone.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Every stop on one screen</li><li>Invoice before you drive off</li><li>$140 for the whole crew</li><li>No credit card</li><li>Every feature, every tier</li><li>Works with no signal</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article></div>
+      </div>
+      <div class="group">
+        <div class="group-head">
+          <h3>Landscaping</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>landscaping business software</code><code>landscaping business software</code><code>landscaping software</code><code>lawn care software</code><code>lawn care business app</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/for/landscaping</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Names the trade and shows the day: properties on one screen.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/landscaping/landscaping/crews</div>
+            <h4 class="serp-title">Landscaping business software | Software for lawn crews | Run the route from one app</h4>
+            <p class="serp-body">Assign the route, track the cut, invoice from the phone before the trailer moves. Your crew opens it and sees today's properties. No training day, no manual. $90, $140 or $190 a month for the crew. Every feature at every tier. Free to start with no credit card. Built by a trades owner, not an office.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Crew sees the day up front</li><li>Schedules, jobs, invoices</li><li>$140 for the whole crew</li><li>Free to start, no card</li><li>Every feature, every tier</li><li>Works offline on site</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">The alternative is group texts and paper, and it loses work.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/landscaping/landscaping/crews</div>
+            <h4 class="serp-title">Lawn care crews, one app | Landscaping business software | Stop running on group texts</h4>
+            <p class="serp-body">Group texts and paper routes lose properties. One app holds the whole day. Photos, notes and sign-off land on the job, not in someone's camera roll. $90, $140 or $190 a month, every feature included. Start free, no card. Built by a trades owner who ran a crew on it before selling it to anyone.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Every propertie on one screen</li><li>Invoice before you drive off</li><li>$140 for the whole crew</li><li>No credit card</li><li>Every feature, every tier</li><li>Works with no signal</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article></div>
+      </div>
+      <div class="group">
+        <div class="group-head">
+          <h3>Roofing</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>roofing contractor software</code><code>roofing contractor software</code><code>roofing software</code><code>roofing business software</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/for/roofing</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Names the trade and shows the day: addresses on one screen.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/roofing/roofing/crews</div>
+            <h4 class="serp-title">Roofing business software | Software for roofing crews | Run every roof from one app</h4>
+            <p class="serp-body">Quote the roof, schedule the crew, photograph the work, invoice from the phone. Your crew opens it and sees today's addresses. No training day, no manual. $90, $140 or $190 a month for the crew. Every feature at every tier. Free to start with no credit card. Built by a trades owner, not an office.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Crew sees the day up front</li><li>Schedules, jobs, invoices</li><li>$140 for the whole crew</li><li>Free to start, no card</li><li>Every feature, every tier</li><li>Works offline on site</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">The alternative is group texts and paper, and it loses work.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/roofing/roofing/crews</div>
+            <h4 class="serp-title">Roofing crews, one app | Roofing business software | Stop running on group texts</h4>
+            <p class="serp-body">Paper packets and group texts lose photos. One app holds the whole job file. Photos, notes and sign-off land on the job, not in someone's camera roll. $90, $140 or $190 a month, every feature included. Start free, no card. Built by a trades owner who ran a crew on it before selling it to anyone.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Every addresse on one screen</li><li>Invoice before you drive off</li><li>$140 for the whole crew</li><li>No credit card</li><li>Every feature, every tier</li><li>Works with no signal</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article></div>
+      </div>
+    </section>
+    <section class="campaign" id="core---ca">
+      <header class="campaign-head">
+        <h2>CORE · CA</h2>
+        <dl class="facts">
+          <div><dt>Per day</dt><dd class="num">$7</dd></div>
+          <div><dt>Ceiling</dt><dd class="num">$9 max per click</dd></div>
+          <div><dt>Runs in</dt><dd>Canada</dd></div>
+        </dl>
+        <p class="why">The home market, kept as one blended campaign because no single Canadian lane can absorb a budget of its own.</p>
+      </header>
+      
+      <div class="group">
+        <div class="group-head">
+          <h3>Pricing</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>jobber pricing</code><code>jobber pricing</code><code>jobber cost</code><code>how much does jobber cost</code><code>jobber plans</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/compare/jobber</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Published price against an incumbent who hides theirs.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/pricing</div>
+            <h4 class="serp-title">Jobber alternative | Switching from Jobber? | Compare the real prices</h4>
+            <p class="serp-body">OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table. Every feature at every tier. No upsell, no add-on, no seat you forgot you bought. Start free with no credit card. Built by a trades owner for crews of 1 to 10. Compare line by line, then decide. The numbers are on the page, not behind a call.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>$140 for the whole crew</li><li>No per-user pricing</li><li>Every feature, every tier</li><li>Free to start, no card</li><li>See the math yourself</li><li>One price, no add-ons</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">Per-seat billing punishes hiring; OPS charges for the crew.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/pricing</div>
+            <h4 class="serp-title">Tired of Jobber? | Jobber alternative | Add a crew, not a bill</h4>
+            <p class="serp-body">Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat. $90, $140 or $190 a month, every feature included. Add crew without adding cost. Start free, no credit card. Cancel whenever the crew says it is not for them. One app for jobs, schedule, quotes and invoices. It works with no signal.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>$140 covers the crew</li><li>Seats do not cost extra</li><li>Every feature, every tier</li><li>Free to start</li><li>No credit card</li><li>Built by trades, for trades</li><li>Works offline on site</li></ul>
+          </details>
+        </article></div>
+      </div>
+      <div class="group">
+        <div class="group-head">
+          <h3>Switching</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>jobber alternative</code><code>jobber alternative</code><code>jobber competitors</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/compare/jobber</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">Crews quit software they will not open; this one they open.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/switch</div>
+            <h4 class="serp-title">Jobber alternative | Switching from Jobber? | Software the crew opens</h4>
+            <p class="serp-body">Most crews quit software because it is too much app. OPS opens and shows the job. Bring your jobs, clients and quotes across. Free to start, no credit card. $140 a month for the whole crew, every feature included. Not per seat. Built by a trades owner who could not get his own crew to use anything else.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>No training day required</li><li>Move your jobs over free</li><li>Every feature, every tier</li><li>$140 for the whole crew</li><li>Works offline on site</li><li>Built by trades, for trades</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">Switching costs a morning, not a quarter.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/switch</div>
+            <h4 class="serp-title">Tired of Jobber? | Jobber alternative | Switch in an afternoon</h4>
+            <p class="serp-body">Switching costs a morning, not a quarter. Your jobs and clients come with you. $90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons. Start free with no credit card and see whether the crew opens it on day 1. Built by trades, for trades. It works with no signal and syncs when it returns.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Keep your job history</li><li>$140 for the whole crew</li><li>No per-seat billing</li><li>Free to start, no card</li><li>Every feature, every tier</li><li>Offline on every site</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article></div>
+      </div>
+      <div class="group">
+        <div class="group-head">
+          <h3>Category</h3>
+          <p class="buys"><span class="lbl">Shows for</span> <code>job management app</code><code>job management app</code><code>crew scheduling app</code><code>contractor scheduling app</code><code>contractor invoicing app</code><code>job management software for trades</code></p>
+          <p class="buys"><span class="lbl">Lands on</span> <code class="url">https://try.opsapp.co/job-management</code></p>
+        </div>
+        <div class="ads">
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-control">control</span>
+            <span class="angle">One app for the whole day — the category answer.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/job-management/trades/job-management</div>
+            <h4 class="serp-title">Job management app | Job management for trades | One app for the whole crew</h4>
+            <p class="serp-body">Jobs, crews, quotes and invoices in one app your crew opens without training. Your crew opens it and sees today's work. No manual, no training day. $90, $140 or $190 a month for the crew. Every feature at every tier. Free to start with no credit card. Works with no signal and syncs later.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Crew sees the day up front</li><li>Jobs, schedule, invoices</li><li>$140 for the whole crew</li><li>Free to start, no card</li><li>Every feature, every tier</li><li>Works offline on site</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article>
+        <article class="ad">
+          <div class="ad-role">
+            <span class="role role-challenger">challenger</span>
+            <span class="angle">Scheduling first — the job the searcher is actually trying to do.</span>
+          </div>
+          <div class="serp">
+            <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/job-management/trades/job-management</div>
+            <h4 class="serp-title">Crew scheduling app | Schedule the crew in minutes | Stop running on group texts</h4>
+            <p class="serp-body">Drag the job, the crew sees it. No calls, no group text, no one at the wrong site. Schedule, quote and invoice from the same app the crew already has open. $90, $140 or $190 a month, every feature included. Start free, no card. Built by a trades owner who ran a crew on it before selling it to anyone.</p>
+          </div>
+          <details class="pool">
+            <summary>Google also rotates 7 more headlines and picks per search</summary>
+            <ul><li>Everyone sees the same day</li><li>Quotes and invoices too</li><li>$140 for the whole crew</li><li>No credit card</li><li>Every feature, every tier</li><li>Works with no signal</li><li>Crews of 1 to 10</li></ul>
+          </details>
+        </article></div>
+      </div>
+    </section>
+
+  <section class="steps">
+    <h2>What is left</h2>
+    <ol>
+      <li><b>Read the ads above and tell me what to change.</b><span>Rewrites go into the file and get re-applied; nothing is edited inside Google by hand, ever.</span></li>
+      <li><b>Publish the seven landing pages.</b><span>Built and tested, but they only exist on this machine. They have to be live before an ad points at one — that is a push, which is yours.</span></li>
+      <li><b>Publish the account code.</b><span>Same story: four commits waiting, nothing sent anywhere.</span></li>
+      <li><b>Wait for Google to finish reviewing the ads.</b><span>All 24 are in review now. It usually clears within a day.</span></li>
+      <li><b>Say go, and I turn the campaigns on.</b><span>One call, and the money starts at $50 a day. It refuses to run on any campaign Google has not approved at least two ads for.</span></li>
+    </ol>
+    <div class="stop">
+      <b>Stopping is always one call, with no conditions attached.</b> Turning campaigns
+      on has to pass checks; turning them off never does. That is deliberate — an
+      emergency stop that can be blocked is not an emergency stop.
+    </div>
+  </section>
+
+  <footer>
+    Account 4454506598 · read from Google 2026-09-10 05:26 UTC ·
+    every figure on this page generated from the account, not typed
+  </footer>
+</div>
