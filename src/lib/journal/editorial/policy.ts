@@ -159,6 +159,8 @@ export interface JournalPolicyContext {
   sources: JournalSourceRef[];
   /** Live posts: link targets, taken slugs and the duplicate window. */
   livePosts: Array<{ slug: string; title: string; published_at: string }>;
+  /** Every slug already used by any blog row or reserved by another week. */
+  takenSlugs?: string[];
   categories: Array<{ id: string; slug: string }>;
   backlogTopicIds: string[];
   industrySlugs: readonly string[];
@@ -435,8 +437,8 @@ export function prepareJournalDraft(
 
   // --- originality ------------------------------------------------------------
   const liveSlugs = new Set(ctx.livePosts.map((post) => post.slug));
-  if (liveSlugs.has(c.slug))
-    fail("SLUG_TAKEN", [{ path: "slug", message: "a live post already uses this slug" }]);
+  if (liveSlugs.has(c.slug) || (ctx.takenSlugs ?? []).includes(c.slug))
+    fail("SLUG_TAKEN", [{ path: "slug", message: "another post or draft already uses this slug" }]);
   const yearAgo = ctx.now.getTime() - 365 * 86400000;
   const recentTitles = ctx.livePosts
     .filter((post) => Date.parse(post.published_at) >= yearAgo)
