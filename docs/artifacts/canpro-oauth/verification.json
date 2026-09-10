@@ -1,0 +1,24 @@
+{
+  "status": "LOCAL_TESTED_NOT_RELEASED",
+  "base_commit": "c44cf655e733b257beaef8c7f37498ac057c8cb0",
+  "unit_test_files": 18,
+  "unit_tests_passed": 718,
+  "postgres_major": 17,
+  "existing_oauth_sql_assertions": 104,
+  "canpro_sql_assertions": 52,
+  "focused_typescript": "passed (changed files and real transitive source graph; 6 GiB heap cap)",
+  "eslint": "passed",
+  "prettier": "passed",
+  "git_diff_check": "passed",
+  "broader_checks": {
+    "principal_boundary": "1 failure, same four unrelated source paths reproduced on untouched base; 5 tests passed",
+    "repository_wide_typescript": "default 4 GiB heap exhausted; no completed result"
+  },
+  "production_observations": {
+    "deployment": "dpl_7qv5q6VTxRcB1DEU1nCU4nAuefAn",
+    "userinfo_http_status": 404,
+    "registration_definition_md5": "96075ae7e99497c1119d2cf2f7721ce9",
+    "prepared_registration_definition_md5": "4944c9d30c3a0b8d2d1cda6899b6bf2b"
+  },
+  "limits": "Synthetic local auth/RPC fixtures; no live registration, grant, identity/business read, refresh canary, production migration, push or deploy."
+}

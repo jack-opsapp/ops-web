@@ -1,0 +1,191 @@
+SET
+SET
+CREATE SCHEMA
+CREATE FUNCTION
+CREATE FUNCTION
+INSERT 0 2
+INSERT 0 2
+CREATE TABLE
+INSERT 0 2
+INSERT 0 1
+INSERT 0 2
+CREATE TABLE
+CREATE FUNCTION
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:40: NOTICE:  PASS: legacy-v1 registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:40: NOTICE:  PASS: legacy-v1 consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:40: NOTICE:  PASS: legacy-v1 other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:40: NOTICE:  PASS: legacy-v1 exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:40: NOTICE:  PASS: legacy-v1 consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:40: NOTICE:  PASS: legacy-v1 code carries accepted labels
+ connect 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:41: NOTICE:  PASS: legacy-v2 registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:41: NOTICE:  PASS: legacy-v2 consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:41: NOTICE:  PASS: legacy-v2 other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:41: NOTICE:  PASS: legacy-v2 exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:41: NOTICE:  PASS: legacy-v2 consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:41: NOTICE:  PASS: legacy-v2 code carries accepted labels
+ connect 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:42: NOTICE:  PASS: active-v14 registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:42: NOTICE:  PASS: active-v14 consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:42: NOTICE:  PASS: active-v14 other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:42: NOTICE:  PASS: active-v14 exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:42: NOTICE:  PASS: active-v14 consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:42: NOTICE:  PASS: active-v14 code carries accepted labels
+ connect 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:43: NOTICE:  PASS: read-only-v14 registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:43: NOTICE:  PASS: read-only-v14 consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:43: NOTICE:  PASS: read-only-v14 other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:43: NOTICE:  PASS: read-only-v14 exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:43: NOTICE:  PASS: read-only-v14 consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:43: NOTICE:  PASS: read-only-v14 code carries accepted labels
+ connect 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:44: NOTICE:  PASS: registered-readonly-v14 registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:44: NOTICE:  PASS: registered-readonly-v14 consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:44: NOTICE:  PASS: registered-readonly-v14 other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:44: NOTICE:  PASS: registered-readonly-v14 exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:44: NOTICE:  PASS: registered-readonly-v14 consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:44: NOTICE:  PASS: registered-readonly-v14 code carries accepted labels
+ connect 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:45: NOTICE:  PASS: registered-minimum-v14 registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:45: NOTICE:  PASS: registered-minimum-v14 consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:45: NOTICE:  PASS: registered-minimum-v14 other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:45: NOTICE:  PASS: registered-minimum-v14 exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:45: NOTICE:  PASS: registered-minimum-v14 consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:45: NOTICE:  PASS: registered-minimum-v14 code carries accepted labels
+ connect 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: active-v14 bearer works and stays pinned after activation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: active-v14 old deployment cannot accept new prepare grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: active-v14 one-argument compatibility resolver excludes prepare grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: active-v14 unsupported active exposure rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: active-v14 refresh preserves immutable original consent with no upgrade
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: active-v14 rotated bearer resolves pinned contract
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: active-v14 replay detected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: active-v14 replay revokes entire token family
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v1 bearer works and stays pinned after activation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v1 old deployment remains compatible
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v1 unsupported active exposure rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v1 refresh preserves immutable original consent with no upgrade
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v1 rotated bearer resolves pinned contract
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v1 replay detected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v1 replay revokes entire token family
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v2 bearer works and stays pinned after activation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v2 old deployment remains compatible
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v2 unsupported active exposure rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v2 refresh preserves immutable original consent with no upgrade
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v2 rotated bearer resolves pinned contract
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v2 replay detected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: legacy-v2 replay revokes entire token family
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: read-only-v14 bearer works and stays pinned after activation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: read-only-v14 old deployment cannot accept new prepare grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: read-only-v14 one-argument compatibility resolver excludes prepare grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: read-only-v14 unsupported active exposure rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: read-only-v14 refresh preserves immutable original consent with no upgrade
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: read-only-v14 rotated bearer resolves pinned contract
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: read-only-v14 replay detected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: read-only-v14 replay revokes entire token family
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-minimum-v14 bearer works and stays pinned after activation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-minimum-v14 old deployment cannot accept new prepare grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-minimum-v14 one-argument compatibility resolver excludes prepare grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-minimum-v14 unsupported active exposure rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-minimum-v14 refresh preserves immutable original consent with no upgrade
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-minimum-v14 rotated bearer resolves pinned contract
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-minimum-v14 replay detected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-minimum-v14 replay revokes entire token family
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-readonly-v14 bearer works and stays pinned after activation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-readonly-v14 old deployment cannot accept new prepare grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-readonly-v14 one-argument compatibility resolver excludes prepare grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-readonly-v14 unsupported active exposure rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-readonly-v14 refresh preserves immutable original consent with no upgrade
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-readonly-v14 rotated bearer resolves pinned contract
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-readonly-v14 replay detected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:68: NOTICE:  PASS: registered-readonly-v14 replay revokes entire token family
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:78: NOTICE:  PASS: existing client cannot be silently upgraded
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:78: NOTICE:  PASS: existing grant cannot gain prepare scope
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:78: NOTICE:  PASS: accepted consent labels cannot be rewritten
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:78: NOTICE:  PASS: external commit scope cannot register
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:78: NOTICE:  PASS: old consent cannot authorize prepare
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:80: NOTICE:  PASS: revoke-v14 registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:80: NOTICE:  PASS: revoke-v14 consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:80: NOTICE:  PASS: revoke-v14 other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:80: NOTICE:  PASS: revoke-v14 exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:80: NOTICE:  PASS: revoke-v14 consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:80: NOTICE:  PASS: revoke-v14 code carries accepted labels
+ connect 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:87: NOTICE:  PASS: other operator cannot revoke grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:87: NOTICE:  PASS: named operator can revoke grant
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:87: NOTICE:  PASS: revocation reaches every token
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:87: NOTICE:  PASS: revoked grant cannot mint usable refresh pair
+DO
+INSERT 0 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:91: NOTICE:  PASS: unbound-canary registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:91: NOTICE:  PASS: unbound v3 consent is still denied
+ rejects 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:92: NOTICE:  PASS: no v3 grant created
+ assert 
+--------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:93: NOTICE:  PASS: activation creates no recurring routine
+ assert 
+--------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:94: NOTICE:  PASS: v14 cannot register another vertical prepare scope
+ rejects 
+---------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:95: NOTICE:  PASS: activated bearer resolver remains service-only
+ assert 
+--------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/agent-customer-update-oauth-runtime.sql:96: NOTICE:  PASS: activated bearer resolver has empty search path
+ assert 
+--------
+ 
+(1 row)
+
+                    result                    
+----------------------------------------------
+ OAuth activation PostgreSQL fixture complete
+(1 row)
+

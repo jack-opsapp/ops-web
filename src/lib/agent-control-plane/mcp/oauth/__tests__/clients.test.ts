@@ -75,11 +75,12 @@ function expectRejected(result: ClientRegistrationResult) {
 }
 
 describe("connector redirect policy", () => {
-  it("allowlists exactly the three published hosted callback URLs", () => {
+  it("allowlists exactly the four approved hosted callback URLs", () => {
     expect([...REDIRECT_URI_ALLOWLIST]).toEqual([
       CLAUDE_CALLBACK,
       CLAUDE_COM_CALLBACK,
       CHATGPT_CALLBACK,
+      "https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth",
     ]);
     expect(Object.isFrozen(REDIRECT_URI_ALLOWLIST)).toBe(true);
   });
