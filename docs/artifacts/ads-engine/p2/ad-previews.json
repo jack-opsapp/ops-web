@@ -1,0 +1,833 @@
+{
+  "blueprintVersion": "2026-09-09-v1",
+  "ads": [
+    {
+      "campaign": "BRAND · NA",
+      "adGroup": "Brand",
+      "role": "control",
+      "angle": "The crew actually opens it — the whole product in one line.",
+      "displayUrl": "try.opsapp.co/trades/ops",
+      "finalUrl": "https://try.opsapp.co/",
+      "pinnedHeadlines": [
+        "OPS — job management",
+        "OPS for trades",
+        "Built by trades, for trades"
+      ],
+      "rotatingHeadlines": [
+        "Your crew will actually use it",
+        "One app for the whole crew",
+        "Works offline on site",
+        "Free to start",
+        "No credit card",
+        "Every feature, every tier",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Jobs, crews, quotes and invoices in one app your crew opens without training.",
+        "Built by a trades owner who got tired of software nobody on the crew would open.",
+        "Free to start, no credit card. Every feature at every tier, from $90 a month.",
+        "Works offline. Changes sync the moment signal comes back."
+      ],
+      "keywords": [
+        "opsapp [EXACT]",
+        "ops app [EXACT]",
+        "opsapp.co [EXACT]",
+        "ops job management [EXACT]"
+      ]
+    },
+    {
+      "campaign": "BRAND · NA",
+      "adGroup": "Brand",
+      "role": "challenger",
+      "angle": "Price first: one price for the crew, nothing held back.",
+      "displayUrl": "try.opsapp.co/trades/ops",
+      "finalUrl": "https://try.opsapp.co/",
+      "pinnedHeadlines": [
+        "Job management from $90",
+        "$140 for the whole crew",
+        "Every feature, every tier"
+      ],
+      "rotatingHeadlines": [
+        "No credit card to start",
+        "OPS runs your whole day",
+        "Quotes, jobs, invoices",
+        "Crew opens it, gets to work",
+        "Offline on every job site",
+        "Built by trades, for trades",
+        "One price, no add-ons"
+      ],
+      "descriptions": [
+        "$90, $140 or $190 a month. Every feature included at every tier. No add-ons.",
+        "Start free with no credit card. Keep going only if your crew actually uses it.",
+        "Jobs, schedule, quotes and invoices in one app that works without signal.",
+        "Built by a trades owner who scaled a crew on it before anyone else could buy it."
+      ],
+      "keywords": [
+        "opsapp [EXACT]",
+        "ops app [EXACT]",
+        "opsapp.co [EXACT]",
+        "ops job management [EXACT]"
+      ]
+    },
+    {
+      "campaign": "PRICING · US",
+      "adGroup": "Jobber pricing",
+      "role": "control",
+      "angle": "Published price against an incumbent who hides theirs.",
+      "displayUrl": "try.opsapp.co/compare/jobber/compare/pricing",
+      "finalUrl": "https://try.opsapp.co/compare/jobber",
+      "pinnedHeadlines": [
+        "Jobber alternative",
+        "Switching from Jobber?",
+        "Compare the real prices"
+      ],
+      "rotatingHeadlines": [
+        "$140 for the whole crew",
+        "No per-user pricing",
+        "Every feature, every tier",
+        "Free to start, no card",
+        "See the math yourself",
+        "One price, no add-ons",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table.",
+        "Every feature at every tier. No upsell, no add-on, no seat you forgot you bought.",
+        "Start free with no credit card. Built by a trades owner for crews of 1 to 10.",
+        "Compare line by line, then decide. The numbers are on the page, not behind a call."
+      ],
+      "keywords": [
+        "jobber pricing [EXACT]",
+        "jobber pricing [PHRASE]",
+        "jobber cost [PHRASE]",
+        "jobber plans [PHRASE]",
+        "how much does jobber cost [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "PRICING · US",
+      "adGroup": "Jobber pricing",
+      "role": "challenger",
+      "angle": "Per-seat billing punishes hiring; OPS charges for the crew.",
+      "displayUrl": "try.opsapp.co/compare/jobber/compare/pricing",
+      "finalUrl": "https://try.opsapp.co/compare/jobber",
+      "pinnedHeadlines": [
+        "Tired of Jobber?",
+        "Jobber alternative",
+        "Add a crew, not a bill"
+      ],
+      "rotatingHeadlines": [
+        "$140 covers the crew",
+        "Seats do not cost extra",
+        "Every feature, every tier",
+        "Free to start",
+        "No credit card",
+        "Built by trades, for trades",
+        "Works offline on site"
+      ],
+      "descriptions": [
+        "Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat.",
+        "$90, $140 or $190 a month, every feature included. Add crew without adding cost.",
+        "Start free, no credit card. Cancel whenever the crew says it is not for them.",
+        "One app for jobs, schedule, quotes and invoices. It works with no signal."
+      ],
+      "keywords": [
+        "jobber pricing [EXACT]",
+        "jobber pricing [PHRASE]",
+        "jobber cost [PHRASE]",
+        "jobber plans [PHRASE]",
+        "how much does jobber cost [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "PRICING · US",
+      "adGroup": "Housecall Pro pricing",
+      "role": "control",
+      "angle": "Published price against an incumbent who hides theirs.",
+      "displayUrl": "try.opsapp.co/compare/housecall-pro/compare/pricing",
+      "finalUrl": "https://try.opsapp.co/compare/housecall-pro",
+      "pinnedHeadlines": [
+        "Housecall Pro alternative",
+        "Switching from Housecall Pro?",
+        "Compare the real prices"
+      ],
+      "rotatingHeadlines": [
+        "$140 for the whole crew",
+        "No per-user pricing",
+        "Every feature, every tier",
+        "Free to start, no card",
+        "See the math yourself",
+        "One price, no add-ons",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table.",
+        "Every feature at every tier. No upsell, no add-on, no seat you forgot you bought.",
+        "Start free with no credit card. Built by a trades owner for crews of 1 to 10.",
+        "Compare line by line, then decide. The numbers are on the page, not behind a call."
+      ],
+      "keywords": [
+        "housecall pro pricing [EXACT]",
+        "housecall pro pricing [PHRASE]",
+        "housecall pro cost [PHRASE]",
+        "how much is housecall pro [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "PRICING · US",
+      "adGroup": "Housecall Pro pricing",
+      "role": "challenger",
+      "angle": "Per-seat billing punishes hiring; OPS charges for the crew.",
+      "displayUrl": "try.opsapp.co/compare/housecall-pro/compare/pricing",
+      "finalUrl": "https://try.opsapp.co/compare/housecall-pro",
+      "pinnedHeadlines": [
+        "Tired of Housecall Pro?",
+        "Housecall Pro alternative",
+        "Add a crew, not a bill"
+      ],
+      "rotatingHeadlines": [
+        "$140 covers the crew",
+        "Seats do not cost extra",
+        "Every feature, every tier",
+        "Free to start",
+        "No credit card",
+        "Built by trades, for trades",
+        "Works offline on site"
+      ],
+      "descriptions": [
+        "Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat.",
+        "$90, $140 or $190 a month, every feature included. Add crew without adding cost.",
+        "Start free, no credit card. Cancel whenever the crew says it is not for them.",
+        "One app for jobs, schedule, quotes and invoices. It works with no signal."
+      ],
+      "keywords": [
+        "housecall pro pricing [EXACT]",
+        "housecall pro pricing [PHRASE]",
+        "housecall pro cost [PHRASE]",
+        "how much is housecall pro [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "Jobber alternative",
+      "role": "control",
+      "angle": "Crews quit software they will not open; this one they open.",
+      "displayUrl": "try.opsapp.co/compare/jobber/compare/switch",
+      "finalUrl": "https://try.opsapp.co/compare/jobber",
+      "pinnedHeadlines": [
+        "Jobber alternative",
+        "Switching from Jobber?",
+        "Software the crew opens"
+      ],
+      "rotatingHeadlines": [
+        "No training day required",
+        "Move your jobs over free",
+        "Every feature, every tier",
+        "$140 for the whole crew",
+        "Works offline on site",
+        "Built by trades, for trades",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Most crews quit software because it is too much app. OPS opens and shows the job.",
+        "Bring your jobs, clients and quotes across. Free to start, no credit card.",
+        "$140 a month for the whole crew, every feature included. Not per seat.",
+        "Built by a trades owner who could not get his own crew to use anything else."
+      ],
+      "keywords": [
+        "jobber alternative [EXACT]",
+        "jobber alternative [PHRASE]",
+        "jobber competitors [PHRASE]",
+        "alternatives to jobber [PHRASE]",
+        "software like jobber [PHRASE]",
+        "apps similar to jobber [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "Jobber alternative",
+      "role": "challenger",
+      "angle": "Switching costs a morning, not a quarter.",
+      "displayUrl": "try.opsapp.co/compare/jobber/compare/switch",
+      "finalUrl": "https://try.opsapp.co/compare/jobber",
+      "pinnedHeadlines": [
+        "Tired of Jobber?",
+        "Jobber alternative",
+        "Switch in an afternoon"
+      ],
+      "rotatingHeadlines": [
+        "Keep your job history",
+        "$140 for the whole crew",
+        "No per-seat billing",
+        "Free to start, no card",
+        "Every feature, every tier",
+        "Offline on every site",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Switching costs a morning, not a quarter. Your jobs and clients come with you.",
+        "$90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons.",
+        "Start free with no credit card and see whether the crew opens it on day 1.",
+        "Built by trades, for trades. It works with no signal and syncs when it returns."
+      ],
+      "keywords": [
+        "jobber alternative [EXACT]",
+        "jobber alternative [PHRASE]",
+        "jobber competitors [PHRASE]",
+        "alternatives to jobber [PHRASE]",
+        "software like jobber [PHRASE]",
+        "apps similar to jobber [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "Housecall Pro alternative",
+      "role": "control",
+      "angle": "Crews quit software they will not open; this one they open.",
+      "displayUrl": "try.opsapp.co/compare/housecall-pro/compare/switch",
+      "finalUrl": "https://try.opsapp.co/compare/housecall-pro",
+      "pinnedHeadlines": [
+        "Housecall Pro alternative",
+        "Switching from Housecall Pro?",
+        "Software the crew opens"
+      ],
+      "rotatingHeadlines": [
+        "No training day required",
+        "Move your jobs over free",
+        "Every feature, every tier",
+        "$140 for the whole crew",
+        "Works offline on site",
+        "Built by trades, for trades",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Most crews quit software because it is too much app. OPS opens and shows the job.",
+        "Bring your jobs, clients and quotes across. Free to start, no credit card.",
+        "$140 a month for the whole crew, every feature included. Not per seat.",
+        "Built by a trades owner who could not get his own crew to use anything else."
+      ],
+      "keywords": [
+        "housecall pro alternative [EXACT]",
+        "housecall pro alternative [PHRASE]",
+        "housecall pro competitors [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "Housecall Pro alternative",
+      "role": "challenger",
+      "angle": "Switching costs a morning, not a quarter.",
+      "displayUrl": "try.opsapp.co/compare/housecall-pro/compare/switch",
+      "finalUrl": "https://try.opsapp.co/compare/housecall-pro",
+      "pinnedHeadlines": [
+        "Tired of Housecall Pro?",
+        "Housecall Pro alternative",
+        "Switch in an afternoon"
+      ],
+      "rotatingHeadlines": [
+        "Keep your job history",
+        "$140 for the whole crew",
+        "No per-seat billing",
+        "Free to start, no card",
+        "Every feature, every tier",
+        "Offline on every site",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Switching costs a morning, not a quarter. Your jobs and clients come with you.",
+        "$90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons.",
+        "Start free with no credit card and see whether the crew opens it on day 1.",
+        "Built by trades, for trades. It works with no signal and syncs when it returns."
+      ],
+      "keywords": [
+        "housecall pro alternative [EXACT]",
+        "housecall pro alternative [PHRASE]",
+        "housecall pro competitors [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "ServiceTitan alternative",
+      "role": "control",
+      "angle": "Built for a crew of ten, not for a call centre.",
+      "displayUrl": "try.opsapp.co/compare/servicetitan/compare/switch",
+      "finalUrl": "https://try.opsapp.co/compare/servicetitan",
+      "pinnedHeadlines": [
+        "ServiceTitan alternative",
+        "Switching from ServiceTitan?",
+        "Built for small crews"
+      ],
+      "rotatingHeadlines": [
+        "No enterprise rollout",
+        "$140 for the whole crew",
+        "No onboarding fee",
+        "Free to start, no card",
+        "Every feature, every tier",
+        "Crews of 1 to 10",
+        "Works offline on site"
+      ],
+      "descriptions": [
+        "Built for crews of 1 to 10, not for a call centre. No rollout, no onboarding fee.",
+        "$90, $140 or $190 a month. Every feature at every tier. Start free, no card.",
+        "Your crew opens it and sees today's jobs. That is the whole training.",
+        "Built by a trades owner who needed it to work in a truck with no signal."
+      ],
+      "keywords": [
+        "servicetitan alternative [EXACT]",
+        "servicetitan alternative [PHRASE]",
+        "servicetitan competitors [PHRASE]",
+        "servicetitan pricing [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "ServiceTitan alternative",
+      "role": "challenger",
+      "angle": "The price is on the page, not behind a discovery call.",
+      "displayUrl": "try.opsapp.co/compare/servicetitan/compare/switch",
+      "finalUrl": "https://try.opsapp.co/compare/servicetitan",
+      "pinnedHeadlines": [
+        "Tired of ServiceTitan?",
+        "ServiceTitan alternative",
+        "$140 for the whole crew"
+      ],
+      "rotatingHeadlines": [
+        "No quote, no sales call",
+        "Prices on the page",
+        "Every feature, every tier",
+        "Free to start",
+        "No credit card",
+        "Built by trades, for trades",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "The price is $90, $140 or $190 a month. No quote, no discovery call, no contract.",
+        "Every feature at every tier. Nothing is held back for a bigger plan.",
+        "Start free with no credit card. Keep it only if the crew opens it.",
+        "Jobs, schedule, quotes and invoices in one app that works with no signal."
+      ],
+      "keywords": [
+        "servicetitan alternative [EXACT]",
+        "servicetitan alternative [PHRASE]",
+        "servicetitan competitors [PHRASE]",
+        "servicetitan pricing [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Cleaning",
+      "role": "control",
+      "angle": "Names the trade and shows the day: stops on one screen.",
+      "displayUrl": "try.opsapp.co/for/cleaning/cleaning/crews",
+      "finalUrl": "https://try.opsapp.co/for/cleaning",
+      "pinnedHeadlines": [
+        "Cleaning business software",
+        "Software for cleaning crews",
+        "Run every clean from one app"
+      ],
+      "rotatingHeadlines": [
+        "Crew sees the day up front",
+        "Schedules, jobs, invoices",
+        "$140 for the whole crew",
+        "Free to start, no card",
+        "Every feature, every tier",
+        "Works offline on site",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Assign the route, track the clean, invoice from the phone before you leave.",
+        "Your crew opens it and sees today's stops. No training day, no manual.",
+        "$90, $140 or $190 a month for the crew. Every feature at every tier.",
+        "Free to start with no credit card. Built by a trades owner, not an office."
+      ],
+      "keywords": [
+        "cleaning business software [EXACT]",
+        "cleaning business software [PHRASE]",
+        "cleaning company software [PHRASE]",
+        "janitorial software [PHRASE]",
+        "cleaning business app [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Cleaning",
+      "role": "challenger",
+      "angle": "The alternative is group texts and paper, and it loses work.",
+      "displayUrl": "try.opsapp.co/for/cleaning/cleaning/crews",
+      "finalUrl": "https://try.opsapp.co/for/cleaning",
+      "pinnedHeadlines": [
+        "Cleaning crews, one app",
+        "Cleaning business software",
+        "Stop running on group texts"
+      ],
+      "rotatingHeadlines": [
+        "Every stop on one screen",
+        "Invoice before you drive off",
+        "$140 for the whole crew",
+        "No credit card",
+        "Every feature, every tier",
+        "Works with no signal",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Group texts and paper schedules lose stops. One app holds the whole route.",
+        "Photos, notes and sign-off land on the job, not in someone's camera roll.",
+        "$90, $140 or $190 a month, every feature included. Start free, no card.",
+        "Built by a trades owner who ran a crew on it before selling it to anyone."
+      ],
+      "keywords": [
+        "cleaning business software [EXACT]",
+        "cleaning business software [PHRASE]",
+        "cleaning company software [PHRASE]",
+        "janitorial software [PHRASE]",
+        "cleaning business app [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Landscaping",
+      "role": "control",
+      "angle": "Names the trade and shows the day: properties on one screen.",
+      "displayUrl": "try.opsapp.co/for/landscaping/landscaping/crews",
+      "finalUrl": "https://try.opsapp.co/for/landscaping",
+      "pinnedHeadlines": [
+        "Landscaping business software",
+        "Software for lawn crews",
+        "Run the route from one app"
+      ],
+      "rotatingHeadlines": [
+        "Crew sees the day up front",
+        "Schedules, jobs, invoices",
+        "$140 for the whole crew",
+        "Free to start, no card",
+        "Every feature, every tier",
+        "Works offline on site",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Assign the route, track the cut, invoice from the phone before the trailer moves.",
+        "Your crew opens it and sees today's properties. No training day, no manual.",
+        "$90, $140 or $190 a month for the crew. Every feature at every tier.",
+        "Free to start with no credit card. Built by a trades owner, not an office."
+      ],
+      "keywords": [
+        "landscaping business software [EXACT]",
+        "landscaping business software [PHRASE]",
+        "landscaping software [PHRASE]",
+        "lawn care software [PHRASE]",
+        "lawn care business app [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Landscaping",
+      "role": "challenger",
+      "angle": "The alternative is group texts and paper, and it loses work.",
+      "displayUrl": "try.opsapp.co/for/landscaping/landscaping/crews",
+      "finalUrl": "https://try.opsapp.co/for/landscaping",
+      "pinnedHeadlines": [
+        "Lawn care crews, one app",
+        "Landscaping business software",
+        "Stop running on group texts"
+      ],
+      "rotatingHeadlines": [
+        "Every propertie on one screen",
+        "Invoice before you drive off",
+        "$140 for the whole crew",
+        "No credit card",
+        "Every feature, every tier",
+        "Works with no signal",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Group texts and paper routes lose properties. One app holds the whole day.",
+        "Photos, notes and sign-off land on the job, not in someone's camera roll.",
+        "$90, $140 or $190 a month, every feature included. Start free, no card.",
+        "Built by a trades owner who ran a crew on it before selling it to anyone."
+      ],
+      "keywords": [
+        "landscaping business software [EXACT]",
+        "landscaping business software [PHRASE]",
+        "landscaping software [PHRASE]",
+        "lawn care software [PHRASE]",
+        "lawn care business app [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Roofing",
+      "role": "control",
+      "angle": "Names the trade and shows the day: addresses on one screen.",
+      "displayUrl": "try.opsapp.co/for/roofing/roofing/crews",
+      "finalUrl": "https://try.opsapp.co/for/roofing",
+      "pinnedHeadlines": [
+        "Roofing business software",
+        "Software for roofing crews",
+        "Run every roof from one app"
+      ],
+      "rotatingHeadlines": [
+        "Crew sees the day up front",
+        "Schedules, jobs, invoices",
+        "$140 for the whole crew",
+        "Free to start, no card",
+        "Every feature, every tier",
+        "Works offline on site",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Quote the roof, schedule the crew, photograph the work, invoice from the phone.",
+        "Your crew opens it and sees today's addresses. No training day, no manual.",
+        "$90, $140 or $190 a month for the crew. Every feature at every tier.",
+        "Free to start with no credit card. Built by a trades owner, not an office."
+      ],
+      "keywords": [
+        "roofing contractor software [EXACT]",
+        "roofing contractor software [PHRASE]",
+        "roofing software [PHRASE]",
+        "roofing business software [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Roofing",
+      "role": "challenger",
+      "angle": "The alternative is group texts and paper, and it loses work.",
+      "displayUrl": "try.opsapp.co/for/roofing/roofing/crews",
+      "finalUrl": "https://try.opsapp.co/for/roofing",
+      "pinnedHeadlines": [
+        "Roofing crews, one app",
+        "Roofing business software",
+        "Stop running on group texts"
+      ],
+      "rotatingHeadlines": [
+        "Every addresse on one screen",
+        "Invoice before you drive off",
+        "$140 for the whole crew",
+        "No credit card",
+        "Every feature, every tier",
+        "Works with no signal",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Paper packets and group texts lose photos. One app holds the whole job file.",
+        "Photos, notes and sign-off land on the job, not in someone's camera roll.",
+        "$90, $140 or $190 a month, every feature included. Start free, no card.",
+        "Built by a trades owner who ran a crew on it before selling it to anyone."
+      ],
+      "keywords": [
+        "roofing contractor software [EXACT]",
+        "roofing contractor software [PHRASE]",
+        "roofing software [PHRASE]",
+        "roofing business software [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Pricing",
+      "role": "control",
+      "angle": "Published price against an incumbent who hides theirs.",
+      "displayUrl": "try.opsapp.co/compare/jobber/compare/pricing",
+      "finalUrl": "https://try.opsapp.co/compare/jobber",
+      "pinnedHeadlines": [
+        "Jobber alternative",
+        "Switching from Jobber?",
+        "Compare the real prices"
+      ],
+      "rotatingHeadlines": [
+        "$140 for the whole crew",
+        "No per-user pricing",
+        "Every feature, every tier",
+        "Free to start, no card",
+        "See the math yourself",
+        "One price, no add-ons",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table.",
+        "Every feature at every tier. No upsell, no add-on, no seat you forgot you bought.",
+        "Start free with no credit card. Built by a trades owner for crews of 1 to 10.",
+        "Compare line by line, then decide. The numbers are on the page, not behind a call."
+      ],
+      "keywords": [
+        "jobber pricing [EXACT]",
+        "jobber pricing [PHRASE]",
+        "jobber cost [PHRASE]",
+        "how much does jobber cost [PHRASE]",
+        "jobber plans [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Pricing",
+      "role": "challenger",
+      "angle": "Per-seat billing punishes hiring; OPS charges for the crew.",
+      "displayUrl": "try.opsapp.co/compare/jobber/compare/pricing",
+      "finalUrl": "https://try.opsapp.co/compare/jobber",
+      "pinnedHeadlines": [
+        "Tired of Jobber?",
+        "Jobber alternative",
+        "Add a crew, not a bill"
+      ],
+      "rotatingHeadlines": [
+        "$140 covers the crew",
+        "Seats do not cost extra",
+        "Every feature, every tier",
+        "Free to start",
+        "No credit card",
+        "Built by trades, for trades",
+        "Works offline on site"
+      ],
+      "descriptions": [
+        "Per-user pricing punishes you for hiring. OPS charges for the crew, not the seat.",
+        "$90, $140 or $190 a month, every feature included. Add crew without adding cost.",
+        "Start free, no credit card. Cancel whenever the crew says it is not for them.",
+        "One app for jobs, schedule, quotes and invoices. It works with no signal."
+      ],
+      "keywords": [
+        "jobber pricing [EXACT]",
+        "jobber pricing [PHRASE]",
+        "jobber cost [PHRASE]",
+        "how much does jobber cost [PHRASE]",
+        "jobber plans [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Switching",
+      "role": "control",
+      "angle": "Crews quit software they will not open; this one they open.",
+      "displayUrl": "try.opsapp.co/compare/jobber/compare/switch",
+      "finalUrl": "https://try.opsapp.co/compare/jobber",
+      "pinnedHeadlines": [
+        "Jobber alternative",
+        "Switching from Jobber?",
+        "Software the crew opens"
+      ],
+      "rotatingHeadlines": [
+        "No training day required",
+        "Move your jobs over free",
+        "Every feature, every tier",
+        "$140 for the whole crew",
+        "Works offline on site",
+        "Built by trades, for trades",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Most crews quit software because it is too much app. OPS opens and shows the job.",
+        "Bring your jobs, clients and quotes across. Free to start, no credit card.",
+        "$140 a month for the whole crew, every feature included. Not per seat.",
+        "Built by a trades owner who could not get his own crew to use anything else."
+      ],
+      "keywords": [
+        "jobber alternative [EXACT]",
+        "jobber alternative [PHRASE]",
+        "jobber competitors [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Switching",
+      "role": "challenger",
+      "angle": "Switching costs a morning, not a quarter.",
+      "displayUrl": "try.opsapp.co/compare/jobber/compare/switch",
+      "finalUrl": "https://try.opsapp.co/compare/jobber",
+      "pinnedHeadlines": [
+        "Tired of Jobber?",
+        "Jobber alternative",
+        "Switch in an afternoon"
+      ],
+      "rotatingHeadlines": [
+        "Keep your job history",
+        "$140 for the whole crew",
+        "No per-seat billing",
+        "Free to start, no card",
+        "Every feature, every tier",
+        "Offline on every site",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Switching costs a morning, not a quarter. Your jobs and clients come with you.",
+        "$90, $140 or $190 a month for the crew. Every feature at every tier, no add-ons.",
+        "Start free with no credit card and see whether the crew opens it on day 1.",
+        "Built by trades, for trades. It works with no signal and syncs when it returns."
+      ],
+      "keywords": [
+        "jobber alternative [EXACT]",
+        "jobber alternative [PHRASE]",
+        "jobber competitors [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Category",
+      "role": "control",
+      "angle": "One app for the whole day — the category answer.",
+      "displayUrl": "try.opsapp.co/job-management/trades/job-management",
+      "finalUrl": "https://try.opsapp.co/job-management",
+      "pinnedHeadlines": [
+        "Job management app",
+        "Job management for trades",
+        "One app for the whole crew"
+      ],
+      "rotatingHeadlines": [
+        "Crew sees the day up front",
+        "Jobs, schedule, invoices",
+        "$140 for the whole crew",
+        "Free to start, no card",
+        "Every feature, every tier",
+        "Works offline on site",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Jobs, crews, quotes and invoices in one app your crew opens without training.",
+        "Your crew opens it and sees today's work. No manual, no training day.",
+        "$90, $140 or $190 a month for the crew. Every feature at every tier.",
+        "Free to start with no credit card. Works with no signal and syncs later."
+      ],
+      "keywords": [
+        "job management app [EXACT]",
+        "job management app [PHRASE]",
+        "crew scheduling app [PHRASE]",
+        "contractor scheduling app [PHRASE]",
+        "contractor invoicing app [PHRASE]",
+        "job management software for trades [PHRASE]"
+      ]
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Category",
+      "role": "challenger",
+      "angle": "Scheduling first — the job the searcher is actually trying to do.",
+      "displayUrl": "try.opsapp.co/job-management/trades/job-management",
+      "finalUrl": "https://try.opsapp.co/job-management",
+      "pinnedHeadlines": [
+        "Crew scheduling app",
+        "Schedule the crew in minutes",
+        "Stop running on group texts"
+      ],
+      "rotatingHeadlines": [
+        "Everyone sees the same day",
+        "Quotes and invoices too",
+        "$140 for the whole crew",
+        "No credit card",
+        "Every feature, every tier",
+        "Works with no signal",
+        "Crews of 1 to 10"
+      ],
+      "descriptions": [
+        "Drag the job, the crew sees it. No calls, no group text, no one at the wrong site.",
+        "Schedule, quote and invoice from the same app the crew already has open.",
+        "$90, $140 or $190 a month, every feature included. Start free, no card.",
+        "Built by a trades owner who ran a crew on it before selling it to anyone."
+      ],
+      "keywords": [
+        "job management app [EXACT]",
+        "job management app [PHRASE]",
+        "crew scheduling app [PHRASE]",
+        "contractor scheduling app [PHRASE]",
+        "contractor invoicing app [PHRASE]",
+        "job management software for trades [PHRASE]"
+      ]
+    }
+  ]
+}
