@@ -5811,7 +5811,7 @@ To: Kara Beach <kara.beach@example.com>`,
     );
   });
 
-  it("routes a strongly corroborated secondary staff sender outbound while preserving the external customer", async () => {
+  it("retains a strongly corroborated secondary staff sender for review without matching the external customer", async () => {
     const connectionId = "connection-jason-secondary-address";
     const state: SupabaseState = {
       clients: [],
@@ -5901,17 +5901,8 @@ To: Kara Beach <kara.beach@example.com>`,
         }),
       }),
     ]);
-    expect(matchMock).toHaveBeenCalledWith(
-      "company-1",
-      "riley.customer@example.com",
-      expect.objectContaining({ connectionId })
-    );
-    expect(state.clients).toEqual([
-      expect.objectContaining({
-        name: "Riley Customer",
-        email: "riley.customer@example.com",
-      }),
-    ]);
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(state.clients).toEqual([]);
     expect(
       state.clients.some(
         (client) => client.email === "info.jzconstruct@gmail.com"
@@ -5925,12 +5916,42 @@ To: Kara Beach <kara.beach@example.com>`,
         match_confidence: "staff_alias_pending",
       }),
     ]);
-    expect(state.correspondenceEvents).toEqual([
-      expect.objectContaining({
-        provider_message_id: "msg-jason-secondary-address",
-        direction: "outbound",
-      }),
-    ]);
+    expect(state.correspondenceEvents).toEqual([]);
+  });
+
+  it.each([true, false])("retains pending inbox mail through the complete sync cycle when includeSentMail=%s", async (includeSentMail) => {
+    const state: SupabaseState = {
+      clients: [], activities: [], correspondenceEvents: [], rpcCalls: [],
+      operatorUsers: [{ id: "staff-review", first_name: "Alex", last_name: "Morgan", email: "office@example.com", phone: "2025550119" }],
+      operatorEmailAliases: [],
+      opportunities: [{ id: "opp-preexisting", company_id: "company-1", stage: "qualifying" }],
+      threadLinks: [{ opportunity_id: "opp-preexisting", thread_id: "thread-review", connection_id: "connection-1" }],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection({
+      email: "office@example.com",
+      syncFilters: { includeSentMail, companyDomains: ["example.com"], teamForwarders: [] },
+    }));
+    const messages = [
+      baseEmail({ id: "msg-review-first", threadId: "thread-review", from: "secondary@example.net", to: ["office@example.com"], cc: [], bodyText: "Update attached.\n\nAlex Morgan\n202-555-0119", date: new Date("2026-09-10T16:00:00Z"), labelIds: ["INBOX"] }),
+      baseEmail({ id: "msg-review-next", threadId: "thread-review", from: "secondary@example.net", to: ["office@example.com"], cc: [], bodyText: "Tuesday works.", date: new Date("2026-09-10T17:00:00Z"), labelIds: ["INBOX"] }),
+    ];
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({ emails: messages, nextSyncToken: "sync-token-review" })),
+    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await SyncEngine.runSync("connection-1");
+      expect(result.errors).toEqual([]);
+      expect(result.newLeads).toBe(0);
+      expect(state.activities).toHaveLength(2);
+      expect(state.activities.every((row) => row.opportunity_id === null && row.match_confidence === "staff_alias_pending" && row.match_needs_review === true)).toBe(true);
+      expect(state.opportunities).toHaveLength(1);
+      expect(state.correspondenceEvents).toEqual([]);
+      expect(matchMock).not.toHaveBeenCalled();
+      expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
+      expect(evaluateOpportunityAcceptanceMock).not.toHaveBeenCalled();
+    }
   });
 
   it("quarantines later same-cycle mail from a newly pending staff alias even when the signature does not repeat", async () => {
@@ -6141,7 +6162,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(state.activities).toEqual([
       expect.objectContaining({
         email_message_id: "msg-jason-secondary-recovery",
-        opportunity_id: "opp-riley",
+        opportunity_id: null,
         direction: "outbound",
         match_needs_review: true,
         match_confidence: "staff_alias_pending",

@@ -1,0 +1,12 @@
+{
+  "extends": "./inquiry-tsconfig.json",
+  "include": [
+    "../../../src/lib/api/services/sync-engine.ts",
+    "../../../src/lib/email/email-ingestion-routing.ts",
+    "../../../src/lib/utils/email-parsing.ts",
+    "../../../tests/unit/email/email-ingestion-routing.test.ts",
+    "../../../tests/unit/email/staff-alias-correspondence-retention.test.ts",
+    "../../../next-env.d.ts",
+    "../../../src/**/*.d.ts"
+  ]
+}
