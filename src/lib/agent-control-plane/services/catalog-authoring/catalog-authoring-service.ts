@@ -150,6 +150,26 @@ export function createCatalogAuthoringService(input: {
           retryable: false,
           auditReason: "catalog_authority_denied",
         });
+      if (
+        error.code === "P0001" &&
+        error.message === "CATALOG_IDEMPOTENCY_CONFLICT"
+      )
+        throw new ActorAccessError({
+          requestId: current.requestId,
+          code: "INVALID_ARGUMENT",
+          message:
+            "This request was already used for different changes. Inspect current records and prepare a new proposal.",
+          retryable: false,
+          auditReason: "catalog_idempotency_conflict",
+          fieldIssues: [
+            {
+              path: ["idempotency_key"],
+              code: "CATALOG_IDEMPOTENCY_CONFLICT",
+              message:
+                "Keep the original request unchanged or use a new key for a new proposal.",
+            },
+          ],
+        });
       throw new Error(
         /STALE|CONFLICT/.test(error.message ?? "")
           ? "The catalog or approval changed. Inspect the current records and review a new proposal."
