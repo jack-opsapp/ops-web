@@ -11,6 +11,7 @@ export type P2ReadErrorTransportCode =
   | "INTERNAL"
   | "INVALID_CURSOR"
   | "INVALID_GEOMETRY"
+  | "DECK_GEOMETRY_RESULT_REVISION_UNSUPPORTED"
   | "NOT_FOUND"
   | "RESULT_TOO_LARGE"
   | "SOURCE_DATA_INVALID"
@@ -74,7 +75,14 @@ export function toP2ReadAgentError(input: {
         code: "TEMPORARILY_UNAVAILABLE",
         retryable: true,
       });
+    case "DECK_GEOMETRY_RESULT_REVISION_UNSUPPORTED":
     case "INVALID_GEOMETRY":
+      return contractSafe({
+        ...base,
+        code: "INTERNAL",
+        retryable: false,
+        details: { incident_id: input.requestId },
+      });
     case "SOURCE_DATA_INVALID":
       return contractSafe({
         ...base,

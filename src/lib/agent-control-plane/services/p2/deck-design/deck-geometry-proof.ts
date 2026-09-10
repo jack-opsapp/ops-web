@@ -8,6 +8,22 @@ import {
   DECK_GEOMETRY_LOCAL_REF_REVISION,
   type DeckDesignGeometryResult,
 } from "@/lib/agent-control-plane/contracts/deck-design-geometry";
+import {
+  DECK_GEOMETRY_CALCULATOR_V2_REVISION,
+  type DeckDesignGeometryResultV2,
+} from "@/lib/agent-control-plane/contracts/deck-design-geometry-v2";
+type CalculatorRevision =
+  | typeof DECK_GEOMETRY_CALCULATOR_REVISION
+  | typeof DECK_GEOMETRY_CALCULATOR_V2_REVISION;
+function calculatorRevision(value?: CalculatorRevision): CalculatorRevision {
+  if (
+    value !== undefined &&
+    value !== DECK_GEOMETRY_CALCULATOR_REVISION &&
+    value !== DECK_GEOMETRY_CALCULATOR_V2_REVISION
+  )
+    throw new TypeError("DECK_GEOMETRY_CALCULATOR_REVISION_INVALID");
+  return value ?? DECK_GEOMETRY_CALCULATOR_REVISION;
+}
 import type { AuthorizedDeckDesignGeometryRead } from "./deck-geometry-authorization";
 
 export type DeckGeometryAuthorityPath =
@@ -58,7 +74,7 @@ export interface DeckGeometryProofContext extends DeckGeometryProofAuthority {
     project_id: string | null;
   }>;
   readonly drawing_content_hash: string;
-  readonly calculator_revision: typeof DECK_GEOMETRY_CALCULATOR_REVISION;
+  readonly calculator_revision: CalculatorRevision;
   readonly local_ref_revision: typeof DECK_GEOMETRY_LOCAL_REF_REVISION;
   readonly read_at: string;
   readonly source_revisions: readonly P2DomainRevision[];
@@ -229,6 +245,7 @@ function designParentsProjection(
 }
 
 function fenceMaterial(input: {
+  readonly calculatorRevision?: CalculatorRevision;
   readonly authorization: AuthorizedDeckDesignGeometryRead;
   readonly selectedAuthorization: DeckGeometrySelectedAuthorization;
   readonly designId: string;
@@ -248,12 +265,13 @@ function fenceMaterial(input: {
     design_parents: designParentsProjection(input.designParents),
     drawing_content_hash: input.drawingContentHash,
     source_revisions: exactDeckGeometrySourceRevisions(input.sourceRevisions),
-    calculator_revision: DECK_GEOMETRY_CALCULATOR_REVISION,
+    calculator_revision: calculatorRevision(input.calculatorRevision),
     local_ref_revision: DECK_GEOMETRY_LOCAL_REF_REVISION,
   };
 }
 
 export function deckGeometrySourceFence(input: {
+  readonly calculatorRevision?: CalculatorRevision;
   readonly authorization: AuthorizedDeckDesignGeometryRead;
   readonly selectedAuthorization: DeckGeometrySelectedAuthorization;
   readonly designId: string;
@@ -292,6 +310,7 @@ function authorityProjection(
 }
 
 export function deckGeometryProofContext(input: {
+  readonly calculatorRevision?: CalculatorRevision;
   readonly authorization: AuthorizedDeckDesignGeometryRead;
   readonly selectedAuthorization: DeckGeometrySelectedAuthorization;
   readonly authorityPath: DeckGeometryAuthorityPath;
@@ -311,7 +330,7 @@ export function deckGeometryProofContext(input: {
     design_id: input.designId,
     design_parents: designParentsProjection(input.designParents),
     drawing_content_hash: input.drawingContentHash,
-    calculator_revision: DECK_GEOMETRY_CALCULATOR_REVISION,
+    calculator_revision: calculatorRevision(input.calculatorRevision),
     local_ref_revision: DECK_GEOMETRY_LOCAL_REF_REVISION,
     read_at: input.readAt,
     source_revisions: exactDeckGeometrySourceRevisions(input.sourceRevisions),
@@ -321,8 +340,15 @@ export function deckGeometryProofContext(input: {
 
 export function deckGeometryEntityProofRef(input: {
   readonly context: DeckGeometryProofContext;
-  readonly result: Omit<DeckDesignGeometryResult, "proof">;
+  readonly result:
+    | Omit<DeckDesignGeometryResult, "proof">
+    | Omit<DeckDesignGeometryResultV2, "proof">;
 }) {
+  if (
+    input.result.design.calculator_revision !==
+    input.context.calculator_revision
+  )
+    throw new TypeError("DECK_GEOMETRY_PROOF_REVISION_MISMATCH");
   return proofRef({
     ...input.context,
     proof_kind: "deck_design_geometry_entity",

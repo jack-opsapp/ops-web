@@ -110,14 +110,6 @@ describe("P2 read-error agent contracts", () => {
       new ArtifactReadError({ code: "NOT_FOUND", requestId: REQUEST_ID }),
       "NOT_FOUND",
     ],
-    [
-      "deck geometry",
-      new DeckGeometryReadError({
-        code: "INVALID_GEOMETRY",
-        requestId: REQUEST_ID,
-      }),
-      "TEMPORARILY_UNAVAILABLE",
-    ],
   ] as const)(
     "projects the %s domain error as a valid non-INTERNAL AgentError",
     (_name, error, expectedCode) => {
@@ -127,6 +119,26 @@ describe("P2 read-error agent contracts", () => {
       expect(projected.code).toBe(expectedCode);
       expect(projected.code).not.toBe("INTERNAL");
       expect(projected.request_id).toBe(REQUEST_ID);
+    }
+  );
+
+  it.each([
+    "INVALID_GEOMETRY",
+    "DECK_GEOMETRY_RESULT_REVISION_UNSUPPORTED",
+  ] as const)(
+    "reports persistent deck fault %s without a transient outage",
+    (code) => {
+      const result = new DeckGeometryReadError({
+        code,
+        requestId: REQUEST_ID,
+      }).toAgentError();
+      expect(AgentErrorSchema.parse(result)).toEqual(result);
+      expect(result).toMatchObject({
+        code: "INTERNAL",
+        retryable: false,
+        details: { incident_id: REQUEST_ID },
+      });
+      expect(result).not.toHaveProperty("details.field_issues");
     }
   );
 

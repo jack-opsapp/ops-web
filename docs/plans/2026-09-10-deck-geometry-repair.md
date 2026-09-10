@@ -21,7 +21,7 @@
 
 ## 3. Authorized v2 service and proof, test first
 - Select explicit result revision internally; source proof/fence binds revision and full result. Preserve v1 representable output quantities.
-- Invalid native references return stable nonretryable geometry error; v1 unrepresentable geometry returns a compatibility error with refresh action. Retain repository failures, stale and source size behavior.
+- Invalid native references return stable nonretryable geometry error; v1 unrepresentable geometry returns a nonretryable INTERNAL compatibility error requiring an approved release and compatible connection transition. Retain repository failures, stale and source size behavior.
 - Test actual repository authorization, immutable source/hash coupling, source freshness, both input anchors, and output budget/privacy.
 
 ## 4. Dormant host-neutral dispatch, test first

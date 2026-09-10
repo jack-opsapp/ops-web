@@ -314,165 +314,177 @@ const DeckGeometryTopologyObjectSchema = z
 // Structural validation shared by strict v1 and the explicitly versioned v2.
 // V1's object schema still rejects null lower edges before this refinement.
 type GeometryConnectionForValidation =
-  | (Omit<Extract<z.infer<typeof DeckGeometryConnectionSchema>, { kind: "level_stair" }>, "lower_edge_ref"> & { lower_edge_ref: string | null })
-  | Extract<z.infer<typeof DeckGeometryConnectionSchema>, { kind: "surface_transition" }>;
+  | (Omit<
+      Extract<
+        z.infer<typeof DeckGeometryConnectionSchema>,
+        { kind: "level_stair" }
+      >,
+      "lower_edge_ref"
+    > & { lower_edge_ref: string | null })
+  | Extract<
+      z.infer<typeof DeckGeometryConnectionSchema>,
+      { kind: "surface_transition" }
+    >;
 export function refineDeckGeometryTopology(
-  topology: Omit<z.infer<typeof DeckGeometryTopologyObjectSchema>, "connections"> & { connections: GeometryConnectionForValidation[] },
+  topology: Omit<
+    z.infer<typeof DeckGeometryTopologyObjectSchema>,
+    "connections"
+  > & { connections: GeometryConnectionForValidation[] },
   context: z.RefinementCtx
 ) {
-    if (
-      !hasConsecutiveRefs(
-        topology.planes.map((plane) => plane.plane_ref),
-        (index) => `plane:${index}`
-      ) ||
-      !hasConsecutiveRefs(
-        topology.connections.map((connection) => connection.connection_ref),
-        (index) => `connection:${index}`
-      )
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "DECK_GEOMETRY_LOCAL_REF_VECTOR_NOT_CANONICAL",
-      });
-      return;
-    }
+  if (
+    !hasConsecutiveRefs(
+      topology.planes.map((plane) => plane.plane_ref),
+      (index) => `plane:${index}`
+    ) ||
+    !hasConsecutiveRefs(
+      topology.connections.map((connection) => connection.connection_ref),
+      (index) => `connection:${index}`
+    )
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "DECK_GEOMETRY_LOCAL_REF_VECTOR_NOT_CANONICAL",
+    });
+    return;
+  }
 
-    const levelKinds = new Set(
-      topology.planes.map((plane) => plane.level.state)
+  const levelKinds = new Set(topology.planes.map((plane) => plane.level.state));
+  if (
+    levelKinds.size !== 1 ||
+    (levelKinds.has("base") && topology.planes.length !== 1) ||
+    topology.planes.some((plane, index) => {
+      const previous = topology.planes[index - 1];
+      return (
+        plane.level.state === "level" &&
+        previous?.level.state === "level" &&
+        previous.level.sort_order > plane.level.sort_order
+      );
+    })
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "DECK_GEOMETRY_PLANE_VECTOR_INVALID",
+    });
+  }
+
+  let vertexCount = 0;
+  let edgeCount = 0;
+  let surfaceCount = 0;
+  let directedBoundaryCount = 0;
+  const planeRefs = new Set(topology.planes.map((plane) => plane.plane_ref));
+  const allEdgeRefs = new Set<string>();
+  const allSurfaceRefs = new Set<string>();
+
+  for (const plane of topology.planes) {
+    const vertexRefs = plane.vertices.map((vertex) => vertex.vertex_ref);
+    const edgeRefs = plane.edges.map((edge) => edge.edge_ref);
+    const surfaceRefs = plane.surfaces.map((surface) => surface.surface_ref);
+    const vertexSet = new Set(vertexRefs);
+    const edgeMap = new Map(
+      plane.edges.map((edge) => [edge.edge_ref, edge] as const)
     );
-    if (
-      levelKinds.size !== 1 ||
-      (levelKinds.has("base") && topology.planes.length !== 1) ||
-      topology.planes.some((plane, index) => {
-        const previous = topology.planes[index - 1];
-        return (
-          plane.level.state === "level" &&
-          previous?.level.state === "level" &&
-          previous.level.sort_order > plane.level.sort_order
-        );
-      })
-    ) {
+    const validLocalOrdering =
+      hasConsecutiveRefs(
+        vertexRefs,
+        (index) => `${plane.plane_ref}:vertex:${index}`
+      ) &&
+      hasConsecutiveRefs(
+        edgeRefs,
+        (index) => `${plane.plane_ref}:edge:${index}`
+      ) &&
+      hasConsecutiveRefs(
+        surfaceRefs,
+        (index) => `${plane.plane_ref}:surface:${index}`
+      );
+    const edgesValid = plane.edges.every(
+      (edge) =>
+        vertexSet.has(edge.start_vertex_ref) &&
+        vertexSet.has(edge.end_vertex_ref)
+    );
+    const surfacesValid = plane.surfaces.every((surface) => {
+      const loops = [surface.outer_loop, ...surface.hole_loops];
+      return loops.every((loop) => isClosedDirectedLoop(loop, edgeMap));
+    });
+    if (!validLocalOrdering || !edgesValid || !surfacesValid) {
       context.addIssue({
         code: "custom",
-        message: "DECK_GEOMETRY_PLANE_VECTOR_INVALID",
+        message: "DECK_GEOMETRY_LOCAL_REFERENCE_INVALID",
       });
     }
+    vertexCount += plane.vertices.length;
+    edgeCount += plane.edges.length;
+    surfaceCount += plane.surfaces.length;
+    directedBoundaryCount += plane.surfaces.reduce(
+      (surfaceTotal, surface) =>
+        surfaceTotal +
+        surface.outer_loop.length +
+        surface.hole_loops.reduce(
+          (holeTotal, hole) => holeTotal + hole.length,
+          0
+        ),
+      0
+    );
+    edgeRefs.forEach((ref) => allEdgeRefs.add(ref));
+    surfaceRefs.forEach((ref) => allSurfaceRefs.add(ref));
+  }
 
-    let vertexCount = 0;
-    let edgeCount = 0;
-    let surfaceCount = 0;
-    let directedBoundaryCount = 0;
-    const planeRefs = new Set(topology.planes.map((plane) => plane.plane_ref));
-    const allEdgeRefs = new Set<string>();
-    const allSurfaceRefs = new Set<string>();
-
-    for (const plane of topology.planes) {
-      const vertexRefs = plane.vertices.map((vertex) => vertex.vertex_ref);
-      const edgeRefs = plane.edges.map((edge) => edge.edge_ref);
-      const surfaceRefs = plane.surfaces.map((surface) => surface.surface_ref);
-      const vertexSet = new Set(vertexRefs);
-      const edgeMap = new Map(
-        plane.edges.map((edge) => [edge.edge_ref, edge] as const)
-      );
-      const validLocalOrdering =
-        hasConsecutiveRefs(
-          vertexRefs,
-          (index) => `${plane.plane_ref}:vertex:${index}`
+  const connectionsValid = topology.connections.every((connection) => {
+    if (connection.kind === "level_stair") {
+      return (
+        planeRefs.has(connection.upper_plane_ref) &&
+        planeRefs.has(connection.lower_plane_ref) &&
+        allEdgeRefs.has(connection.upper_edge_ref) &&
+        (connection.lower_edge_ref === null ||
+          allEdgeRefs.has(connection.lower_edge_ref)) &&
+        connection.upper_edge_ref.startsWith(
+          `${connection.upper_plane_ref}:edge:`
         ) &&
-        hasConsecutiveRefs(
-          edgeRefs,
-          (index) => `${plane.plane_ref}:edge:${index}`
-        ) &&
-        hasConsecutiveRefs(
-          surfaceRefs,
-          (index) => `${plane.plane_ref}:surface:${index}`
-        );
-      const edgesValid = plane.edges.every(
-        (edge) =>
-          vertexSet.has(edge.start_vertex_ref) &&
-          vertexSet.has(edge.end_vertex_ref)
-      );
-      const surfacesValid = plane.surfaces.every((surface) => {
-        const loops = [surface.outer_loop, ...surface.hole_loops];
-        return loops.every((loop) => isClosedDirectedLoop(loop, edgeMap));
-      });
-      if (!validLocalOrdering || !edgesValid || !surfacesValid) {
-        context.addIssue({
-          code: "custom",
-          message: "DECK_GEOMETRY_LOCAL_REFERENCE_INVALID",
-        });
-      }
-      vertexCount += plane.vertices.length;
-      edgeCount += plane.edges.length;
-      surfaceCount += plane.surfaces.length;
-      directedBoundaryCount += plane.surfaces.reduce(
-        (surfaceTotal, surface) =>
-          surfaceTotal +
-          surface.outer_loop.length +
-          surface.hole_loops.reduce(
-            (holeTotal, hole) => holeTotal + hole.length,
-            0
-          ),
-        0
-      );
-      edgeRefs.forEach((ref) => allEdgeRefs.add(ref));
-      surfaceRefs.forEach((ref) => allSurfaceRefs.add(ref));
-    }
-
-    const connectionsValid = topology.connections.every((connection) => {
-      if (connection.kind === "level_stair") {
-        return (
-          planeRefs.has(connection.upper_plane_ref) &&
-          planeRefs.has(connection.lower_plane_ref) &&
-          allEdgeRefs.has(connection.upper_edge_ref) &&
-          (connection.lower_edge_ref === null || allEdgeRefs.has(connection.lower_edge_ref)) &&
-          connection.upper_edge_ref.startsWith(
-            `${connection.upper_plane_ref}:edge:`
-          ) &&
-          (connection.lower_edge_ref === null || connection.lower_edge_ref.startsWith(
+        (connection.lower_edge_ref === null ||
+          connection.lower_edge_ref.startsWith(
             `${connection.lower_plane_ref}:edge:`
           ))
-        );
-      }
-      return (
-        planeRefs.has(connection.plane_ref) &&
-        allEdgeRefs.has(connection.edge_ref) &&
-        allSurfaceRefs.has(connection.upper_surface_ref) &&
-        allSurfaceRefs.has(connection.lower_surface_ref) &&
-        connection.edge_ref.startsWith(`${connection.plane_ref}:edge:`) &&
-        connection.upper_surface_ref.startsWith(
-          `${connection.plane_ref}:surface:`
-        ) &&
-        connection.lower_surface_ref.startsWith(
-          `${connection.plane_ref}:surface:`
-        )
       );
-    });
-    const computedUnits =
-      topology.planes.length +
-      vertexCount +
-      edgeCount +
-      surfaceCount +
-      topology.connections.length +
-      directedBoundaryCount;
-    if (
-      !connectionsValid ||
-      vertexCount > DECK_GEOMETRY_MAX_VERTICES ||
-      edgeCount > DECK_GEOMETRY_MAX_EDGES ||
-      surfaceCount > DECK_GEOMETRY_MAX_SURFACES ||
-      directedBoundaryCount > DECK_GEOMETRY_MAX_DIRECTED_BOUNDARY_REFS ||
-      computedUnits !== topology.topology_units ||
-      computedUnits > DECK_GEOMETRY_MAX_TOPOLOGY_UNITS
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "DECK_GEOMETRY_TOPOLOGY_BOUND_INVALID",
-      });
     }
-
+    return (
+      planeRefs.has(connection.plane_ref) &&
+      allEdgeRefs.has(connection.edge_ref) &&
+      allSurfaceRefs.has(connection.upper_surface_ref) &&
+      allSurfaceRefs.has(connection.lower_surface_ref) &&
+      connection.edge_ref.startsWith(`${connection.plane_ref}:edge:`) &&
+      connection.upper_surface_ref.startsWith(
+        `${connection.plane_ref}:surface:`
+      ) &&
+      connection.lower_surface_ref.startsWith(
+        `${connection.plane_ref}:surface:`
+      )
+    );
+  });
+  const computedUnits =
+    topology.planes.length +
+    vertexCount +
+    edgeCount +
+    surfaceCount +
+    topology.connections.length +
+    directedBoundaryCount;
+  if (
+    !connectionsValid ||
+    vertexCount > DECK_GEOMETRY_MAX_VERTICES ||
+    edgeCount > DECK_GEOMETRY_MAX_EDGES ||
+    surfaceCount > DECK_GEOMETRY_MAX_SURFACES ||
+    directedBoundaryCount > DECK_GEOMETRY_MAX_DIRECTED_BOUNDARY_REFS ||
+    computedUnits !== topology.topology_units ||
+    computedUnits > DECK_GEOMETRY_MAX_TOPOLOGY_UNITS
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "DECK_GEOMETRY_TOPOLOGY_BOUND_INVALID",
+    });
+  }
 }
 
-export const DeckDesignGeometryTopologySchema = DeckGeometryTopologyObjectSchema.superRefine(refineDeckGeometryTopology);
+export const DeckDesignGeometryTopologySchema =
+  DeckGeometryTopologyObjectSchema.superRefine(refineDeckGeometryTopology);
 
 function measurementSchema<
   const TWarnings extends readonly [string, ...string[]],

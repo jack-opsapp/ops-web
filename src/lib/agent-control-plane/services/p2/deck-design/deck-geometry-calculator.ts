@@ -12,7 +12,14 @@ import {
 } from "@/lib/agent-control-plane/contracts/deck-design-geometry";
 import { createP2CanonicalTextSchema } from "@/lib/agent-control-plane/contracts/p2-common";
 
-import { DeckDesignGeometryTopologyV2Schema as DeckDesignGeometryTopologySchema, type DeckDesignGeometryTopologyV2 as DeckDesignGeometryTopology } from "@/lib/agent-control-plane/contracts/deck-design-geometry-v2";
+import {
+  DeckDesignGeometryTopologyV2Schema as DeckDesignGeometryTopologySchema,
+  type DeckDesignGeometryTopologyV2 as DeckDesignGeometryTopology,
+  type DeckRailingEstimate,
+  type DeckStairPlacement,
+} from "@/lib/agent-control-plane/contracts/deck-design-geometry-v2";
+
+import { estimateDeckRailing } from "./deck-railing-estimate";
 
 type UnknownRecord = Record<string, unknown>;
 type Point = Readonly<{ x: number; y: number }>;
@@ -24,7 +31,12 @@ interface ParsedVertex {
   readonly carriesAuthoredWork: boolean;
 }
 
-interface ParsedStair {
+export interface ParsedStair {
+  readonly alignment: "left" | "center" | "right";
+  readonly offset: number;
+  readonly flipDirection: boolean;
+  readonly railConfigured: boolean;
+  readonly defaultsUsed: boolean;
   readonly width: number | null;
   readonly risePerStep: number | null;
   readonly runPerTread: number | null;
@@ -81,6 +93,7 @@ interface ParsedLevelConnection {
   readonly lowerLevelId: string;
   readonly upperEdgeId: string;
   readonly lowerEdgeId: string | null;
+  readonly position: DeckStairPlacement["connection_position"];
   readonly stair: ParsedStair;
 }
 
@@ -115,6 +128,8 @@ export interface ParsedDeckGeometrySource {
 }
 
 export interface DeckGeometryCalculation {
+  readonly railing_estimate: DeckRailingEstimate;
+  readonly stair_placements: readonly DeckStairPlacement[];
   readonly drawing_schema_version: number | null;
   readonly topology: DeckDesignGeometryTopology;
   readonly measurements: DeckDesignGeometryMeasurements;
@@ -247,7 +262,18 @@ function uniqueById<T extends { readonly id: string }>(
 function parseStair(value: unknown): ParsedStair | null {
   if (value === undefined || value === null) return null;
   const source = record(value);
+  const alignment = source.alignment ?? "center";
+  if (alignment !== "left" && alignment !== "center" && alignment !== "right")
+    fail("DECK_GEOMETRY_SOURCE_DATA_INVALID");
   return {
+    alignment,
+    offset: optionalFiniteNumber(source.offset) ?? 0,
+    flipDirection: legacyBoolean(source.flipDirection, false),
+    railConfigured: source.railingConfig != null,
+    defaultsUsed:
+      source.runPerTread == null ||
+      (optionalPositiveInteger(source.treadCount) === null &&
+        source.risePerStep == null),
     width: optionalFiniteNumber(source.width),
     risePerStep:
       source.risePerStep == null
@@ -496,6 +522,22 @@ function validatePlaneReferences(plane: ParsedPlane): void {
   }
 }
 
+function parseConnectionPosition(
+  value: unknown
+): DeckStairPlacement["connection_position"] {
+  if (value == null) return { kind: "full" };
+  const position = record(value);
+  if (Object.keys(position).length !== 1)
+    fail("DECK_GEOMETRY_SOURCE_DATA_INVALID");
+  if (position.full != null && Object.keys(record(position.full)).length === 0)
+    return { kind: "full" };
+  const partial = record(position.partial);
+  const offset = finiteNumber(partial.offsetInches);
+  const width = finiteNumber(partial.widthInches);
+  if (offset < 0 || width <= 0) fail("DECK_GEOMETRY_SOURCE_DATA_INVALID");
+  return { kind: "partial", offset_inches: offset, width_inches: width };
+}
+
 function parseLevelConnection(value: unknown): ParsedLevelConnection {
   const source = record(value);
   const stair = parseStair(source.stairConfig);
@@ -506,7 +548,9 @@ function parseLevelConnection(value: unknown): ParsedLevelConnection {
     upperLevelId: sourceId(source.upperLevelId),
     lowerLevelId: sourceId(source.lowerLevelId),
     upperEdgeId: sourceId(source.upperEdgeId),
-    lowerEdgeId: source.lowerEdgeId == null ? null : sourceId(source.lowerEdgeId),
+    lowerEdgeId:
+      source.lowerEdgeId == null ? null : sourceId(source.lowerEdgeId),
+    position: parseConnectionPosition(source.position),
     stair,
   };
 }
@@ -665,7 +709,8 @@ export function parseDeckGeometrySource(
       !lower ||
       upper.sourceId === lower.sourceId ||
       !upper.edges.some((edge) => edge.id === connection.upperEdgeId) ||
-      (connection.lowerEdgeId !== null && !lower.edges.some((edge) => edge.id === connection.lowerEdgeId))
+      (connection.lowerEdgeId !== null &&
+        !lower.edges.some((edge) => edge.id === connection.lowerEdgeId))
     ) {
       fail("DECK_GEOMETRY_REFERENCE_INVALID");
     }
@@ -1976,10 +2021,13 @@ function projectTopology(input: {
           edgeRefByScopedId,
           `${connection.upperLevelId}:${connection.upperEdgeId}`
         ),
-        lower_edge_ref: connection.lowerEdgeId === null ? null : requiredLocalReference(
-          edgeRefByScopedId,
-          `${connection.lowerLevelId}:${connection.lowerEdgeId}`
-        ),
+        lower_edge_ref:
+          connection.lowerEdgeId === null
+            ? null
+            : requiredLocalReference(
+                edgeRefByScopedId,
+                `${connection.lowerLevelId}:${connection.lowerEdgeId}`
+              ),
         stair: {
           width: projectedStairWidth(connection.stair),
           stringer: projectedStairStringer({
@@ -2121,7 +2169,14 @@ export function calculateDeckGeometryFromSourceJson(
           },
   });
   const projection = projectTopology({ source, surfacesByPlane });
+  const estimate = estimateDeckRailing({
+    source,
+    topology: projection.topology,
+    witnesses: projection.witnesses,
+  });
   return Object.freeze({
+    railing_estimate: estimate.railing,
+    stair_placements: estimate.placements,
     drawing_schema_version: source.schema_version,
     topology: projection.topology,
     measurements,

@@ -189,7 +189,8 @@ describe("P2 authoritative deck-geometry read", () => {
       getDeckDesignGeometry({ authorization, repository })
     ).rejects.toMatchObject({
       code: "INVALID_GEOMETRY",
-      message: "Deck geometry could not be validated.",
+      message:
+        "The saved deck geometry is invalid. Open the design in OPS and review its geometry before trying again.",
       retryable: false,
     });
   });
