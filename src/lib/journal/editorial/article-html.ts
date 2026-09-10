@@ -101,7 +101,7 @@ export function renderBlocks(blocks: JournalBlock[]): RenderedBody {
   const plain: string[] = [];
   const links: InlineLink[] = [];
   for (const block of blocks) {
-    if (block.type === "ul" || block.type === "ol") {
+    if ("items" in block) {
       const items = block.items.map(parseInline);
       items.forEach((item) => links.push(...item.links));
       html.push(

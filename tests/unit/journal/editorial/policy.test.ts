@@ -114,7 +114,7 @@ describe("prepareJournalDraft", () => {
     expect(codeOf(withBody((body) => (body[2].text += " [nope](/industries/space-mining)")))).toBe("LINK_REJECTED");
     expect(codeOf(withBody((body) => (body[2].text += " [elsewhere](https://unused.example.com/page)")))).toBe("LINK_REJECTED");
     expect(codeOf(withBody((body) => (body[2].text += " [plain](http://www.example.gov/survey)")))).toBe("LINK_REJECTED");
-    expect(codeOf(withBody((body) => (body[9].text = body[9].text.replace(/\[roofers\]\(\/industries\/roofing\)/, "roofers"))))).toBe("INTERNAL_LINKS");
+    expect(codeOf(withBody((body) => (body[9].text = String(body[9].text).replace(/\[roofers\]\(\/industries\/roofing\)/, "roofers"))))).toBe("INTERNAL_LINKS");
   });
 
   it("requires every number to come from a cited source, the product facts or a worked example", () => {
