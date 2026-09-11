@@ -4,15 +4,39 @@
  * Runs once a day before the routine claims: expires stale proposals, applies
  * the kinds Jackson has flipped to auto, concludes tests by OPS's own
  * statistics and opens the follow-up proposals (never auto-promoting), scores
- * applied changes over matched pre/post windows, pauses any disapproved ad
- * immediately, watches budget pacing, delivers the operator rail, and raises
- * the stall alarm while ads are live. Pure over an injected repository.
+ * applied changes over matched pre/post windows, guards against disapproved
+ * ads (pauses them on Google's live verdict, holds a landing-page verdict for
+ * one daily check, and switches an ad back on once Google approves it — only
+ * when the pause is provably its own), watches budget pacing, delivers the
+ * operator rail, and raises the stall alarm while ads are live. Pure over an
+ * injected repository.
  */
-import type { AdsGateway, ApplyOutcome, ApplyProposalRecord } from "./apply";
+import { describeGoogleError, type AdsGateway, type ApplyOutcome, type ApplyProposalRecord, type MutateOperation, type MutateResult } from "./apply";
+import {
+  alertKeys,
+  changeWindow,
+  engineClaim,
+  graceElapsed,
+  isApprovedAgain,
+  isTransient,
+  pauseFailedAlert,
+  pauseProvenance,
+  pausedAlert,
+  replacementDue,
+  restoreFailedAlert,
+  restoredAlert,
+  routineActive,
+  withinChangeHistory,
+  type AdChangeEvent,
+  type EngineAdDecision,
+  type GuardrailPause,
+  type LiveAdState,
+  type ReleaseReason,
+} from "./disapprovals";
 import { HUMAN_ONLY_KINDS } from "./guardrails";
 import { metricWindows, type DateWindow } from "./metrics";
 import { changeVerdict, DEFAULT_TEST_RULES, testVerdict, type ArmStats, type TestRules, type TestStats } from "./stats";
-import type { ChangeRecord, ChangeVerdict, EngineSettings, EntitySnapshot, ProposalKind, TestRecord, TestState } from "./types";
+import type { ChangeRecord, ChangeVerdict, EngineSettings, EntitySnapshot, ProposalKind, SnapshotAd, SnapshotAdGroup, TestRecord, TestState } from "./types";
 
 export interface EngineOperator {
   userId: string;
@@ -28,7 +52,7 @@ export interface PacingRow {
 }
 
 export interface EngineAlert {
-  kind: "ad_disapproved" | "budget_pacing" | "apply_failed";
+  kind: "ad_disapproved" | "ad_restored" | "budget_pacing" | "apply_failed";
   dedupeKey: string;
   title: string;
   body: string;
@@ -64,6 +88,51 @@ export interface WorkerRepository {
   notify(operator: EngineOperator): Promise<number>;
   checkStall(operator: EngineOperator, staleHours: number, campaignsLive: boolean): Promise<boolean>;
   clearStall(operator: EngineOperator): Promise<number>;
+  /** The guardrail's open episodes (`ads_guardrail_pauses` holding or paused). */
+  listOpenGuardrailPauses(): Promise<GuardrailPause[]>;
+  /** Opens an episode in state holding; null when the ad already has an open one. */
+  openGuardrailPause(input: NewGuardrailPause): Promise<GuardrailPause | null>;
+  markGuardrailPaused(id: string, input: GuardrailPausedInput): Promise<void>;
+  recordGuardrailPauseError(id: string, error: string): Promise<void>;
+  closeGuardrailPause(id: string, outcome: GuardrailClose): Promise<void>;
+  /** Open or applied proposals that pause an ad, promote over it, or put a challenger in its group. */
+  listEngineAdDecisions(): Promise<EngineAdDecision[]>;
+  /** Resolves engine alerts and their rail rows; returns how many open alerts it closed. */
+  resolveAlerts(dedupeKeys: string[]): Promise<number>;
+  refreshSnapshot(): Promise<void>;
+}
+
+/** Google reads the guardrail decides on: the live verdict and the change history. */
+export interface GuardrailReader {
+  readAdStates(resourceNames: string[]): Promise<LiveAdState[]>;
+  /** Every ad change between two account-local dates (YYYY-MM-DD), and whether Google's row limit cut it short. */
+  readAdChanges(startDate: string, endDate: string): Promise<{ events: AdChangeEvent[]; truncated: boolean }>;
+}
+
+export interface NewGuardrailPause {
+  ad_resource_name: string;
+  ad_id: string;
+  ad_group_resource_name: string;
+  ad_group_name: string;
+  campaign_resource_name: string;
+  policy_topics: string[];
+  policy_entries: unknown[];
+  observed_at: string;
+}
+
+export interface GuardrailPausedInput {
+  /** Just before the real mutate; with `pausedAt`, the window Google's commit falls in. */
+  pauseRequestedAt: string;
+  pausedAt: string;
+  requestId: string | null;
+  topics: string[];
+  entries: unknown[];
+}
+
+export interface GuardrailClose {
+  state: "restored" | "released";
+  reason: ReleaseReason | "restored";
+  requestId?: string | null;
 }
 
 export interface WorkerDependencies {
@@ -72,8 +141,14 @@ export interface WorkerDependencies {
   operator: EngineOperator | null;
   /** Applies one proposal; null when Google cannot be reached (auto work waits). */
   apply: ((proposal: ApplyProposalRecord) => Promise<ApplyOutcome>) | null;
-  /** For pausing a disapproved ad immediately; null when Google cannot be reached. */
+  /** For the guardrail's pauses and restores; null when Google cannot be reached. */
   gateway: AdsGateway | null;
+  /** The guardrail's live reads; null when Google cannot be reached (the guardrail waits). */
+  reader: GuardrailReader | null;
+  /** Ad ids the blueprint retires (`retire.adIds`); null when the blueprint cannot be read, and then nothing is switched back on. */
+  retiredAdIds: ReadonlySet<string> | null;
+  /** `ADS_ENGINE_REHEARSAL=1`: the guardrail validates with Google and writes nothing. */
+  rehearsal?: boolean;
   readBudgetPacing: ((window: DateWindow) => Promise<PacingRow[]>) | null;
   testRules?: TestRules;
 }
@@ -86,7 +161,15 @@ export interface TickResult {
   testsConcluded: number;
   followUps: number;
   verdicts: number;
+  /** Ads the guardrail paused this tick. */
   disapproved: number;
+  /** Landing-page verdicts held for the next daily check. */
+  held: number;
+  /** Ads the guardrail switched back on after Google approved them. */
+  restored: number;
+  /** Episodes the guardrail let go without acting. */
+  released: number;
+  guardrail: "idle" | "checked" | "unavailable";
   pacing: number;
   notified: number;
   stalled: boolean;
@@ -279,39 +362,276 @@ async function scoreChanges(d: WorkerDependencies, today: string, now: Date, res
   }
 }
 
-async function pauseDisapproved(d: WorkerDependencies, snapshot: EntitySnapshot, result: TickResult): Promise<void> {
-  const engineCampaigns = new Set(snapshot.campaigns.filter((c) => c.labels.includes("engine") && c.kind !== "legacy").map((c) => c.resourceName));
-  for (const ad of snapshot.ads) {
-    if (ad.status !== "ENABLED" || ad.approvalStatus !== "DISAPPROVED") continue;
-    const adGroup = snapshot.adGroups.find((g) => g.resourceName === ad.adGroupResourceName);
-    if (!adGroup || !engineCampaigns.has(adGroup.campaignResourceName)) continue;
-    let paused = false;
-    let reason = "Google could not be reached";
-    if (d.gateway) {
-      const operations = [{ adGroupAdOperation: { update: { resourceName: ad.resourceName, status: "PAUSED" }, updateMask: "status" } }];
-      try {
-        const validation = await d.gateway.mutate(operations, { validateOnly: true, partialFailure: false });
-        if (validation.failures.length === 0) {
-          const real = await d.gateway.mutate(operations, { validateOnly: false, partialFailure: false });
-          paused = real.failures.length === 0;
-          if (!paused) reason = real.failures.map((f) => f.code).join(", ");
-        } else {
-          reason = validation.failures.map((f) => f.code).join(", ");
-        }
-      } catch (error) {
-        reason = error instanceof Error ? error.message : String(error);
-      }
-    }
-    result.disapproved += 1;
+// ─── The disapproved-ad guardrail (spec §5.6; rules in disapprovals.ts) ──────
+
+type StatusWrite = { outcome: "written"; requestId: string | null } | { outcome: "refused"; error: string } | { outcome: "validated" };
+
+interface GuardContext {
+  /** Running tests, read once and only if an alert needs them. */
+  tests: TestRecord[] | null;
+  /** Whether the account changed, so the snapshot is refreshed once at the end. */
+  mutated: boolean;
+}
+
+function statusOperation(resourceName: string, status: "PAUSED" | "ENABLED"): MutateOperation[] {
+  return [{ adGroupAdOperation: { update: { resourceName, status }, updateMask: "status" } }];
+}
+
+function failureCodes(result: MutateResult): string {
+  return [...new Set(result.failures.map((f) => f.code))].join(", ");
+}
+
+function topicsOf(state: LiveAdState): string[] {
+  return state.policyTopics.map((entry) => entry.topic);
+}
+
+/** validateOnly, then the real write with partial failure off. In rehearsal it stops after validation. */
+async function writeStatus(d: WorkerDependencies, gateway: AdsGateway, resourceName: string, status: "PAUSED" | "ENABLED"): Promise<StatusWrite> {
+  const operations = statusOperation(resourceName, status);
+  try {
+    const validation = await gateway.mutate(operations, { validateOnly: true, partialFailure: false });
+    if (validation.failures.length > 0) return { outcome: "refused", error: failureCodes(validation) };
+    if (d.rehearsal) return { outcome: "validated" };
+    const real = await gateway.mutate(operations, { validateOnly: false, partialFailure: false });
+    if (real.failures.length > 0) return { outcome: "refused", error: failureCodes(real) };
+    return { outcome: "written", requestId: real.requestId ?? null };
+  } catch (error) {
+    return { outcome: "refused", error: describeGoogleError(error instanceof Error ? error.message : String(error)) };
+  }
+}
+
+async function releaseEpisode(d: WorkerDependencies, pause: GuardrailPause, reason: ReleaseReason, result: TickResult): Promise<void> {
+  await d.repository.closeGuardrailPause(pause.id, { state: "released", reason });
+  await d.repository.resolveAlerts(alertKeys.ofPause(pause.id));
+  result.released += 1;
+}
+
+async function pauseEpisode(
+  d: WorkerDependencies,
+  gateway: AdsGateway,
+  settings: EngineSettings,
+  snapshot: EntitySnapshot,
+  now: Date,
+  pause: GuardrailPause,
+  state: LiveAdState,
+  ctx: GuardContext,
+  result: TickResult
+): Promise<void> {
+  const topics = topicsOf(state);
+  const requestedAt = d.now();
+  const write = await writeStatus(d, gateway, pause.ad_resource_name, "PAUSED");
+  if (write.outcome === "validated") return;
+  if (write.outcome === "refused") {
+    await d.repository.recordGuardrailPauseError(pause.id, write.error);
     await d.repository.raiseAlert({
       kind: "ad_disapproved",
-      dedupeKey: `ads-engine:disapproved:${ad.resourceName}`,
-      title: "AD DISAPPROVED",
-      body: paused
-        ? `Google disapproved an ad in ${adGroup.name}. OPS paused it; the next run writes a replacement.`
-        : `Google disapproved an ad in ${adGroup.name}. OPS could not pause it (${reason}); pause it in Google Ads.`.slice(0, 600),
+      dedupeKey: alertKeys.pauseFailed(pause.id),
+      ...pauseFailedAlert({ adGroupName: pause.ad_group_name, topics, error: write.error }),
       persistent: true,
     });
+    return;
+  }
+  await d.repository.markGuardrailPaused(pause.id, {
+    pauseRequestedAt: requestedAt.toISOString(),
+    pausedAt: d.now().toISOString(),
+    requestId: write.requestId,
+    topics,
+    entries: state.policyTopics,
+  });
+  ctx.mutated = true;
+  result.disapproved += 1;
+  if (pause.pause_error) await d.repository.resolveAlerts([alertKeys.pauseFailed(pause.id)]);
+  ctx.tests ??= await d.repository.listRunningTests();
+  // A replacement is promised only when the routine is running and the brief
+  // will name this group in its creative duty — the same predicate decides both.
+  const replacement =
+    routineActive(settings, now) &&
+    replacementDue({ adResourceName: pause.ad_resource_name, adGroupResourceName: pause.ad_group_resource_name, policyTopics: topics, snapshot, tests: ctx.tests });
+  await d.repository.raiseAlert({
+    kind: "ad_disapproved",
+    dedupeKey: alertKeys.paused(pause.id),
+    ...pausedAlert({ adGroupName: pause.ad_group_name, topics, replacement }),
+    persistent: true,
+  });
+}
+
+/**
+ * Switch back on the approved ads whose pause is provably the guardrail's own:
+ * not retired by the blueprint, not claimed by an engine decision, and last
+ * touched by the guardrail itself in Google's change history. Anything it
+ * cannot prove waits for the next tick; anything someone else has decided is
+ * let go.
+ */
+async function restoreApproved(
+  d: WorkerDependencies,
+  gateway: AdsGateway,
+  reader: GuardrailReader,
+  now: Date,
+  approved: GuardrailPause[],
+  ctx: GuardContext,
+  result: TickResult
+): Promise<void> {
+  if (!d.retiredAdIds) {
+    console.warn("[ads-engine] guardrail: the blueprint's retire list cannot be read; approved ads stay paused this tick");
+    return;
+  }
+  const decisions = await d.repository.listEngineAdDecisions();
+  const candidates: GuardrailPause[] = [];
+  for (const pause of approved) {
+    if (d.retiredAdIds.has(pause.ad_id)) {
+      await releaseEpisode(d, pause, "retired_by_blueprint", result);
+      continue;
+    }
+    const claim = engineClaim(pause, decisions);
+    if (claim === "applied") {
+      await releaseEpisode(d, pause, "engine_decision", result);
+      continue;
+    }
+    if (claim === "pending") continue;
+    if (!withinChangeHistory(pause, now)) {
+      await releaseEpisode(d, pause, "unverifiable", result);
+      continue;
+    }
+    candidates.push(pause);
+  }
+  if (candidates.length === 0) return;
+
+  const window = changeWindow(candidates, now);
+  let history: { events: AdChangeEvent[]; truncated: boolean };
+  try {
+    history = await reader.readAdChanges(window.startDate, window.endDate);
+  } catch (error) {
+    console.error("[ads-engine] guardrail: change history read failed; approved ads stay paused this tick", error);
+    return;
+  }
+  if (history.truncated) {
+    console.warn("[ads-engine] guardrail: change history hit Google's row limit; approved ads stay paused this tick");
+    return;
+  }
+
+  const restored: GuardrailPause[] = [];
+  for (const pause of candidates) {
+    const provenance = pauseProvenance(pause, history.events);
+    if (provenance === "touched") {
+      await releaseEpisode(d, pause, "changed_elsewhere", result);
+      continue;
+    }
+    if (provenance === "unknown") continue;
+    const write = await writeStatus(d, gateway, pause.ad_resource_name, "ENABLED");
+    if (write.outcome === "validated") continue;
+    if (write.outcome === "refused") {
+      await d.repository.raiseAlert({
+        kind: "ad_restored",
+        dedupeKey: alertKeys.restoreFailed(pause.id),
+        ...restoreFailedAlert({ adGroupName: pause.ad_group_name, error: write.error }),
+        persistent: true,
+      });
+      continue;
+    }
+    await d.repository.closeGuardrailPause(pause.id, { state: "restored", reason: "restored", requestId: write.requestId });
+    await d.repository.resolveAlerts(alertKeys.ofPause(pause.id));
+    ctx.mutated = true;
+    result.restored += 1;
+    restored.push(pause);
+  }
+  if (restored.length > 0)
+    await d.repository.raiseAlert({
+      kind: "ad_restored",
+      dedupeKey: alertKeys.restored(restored.map((pause) => pause.id)),
+      ...restoredAlert(restored.map((pause) => pause.ad_group_name)),
+      persistent: false,
+    });
+}
+
+async function guardDisapprovals(d: WorkerDependencies, settings: EngineSettings, snapshot: EntitySnapshot, now: Date, result: TickResult): Promise<void> {
+  const open = await d.repository.listOpenGuardrailPauses();
+  const engineCampaigns = new Set(snapshot.campaigns.filter((c) => c.labels.includes("engine") && c.kind !== "legacy").map((c) => c.resourceName));
+  const tracked = new Set(open.map((pause) => pause.ad_resource_name));
+  // The snapshot only nominates suspects; every decision below is made on
+  // Google's live verdict, because the snapshot can be most of a day old.
+  const suspects: Array<{ ad: SnapshotAd; adGroup: SnapshotAdGroup }> = [];
+  for (const ad of snapshot.ads) {
+    if (ad.status !== "ENABLED" || ad.approvalStatus !== "DISAPPROVED" || tracked.has(ad.resourceName)) continue;
+    const adGroup = snapshot.adGroups.find((g) => g.resourceName === ad.adGroupResourceName);
+    if (adGroup && engineCampaigns.has(adGroup.campaignResourceName)) suspects.push({ ad, adGroup });
+  }
+  if (open.length === 0 && suspects.length === 0) {
+    result.guardrail = "idle";
+    return;
+  }
+  if (!d.reader || !d.gateway) {
+    result.guardrail = "unavailable";
+    console.warn("[ads-engine] guardrail: Google cannot be reached; disapprovals wait for the next tick");
+    return;
+  }
+  let live: Map<string, LiveAdState>;
+  try {
+    const states = await d.reader.readAdStates([...suspects.map((s) => s.ad.resourceName), ...open.map((pause) => pause.ad_resource_name)]);
+    live = new Map(states.map((state) => [state.resourceName, state]));
+  } catch (error) {
+    result.guardrail = "unavailable";
+    console.error("[ads-engine] guardrail: live ad read failed; disapprovals wait for the next tick", error);
+    return;
+  }
+  result.guardrail = "checked";
+  const ctx: GuardContext = { tests: null, mutated: false };
+
+  for (const { ad, adGroup } of suspects) {
+    const state = live.get(ad.resourceName);
+    if (!state || state.status !== "ENABLED" || state.approvalStatus !== "DISAPPROVED") continue;
+    const pause = await d.repository.openGuardrailPause({
+      ad_resource_name: ad.resourceName,
+      ad_id: ad.id,
+      ad_group_resource_name: adGroup.resourceName,
+      ad_group_name: adGroup.name,
+      campaign_resource_name: adGroup.campaignResourceName,
+      policy_topics: topicsOf(state),
+      policy_entries: state.policyTopics,
+      observed_at: now.toISOString(),
+    });
+    if (!pause) continue;
+    if (isTransient(topicsOf(state))) {
+      result.held += 1;
+      continue;
+    }
+    await pauseEpisode(d, d.gateway, settings, snapshot, now, pause, state, ctx, result);
+  }
+
+  const approved: GuardrailPause[] = [];
+  for (const pause of open) {
+    const state = live.get(pause.ad_resource_name);
+    if (!state || state.status === "REMOVED") {
+      await releaseEpisode(d, pause, "ad_gone", result);
+      continue;
+    }
+    if (pause.state === "holding") {
+      if (state.status !== "ENABLED") {
+        await releaseEpisode(d, pause, "changed_elsewhere", result);
+        continue;
+      }
+      if (state.approvalStatus !== "DISAPPROVED") {
+        await releaseEpisode(d, pause, "cleared_before_pause", result);
+        continue;
+      }
+      if (isTransient(topicsOf(state)) && !graceElapsed(pause.observed_at, now)) continue;
+      await pauseEpisode(d, d.gateway, settings, snapshot, now, pause, state, ctx, result);
+      continue;
+    }
+    // Paused by the guardrail. Switched back on by anyone else: theirs now.
+    if (state.status === "ENABLED") {
+      await releaseEpisode(d, pause, "changed_elsewhere", result);
+      continue;
+    }
+    if (isApprovedAgain(state)) approved.push(pause);
+  }
+  if (approved.length > 0) await restoreApproved(d, d.gateway, d.reader, now, approved, ctx, result);
+
+  if (ctx.mutated) {
+    try {
+      await d.repository.refreshSnapshot();
+    } catch (error) {
+      console.error("[ads-engine] snapshot refresh after the guardrail failed", error);
+    }
   }
 }
 
@@ -357,6 +677,10 @@ export async function runEngineTick(d: WorkerDependencies): Promise<TickResult> 
     followUps: 0,
     verdicts: 0,
     disapproved: 0,
+    held: 0,
+    restored: 0,
+    released: 0,
+    guardrail: "idle",
     pacing: 0,
     notified: 0,
     stalled: false,
@@ -370,7 +694,7 @@ export async function runEngineTick(d: WorkerDependencies): Promise<TickResult> 
   await applyPending(d, settings, result);
   await concludeTests(d, settings, snapshot, today, now, result);
   await scoreChanges(d, today, now, result);
-  await pauseDisapproved(d, snapshot, result);
+  await guardDisapprovals(d, settings, snapshot, now, result);
   await watchPacing(d, snapshot, today, result);
 
   if (d.operator) {

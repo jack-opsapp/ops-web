@@ -1,6 +1,13 @@
 import "server-only";
-import { isGoogleAdsConfigured, queryCampaignBudgetPacing } from "@/lib/analytics/google-ads-client";
+import {
+  isGoogleAdsConfigured,
+  queryAdGroupAdChangeEvents,
+  queryAdPolicyStates,
+  queryCampaignBudgetPacing,
+} from "@/lib/analytics/google-ads-client";
+import { loadBlueprint } from "@/lib/ads/blueprint";
 import { applyProposal, type ApplyProposalRecord } from "./apply";
+import { retiredAdIdsFrom } from "./disapprovals";
 import { createGoogleGateway, googleGatewayAvailable } from "./google-gateway";
 import { getAdsOperator } from "./operator";
 import { createEngineRepository } from "./repository";
@@ -24,6 +31,11 @@ export async function runAdsEngineTick() {
       ? (proposal: ApplyProposalRecord) => applyProposal(proposal, { gateway, repository, now, rehearsal, appliedBy: "auto" })
       : null,
     gateway,
+    // The guardrail decides on Google's live verdict and change history, never
+    // on the warehouse copy; without them it waits.
+    reader: gateway && isGoogleAdsConfigured() ? { readAdStates: queryAdPolicyStates, readAdChanges: queryAdGroupAdChangeEvents } : null,
+    retiredAdIds: retiredAdIdsFrom(loadBlueprint),
+    rehearsal,
     readBudgetPacing: isGoogleAdsConfigured()
       ? async (window) =>
           (await queryCampaignBudgetPacing(new Date(`${window.from}T00:00:00.000Z`), new Date(`${window.to}T00:00:00.000Z`))).map((row) => ({

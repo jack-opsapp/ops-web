@@ -87,8 +87,6 @@ function rig(options: {
   entityMetrics?: (change: ChangeRecord, window: { from: string; to: string }) => { impressions: number; clicks: number; conversions: number };
   applyOutcome?: (p: ApplyProposalRecord) => ApplyOutcome;
   apply?: null;
-  gateway?: null;
-  disapproved?: boolean;
   pacing?: PacingRow[] | null;
   operator?: null;
   heartbeat?: string | null;
@@ -102,7 +100,6 @@ function rig(options: {
   const stallChecks: Rig["stallChecks"] = [];
   const counters = { cleared: 0, notified: 0 };
   const snap = snapshot();
-  if (options.disapproved) snap.ads[1] = { ...snap.ads[1], approvalStatus: "DISAPPROVED" };
   const engineSettings = options.settings ?? settings({ heartbeat_at: options.heartbeat === undefined ? "2026-10-20T14:00:00.000Z" : options.heartbeat });
   const repository: WorkerRepository = {
     expireProposals: async () => 2,
@@ -142,6 +139,15 @@ function rig(options: {
       counters.cleared += 1;
       return 1;
     },
+    // The guardrail has its own suite (worker-guardrail.test.ts); here it has nothing to guard.
+    listOpenGuardrailPauses: async () => [],
+    openGuardrailPause: async () => null,
+    markGuardrailPaused: async () => {},
+    recordGuardrailPauseError: async () => {},
+    closeGuardrailPause: async () => {},
+    listEngineAdDecisions: async () => [],
+    resolveAlerts: async () => 0,
+    refreshSnapshot: async () => {},
   };
   const deps: WorkerDependencies = {
     repository,
@@ -156,16 +162,16 @@ function rig(options: {
               ? options.applyOutcome(proposal)
               : { state: "applied", validation: { results: [], failures: [] }, resourceNames: ["x"], label: "gen-x", changeId: "c", testId: null };
           },
-    gateway:
-      options.gateway === null
-        ? null
-        : {
-            customerId: async () => "4454506598",
-            mutate: async (operations, opts) => {
-              mutations.push({ operations, validateOnly: opts.validateOnly });
-              return { results: operations.map(() => ({ adGroupAdResult: { resourceName: "x" } })), failures: [] };
-            },
-          },
+    gateway: {
+      customerId: async () => "4454506598",
+      mutate: async (operations, opts) => {
+        mutations.push({ operations, validateOnly: opts.validateOnly });
+        return { results: operations.map(() => ({ adGroupAdResult: { resourceName: "x" } })), failures: [] };
+      },
+    },
+    reader: null,
+    retiredAdIds: new Set<string>(),
+    rehearsal: false,
     readBudgetPacing: options.pacing === undefined ? null : options.pacing === null ? null : async () => options.pacing as PacingRow[],
   };
   return {
@@ -334,25 +340,11 @@ describe("runEngineTick", () => {
     expect(r.verdicts[0].post).toMatchObject({ ctr: 0.036, deltaPct: 20 });
   });
 
-  it("pauses a disapproved ad with validateOnly first and raises AD DISAPPROVED", async () => {
-    const r = rig({ disapproved: true });
+  it("leaves the disapproved-ad guardrail idle on a clean account", async () => {
+    const r = rig();
     const result = await runEngineTick(r.deps);
-    expect(result.disapproved).toBe(1);
-    expect(r.mutations.map((m) => m.validateOnly)).toEqual([true, false]);
-    expect(r.mutations[0].operations).toEqual([
-      { adGroupAdOperation: { update: { resourceName: R.jmChallenger, status: "PAUSED" }, updateMask: "status" } },
-    ]);
-    expect(r.alerts).toEqual([
-      expect.objectContaining({ kind: "ad_disapproved", dedupeKey: `ads-engine:disapproved:${R.jmChallenger}`, title: "AD DISAPPROVED", persistent: true }),
-    ]);
-    expect(r.alerts[0].body).toMatch(/paused it/);
-  });
-
-  it("still raises AD DISAPPROVED when Google cannot be reached to pause the ad", async () => {
-    const r = rig({ disapproved: true, gateway: null });
-    await runEngineTick(r.deps);
+    expect(result).toMatchObject({ guardrail: "idle", disapproved: 0, held: 0, restored: 0, released: 0 });
     expect(r.mutations).toEqual([]);
-    expect(r.alerts[0].body).toMatch(/could not pause/);
   });
 
   it("raises ADS BUDGET PACING when a campaign is capped three days running, and not for two", async () => {

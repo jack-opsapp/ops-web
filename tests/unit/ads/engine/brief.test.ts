@@ -8,7 +8,7 @@ import {
   type BriefRepository,
 } from "@/lib/ads/engine/brief";
 import { BRAND_FACTS } from "@/lib/ads/copy-rules";
-import { ledger, metrics28d, NOW, settings, snapshot, tests } from "./fixtures";
+import { ledger, metrics28d, NOW, R, settings, snapshot, tests } from "./fixtures";
 
 const COPY_CONTENT = "# OPS copywriter brief\nSay less. Mean more.\n";
 const COPY = {
@@ -34,6 +34,7 @@ function repository(overrides: Partial<BriefRepository> = {}) {
     readFunnel: async () => ({ trialStartsLast30: 2, trialStartsPrev30: 1, monthToDateSpend: 400, daysLeftInMonth: 12 }),
     readFunnelByKeyword: async () => [{ campaign_name: "CORE · CA", ad_group_name: "Job management", keyword: "job management app", clicks: 40, trials: 1, activated: 0, paid: 0, spend: 180, cost_per_trial: 180, cost_per_paid: null }],
     readRuns: async () => [],
+    readGuardrailPauses: async () => [],
     readMarketDigest: async () => null,
     writeMarketDigest: async (text, generatedAt) => {
       digests.push({ text, generatedAt });
@@ -51,10 +52,34 @@ describe("computeDuties", () => {
     tests: tests(),
     runsThisMonth: [] as Array<{ duties: string[]; state: string }>,
     funnel: { trialStartsLast30: 2, trialStartsPrev30: 1, monthToDateSpend: 400, daysLeftInMonth: 12 },
+    guardrailPauses: [] as Array<{ ad_resource_name: string; ad_group_resource_name: string; policy_topics: string[]; state: "holding" | "paused" }>,
   };
+  const youngControls = { ...metrics28d(), ads: metrics28d().ads.map((ad) => ({ ...ad, firstSeen: "2026-10-10" })) };
+  const pausedFor = (policy_topics: string[], ad_resource_name: string = R.jmChallenger, state: "holding" | "paused" = "paused") => ({
+    ad_resource_name,
+    ad_group_resource_name: R.jobManagement,
+    policy_topics,
+    state,
+  });
 
   it("always includes hygiene", () => {
     expect(computeDuties(base).duties).toContain("hygiene");
+  });
+
+  it("names a group whose ad the guardrail paused for a copy verdict, whatever its control's age", () => {
+    const result = computeDuties({ ...base, metrics28d: youngControls, guardrailPauses: [pausedFor(["TRADEMARKS_IN_AD_TEXT"])] });
+    expect(result.duties).toContain("creative");
+    expect(result.notes.creative).toBe("Challengers are due in: Job management (Google disapproved an ad for trademarks in ad text; write its replacement).");
+  });
+
+  it("names no replacement it could not honour: a landing-page verdict, an ad still held, or a paused control", () => {
+    for (const pause of [pausedFor(["DESTINATION_NOT_WORKING"]), pausedFor(["TRADEMARKS_IN_AD_TEXT"], R.jmChallenger, "holding"), pausedFor(["TRADEMARKS_IN_AD_TEXT"], R.jmControl)])
+      expect(computeDuties({ ...base, metrics28d: youngControls, guardrailPauses: [pause] }).duties).not.toContain("creative");
+  });
+
+  it("names the group once when its control is also due by cadence", () => {
+    const result = computeDuties({ ...base, guardrailPauses: [pausedFor(["TRADEMARKS_IN_AD_TEXT"])] });
+    expect(result.notes.creative).toBe("Challengers are due in: Job management (Google disapproved an ad for trademarks in ad text; write its replacement).");
   });
 
   it("adds creative when an enabled control is four weeks old with no running test", () => {

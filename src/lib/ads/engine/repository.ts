@@ -6,6 +6,7 @@ import type { AdminChangeRow, AdminProposalRow, AdminRunRow, EngineAdminReposito
 import type { ApplyProposalRecord, ApplyRepository, NewChange, NewTest } from "./apply";
 import type { BriefRepository, FunnelRow, MarketDigest, ProposalSummary, RunSummary } from "./brief";
 import { vancouverMonthStart } from "./brief";
+import type { EngineAdDecision, GuardrailPause } from "./disapprovals";
 import { STRUCTURAL_KINDS } from "./guardrails";
 import type { EngineHandoffRepository, EngineRunRecord, EngineValidationInputs } from "./handoff";
 import { aggregateMetrics, historyStart, metricWindows, type DailyRows, type DateWindow } from "./metrics";
@@ -138,6 +139,40 @@ function sumArms(rows: Array<{ impressions?: unknown; clicks?: unknown; conversi
     total.conversions += Number(row.conversions ?? 0);
   }
   return total;
+}
+
+const PAUSE_FIELDS =
+  "id,ad_resource_name,ad_id,ad_group_resource_name,ad_group_name,campaign_resource_name,state,policy_topics,observed_at,pause_requested_at,paused_at,pause_error";
+const OPEN_PAUSE_STATES = ["holding", "paused"];
+const AD_DECISION_KINDS = ["pause_ad", "promote_challenger", "create_rsa_challenger"];
+
+function pauseOf(row: Record<string, unknown>): GuardrailPause {
+  const text = (value: unknown) => (typeof value === "string" ? value : null);
+  return {
+    id: String(row.id),
+    ad_resource_name: String(row.ad_resource_name),
+    ad_id: String(row.ad_id),
+    ad_group_resource_name: String(row.ad_group_resource_name),
+    ad_group_name: String(row.ad_group_name ?? ""),
+    campaign_resource_name: String(row.campaign_resource_name),
+    state: row.state as GuardrailPause["state"],
+    policy_topics: Array.isArray(row.policy_topics) ? (row.policy_topics as string[]) : [],
+    observed_at: String(row.observed_at),
+    pause_requested_at: text(row.pause_requested_at),
+    paused_at: text(row.paused_at),
+    pause_error: text(row.pause_error),
+  };
+}
+
+function decisionOf(row: Record<string, unknown>): EngineAdDecision {
+  return {
+    id: String(row.id),
+    kind: row.kind as EngineAdDecision["kind"],
+    state: row.state as EngineAdDecision["state"],
+    payload: (row.payload as Record<string, unknown>) ?? {},
+    created_at: String(row.created_at),
+    applied_at: typeof row.applied_at === "string" ? row.applied_at : null,
+  };
 }
 
 export function createEngineRepository(client?: SupabaseClient): EngineRepository {
@@ -308,6 +343,17 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
     });
   }
 
+  async function readOpenPauses(): Promise<GuardrailPause[]> {
+    const { data, error } = await db
+      .from("ads_guardrail_pauses")
+      .select(PAUSE_FIELDS)
+      .in("state", OPEN_PAUSE_STATES)
+      .order("observed_at", { ascending: true })
+      .limit(500);
+    if (error) throw error;
+    return (data ?? []).map((row) => pauseOf(row as Record<string, unknown>));
+  }
+
   return {
     readSettings,
     readSnapshot,
@@ -318,6 +364,7 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
     readFunnel,
     readFunnelByKeyword,
     readRuns,
+    readGuardrailPauses: readOpenPauses,
     readMarketDigest,
     writeMarketDigest,
 
@@ -522,6 +569,74 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
         .select("id");
       if (error) throw error;
       return data?.length ?? 0;
+    },
+
+    // ─── Guardrail ───────────────────────────────────────────────────────────
+
+    listOpenGuardrailPauses: readOpenPauses,
+    async openGuardrailPause(input) {
+      const { data, error } = await db
+        .from("ads_guardrail_pauses")
+        .insert({ ...input, state: "holding" })
+        .select(PAUSE_FIELDS)
+        .single();
+      if (error) {
+        // One open episode per ad (ads_guardrail_pauses_one_open_per_ad):
+        // another tick already opened this one.
+        if (error.code === "23505") return null;
+        throw error;
+      }
+      return pauseOf(data as Record<string, unknown>);
+    },
+    async markGuardrailPaused(id, input) {
+      const { error } = await db
+        .from("ads_guardrail_pauses")
+        .update({
+          state: "paused",
+          pause_requested_at: input.pauseRequestedAt,
+          paused_at: input.pausedAt,
+          pause_request_id: input.requestId,
+          policy_topics: input.topics,
+          policy_entries: input.entries,
+          pause_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("state", "holding");
+      if (error) throw error;
+    },
+    async recordGuardrailPauseError(id, message) {
+      const { error } = await db
+        .from("ads_guardrail_pauses")
+        .update({ pause_error: message.slice(0, 4000), updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    async closeGuardrailPause(id, outcome) {
+      const nowIso = new Date().toISOString();
+      const { error } = await db
+        .from("ads_guardrail_pauses")
+        .update({ state: outcome.state, close_reason: outcome.reason, closed_at: nowIso, restore_request_id: outcome.requestId ?? null, updated_at: nowIso })
+        .eq("id", id)
+        .in("state", OPEN_PAUSE_STATES);
+      if (error) throw error;
+    },
+    async listEngineAdDecisions() {
+      const { data, error } = await db
+        .from("ads_proposals")
+        .select("id,kind,state,payload,created_at,applied_at")
+        .in("kind", AD_DECISION_KINDS)
+        .in("state", ["proposed", "approved", "applied"])
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      return (data ?? []).map((row) => decisionOf(row as Record<string, unknown>));
+    },
+    async resolveAlerts(dedupeKeys) {
+      if (dedupeKeys.length === 0) return 0;
+      const { data, error } = await db.rpc("resolve_ads_engine_alerts", { p_dedupe_keys: dedupeKeys });
+      if (error) throw error;
+      return typeof data === "number" ? data : 0;
     },
 
     // ─── Apply ───────────────────────────────────────────────────────────────
