@@ -1,0 +1,29 @@
+{
+ "targets": [
+  "customers/4454506598/adGroupAds/200351113415~824125294528",
+  "customers/4454506598/adGroupAds/200351113575~824125294534",
+  "customers/4454506598/adGroupAds/200351113615~824125294540",
+  "customers/4454506598/adGroupAds/200351113655~824125294546",
+  "customers/4454506598/adGroupAds/200351113815~824125294552",
+  "customers/4454506598/adGroupAds/200351113855~824125294558",
+  "customers/4454506598/adGroupAds/200351113895~824125294684",
+  "customers/4454506598/adGroupAds/200351114055~824125294690",
+  "customers/4454506598/adGroupAds/200351114095~824125294696",
+  "customers/4454506598/adGroupAds/200351114135~824125294702",
+  "customers/4454506598/adGroupAds/200351114295~824125294708"
+ ],
+ "validate": {
+  "status": 200,
+  "requestId": "RvJSTt66HRG-Xist445smw",
+  "body": "{}\n"
+ },
+ "real": {
+  "status": 200,
+  "requestId": "GvaRL6Ys-SPiHHGSc_ZfWA",
+  "body": "{\n  \"mutateOperationResponses\": [\n    {\n      \"adGroupAdResult\": {\n        \"resourceName\": \"customers/4454506598/adGroupAds/200351113415~824125294528\"\n      }\n    },\n    {\n      \"adGroupAdResult\": {\n        \"resourceName\": \"customers/4454506598/adGroupAds/200351113575~824125294534\"\n      }\n    },\n    {\n      \"adGroupAdResult\": {\n        \"resourceName\": \"customers/4454506598/adGroupAds/200351113615~824125294540\"\n      }\n    },\n    {\n      \"adGroupAdResult\": {\n        \"resourceName\": \"customers/4454506598/adGroupAds/200351113655~824125294546\"\n      }\n    },\n    {\n      \"adGroupAdResult\": {\n     "
+ },
+ "after": {
+  "control · ENABLED · APPROVED": 22,
+  "retired challenger · PAUSED · APPROVED": 11
+ }
+}
