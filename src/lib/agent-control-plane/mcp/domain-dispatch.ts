@@ -3,6 +3,7 @@ import "server-only";
 import type { OpsAgentCapabilityService } from "@/lib/agent-control-plane/services/capability-service";
 import type { CurrentProductionMcpToolId } from "@/lib/agent-control-plane/registry/read-capabilities/current-production";
 import type { P2ReadCapabilityId } from "@/lib/agent-control-plane/registry/read-capabilities/p2";
+import type { SiteVisitWorkflowTool } from "../contracts/site-visit-workflow";
 
 type AsyncDomainMethodName = {
   [Name in keyof OpsAgentCapabilityService]: OpsAgentCapabilityService[Name] extends (
@@ -66,10 +67,23 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   prepare_catalog_changes: "prepareCatalogChanges",
   prepare_inventory_adjustment: "prepareInventoryAdjustment",
   inspect_financial_document: "inspectFinancialDocument",
+  list_site_visit_templates: "listSiteVisitTemplates",
+  get_site_visit_template: "getSiteVisitTemplate",
+  get_site_visit_form: "getSiteVisitForm",
+  get_site_visit_source: "getSiteVisitSource",
+  prepare_site_visit_booking: "prepareSiteVisitBooking",
+  prepare_site_visit_reschedule: "prepareSiteVisitReschedule",
+  prepare_site_visit_booking_cancellation:
+    "prepareSiteVisitBookingCancellation",
+  prepare_site_visit_template: "prepareSiteVisitTemplate",
+  prepare_site_visit_template_edit: "prepareSiteVisitTemplateEdit",
+  prepare_site_visit_checklist_selection: "prepareSiteVisitChecklistSelection",
+  prepare_site_visit_answers: "prepareSiteVisitAnswers",
 } as const satisfies Readonly<
   Record<
     | CurrentProductionMcpToolId
     | P2ReadCapabilityId
+    | SiteVisitWorkflowTool
     | "prepare_day_closeout"
     | "prepare_collections"
     | "analyze_hiring_break_even"
@@ -96,6 +110,7 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
 export type McpDomainCapabilityId =
   | CurrentProductionMcpToolId
   | P2ReadCapabilityId
+  | SiteVisitWorkflowTool
   | "prepare_day_closeout"
   | "prepare_collections"
   | "analyze_hiring_break_even"

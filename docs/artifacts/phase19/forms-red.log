@@ -1,0 +1,31 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19
+
+ ❯ src/lib/agent-control-plane/services/site-visit-workflow/__tests__/forms.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/services/site-visit-workflow/__tests__/forms.test.ts [ src/lib/agent-control-plane/services/site-visit-workflow/__tests__/forms.test.ts ]
+Error: Failed to resolve import "../../../contracts/site-visit-workflow" from "src/lib/agent-control-plane/services/site-visit-workflow/__tests__/forms.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/src/lib/agent-control-plane/services/site-visit-workflow/__tests__/forms.test.ts:2:70
+  1  |  import { describe, expect, it } from "vitest";
+  2  |  import { ChecklistDefinitionSchema, SiteVisitAnswerPatchSchema } from "../../../contracts/site-visit-workflow";
+     |                                                                         ^
+  3  |  import { compileAnswerChanges, missingRequiredFields, selectChecklistFields } from "../forms";
+  4  |  const id = "10000000-0000-4000-8000-000000000001";
+ ❯ TransformPluginContext._formatError node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49258:41
+ ❯ TransformPluginContext.error node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49253:16
+ ❯ normalizeUrl node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64307:23
+ ❯ node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64439:39
+ ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:64366:7
+ ❯ PluginContainer.transform node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49099:18
+ ❯ loadAndTransform node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  12:56:10
+   Duration  878ms (transform 46ms, setup 188ms, collect 0ms, tests 0ms, environment 360ms, prepare 28ms)

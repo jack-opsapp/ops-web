@@ -96,6 +96,7 @@ const BULK_EXCLUDED: ReadonlySet<AgentActionType> = new Set<AgentActionType>([
   "approve_dispatch_confirmation_task",
   "approve_schedule_change",
   "approve_catalog_changes",
+  "approve_site_visit_changes",
   "approve_financial_document",
   "approve_customer_update",
   "send_customer_follow_up",

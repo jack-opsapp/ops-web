@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19
+
+ ✓ src/lib/agent-control-plane/mcp/__tests__/durable-rate-limit.test.ts (17 tests) 16ms
+ ✓ src/components/agent/__tests__/site-visit-changes-preview.test.tsx (14 tests) 246ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts (111 tests) 1864ms
+   ✓ site visit candidate legacy > routes retained search_customers through the existing limiter and real current-authority facade 1621ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/runtime.test.ts (4 tests) 3389ms
+   ✓ MCP production runtime > preserves Supabase cancellation through the composed authority adapter 2667ms
+
+ Test Files  4 passed (4)
+      Tests  146 passed (146)
+   Start at  22:49:13
+   Duration  4.24s (transform 2.96s, setup 533ms, collect 1.91s, tests 5.52s, environment 970ms, prepare 167ms)
+

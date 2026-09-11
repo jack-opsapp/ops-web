@@ -1,0 +1,97 @@
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:10: NOTICE:  PASS: exact typed checklist preview without business mutation
+DO
+INSERT 0 4
+       set_config
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+CREATE FUNCTION
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:23: NOTICE:  PASS: dormant prepare requires exact effect seal
+DO
+UPDATE 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:33: NOTICE:  PASS: company civil time, exact appointment and unknown external coverage
+DO
+INSERT 0 1
+CREATE TABLE
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:52: NOTICE:  PASS: exact approval, atomic checklist receipt and lost-response replay
+DO
+CREATE FUNCTION
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:81: NOTICE:  PASS: golden booking, reusable checklist, evidence answers, false/zero and missing access
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:109: NOTICE:  PASS: uncertainty, explicit clear and fabricated source quote denial
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:109: NOTICE:  PASS: ABA source change, supersession and rejection invalidate old approvals
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:122: NOTICE:  PASS: text-answer inspection redacts inaccessible historical media evidence
+DO
+SET
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:136: NOTICE:  PASS: needs-input correction closes old approval and replays durably
+DO
+INSERT 0 1
+DO
+UPDATE 1
+SET
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:149: NOTICE:  PASS: approved cancellation preserves historical inactive assignees
+DO
+                         set_config
+------------------------------------------------------------
+ {"role":"authenticated","sub":"fixture-firebase-non-uuid"}
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:159: NOTICE:  PASS: actor-bound phone completion delegates canonical activity and replays once
+DO
+       set_config
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:172: NOTICE:  PASS: cancellation preserves legacy duration and empty crew
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:184: NOTICE:  PASS: malformed assigned task and active calendar sources block availability
+DO
+CREATE TABLE
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:27: NOTICE:  PASS ADVERSARIAL: MCP current grant revoke, disable, scope/revision, client substitution, and permission revocation
+DO
+ALTER TABLE
+CREATE POLICY
+GRANT
+                                                   set_config
+----------------------------------------------------------------------------------------------------------------
+ {"role":"authenticated","sub":"fixture-firebase-non-uuid","company_id":"10000000-0000-4000-8000-000000000002"}
+(1 row)
+
+SET
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:40: NOTICE:  PASS ADVERSARIAL: authenticated owner reads workflow actions; raw mutation is denied
+DO
+RESET
+                                             set_config
+-----------------------------------------------------------------------------------------------------
+ {"role":"authenticated","sub":"other-firebase","company_id":"10000000-0000-4000-8000-000000000002"}
+(1 row)
+
+SET
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:47: NOTICE:  PASS ADVERSARIAL: wrong actor cannot read workflow actions despite matching company JWT
+DO
+RESET
+       set_config
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:56: NOTICE:  PASS ADVERSARIAL: DST gap/fold denial and exact explicit offsets
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:70: NOTICE:  PASS: unlinked form/source reads require all scope and exact company
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:80: NOTICE:  PASS: null historical crew cancellation and exact lost-response replay
+DO
+CREATE TABLE
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-timezones.sql:20: NOTICE:  PASS: PostgreSQL Vancouver, half/quarter-hour, negative offsets and cross-year UTC proof
+DO
+DELETE 1
+DELETE 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-timezones.sql:51: NOTICE:  PASS: changed company timezone, ABA and appointment edits invalidate approval; exact booking/reschedule proof is sealed in receipts
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-discovery.sql:12: NOTICE:  PASS: exact template edit/default changes preserve all historical answer snapshots
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-discovery.sql:29: NOTICE:  PASS: bounded template discovery returns stable nonoverlapping pages and rejects a changed source revision
+DO

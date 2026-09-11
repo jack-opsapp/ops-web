@@ -1,0 +1,4 @@
+INSERT 0 1
+INSERT 0 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-legacy-race.sql:18: ERROR:  FAIL: legacy delayed phone silently overwrote the server answer
+CONTEXT:  PL/pgSQL function inline_code_block line 8 at RAISE

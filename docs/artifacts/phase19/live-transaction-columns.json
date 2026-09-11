@@ -1,0 +1,2750 @@
+[
+  {
+    "schema_name": "private",
+    "table_name": "guest_booking_intents",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "integration_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "state",
+        "type": "text",
+        "default": "'held'::text",
+        "not_null": true
+      },
+      {
+        "name": "slot_start_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "duration_minutes",
+        "type": "integer",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "hold_expires_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "contact_name",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "contact_email_digest",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "contact_email_encrypted",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "contact_phone_raw",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "verified_channel",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "verified_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "answers",
+        "type": "jsonb",
+        "default": "'[]'::jsonb",
+        "not_null": true
+      },
+      {
+        "name": "resolved_client_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "resolved_opportunity_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "resolved_site_visit_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "network_fingerprint",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "closed_reason",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "statement_timestamp()",
+        "not_null": true
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "statement_timestamp()",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "private",
+    "table_name": "mcp_oauth_clients",
+    "columns": [
+      {
+        "name": "client_id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "client_name",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "redirect_uris",
+        "type": "text[]",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "token_endpoint_auth_method",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "grant_types",
+        "type": "text[]",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "response_types",
+        "type": "text[]",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "scope",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "registration_source",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "software_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "software_version",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "statement_timestamp()",
+        "not_null": true
+      },
+      {
+        "name": "disabled_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "scope_ceiling",
+        "type": "text[]",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "consent_catalog_revision",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "exposure_revision",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "private",
+    "table_name": "mcp_oauth_grants",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "client_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "scopes",
+        "type": "text[]",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "revision",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "statement_timestamp()",
+        "not_null": true
+      },
+      {
+        "name": "last_used_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "revoked_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "accepted_labels",
+        "type": "text[]",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "consent_catalog_revision",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "exposure_revision",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "activities",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "opportunity_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "client_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "estimate_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "invoice_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "type",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "subject",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "content",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "outcome",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "direction",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "duration_minutes",
+        "type": "integer",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      },
+      {
+        "name": "attachments",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "email_thread_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "email_message_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "is_read",
+        "type": "boolean",
+        "default": "true",
+        "not_null": true
+      },
+      {
+        "name": "site_visit_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "project_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "from_email",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "match_confidence",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "match_needs_review",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "suggested_client_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "to_emails",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "cc_emails",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "body_text",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "has_attachments",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "attachment_count",
+        "type": "integer",
+        "default": "0",
+        "not_null": true
+      },
+      {
+        "name": "classified_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "classifier_version",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "sent_by_agent",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "attachment_ids",
+        "type": "uuid[]",
+        "default": "ARRAY[]::uuid[]",
+        "not_null": false
+      },
+      {
+        "name": "draft_history_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "call_source",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "caller_number",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "call_started_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "body_text_clean",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "email_connection_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "provider_mutations_disabled",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "calendar_user_events",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "user_id",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "default": "''::text",
+        "not_null": true
+      },
+      {
+        "name": "start_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "end_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "all_day",
+        "type": "boolean",
+        "default": "true",
+        "not_null": true
+      },
+      {
+        "name": "notes",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "default": "'none'::text",
+        "not_null": true
+      },
+      {
+        "name": "reviewed_by",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "reviewed_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "team_member_ids",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "series_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "companies",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "bubble_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "external_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "website",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "phone",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "email",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "latitude",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "longitude",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "open_hour",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "close_hour",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "logo_url",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "default_project_color",
+        "type": "text",
+        "default": "'#9CA3AF'::text",
+        "not_null": false
+      },
+      {
+        "name": "industries",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "company_size",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "company_age",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "referral_method",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "account_holder_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "admin_ids",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "seated_employee_ids",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "max_seats",
+        "type": "integer",
+        "default": "10",
+        "not_null": false
+      },
+      {
+        "name": "subscription_status",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "subscription_plan",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "subscription_end",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "subscription_period",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "trial_start_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "trial_end_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "seat_grace_start_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "has_priority_support",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "data_setup_purchased",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "data_setup_completed",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "data_setup_scheduled",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "stripe_customer_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "subscription_ids_json",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "company_code",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "precise_scheduling_enabled",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "skip_weekends_in_auto_schedule",
+        "type": "boolean",
+        "default": "true",
+        "not_null": false
+      },
+      {
+        "name": "weather_dependent",
+        "type": "boolean",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "industry",
+        "type": "text",
+        "default": "'trades'::text",
+        "not_null": false
+      },
+      {
+        "name": "client_comms_settings",
+        "type": "jsonb",
+        "default": "'{\"invoice_cover\": {\"enabled\": true, \"autonomy\": \"draft_to_queue\", \"threshold\": 0, \"send_delay_minutes\": 15}, \"status_update\": {\"cadence\": \"off\", \"autonomy\": \"draft_to_queue\", \"weekly_day\": 1, \"send_delay_minutes\": 15}, \"payment_reminder\": {\"preset\": \"standard\", \"enabled\": true, \"autonomy\": \"draft_to_queue\", \"custom_days\": [7, 14, 30, 45], \"max_reminders\": 4, \"send_delay_minutes\": 15}, \"reschedule_request\": {\"enabled\": true, \"autonomy\": \"draft_to_queue\", \"behavior\": \"detect_and_draft\", \"min_confidence\": 0.6, \"send_delay_minutes\": 15}, \"reschedule_requests\": {\"enabled\": true, \"min_confidence\": 0.6}, \"appointment_reminder\": {\"enabled\": true, \"autonomy\": \"draft_to_queue\", \"lead_days\": 1, \"include_weather\": true, \"send_hour_local\": 14, \"send_delay_minutes\": 15}, \"comms_wizard_version\": 0, \"day_before_reminders\": {\"enabled\": true, \"send_hour_utc\": 14, \"include_weather\": true}, \"appointment_confirmation\": {\"level\": \"draft_on_confirm\", \"confirm_mode\": \"explicit\", \"send_delay_minutes\": 15, \"reschedule_behavior\": \"draft\", \"auto_confirm_after_hours\": 4}, \"appointment_confirmations\": {\"enabled\": true, \"delay_hours\": 0}, \"comms_wizard_completed_at\": null, \"subcontractor_coordination\": {\"enabled\": false, \"trigger\": \"manual\"}}'::jsonb",
+        "not_null": false
+      },
+      {
+        "name": "timezone",
+        "type": "text",
+        "default": "'America/Vancouver'::text",
+        "not_null": true
+      },
+      {
+        "name": "locale",
+        "type": "text",
+        "default": "'en'::text",
+        "not_null": true
+      },
+      {
+        "name": "ai_enabled",
+        "type": "boolean",
+        "default": "true",
+        "not_null": true
+      },
+      {
+        "name": "physical_address",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "default_work_start",
+        "type": "time without time zone",
+        "default": "'08:00:00'::time without time zone",
+        "not_null": true
+      },
+      {
+        "name": "default_work_end",
+        "type": "time without time zone",
+        "default": "'17:00:00'::time without time zone",
+        "not_null": true
+      },
+      {
+        "name": "priority_support_period",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "currency_code",
+        "type": "text",
+        "default": "'CAD'::text",
+        "not_null": true
+      },
+      {
+        "name": "source_app",
+        "type": "text",
+        "default": "'ops'::text",
+        "not_null": true
+      },
+      {
+        "name": "lifecycle_settings",
+        "type": "jsonb",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "schedule_settings",
+        "type": "jsonb",
+        "default": "'{\"enabled\": true, \"climate_zone\": \"auto\", \"cascade_detection\": true, \"weather_awareness\": true, \"conflict_detection\": true, \"travel_optimization\": true, \"outdoor_task_type_ids\": [], \"optimization_window_days\": 2}'::jsonb",
+        "not_null": true
+      },
+      {
+        "name": "invoice_settings",
+        "type": "jsonb",
+        "default": "'{\"default_tax_rate\": 0, \"include_cover_email\": true, \"high_value_threshold\": 5000, \"default_payment_terms\": \"NET-30\", \"financial_intelligence\": {\"enabled\": true, \"aging_min_count\": 3, \"aging_days_threshold\": 60, \"overdue_pct_threshold\": 30, \"min_estimates_for_analysis\": 5, \"concentration_pct_threshold\": 40, \"win_rate_decrease_threshold\": 40, \"win_rate_increase_threshold\": 80}, \"auto_suggest_from_estimate\": true, \"auto_suggest_on_completion\": true}'::jsonb",
+        "not_null": true
+      },
+      {
+        "name": "task_groups_conversion_enabled",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "public_handle",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "email_connections",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "gmail_connection_type",
+        "default": "'company'::gmail_connection_type",
+        "not_null": true
+      },
+      {
+        "name": "user_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "email",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "access_token",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "refresh_token",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "expires_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "history_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "sync_enabled",
+        "type": "boolean",
+        "default": "true",
+        "not_null": true
+      },
+      {
+        "name": "last_synced_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "sync_interval_minutes",
+        "type": "integer",
+        "default": "60",
+        "not_null": true
+      },
+      {
+        "name": "sync_filters",
+        "type": "jsonb",
+        "default": "'{\"labelIds\": [\"INBOX\", \"SENT\"], \"excludeDomains\": [], \"includeSentMail\": true, \"excludeAddresses\": [], \"usePresetBlocklist\": true, \"excludeSubjectKeywords\": []}'::jsonb",
+        "not_null": true
+      },
+      {
+        "name": "provider",
+        "type": "text",
+        "default": "'gmail'::text",
+        "not_null": true
+      },
+      {
+        "name": "webhook_subscription_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "webhook_expires_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "ops_label_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "ai_review_enabled",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "ai_memory_enabled",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "default": "'active'::text",
+        "not_null": true
+      },
+      {
+        "name": "auto_send_settings",
+        "type": "jsonb",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "archive_writeback_preference",
+        "type": "text",
+        "default": "'ask'::text",
+        "not_null": true
+      },
+      {
+        "name": "archive_lead_preference",
+        "type": "text",
+        "default": "'ask'::text",
+        "not_null": true
+      },
+      {
+        "name": "agent_can_send_from",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "sync_in_progress_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "sync_lock_owner",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "webhook_client_state_hash",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "history_recovery_anchor",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "history_recovery_page_token",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "history_recovery_target_token",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "default_intake_owner_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "outreach_subject",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "signature_logo_url",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "provider_snapshot_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "granted_scopes",
+        "type": "text[]",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "webhook_history_high_water",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "notifications",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "user_id",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "type",
+        "type": "text",
+        "default": "'mention'::text",
+        "not_null": true
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "body",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "project_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "note_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "is_read",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      },
+      {
+        "name": "expense_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "batch_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "deep_link_type",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "persistent",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "action_url",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "action_label",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "dedupe_key",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "resolved_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "resolved_by",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "resolution_reason",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "incident_version",
+        "type": "bigint",
+        "default": "0",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "opportunities",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "client_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "contact_name",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "contact_email",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "contact_phone",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "stage",
+        "type": "text",
+        "default": "'new_lead'::text",
+        "not_null": true
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "assigned_to",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "priority",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "estimated_value",
+        "type": "numeric(12,2)",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "actual_value",
+        "type": "numeric(12,2)",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "win_probability",
+        "type": "integer",
+        "default": "10",
+        "not_null": false
+      },
+      {
+        "name": "expected_close_date",
+        "type": "date",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "actual_close_date",
+        "type": "date",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "stage_entered_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      },
+      {
+        "name": "project_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "lost_reason",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "lost_notes",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "last_activity_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "next_follow_up_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "tags",
+        "type": "text[]",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "source_email_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "client_ref",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "project_ref",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "quote_delivery_method",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "correspondence_count",
+        "type": "integer",
+        "default": "0",
+        "not_null": true
+      },
+      {
+        "name": "outbound_count",
+        "type": "integer",
+        "default": "0",
+        "not_null": true
+      },
+      {
+        "name": "inbound_count",
+        "type": "integer",
+        "default": "0",
+        "not_null": true
+      },
+      {
+        "name": "last_inbound_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "last_outbound_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "last_message_direction",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "archived_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "stage_manually_set",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "ai_summary",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "images",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "ai_stage_confidence",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "ai_stage_signals",
+        "type": "text[]",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "detected_value",
+        "type": "integer",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "latitude",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "longitude",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "source_message_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "source_metadata",
+        "type": "jsonb",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "merged_into_opportunity_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "source_thread_key",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "assignment_version",
+        "type": "bigint",
+        "default": "0",
+        "not_null": true
+      },
+      {
+        "name": "handled_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "ai_summary_updated_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "operator_action_required_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "stage_manual_boundary_event_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "stage_manual_boundary_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "stage_manual_corrected_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "won_prompt_declined_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "won_prompt_declined_by",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "project_tasks",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "bubble_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "project_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "task_type_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "custom_title",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "task_notes",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "default": "'active'::text",
+        "not_null": true
+      },
+      {
+        "name": "task_color",
+        "type": "text",
+        "default": "'#417394'::text",
+        "not_null": false
+      },
+      {
+        "name": "display_order",
+        "type": "integer",
+        "default": "0",
+        "not_null": false
+      },
+      {
+        "name": "team_member_ids",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "source_line_item_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "source_estimate_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "start_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "end_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "duration",
+        "type": "integer",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "dependency_overrides",
+        "type": "jsonb",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "start_time",
+        "type": "time without time zone",
+        "default": "'08:00:00'::time without time zone",
+        "not_null": false
+      },
+      {
+        "name": "end_time",
+        "type": "time without time zone",
+        "default": "'17:00:00'::time without time zone",
+        "not_null": false
+      },
+      {
+        "name": "schedule_confirmed_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "schedule_confirmed_by",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "all_day",
+        "type": "boolean",
+        "default": "true",
+        "not_null": true
+      },
+      {
+        "name": "recurrence_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "recurrence_origin_date",
+        "type": "date",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "inventory_deducted",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "paired_from_task_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "schedule_locked",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "priority_rank",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "schedule_version",
+        "type": "bigint",
+        "default": "0",
+        "not_null": true
+      },
+      {
+        "name": "confirmed_schedule_version",
+        "type": "bigint",
+        "default": null,
+        "not_null": false
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "projects",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "bubble_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "client_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "latitude",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "longitude",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "default": "'rfq'::text",
+        "not_null": true
+      },
+      {
+        "name": "notes",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "all_day",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "project_images",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "team_member_ids",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "opportunity_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "start_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "end_date",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "duration",
+        "type": "integer",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "visibility",
+        "type": "text",
+        "default": "'all'::text",
+        "not_null": false
+      },
+      {
+        "name": "trade",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "vinyl_order_status",
+        "type": "text",
+        "default": "'not_ordered'::text",
+        "not_null": false
+      },
+      {
+        "name": "vinyl_ordered_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "vinyl_ordered_by",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "estimated_value",
+        "type": "numeric",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "platform_metadata",
+        "type": "jsonb",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "opportunity_ref",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "priority_rank",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "title_is_auto",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "vinyl_color",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "vinyl_po",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "status_version",
+        "type": "bigint",
+        "default": "0",
+        "not_null": true
+      },
+      {
+        "name": "vinyl_source",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "primary_sub_client_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "role_permissions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "role_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "permission",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "scope",
+        "type": "text",
+        "default": "'all'::text",
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "roles",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "hierarchy",
+        "type": "integer",
+        "default": "0",
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "is_preset",
+        "type": "boolean",
+        "default": "false",
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "site_visit_booking_policies",
+    "columns": [
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "mode",
+        "type": "text",
+        "default": "'off'::text",
+        "not_null": true
+      },
+      {
+        "name": "windows",
+        "type": "jsonb",
+        "default": "'[]'::jsonb",
+        "not_null": true
+      },
+      {
+        "name": "timezone",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "min_notice_hours",
+        "type": "integer",
+        "default": "48",
+        "not_null": true
+      },
+      {
+        "name": "horizon_days",
+        "type": "integer",
+        "default": "21",
+        "not_null": true
+      },
+      {
+        "name": "visit_duration_minutes",
+        "type": "integer",
+        "default": "60",
+        "not_null": true
+      },
+      {
+        "name": "slot_granularity_minutes",
+        "type": "integer",
+        "default": "60",
+        "not_null": true
+      },
+      {
+        "name": "max_bookings_per_day",
+        "type": "integer",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "default_owner_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "statement_timestamp()",
+        "not_null": true
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "statement_timestamp()",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "stage_transitions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "opportunity_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "from_stage",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "to_stage",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "transitioned_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      },
+      {
+        "name": "transitioned_by",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "duration_in_stage",
+        "type": "interval",
+        "default": null,
+        "not_null": false
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "user_permission_overrides",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "permission",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "scope",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "granted",
+        "type": "boolean",
+        "default": "true",
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "user_roles",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "user_id",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "role_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": true
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "table_name": "users",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "not_null": true
+      },
+      {
+        "name": "bubble_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "company_id",
+        "type": "uuid",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "first_name",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "last_name",
+        "type": "text",
+        "default": null,
+        "not_null": true
+      },
+      {
+        "name": "email",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "phone",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "home_address",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "profile_image_url",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "user_color",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "role",
+        "type": "text",
+        "default": "'unassigned'::text",
+        "not_null": false
+      },
+      {
+        "name": "user_type",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "is_company_admin",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "has_completed_tutorial",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "dev_permission",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "latitude",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "longitude",
+        "type": "double precision",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "location_name",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "client_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "is_active",
+        "type": "boolean",
+        "default": "true",
+        "not_null": false
+      },
+      {
+        "name": "stripe_customer_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "device_token",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "auth_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "not_null": false
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "firebase_uid",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "special_permissions",
+        "type": "text[]",
+        "default": "'{}'::text[]",
+        "not_null": false
+      },
+      {
+        "name": "email_domain_valid",
+        "type": "boolean",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "removed_from_email_list",
+        "type": "boolean",
+        "default": "false",
+        "not_null": false
+      },
+      {
+        "name": "removed_from_email_list_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "fab_actions",
+        "type": "text[]",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "setup_progress",
+        "type": "jsonb",
+        "default": "'{}'::jsonb",
+        "not_null": false
+      },
+      {
+        "name": "emergency_contact_name",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "emergency_contact_phone",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "emergency_contact_relationship",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "onboarding_completed",
+        "type": "jsonb",
+        "default": "'{}'::jsonb",
+        "not_null": false
+      },
+      {
+        "name": "onesignal_player_id",
+        "type": "text",
+        "default": null,
+        "not_null": false
+      },
+      {
+        "name": "preferences",
+        "type": "jsonb",
+        "default": "'{}'::jsonb",
+        "not_null": true
+      }
+    ]
+  }
+]

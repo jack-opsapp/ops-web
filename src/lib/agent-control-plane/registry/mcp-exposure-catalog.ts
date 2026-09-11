@@ -1,5 +1,6 @@
 import {
   CATALOG_AUTHORING_CAPABILITY_MANIFEST,
+  SITE_VISIT_WORKFLOW_CAPABILITY_MANIFEST,
   CUSTOMER_UPDATE_CAPABILITY_MANIFEST,
   CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
   FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST,
@@ -7,11 +8,17 @@ import {
 } from "./capability-manifest";
 import {
   CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS,
+  SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS,
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
   FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS,
 } from "./mcp-scope-catalog";
 import "server-only";
 import { CATALOG_AUTHORING_MANIFEST } from "../contracts/catalog-authoring";
+import {
+  SITE_VISIT_TOOL_OPERATIONS,
+  SITE_VISIT_WORKFLOW_MANIFEST,
+  SITE_VISIT_WORKFLOW_EXPOSURE,
+} from "../contracts/site-visit-workflow";
 
 import {
   DOMAIN_METHOD_BY_CAPABILITY,
@@ -438,6 +445,45 @@ export const MCP_EXPOSURE_V19 = Object.freeze({
   ),
 } as const satisfies McpExposure);
 
+/** Existing reads needed to identify the lead, crew, visit and saved evidence.
+ * Other phases' prepare tools retain their own exact grant bindings. */
+export const SITE_VISIT_WORKFLOW_DISCOVERY_TOOLS = Object.freeze([
+  "search_customers",
+  "get_customer_context",
+  "search_jobs",
+  "get_job_summary",
+  "list_site_visits",
+  "get_site_visit_context",
+  "get_deck_design_geometry",
+  "get_company_context",
+  "list_team_members",
+  "list_team_availability",
+] as const satisfies readonly McpDomainCapabilityId[]);
+const siteVisitWorkflowTools = Object.freeze([
+  ...SITE_VISIT_WORKFLOW_DISCOVERY_TOOLS,
+  ...Object.keys(SITE_VISIT_TOOL_OPERATIONS),
+]);
+const siteVisitWorkflowScopes = new Set(
+  SITE_VISIT_WORKFLOW_CAPABILITY_MANIFEST.filter((entry) =>
+    siteVisitWorkflowTools.includes(entry.name)
+  ).flatMap((entry) =>
+    entry.authorization.variants.flatMap(
+      (variant) => variant.policy.requiredOAuthScopes
+    )
+  )
+);
+
+/** Phase 19 candidate only. No selectable exposure or grant enrollment. */
+export const MCP_EXPOSURE_V22 = Object.freeze({
+  revision: SITE_VISIT_WORKFLOW_EXPOSURE,
+  toolIds: siteVisitWorkflowTools,
+  grantableScopes: Object.freeze(
+    REGISTERED_MCP_SCOPES.filter((scope) =>
+      siteVisitWorkflowScopes.has(scope)
+    ).sort()
+  ),
+} as const satisfies McpExposure);
+
 export const MCP_EXPOSURE_V17 = Object.freeze({
   revision: "2026-09-07.mcp-exposure.v17",
   toolIds: Object.freeze([
@@ -643,35 +689,38 @@ function validateExposure(exposure: McpExposure): void {
   assertMcpExposureInvariants({
     exposure,
     manifestEntries:
-      exposure.revision === MCP_EXPOSURE_V19.revision
-        ? CATALOG_AUTHORING_CAPABILITY_MANIFEST
-        : exposure.revision === MCP_EXPOSURE_V17.revision
-          ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST
-          : isCustomerUpdateMcpExposure(exposure.revision)
-            ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST
-            : exposure.revision === MCP_EXPOSURE_V13.revision
-              ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST
-              : exposure.revision === MCP_EXPOSURE_V12.revision
-                ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST
-                : exposure.revision === MCP_EXPOSURE_V11.revision
-                  ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST
-                  : exposure.revision === MCP_EXPOSURE_V10.revision
-                    ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST
-                    : exposure.revision === MCP_EXPOSURE_V9.revision
-                      ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST
-                      : exposure.revision === MCP_EXPOSURE_V8.revision
-                        ? PAYROLL_READINESS_CAPABILITY_MANIFEST
-                        : exposure.revision === MCP_EXPOSURE_V7.revision
-                          ? SALES_TRUTH_CAPABILITY_MANIFEST
-                          : exposure.revision === MCP_EXPOSURE_V6.revision
-                            ? PROMISE_RECOVERY_CAPABILITY_MANIFEST
-                            : exposure.revision === MCP_EXPOSURE_V5.revision
-                              ? HIRING_WHAT_IF_CAPABILITY_MANIFEST
-                              : exposure.revision === MCP_EXPOSURE_V4.revision
-                                ? COLLECTIONS_CAPABILITY_MANIFEST
-                                : exposure.revision === MCP_EXPOSURE_V3.revision
-                                  ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
-                                  : CAPABILITY_MANIFEST,
+      exposure.revision === MCP_EXPOSURE_V22.revision
+        ? SITE_VISIT_WORKFLOW_CAPABILITY_MANIFEST
+        : exposure.revision === MCP_EXPOSURE_V19.revision
+          ? CATALOG_AUTHORING_CAPABILITY_MANIFEST
+          : exposure.revision === MCP_EXPOSURE_V17.revision
+            ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST
+            : isCustomerUpdateMcpExposure(exposure.revision)
+              ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST
+              : exposure.revision === MCP_EXPOSURE_V13.revision
+                ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST
+                : exposure.revision === MCP_EXPOSURE_V12.revision
+                  ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST
+                  : exposure.revision === MCP_EXPOSURE_V11.revision
+                    ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST
+                    : exposure.revision === MCP_EXPOSURE_V10.revision
+                      ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST
+                      : exposure.revision === MCP_EXPOSURE_V9.revision
+                        ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST
+                        : exposure.revision === MCP_EXPOSURE_V8.revision
+                          ? PAYROLL_READINESS_CAPABILITY_MANIFEST
+                          : exposure.revision === MCP_EXPOSURE_V7.revision
+                            ? SALES_TRUTH_CAPABILITY_MANIFEST
+                            : exposure.revision === MCP_EXPOSURE_V6.revision
+                              ? PROMISE_RECOVERY_CAPABILITY_MANIFEST
+                              : exposure.revision === MCP_EXPOSURE_V5.revision
+                                ? HIRING_WHAT_IF_CAPABILITY_MANIFEST
+                                : exposure.revision === MCP_EXPOSURE_V4.revision
+                                  ? COLLECTIONS_CAPABILITY_MANIFEST
+                                  : exposure.revision ===
+                                      MCP_EXPOSURE_V3.revision
+                                    ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
+                                    : CAPABILITY_MANIFEST,
     domainMethods: DOMAIN_METHOD_BY_CAPABILITY,
     registeredScopes: REGISTERED_MCP_SCOPES,
     scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
@@ -680,28 +729,31 @@ function validateExposure(exposure: McpExposure): void {
         ? ["read", "prepare", "write"]
         : undefined,
     consentLabels:
-      exposure.revision === MCP_EXPOSURE_V19.revision
-        ? CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS
-        : exposure.revision === MCP_EXPOSURE_V17.revision
-          ? FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
-          : isCustomerUpdateMcpExposure(exposure.revision)
-            ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
-            : exposure.revision === MCP_EXPOSURE_V13.revision
-              ? DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
-              : exposure.revision === MCP_EXPOSURE_V12.revision
-                ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
-                : exposure.revision === MCP_EXPOSURE_V11.revision
-                  ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
-                  : exposure.revision === MCP_EXPOSURE_V10.revision
-                    ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
-                    : exposure.revision === MCP_EXPOSURE_V9.revision
-                      ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
-                      : exposure.revision === MCP_EXPOSURE_V4.revision
-                        ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
-                        : exposure.revision === MCP_EXPOSURE_V3.revision
-                          ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
-                          : MCP_SCOPE_CONSENT_LABELS,
+      exposure.revision === MCP_EXPOSURE_V22.revision
+        ? SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS
+        : exposure.revision === MCP_EXPOSURE_V19.revision
+          ? CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS
+          : exposure.revision === MCP_EXPOSURE_V17.revision
+            ? FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
+            : isCustomerUpdateMcpExposure(exposure.revision)
+              ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+              : exposure.revision === MCP_EXPOSURE_V13.revision
+                ? DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
+                : exposure.revision === MCP_EXPOSURE_V12.revision
+                  ? CREW_CALLOUT_RECOVERY_MCP_SCOPE_CONSENT_LABELS
+                  : exposure.revision === MCP_EXPOSURE_V11.revision
+                    ? WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS
+                    : exposure.revision === MCP_EXPOSURE_V10.revision
+                      ? ESTIMATE_DRAFT_MCP_SCOPE_CONSENT_LABELS
+                      : exposure.revision === MCP_EXPOSURE_V9.revision
+                        ? PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS
+                        : exposure.revision === MCP_EXPOSURE_V4.revision
+                          ? COLLECTIONS_MCP_SCOPE_CONSENT_LABELS
+                          : exposure.revision === MCP_EXPOSURE_V3.revision
+                            ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
+                            : MCP_SCOPE_CONSENT_LABELS,
     allowedOperations:
+      exposure.revision === MCP_EXPOSURE_V22.revision ||
       exposure.revision === MCP_EXPOSURE_V19.revision ||
       exposure.revision === MCP_EXPOSURE_V17.revision ||
       exposure.revision === MCP_EXPOSURE_V3.revision ||
@@ -737,39 +789,42 @@ validateExposure(MCP_EXPOSURE_V17);
 validateExposure(MCP_FINANCIAL_TRIAL_EXPOSURE);
 validateExposure(MCP_EXPOSURE_V19);
 validateExposure(MCP_CATALOG_TRIAL_EXPOSURE);
+validateExposure(MCP_EXPOSURE_V22);
 
 export function capabilityManifestRevisionForExposure(
   exposureRevision: string
 ): string {
-  return exposureRevision === MCP_EXPOSURE_V19.revision
-    ? CATALOG_AUTHORING_MANIFEST
-    : exposureRevision === MCP_EXPOSURE_V17.revision
-      ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
-      : isCustomerUpdateMcpExposure(exposureRevision)
-        ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
-        : exposureRevision === MCP_EXPOSURE_V13.revision
-          ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION
-          : exposureRevision === MCP_EXPOSURE_V12.revision
-            ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
-            : exposureRevision === MCP_EXPOSURE_V11.revision
-              ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
-              : exposureRevision === MCP_EXPOSURE_V10.revision
-                ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
-                : exposureRevision === MCP_EXPOSURE_V9.revision
-                  ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
-                  : exposureRevision === MCP_EXPOSURE_V7.revision
-                    ? SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
-                    : exposureRevision === MCP_EXPOSURE_V8.revision
-                      ? PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
-                      : exposureRevision === MCP_EXPOSURE_V6.revision
-                        ? PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
-                        : exposureRevision === MCP_EXPOSURE_V5.revision
-                          ? HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
-                          : exposureRevision === MCP_EXPOSURE_V4.revision
-                            ? COLLECTIONS_CAPABILITY_MANIFEST_REVISION
-                            : exposureRevision === MCP_EXPOSURE_V3.revision
-                              ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
-                              : CAPABILITY_MANIFEST_REVISION;
+  return exposureRevision === MCP_EXPOSURE_V22.revision
+    ? SITE_VISIT_WORKFLOW_MANIFEST
+    : exposureRevision === MCP_EXPOSURE_V19.revision
+      ? CATALOG_AUTHORING_MANIFEST
+      : exposureRevision === MCP_EXPOSURE_V17.revision
+        ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
+        : isCustomerUpdateMcpExposure(exposureRevision)
+          ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
+          : exposureRevision === MCP_EXPOSURE_V13.revision
+            ? DISPATCH_CONFIRMATION_TASK_CAPABILITY_MANIFEST_REVISION
+            : exposureRevision === MCP_EXPOSURE_V12.revision
+              ? CREW_CALLOUT_RECOVERY_CAPABILITY_MANIFEST_REVISION
+              : exposureRevision === MCP_EXPOSURE_V11.revision
+                ? WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+                : exposureRevision === MCP_EXPOSURE_V10.revision
+                  ? ESTIMATE_DRAFT_CAPABILITY_MANIFEST_REVISION
+                  : exposureRevision === MCP_EXPOSURE_V9.revision
+                    ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+                    : exposureRevision === MCP_EXPOSURE_V7.revision
+                      ? SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+                      : exposureRevision === MCP_EXPOSURE_V8.revision
+                        ? PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
+                        : exposureRevision === MCP_EXPOSURE_V6.revision
+                          ? PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+                          : exposureRevision === MCP_EXPOSURE_V5.revision
+                            ? HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+                            : exposureRevision === MCP_EXPOSURE_V4.revision
+                              ? COLLECTIONS_CAPABILITY_MANIFEST_REVISION
+                              : exposureRevision === MCP_EXPOSURE_V3.revision
+                                ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+                                : CAPABILITY_MANIFEST_REVISION;
 }
 
 /** Pure exact-revision seam for catalogue invariants and adversarial tests. */

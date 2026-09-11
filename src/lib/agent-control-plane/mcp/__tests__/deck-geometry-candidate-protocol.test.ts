@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createDeckGeometryCandidateMcpServer,
+  createSiteVisitWorkflowCandidateMcpServer,
   createOpsMcpServer,
   type CreateOpsMcpServerInput,
 } from "../server-factory";
@@ -20,6 +21,7 @@ import { deckGeometryDrawingContentHash } from "../../services/p2/deck-design/de
 import { MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE } from "../../registry/deck-geometry-exposure";
 import {
   MCP_EXPOSURE_V14,
+  MCP_EXPOSURE_V22,
   resolveMcpExposure,
 } from "../../registry/mcp-exposure-catalog";
 import { DeckDesignGeometryResultV2Schema } from "../../contracts/deck-design-geometry-v2";
@@ -33,6 +35,7 @@ const REQUEST = {
 async function fixture(
   options: {
     legacy?: boolean;
+    siteVisit?: boolean;
     sourceError?: string;
     rateLimited?: boolean;
     missingFilesScope?: boolean;
@@ -94,9 +97,11 @@ async function fixture(
       actorUserId: actor.actorUserId,
       companyId: actor.companyId,
       scopes: actor.auth.channel === "mcp" ? [...actor.auth.scopeCeiling] : [],
-      exposureRevision: options.legacy
-        ? MCP_EXPOSURE_V14.revision
-        : MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision,
+      exposureRevision: options.siteVisit
+        ? MCP_EXPOSURE_V22.revision
+        : options.legacy
+          ? MCP_EXPOSURE_V14.revision
+          : MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision,
       tokenId: actor.auth.channel === "mcp" ? actor.auth.tokenId : "",
       expiresAtEpochSeconds: 4000000000,
     },
@@ -120,7 +125,9 @@ async function fixture(
   };
   const handler = createMcpHandler(
     (context) =>
-      createOpsMcpServer({
+      (options.siteVisit
+        ? createSiteVisitWorkflowCandidateMcpServer
+        : createOpsMcpServer)({
         ...input,
         protocolEra: context.era,
       }),
@@ -166,6 +173,38 @@ async function fixture(
 const body = (response: { result: { content: Array<{ text: string }> } }) =>
   JSON.parse(response.result.content[0].text);
 describe("full deck geometry successor protocol", () => {
+  it("reads native deck geometry through the dormant site-visit candidate without reopening public registration", async () => {
+    const f = await fixture({ siteVisit: true });
+    const response = await f.call();
+    expect(response.result.isError, JSON.stringify(response)).not.toBe(true);
+    const result = DeckDesignGeometryResultV2Schema.parse(body(response));
+    expect(result.topology.connections[0]).toMatchObject({
+      lower_edge_ref: null,
+    });
+    const listed = await f.call({}, "tools/list");
+    expect(listed.result.tools).toHaveLength(21);
+    expect(
+      listed.result.tools.find(
+        (tool: { name: string }) => tool.name === "get_deck_design_geometry"
+      ).description
+    ).toContain("not order-ready");
+    expect(() => createOpsMcpServer(f.input)).toThrow();
+  });
+  it.each(["missingFilesScope", "missingPermission", "rateLimited"] as const)(
+    "keeps site-visit geometry gate %s before source access",
+    async (key) => {
+      const f = await fixture({ siteVisit: true, [key]: true });
+      const response = await f.call();
+      expect(body(response).code).toBe(
+        key === "missingFilesScope"
+          ? "INSUFFICIENT_SCOPE"
+          : key === "missingPermission"
+            ? "FORBIDDEN"
+            : "RATE_LIMITED"
+      );
+      expect(f.rpc).not.toHaveBeenCalled();
+    }
+  );
   it("runs the original business arguments through real authorization, RPC, v2 proof and serializer", async () => {
     const f = await fixture();
     const response = await f.call();

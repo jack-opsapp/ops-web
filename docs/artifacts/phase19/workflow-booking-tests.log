@@ -1,0 +1,30 @@
+INSERT 0 2
+INSERT 0 2
+INSERT 0 3
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+                         set_config
+------------------------------------------------------------
+ {"role":"authenticated","sub":"fixture-firebase-non-uuid"}
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: canonical actor booking, exact crew, activity and stage transition
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: canonical calendar create is queued, never claimed reconciled
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: duplicate booking and assigned scope enforcement
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: delayed raw phone scheduling overwrite rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: public reschedule keeps nullable fields and clears reminder with minus one
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: cancellation neutralizes pending create/update and queues deletion
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: canonical cancellation replay and terminal denial
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: phone capture and canonical completion remain functional
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:60: NOTICE:  PASS: explicit actor cores and booking tokens are private and single-use
+DO
+SET
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:72: NOTICE:  PASS: authenticated raw DELETE rejected by booking guard with actual RLS
+DO
+RESET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-booking.sql:86: NOTICE:  PASS: existing approved-task capacity guard still rejects conflicting booking
+DO

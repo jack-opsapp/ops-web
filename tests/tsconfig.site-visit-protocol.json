@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "incremental": false, "plugins": [] },
+  "include": [
+    "../src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts",
+    "../src/lib/agent-control-plane/mcp/durable-rate-limit.ts",
+    "../src/**/*.d.ts"
+  ],
+  "exclude": ["../node_modules", "../supabase/functions"]
+}

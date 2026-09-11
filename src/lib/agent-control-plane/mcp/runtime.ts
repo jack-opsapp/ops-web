@@ -1,4 +1,5 @@
 import { createCatalogAuthoringService } from "../services/catalog-authoring/catalog-authoring-service";
+import { createSiteVisitWorkflowService } from "../services/site-visit-workflow/site-visit-workflow-service";
 import {
   createFinancialDocumentService,
   type FinancialDocumentService,
@@ -367,6 +368,10 @@ export function getMcpServerRuntime(): McpServerRuntime {
     rpc: rpcClient.rpc.bind(rpcClient),
     authorityRepository,
   });
+  const siteVisitWorkflow = createSiteVisitWorkflowService({
+    rpc: rpcClient.rpc.bind(rpcClient),
+    authorityRepository,
+  });
   const financialDocument = createFinancialDocumentService({
     repository: createFinancialDocumentRepository({
       rpc: rpcClient.rpc.bind(rpcClient),
@@ -411,6 +416,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       scheduleChange,
       financialDocument,
       catalogAuthoring,
+      siteVisitWorkflow,
       customerMessage,
     }),
     dayCloseout,

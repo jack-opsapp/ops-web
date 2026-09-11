@@ -40,6 +40,9 @@ export const REGISTERED_MCP_SCOPES = Object.freeze([
   "ops.schedule.read",
   "ops.schedule.write",
   "ops.site_visits.read",
+  "ops.site_visits.prepare",
+  "ops.site_visit_templates.read",
+  "ops.site_visit_templates.prepare",
   "ops.tasks.read",
   "ops.team.read",
 ] as const);
@@ -86,6 +89,9 @@ export const MCP_SCOPE_OPERATION_BY_ID = Object.freeze({
   "ops.schedule.read": "read",
   "ops.schedule.write": "write",
   "ops.site_visits.read": "read",
+  "ops.site_visits.prepare": "prepare",
+  "ops.site_visit_templates.read": "read",
+  "ops.site_visit_templates.prepare": "prepare",
   "ops.tasks.read": "read",
   "ops.team.read": "read",
 } as const satisfies Readonly<Record<RegisteredMcpScope, McpScopeOperation>>);
@@ -187,10 +193,21 @@ export const CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
 export type LabelledMcpScope =
+  | keyof typeof SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS
   | keyof typeof DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
   | keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
   | keyof typeof FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
   | keyof typeof CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS;
+
+export const SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...MCP_SCOPE_CONSENT_LABELS,
+  "ops.site_visits.prepare":
+    "Prepare site visit bookings, reschedules, cancellations and field answers for exact approval in OPS",
+  "ops.site_visit_templates.read":
+    "See reusable company site visit checklists and their fields",
+  "ops.site_visit_templates.prepare":
+    "Prepare reusable site visit checklist and default changes for exact approval in OPS",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,

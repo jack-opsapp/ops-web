@@ -1,0 +1,32 @@
+[
+  {
+    "nspname": "private",
+    "proname": "effective_permission_scope_for_user",
+    "args": "p_actor_user_id uuid, p_actor_company_id uuid, p_permission text",
+    "definition": "CREATE OR REPLACE FUNCTION private.effective_permission_scope_for_user(p_actor_user_id uuid, p_actor_company_id uuid, p_permission text)\n RETURNS text\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\nbegin\n  if p_permission in (\n    'pipeline.create',\n    'pipeline.view',\n    'pipeline.edit',\n    'pipeline.assign',\n    'pipeline.convert'\n  ) then\n    return private.effective_pipeline_scope_for_user(\n      p_actor_user_id,\n      p_actor_company_id,\n      p_permission\n    );\n  end if;\n\n  if p_permission in ('inbox.view', 'inbox.send') then\n    return private.effective_inbox_scope_for_user(\n      p_actor_user_id,\n      p_actor_company_id,\n      p_permission\n    );\n  end if;\n\n  return private.raw_permission_scope_for_user(\n    p_actor_user_id,\n    p_actor_company_id,\n    p_permission\n  );\nend;\n$function$\n"
+  },
+  {
+    "nspname": "private",
+    "proname": "least_permissive_pipeline_scope",
+    "args": "p_left_scope text, p_right_scope text",
+    "definition": "CREATE OR REPLACE FUNCTION private.least_permissive_pipeline_scope(p_left_scope text, p_right_scope text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog', 'pg_temp'\nAS $function$\n  select case\n    when p_left_scope is null or p_right_scope is null then null\n    when p_left_scope not in ('all', 'assigned') then null\n    when p_right_scope not in ('all', 'assigned') then null\n    when p_left_scope = 'assigned' or p_right_scope = 'assigned' then 'assigned'\n    else 'all'\n  end;\n$function$\n"
+  },
+  {
+    "nspname": "private",
+    "proname": "raw_permission_scope_for_user",
+    "args": "p_actor_user_id uuid, p_actor_company_id uuid, p_permission text",
+    "definition": "CREATE OR REPLACE FUNCTION private.raw_permission_scope_for_user(p_actor_user_id uuid, p_actor_company_id uuid, p_permission text)\n RETURNS text\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_override_granted boolean;\n  v_override_scope text;\n  v_scope text;\nbegin\n  if p_actor_user_id is null\n     or p_actor_company_id is null\n     or nullif(btrim(p_permission), '') is null then\n    return null;\n  end if;\n\n  if not exists (\n    select 1\n    from public.users actor\n    join public.companies company\n      on company.id = actor.company_id\n     and company.deleted_at is null\n    where actor.id = p_actor_user_id\n      and actor.company_id = p_actor_company_id\n      and actor.deleted_at is null\n      and coalesce(actor.is_active, false)\n  ) then\n    return null;\n  end if;\n\n  select override.granted, override.scope\n  into v_override_granted, v_override_scope\n  from public.user_permission_overrides override\n  where override.user_id = p_actor_user_id\n    and override.company_id = p_actor_company_id\n    and override.permission = p_permission\n  limit 1;\n\n  if found then\n    if not v_override_granted then\n      return null;\n    end if;\n    if v_override_scope is not null then\n      if v_override_scope in ('all', 'assigned', 'own') then\n        return v_override_scope;\n      end if;\n      return null;\n    end if;\n  end if;\n\n  select permission.scope\n  into v_scope\n  from public.user_roles assignment\n  join public.roles role\n    on role.id = assignment.role_id\n   and (role.is_preset or role.company_id = p_actor_company_id)\n  join public.role_permissions permission\n    on permission.role_id = assignment.role_id\n   and permission.permission = p_permission\n   and permission.scope in ('all', 'assigned', 'own')\n  where assignment.user_id = p_actor_user_id::text\n  order by case permission.scope\n    when 'all' then 1\n    when 'assigned' then 2\n    when 'own' then 3\n    else 4\n  end\n  limit 1;\n\n  return v_scope;\nend;\n$function$\n"
+  },
+  {
+    "nspname": "private",
+    "proname": "should_use_pipeline_manage_compat",
+    "args": "p_actor_user_id uuid, p_actor_company_id uuid, p_permission text",
+    "definition": "CREATE OR REPLACE FUNCTION private.should_use_pipeline_manage_compat(p_actor_user_id uuid, p_actor_company_id uuid, p_permission text)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'pg_temp'\nAS $function$\n  select p_actor_user_id is not null\n    and p_actor_company_id is not null\n    and p_permission is not null\n    and not exists (\n      select 1\n        from public.user_permission_overrides upo\n       where upo.user_id = p_actor_user_id\n         and upo.company_id = p_actor_company_id\n         and upo.permission = p_permission\n    )\n    and not exists (\n      select 1\n        from public.user_roles ur\n        join public.role_permissions rp on rp.role_id = ur.role_id\n       where ur.user_id = p_actor_user_id::text\n         and rp.permission = p_permission\n    )\n    and public.has_permission(\n      p_actor_user_id,\n      'pipeline.manage',\n      'all'\n    );\n$function$\n"
+  },
+  {
+    "nspname": "private",
+    "proname": "user_is_company_admin",
+    "args": "p_actor_user_id uuid, p_actor_company_id uuid",
+    "definition": "CREATE OR REPLACE FUNCTION private.user_is_company_admin(p_actor_user_id uuid, p_actor_company_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\n  select exists (\n    select 1\n    from public.users actor\n    join public.companies company\n      on company.id = actor.company_id\n     and company.deleted_at is null\n    where actor.id = p_actor_user_id\n      and actor.company_id = p_actor_company_id\n      and actor.deleted_at is null\n      and coalesce(actor.is_active, false)\n      and (\n        coalesce(actor.is_company_admin, false)\n        or actor.id::text = company.account_holder_id\n        or actor.id::text = any(\n          coalesce(company.admin_ids, array[]::text[])\n        )\n      )\n  );\n$function$\n"
+  }
+]

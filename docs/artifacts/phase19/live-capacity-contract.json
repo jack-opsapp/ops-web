@@ -1,0 +1,52 @@
+{
+  "columns": [
+    {
+      "name": "task_id",
+      "type": "uuid",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "schedule_version",
+      "type": "bigint",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "company_id",
+      "type": "uuid",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "change_set_id",
+      "type": "uuid",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "starts_at",
+      "type": "timestamp with time zone",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "ends_at",
+      "type": "timestamp with time zone",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "crew",
+      "type": "text[]",
+      "default": null,
+      "not_null": true
+    }
+  ],
+  "functions": [
+    {
+      "name": "agent_civil_date_start",
+      "definition": "CREATE OR REPLACE FUNCTION private.agent_civil_date_start(p_date date, p_timezone text)\n RETURNS timestamp with time zone\n LANGUAGE sql\n STABLE STRICT\n SET search_path TO 'pg_catalog', 'pg_temp'\nAS $function$\n  with local_value as materialized (\n    select p_date::timestamp without time zone as value\n  ), guessed as materialized (\n    select local.value at time zone p_timezone as instant\n    from local_value local\n  ), probes as materialized (\n    select guessed.instant from guessed\n    union all\n    select guessed.instant - interval '36 hours' from guessed\n    union all\n    select guessed.instant + interval '36 hours' from guessed\n  ), possible_offset as materialized (\n    select distinct\n           (probe.instant at time zone p_timezone) -\n             (probe.instant at time zone 'UTC') as utc_offset\n    from probes probe\n  ), exact_match as materialized (\n    select distinct\n           (local.value - tz.utc_offset) at time zone 'UTC' as instant\n    from local_value local\n    cross join possible_offset tz\n    where (\n      (local.value - tz.utc_offset) at time zone 'UTC'\n    ) at time zone p_timezone = local.value\n  ), boundary as materialized (\n    select min(match.instant) as instant from exact_match match\n  )\n  select coalesce(\n    boundary.instant,\n    case when (guessed.instant at time zone p_timezone)::date = p_date\n      then guessed.instant\n      else null\n    end\n  )\n  from boundary\n  cross join guessed;\n$function$\n"
+    }
+  ]
+}

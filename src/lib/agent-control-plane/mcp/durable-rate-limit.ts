@@ -1,3 +1,6 @@
+import { SITE_VISIT_TOOL_OPERATIONS } from "../contracts/site-visit-workflow";
+export const SITE_VISIT_WORKFLOW_RATE_LIMIT_POLICY =
+  "mcp-site-visit-workflow:2026-09-10.v1" as const;
 const CATALOG_PREPARE_RATE_LIMIT_POLICY =
   "mcp-catalog-prepare:2026-09-08.v1" as const;
 const FINANCIAL_DOCUMENT_RATE_LIMIT_POLICY =
@@ -121,22 +124,25 @@ async function consumeWithDeadline(
 
   try {
     const rawRequest = client.rpc(
-      args.p_policy_id === CATALOG_PREPARE_RATE_LIMIT_POLICY
-        ? "consume_catalog_prepare_rate_limit_as_system"
-        : args.p_policy_id === FINANCIAL_DOCUMENT_RATE_LIMIT_POLICY
-          ? "consume_financial_document_prepare_rate_limit_as_system"
-          : args.p_policy_id === SCHEDULE_CHANGE_PREPARE_RATE_LIMIT_POLICY
-            ? "consume_agent_schedule_change_prepare_rate_limit_as_system"
-            : args.p_policy_id === CUSTOMER_UPDATE_PREPARE_RATE_LIMIT_POLICY
-              ? "consume_agent_customer_update_prepare_rate_limit_as_system"
-              : args.p_policy_id ===
-                  DISPATCH_CONFIRMATION_PREPARE_RATE_LIMIT_POLICY
-                ? "consume_agent_dispatch_prepare_rate_limit_as_system"
-                : args.p_policy_id === COLLECTIONS_PREPARE_RATE_LIMIT_POLICY
-                  ? "consume_agent_collections_prepare_rate_limit_as_system"
-                  : args.p_policy_id === DURABLE_MCP_RATE_LIMIT_POLICIES.prepare
-                    ? "consume_agent_day_closeout_prepare_rate_limit_as_system"
-                    : "consume_agent_mcp_rate_limit_as_system",
+      args.p_policy_id === SITE_VISIT_WORKFLOW_RATE_LIMIT_POLICY
+        ? "consume_site_visit_workflow_rate_limit_as_system"
+        : args.p_policy_id === CATALOG_PREPARE_RATE_LIMIT_POLICY
+          ? "consume_catalog_prepare_rate_limit_as_system"
+          : args.p_policy_id === FINANCIAL_DOCUMENT_RATE_LIMIT_POLICY
+            ? "consume_financial_document_prepare_rate_limit_as_system"
+            : args.p_policy_id === SCHEDULE_CHANGE_PREPARE_RATE_LIMIT_POLICY
+              ? "consume_agent_schedule_change_prepare_rate_limit_as_system"
+              : args.p_policy_id === CUSTOMER_UPDATE_PREPARE_RATE_LIMIT_POLICY
+                ? "consume_agent_customer_update_prepare_rate_limit_as_system"
+                : args.p_policy_id ===
+                    DISPATCH_CONFIRMATION_PREPARE_RATE_LIMIT_POLICY
+                  ? "consume_agent_dispatch_prepare_rate_limit_as_system"
+                  : args.p_policy_id === COLLECTIONS_PREPARE_RATE_LIMIT_POLICY
+                    ? "consume_agent_collections_prepare_rate_limit_as_system"
+                    : args.p_policy_id ===
+                        DURABLE_MCP_RATE_LIMIT_POLICIES.prepare
+                      ? "consume_agent_day_closeout_prepare_rate_limit_as_system"
+                      : "consume_agent_mcp_rate_limit_as_system",
       args
     );
     const request = supportsAbortSignal(rawRequest)
@@ -167,30 +173,36 @@ export function createDurableMcpRateLimiter(
       let data: unknown;
       let error: unknown;
       try {
-        const policyId = [
-          "inspect_catalog_changes",
-          "prepare_catalog_changes",
-          "prepare_inventory_adjustment",
-        ].includes(input.capabilityId)
-          ? CATALOG_PREPARE_RATE_LIMIT_POLICY
+        const policyId = Object.hasOwn(
+          SITE_VISIT_TOOL_OPERATIONS,
+          input.capabilityId
+        )
+          ? SITE_VISIT_WORKFLOW_RATE_LIMIT_POLICY
           : [
-                "prepare_financial_document",
-                "inspect_financial_document",
+                "inspect_catalog_changes",
+                "prepare_catalog_changes",
+                "prepare_inventory_adjustment",
               ].includes(input.capabilityId)
-            ? FINANCIAL_DOCUMENT_RATE_LIMIT_POLICY
-            : input.bucket === "prepare" &&
-                input.capabilityId === "prepare_schedule_change"
-              ? SCHEDULE_CHANGE_PREPARE_RATE_LIMIT_POLICY
+            ? CATALOG_PREPARE_RATE_LIMIT_POLICY
+            : [
+                  "prepare_financial_document",
+                  "inspect_financial_document",
+                ].includes(input.capabilityId)
+              ? FINANCIAL_DOCUMENT_RATE_LIMIT_POLICY
               : input.bucket === "prepare" &&
-                  input.capabilityId === "prepare_customer_update"
-                ? CUSTOMER_UPDATE_PREPARE_RATE_LIMIT_POLICY
+                  input.capabilityId === "prepare_schedule_change"
+                ? SCHEDULE_CHANGE_PREPARE_RATE_LIMIT_POLICY
                 : input.bucket === "prepare" &&
-                    input.capabilityId === "prepare_dispatch_confirmation_task"
-                  ? DISPATCH_CONFIRMATION_PREPARE_RATE_LIMIT_POLICY
+                    input.capabilityId === "prepare_customer_update"
+                  ? CUSTOMER_UPDATE_PREPARE_RATE_LIMIT_POLICY
                   : input.bucket === "prepare" &&
-                      input.capabilityId === "prepare_collections"
-                    ? COLLECTIONS_PREPARE_RATE_LIMIT_POLICY
-                    : DURABLE_MCP_RATE_LIMIT_POLICIES[input.bucket];
+                      input.capabilityId ===
+                        "prepare_dispatch_confirmation_task"
+                    ? DISPATCH_CONFIRMATION_PREPARE_RATE_LIMIT_POLICY
+                    : input.bucket === "prepare" &&
+                        input.capabilityId === "prepare_collections"
+                      ? COLLECTIONS_PREPARE_RATE_LIMIT_POLICY
+                      : DURABLE_MCP_RATE_LIMIT_POLICIES[input.bucket];
         ({ data, error } = await consumeWithDeadline(client, {
           p_request_id: input.requestId,
           p_grant_id: input.grantId,

@@ -39,6 +39,7 @@ export type AgentActionType =
   | "approve_dispatch_confirmation_task"
   | "approve_schedule_change"
   | "approve_catalog_changes"
+  | "approve_site_visit_changes"
   | "approve_financial_document"
   | "approve_customer_update"
   | "send_customer_follow_up";
@@ -81,7 +82,8 @@ export type AgentActionContextSource =
   | "day_closeout"
   | "collections"
   | "control_room"
-  | "catalog";
+  | "catalog"
+  | "site_visit";
 
 export interface ApproveDispatchConfirmationTaskActionData {
   schema_revision: "2026-09-03.v1";

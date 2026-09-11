@@ -1,0 +1,20 @@
+                         set_config
+------------------------------------------------------------
+ {"role":"authenticated","sub":"fixture-firebase-non-uuid"}
+(1 row)
+
+GRANT
+GRANT
+ALTER TABLE
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+SET
+DELETE 1
+RESET
+ orphan_pending_create
+-----------------------
+                     1
+(1 row)

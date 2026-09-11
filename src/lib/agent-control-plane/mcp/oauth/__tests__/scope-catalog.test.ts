@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveRequestedScopes } from "../scopes";
 
 import {
   ACTIVE_MCP_CONSENT_CATALOG_REVISION,
@@ -24,6 +25,8 @@ import {
   MCP_EXPOSURE_V11,
   MCP_EXPOSURE_V12,
   MCP_EXPOSURE_V13,
+  MCP_EXPOSURE_V14,
+  MCP_EXPOSURE_V23,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
@@ -111,6 +114,9 @@ const EXPECTED_REGISTERED_SCOPES = [
   "ops.schedule.read",
   "ops.schedule.write",
   "ops.site_visits.read",
+  "ops.site_visits.prepare",
+  "ops.site_visit_templates.read",
+  "ops.site_visit_templates.prepare",
   "ops.tasks.read",
   "ops.team.read",
 ] as const;
@@ -127,9 +133,9 @@ const EXISTING_READ_LABELS = {
 } as const;
 
 describe("registered MCP scope vocabulary", () => {
-  it("pins the reviewed 36-scope union while preserving all 18 existing scope IDs", () => {
+  it("pins the reviewed 39-scope vocabulary while preserving all 18 existing scope IDs", () => {
     expect([...REGISTERED_MCP_SCOPES]).toEqual(EXPECTED_REGISTERED_SCOPES);
-    expect(REGISTERED_MCP_SCOPES).toHaveLength(36);
+    expect(REGISTERED_MCP_SCOPES).toHaveLength(39);
     expect(
       EXISTING_SCOPE_VOCABULARY.every((scope) =>
         REGISTERED_MCP_SCOPES.includes(scope)
@@ -155,12 +161,31 @@ describe("registered MCP scope vocabulary", () => {
       EXPECTED_REGISTERED_SCOPES
     );
     for (const scope of EXPECTED_REGISTERED_SCOPES) {
-      expect(MCP_SCOPE_OPERATION_BY_ID[scope]).toBe(scope === "ops.inventory.adjust" ? "write" : scope.split(".").at(-1));
+      expect(MCP_SCOPE_OPERATION_BY_ID[scope]).toBe(
+        scope === "ops.inventory.adjust" ? "write" : scope.split(".").at(-1)
+      );
     }
   });
 });
 
 describe("versioned MCP consent catalogue", () => {
+  it.each([MCP_EXPOSURE_V14, MCP_EXPOSURE_V23])(
+    "rejects dormant site-visit scope requests on public exposure $revision",
+    (exposure) => {
+      const snapshot = consentSnapshotForExposure(
+        exposure,
+        resolveActiveMcpConsentCatalog()
+      );
+      for (const scope of [
+        "ops.site_visits.prepare",
+        "ops.site_visit_templates.read",
+        "ops.site_visit_templates.prepare",
+      ]) {
+        expect(resolveRequestedScopes(scope, exposure)).toBeNull();
+        expect(snapshot.scopeCeiling).not.toContain(scope);
+      }
+    }
+  );
   it("preserves the seven existing labels byte-for-byte and adds the thirteen approved labels", () => {
     expect(MCP_SCOPE_CONSENT_LABELS).toEqual({
       ...EXISTING_READ_LABELS,

@@ -1,0 +1,86 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts (111 tests | 20 failed) 1480ms
+   × site visit candidate legacy > routes retained search_customers through the existing limiter and real current-authority facade 1275ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained get_customer_context through the existing limiter and real current-authority facade 4ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained search_jobs through the existing limiter and real current-authority facade 3ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained get_job_summary through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained list_site_visits through the existing limiter and real current-authority facade 3ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained get_site_visit_context through the existing limiter and real current-authority facade 4ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained get_deck_design_geometry through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained get_company_context through the existing limiter and real current-authority facade 3ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained list_team_members through the existing limiter and real current-authority facade 3ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate legacy > routes retained list_team_availability through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained search_customers through the existing limiter and real current-authority facade 10ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained get_customer_context through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained search_jobs through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained get_job_summary through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained list_site_visits through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained get_site_visit_context through the existing limiter and real current-authority facade 4ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained get_deck_design_geometry through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained get_company_context through the existing limiter and real current-authority facade 1ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained list_team_members through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × site visit candidate modern > routes retained list_team_availability through the existing limiter and real current-authority facade 2ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+ ✓ src/lib/agent-control-plane/mcp/__tests__/runtime.test.ts (4 tests) 2225ms
+   ✓ MCP production runtime > preserves Supabase cancellation through the composed authority adapter 1696ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 20 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained search_customers through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained get_customer_context through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained search_jobs through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained get_job_summary through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained list_site_visits through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained get_site_visit_context through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained get_deck_design_geometry through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained get_company_context through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained list_team_members through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate legacy > routes retained list_team_availability through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained search_customers through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained get_customer_context through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained search_jobs through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained get_job_summary through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained list_site_visits through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained get_site_visit_context through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained get_deck_design_geometry through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained get_company_context through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained list_team_members through the existing limiter and real current-authority facade
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > site visit candidate modern > routes retained list_team_availability through the existing limiter and real current-authority facade
+Error: Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+ ❯ src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts:419:28
+    417|       expect(f.rateRpc).toHaveBeenCalledWith("consume_agent_mcp_rate_l…
+    418|       // Missing current membership must stop each actual read before …
+    419|       expect(runtimeReadRpc).toHaveBeenCalledExactlyOnceWith("resolve_…
+       |                            ^
+    420|       expect(f.rpc).not.toHaveBeenCalled();
+    421|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/20]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  20 failed | 95 passed (115)
+   Start at  22:48:27
+   Duration  2.90s (transform 1.70s, setup 204ms, collect 689ms, tests 3.71s, environment 299ms, prepare 52ms)
+

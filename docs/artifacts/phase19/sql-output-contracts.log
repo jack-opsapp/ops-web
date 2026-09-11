@@ -1,0 +1,20 @@
+{
+  "verified": 37,
+  "counts": {
+    "receipt:create_template": 1,
+    "receipt:book": 2,
+    "receipt:select_checklist": 1,
+    "receipt:answer_form": 3,
+    "receipt:cancel": 3,
+    "receipt:reschedule": 1,
+    "receipt:edit_template": 1,
+    "proposal:create_template": 1,
+    "proposal:book": 3,
+    "proposal:select_checklist": 1,
+    "proposal:answer_form": 5,
+    "proposal:reschedule": 3,
+    "proposal:cancel": 3,
+    "proposal:edit_template": 1,
+    "timezone": 8
+  }
+}

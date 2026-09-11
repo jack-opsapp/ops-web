@@ -2,6 +2,7 @@ import { isCustomerUpdateMcpExposure } from "../../registry/mcp-exposure-catalog
 import {
   MCP_EXPOSURE_V17,
   MCP_EXPOSURE_V19,
+  MCP_EXPOSURE_V22,
 } from "../../registry/mcp-exposure-catalog";
 import { CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS } from "../../registry/mcp-scope-catalog";
 import "server-only";
@@ -19,6 +20,7 @@ import {
 import {
   MCP_SCOPE_CONSENT_LABELS,
   CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS,
+  SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS,
   FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS,
   COLLECTIONS_MCP_SCOPE_CONSENT_LABELS,
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
@@ -139,6 +141,15 @@ export const MCP_CONSENT_CATALOG_V14 = Object.freeze({
   allowedOperations: Object.freeze(["read", "prepare", "write"] as const),
 } as const satisfies McpConsentCatalog);
 
+/** Dormant Phase 19 candidate: deliberately absent from selectable catalogs. */
+export const MCP_CONSENT_CATALOG_V17 = Object.freeze({
+  revision: "2026-09-10.mcp-consent-catalog.v17",
+  registeredScopes: MCP_EXPOSURE_V22.grantableScopes,
+  operations: MCP_SCOPE_OPERATION_BY_ID,
+  consentLabels: SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS,
+  allowedOperations: Object.freeze(["read", "prepare"] as const),
+} as const satisfies McpConsentCatalog);
+
 export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
   Object.freeze({
     [MCP_CONSENT_CATALOG_V14.revision]: MCP_CONSENT_CATALOG_V14,
@@ -228,27 +239,29 @@ export function consentSnapshotForExposure(
   catalog: McpConsentCatalog
 ): McpConsentSnapshot {
   const requiredCatalogRevision =
-    exposure.revision === MCP_EXPOSURE_V19.revision
-      ? MCP_CONSENT_CATALOG_V14.revision
-      : exposure.revision === MCP_EXPOSURE_V17.revision
-        ? MCP_CONSENT_CATALOG_V12.revision
-        : isCustomerUpdateMcpExposure(exposure.revision)
-          ? MCP_CONSENT_CATALOG_V9.revision
-          : exposure.revision === MCP_EXPOSURE_V13.revision
-            ? MCP_CONSENT_CATALOG_V8.revision
-            : exposure.revision === MCP_EXPOSURE_V12.revision
-              ? MCP_CONSENT_CATALOG_V7.revision
-              : exposure.revision === MCP_EXPOSURE_V11.revision
-                ? MCP_CONSENT_CATALOG_V6.revision
-                : exposure.revision === MCP_EXPOSURE_V10.revision
-                  ? MCP_CONSENT_CATALOG_V5.revision
-                  : exposure.revision === MCP_EXPOSURE_V9.revision
-                    ? MCP_CONSENT_CATALOG_V4.revision
-                    : exposure.revision === MCP_EXPOSURE_V4.revision
-                      ? MCP_CONSENT_CATALOG_V3.revision
-                      : exposure.revision === MCP_EXPOSURE_V3.revision
-                        ? MCP_CONSENT_CATALOG_V2.revision
-                        : null;
+    exposure.revision === MCP_EXPOSURE_V22.revision
+      ? MCP_CONSENT_CATALOG_V17.revision
+      : exposure.revision === MCP_EXPOSURE_V19.revision
+        ? MCP_CONSENT_CATALOG_V14.revision
+        : exposure.revision === MCP_EXPOSURE_V17.revision
+          ? MCP_CONSENT_CATALOG_V12.revision
+          : isCustomerUpdateMcpExposure(exposure.revision)
+            ? MCP_CONSENT_CATALOG_V9.revision
+            : exposure.revision === MCP_EXPOSURE_V13.revision
+              ? MCP_CONSENT_CATALOG_V8.revision
+              : exposure.revision === MCP_EXPOSURE_V12.revision
+                ? MCP_CONSENT_CATALOG_V7.revision
+                : exposure.revision === MCP_EXPOSURE_V11.revision
+                  ? MCP_CONSENT_CATALOG_V6.revision
+                  : exposure.revision === MCP_EXPOSURE_V10.revision
+                    ? MCP_CONSENT_CATALOG_V5.revision
+                    : exposure.revision === MCP_EXPOSURE_V9.revision
+                      ? MCP_CONSENT_CATALOG_V4.revision
+                      : exposure.revision === MCP_EXPOSURE_V4.revision
+                        ? MCP_CONSENT_CATALOG_V3.revision
+                        : exposure.revision === MCP_EXPOSURE_V3.revision
+                          ? MCP_CONSENT_CATALOG_V2.revision
+                          : null;
   if (
     requiredCatalogRevision !== null &&
     catalog.revision !== requiredCatalogRevision

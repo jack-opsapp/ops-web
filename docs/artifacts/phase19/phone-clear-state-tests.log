@@ -1,0 +1,69 @@
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-legacy-race.sql:19: NOTICE:  PASS: legacy delayed answer is rejected and the current answer is preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:42: NOTICE:  PASS: MCP-before-phone and two-host stale revisions are rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:42: NOTICE:  PASS: exact duplicate replay preserves value, timestamp and revision
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:42: NOTICE:  PASS: phone-before-MCP approval cannot overwrite the phone
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:42: NOTICE:  PASS: delayed deletion preserves newer work
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:42: NOTICE:  PASS: per-visit definition snapshots are immutable
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:42: NOTICE:  PASS: completed records reject changes but accept an exact saved duplicate
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:42: NOTICE:  PASS: independent answer readback matches the winning write
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:57: NOTICE:  PASS: template edits preserve history and reject delayed legacy edits
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-protocol.sql:57: NOTICE:  PASS: compatibility activation is not granted to app or service roles
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-durable.sql:46: NOTICE:  PASS: strict SQL fields reject missing metadata and preserve false
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-durable.sql:46: NOTICE:  PASS: versioned command updates existing row and returns a recoverable stale conflict
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-durable.sql:46: NOTICE:  PASS: real ON CONFLICT writer cannot bypass the protocol
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-durable.sql:46: NOTICE:  PASS: default conflicts roll back and approved default switches save atomically
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:44: NOTICE:  PASS: authorized replacement session cannot submit another actor command
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:44: NOTICE:  PASS: review binds the immutable originating actor
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:44: NOTICE:  PASS: resolution binds the immutable originating actor before supersession
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:44: NOTICE:  PASS: capture rejects a different authenticated account
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:44: NOTICE:  PASS: completion rejects actor mismatch before canonical completion
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:44: NOTICE:  PASS: missing expected actor is rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: phone wrapper saves under actual anon role and JWT identity
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: timeout and duplicate replay return exact receipt
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: immutable command identity rejects changed payload
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: current-version choice durably cancels an undelivered original
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: resolution lost-response replay is exact
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: delayed original cannot execute after current-version choice
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: two phones retain pending and current versions
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: reviewed pending version saves against the exact displayed current revision
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: resolved stale command stays superseded on replay
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: phone wrapper rejects fabricated MCP evidence
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:78: NOTICE:  PASS: direct REST writer cannot fabricate provenance
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: incidental phone no-op preserves host evidence
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: syntactically valid absent media is rejected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: valid uploaded markup kind 1 saves with rendered asset custody
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: valid uploaded markup kind 2 saves with rendered asset custody
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: ordinary photo cannot satisfy a markup field
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: ordinary uploaded photo satisfies a photo field
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: saved receipt replays exactly after completion without executing new work
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: completed capture denies new answer command
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: completed capture RPC denies content overwrite
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:122: NOTICE:  PASS: lost-insert-response capture preserves canonical booking metadata and started status
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:128: NOTICE:  PASS: revoked actor cannot replay a formerly authorized receipt
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:135: NOTICE:  PASS: phone command cannot cross tenant boundary
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:154: NOTICE:  PASS: different row IDs preserve a logical field collision
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:154: NOTICE:  PASS: explicit pending choice reconciles logical identity without retargeting original command
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:154: NOTICE:  PASS: slug/default insertion conflict returns current company rows
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:154: NOTICE:  PASS: explicit review reconciles a template slug collision
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:170: NOTICE:  PASS: RLS hides answers on inaccessible visits
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:170: NOTICE:  PASS: assigned-only actor cannot write another actors locked visit
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:170: NOTICE:  PASS: review does not disclose inaccessible current values
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:185: NOTICE:  PASS: capture deletion rejects replacement actor
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:185: NOTICE:  PASS: actor-bound deletion preserves started status
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:185: NOTICE:  PASS: replayed capture deletion preserves original timestamp
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:192: NOTICE:  PASS: capture deletion cannot bypass canonical booking cancellation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:199: NOTICE:  PASS: capture deletion cannot hide a completed visit
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:228: NOTICE:  PASS: untouched phone snapshot remains unanswered
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:228: NOTICE:  PASS: explicit empty clear is durable and replays identically
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:228: NOTICE:  PASS: clear intent cannot carry nonempty answer
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:228: NOTICE:  PASS: new explicit empty clear differs from untouched initial snapshot
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:236: NOTICE:  PASS: host unknown remains distinct from untouched phone snapshot
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:247: NOTICE:  PASS: phone semantic no-op preserves authoritative unknown
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-phone.sql:247: NOTICE:  PASS: pending resolution preserves explicit clear intent against unknown
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-discard.sql:15: NOTICE:  PASS: never-uploaded discard creates closed identity and exact replay
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-discard.sql:15: NOTICE:  PASS: delayed parent create cannot reopen discarded identity
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-discard.sql:15: NOTICE:  PASS: discard replay rejects changed timestamp
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-discard.sql:15: NOTICE:  PASS: discard replay binds original actor
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-discard.sql:24: NOTICE:  PASS: packet discard atomically tombstones parent photo linked-answer and draft with historical values intact
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-workflow-discard.sql:30: NOTICE:  PASS: packet discard rejects booked and completed visits
+NOTICE:  PASS: simultaneous sessions save one winner and one preserved conflict
