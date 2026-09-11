@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { loadBlueprint, parseBlueprint, BlueprintError } from "@/lib/ads/blueprint";
+import { loadBlueprint, parseBlueprint, BlueprintError, type Blueprint } from "@/lib/ads/blueprint";
 import {
   EMPTY_ASSET_STATE,
   mapAssetState,
@@ -28,6 +28,25 @@ function bareAccount(): LiveAssetState {
     })),
     assets: [],
   };
+}
+
+/**
+ * The committed blueprint with an image set injected. Image mechanics are
+ * tested on this fixture, not on whatever images happen to be approved today —
+ * the committed file carries none while Jackson's second look is pending.
+ */
+function withImages(): Blueprint {
+  const raw = JSON.parse(JSON.stringify(blueprint));
+  raw.images = {
+    ...raw.images,
+    T_upload_wide: { file: "config/ads/images/glove-app-1.91.jpg", name: "OPS · test upload · 1.91:1", aspect: "1.91:1", approvedBy: "Jackson", approvedAt: "2026-09-10" },
+    T_logo: { file: "config/ads/images/ops-business-logo-1200.png", name: "OPS · test logo", aspect: "logo", approvedBy: "Jackson", approvedAt: "2026-09-10" },
+  };
+  for (const c of raw.campaigns) {
+    c.assets.images = ["T_upload_wide", "B_autodetail_wide", "C_toolbelt_wide", "D_hardhat_wide"];
+    c.assets.businessLogo = "T_logo";
+  }
+  return parseBlueprint(raw);
 }
 
 const kind = (op: PlannedOperation) => Object.keys(op.op)[0];
@@ -90,19 +109,36 @@ describe("planAssets", () => {
     const callouts = creates.filter((e) => JSON.stringify(e.op).includes("calloutAsset"));
     expect(callouts).toHaveLength(8);
     expect(links.filter((e) => JSON.stringify(e.op).includes('"fieldType":"CALLOUT"'))).toHaveLength(40);
-    // One upload — the glove image — and the loader is asked exactly once for it.
-    const uploads = creates.filter((e) => JSON.stringify(e.op).includes("imageAsset"));
-    expect(uploads).toHaveLength(1);
-    expect(stubImage).toHaveBeenCalledTimes(1);
-    expect(stubImage).toHaveBeenCalledWith("A_glove_app_square");
+    // The committed blueprint carries no image while Jackson's second look is pending.
+    expect(creates.filter((e) => JSON.stringify(e.op).includes("imageAsset"))).toEqual([]);
+    expect(links.filter((e) => /"fieldType":"(AD_IMAGE|BUSINESS_LOGO)"/.test(JSON.stringify(e.op)))).toEqual([]);
+    expect(stubImage).not.toHaveBeenCalled();
     // Every asset is created before anything links to it.
     const firstLink = plan.findIndex((e) => kind(e) === "campaignAssetOperation");
     const lastCreate = plan.map(kind).lastIndexOf("assetOperation");
     expect(lastCreate).toBeLessThan(firstLink);
   });
 
+  it("uploads each new image once, however many campaigns use it", () => {
+    stubImage.mockClear();
+    const plan = planAssets(withImages(), bareAccount(), stubImage);
+    const uploads = plan.filter((e) => JSON.stringify(e.op).includes("imageAsset"));
+    expect(uploads).toHaveLength(2);
+    expect(stubImage).toHaveBeenCalledTimes(2);
+    expect(stubImage.mock.calls.map((c) => c[0]).sort()).toEqual(["T_logo", "T_upload_wide"]);
+    expect(plan.filter((e) => JSON.stringify(e.op).includes('"fieldType":"BUSINESS_LOGO"'))).toHaveLength(5);
+  });
+
+  it("plans nothing, and uploads nothing, against an account it already dressed with images", () => {
+    const fixture = withImages();
+    const dressed = simulate(planAssets(fixture, bareAccount(), stubImage), bareAccount());
+    stubImage.mockClear();
+    expect(planAssets(fixture, dressed, stubImage)).toEqual([]);
+    expect(stubImage).not.toHaveBeenCalled();
+  });
+
   it("reuses the approved images already in the account instead of uploading them again", () => {
-    const plan = planAssets(blueprint, bareAccount(), stubImage);
+    const plan = planAssets(withImages(), bareAccount(), stubImage);
     const imageLinks = plan
       .filter((e) => JSON.stringify(e.op).includes('"fieldType":"AD_IMAGE"'))
       .map((e) => (e.op.campaignAssetOperation!.create as { asset: string }).asset);

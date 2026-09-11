@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-10-v2",
+  "version": "2026-09-11-v1",
   "customerId": "4454506598",
   "currency": "CAD",
   "evidence": [
@@ -284,15 +284,7 @@
         },
         "price": null,
         "businessName": "OPS",
-        "businessLogo": "L_logo",
-        "images": [
-          "A_glove_app_square",
-          "B_autodetail_wide",
-          "B_autodetail_square",
-          "C_toolbelt_wide",
-          "C_toolbelt_square",
-          "D_hardhat_wide"
-        ],
+        "images": [],
         "automation": { "TEXT_ASSET_AUTOMATION": "OPTED_OUT" }
       }
     },
@@ -505,15 +497,7 @@
           "source": "opsapp.co/plans — Starter $90 up to 3 users, Team $140 up to 5, Business $190 up to 10. CAD, so a US searcher sees CA$."
         },
         "businessName": "OPS",
-        "businessLogo": "L_logo",
-        "images": [
-          "A_glove_app_square",
-          "B_autodetail_wide",
-          "B_autodetail_square",
-          "C_toolbelt_wide",
-          "C_toolbelt_square",
-          "D_hardhat_wide"
-        ],
+        "images": [],
         "automation": { "TEXT_ASSET_AUTOMATION": "OPTED_OUT" }
       }
     },
@@ -786,15 +770,7 @@
           "source": "opsapp.co/plans — Starter $90 up to 3 users, Team $140 up to 5, Business $190 up to 10. CAD, so a US searcher sees CA$."
         },
         "businessName": "OPS",
-        "businessLogo": "L_logo",
-        "images": [
-          "A_glove_app_square",
-          "B_autodetail_wide",
-          "B_autodetail_square",
-          "C_toolbelt_wide",
-          "C_toolbelt_square",
-          "D_hardhat_wide"
-        ],
+        "images": [],
         "automation": { "TEXT_ASSET_AUTOMATION": "OPTED_OUT" }
       }
     },
@@ -1066,15 +1042,7 @@
         },
         "price": null,
         "businessName": "OPS",
-        "businessLogo": "L_logo",
-        "images": [
-          "A_glove_app_square",
-          "B_autodetail_wide",
-          "B_autodetail_square",
-          "C_toolbelt_wide",
-          "C_toolbelt_square",
-          "D_hardhat_wide"
-        ],
+        "images": [],
         "automation": { "TEXT_ASSET_AUTOMATION": "OPTED_OUT" }
       }
     },
@@ -1358,28 +1326,12 @@
           "source": "opsapp.co/plans — Starter $90 up to 3 users, Team $140 up to 5, Business $190 up to 10. CAD, so a US searcher sees CA$."
         },
         "businessName": "OPS",
-        "businessLogo": "L_logo",
-        "images": [
-          "A_glove_app_square",
-          "B_autodetail_wide",
-          "B_autodetail_square",
-          "C_toolbelt_wide",
-          "C_toolbelt_square",
-          "D_hardhat_wide"
-        ],
+        "images": [],
         "automation": { "TEXT_ASSET_AUTOMATION": "OPTED_OUT" }
       }
     }
   ],
   "images": {
-    "A_glove_app_square": {
-      "file": "config/ads/images/glove-app-1x1.jpg",
-      "name": "OPS · Glove and app · 1:1 · 2026-09-10",
-      "aspect": "1:1",
-      "approvedBy": "Jackson",
-      "approvedAt": "2026-09-10",
-      "why": "The best image in the account — 7.8% clicked, 20 downloads — cropped to remove its text, which search images may not carry. The app on screen still reads TEST COMPANY. A re-render with a real-looking company would be better."
-    },
     "B_autodetail_wide": {
       "existingAssetId": "330946001186",
       "name": "autodetail_mike_1.91:1.png",
@@ -1419,14 +1371,6 @@
       "approvedBy": "Jackson",
       "approvedAt": "2026-09-10",
       "why": "Job-site photo — 5.7% clicked in app ads. No text."
-    },
-    "L_logo": {
-      "existingAssetId": "203326113726",
-      "name": "Ops Logo black background.png",
-      "aspect": "logo",
-      "approvedBy": "Jackson",
-      "approvedAt": "2026-09-10",
-      "why": "The OPS mark on black — already ran as the business logo on the old search campaign (2.6% clicked)."
     }
   },
   "retire": {
