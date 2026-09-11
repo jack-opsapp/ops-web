@@ -45,6 +45,7 @@ async function fixture() {
     grantFacts: {
       grantId: GRANT_ID,
       clientId: CLIENT_ID,
+      clientName: "Catalog trial fixture",
       actorUserId: actor.actorUserId,
       companyId: actor.companyId,
       scopes: SCOPES,

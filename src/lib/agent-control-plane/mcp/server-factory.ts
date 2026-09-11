@@ -65,6 +65,7 @@ import {
 import type { McpOAuthRpcClient } from "./oauth";
 import { checkCapabilityRate } from "./rate-limit";
 import { McpServer } from "./sdk";
+import { mcpToolDisplayTitle } from "./tool-display-metadata";
 
 /**
  * Resolve the immutable exposure's ordered tool IDs against the active
@@ -410,17 +411,19 @@ function createServerForExposure(
       throw new TypeError("MCP exposure has no constructed domain method");
     }
     const method = selectedMethod.bind(domainService) as DomainReadMethod;
+    const title = mcpToolDisplayTitle(entry.name);
 
     server.registerTool(
       entry.name,
       {
-        title: entry.name,
+        title,
         description:
           usesDeckGeometryV2 && entry.name === "get_deck_design_geometry"
             ? "Read authorized deck geometry using result v2. Configured railing quantities are separate from a measured perimeter scenario with exclusions, assumptions and missing facts. Perimeter estimates are not order-ready quantities."
             : entry.description,
         inputSchema: entry.inputSchema,
         annotations: {
+          title,
           readOnlyHint: entry.annotations.readOnlyHint,
           destructiveHint: entry.annotations.destructiveHint,
           idempotentHint: entry.annotations.idempotentHint,
