@@ -1,0 +1,1016 @@
+{
+ "probedAt": "2026-09-11T16:48:40.812Z",
+ "adPolicy": {
+  "requestId": null,
+  "rows": [
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113415~824125294528",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113415~824125294531",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113575~824125294534",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113575~824125294537",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113615~824125294540",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113615~824125294543",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113655~824125294546",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113655~824125294549",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113815~824125294552",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113815~824125294555",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113855~824125294558",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113855~824125294681",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113895~824125294684",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351113895~824125294687",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351114055~824125294690",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351114055~824125294693",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351114095~824125294696",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351114095~824125294699",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351114135~824125294702",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351114135~824125294705",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351114295~824125294708",
+    "status": "ENABLED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   },
+   {
+    "ad": "customers/4454506598/adGroupAds/200351114295~824125294711",
+    "status": "PAUSED",
+    "approval": "APPROVED",
+    "review": "REVIEWED",
+    "topics": []
+   }
+  ]
+ },
+ "changes": {
+  "requestId": null,
+  "count": 68,
+  "events": [
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113375~824125294522",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113375~824125294525",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113415~824125294528",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113415~824125294531",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113575~824125294534",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113575~824125294537",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113615~824125294540",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113615~824125294543",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113655~824125294546",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113655~824125294549",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113815~824125294552",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113815~824125294555",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113855~824125294558",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113855~824125294681",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113895~824125294684",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351113895~824125294687",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351114055~824125294690",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351114055~824125294693",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351114095~824125294696",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351114095~824125294699",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351114135~824125294702",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351114135~824125294705",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351114295~824125294708",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-09 22:20:38.03656",
+    "micros": "1789017638036560",
+    "ad": "customers/4454506598/adGroupAds/200351114295~824125294711",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-10 07:59:29.290063",
+    "micros": "1789052369290063",
+    "ad": "customers/4454506598/adGroupAds/200351113415~824125294528",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:29.965007",
+    "micros": "1789052369965007",
+    "ad": "customers/4454506598/adGroupAds/200351113415~824125294531",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:30.639919",
+    "micros": "1789052370639919",
+    "ad": "customers/4454506598/adGroupAds/200351113575~824125294534",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:31.320063",
+    "micros": "1789052371320063",
+    "ad": "customers/4454506598/adGroupAds/200351113575~824125294537",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:32.201919",
+    "micros": "1789052372201919",
+    "ad": "customers/4454506598/adGroupAds/200351113615~824125294540",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:32.994223",
+    "micros": "1789052372994223",
+    "ad": "customers/4454506598/adGroupAds/200351113615~824125294543",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:33.731855",
+    "micros": "1789052373731855",
+    "ad": "customers/4454506598/adGroupAds/200351113655~824125294546",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:34.608415",
+    "micros": "1789052374608415",
+    "ad": "customers/4454506598/adGroupAds/200351113655~824125294549",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:35.225951",
+    "micros": "1789052375225951",
+    "ad": "customers/4454506598/adGroupAds/200351113815~824125294552",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:35.994783",
+    "micros": "1789052375994783",
+    "ad": "customers/4454506598/adGroupAds/200351113815~824125294555",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:36.625007",
+    "micros": "1789052376625007",
+    "ad": "customers/4454506598/adGroupAds/200351113855~824125294558",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:37.315791",
+    "micros": "1789052377315791",
+    "ad": "customers/4454506598/adGroupAds/200351113855~824125294681",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:37.881791",
+    "micros": "1789052377881791",
+    "ad": "customers/4454506598/adGroupAds/200351113895~824125294684",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:38.454495",
+    "micros": "1789052378454495",
+    "ad": "customers/4454506598/adGroupAds/200351113895~824125294687",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:39.112655",
+    "micros": "1789052379112655",
+    "ad": "customers/4454506598/adGroupAds/200351114055~824125294690",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:39.764047",
+    "micros": "1789052379764047",
+    "ad": "customers/4454506598/adGroupAds/200351114055~824125294693",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:40.345983",
+    "micros": "1789052380345983",
+    "ad": "customers/4454506598/adGroupAds/200351114095~824125294696",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:40.900031",
+    "micros": "1789052380900031",
+    "ad": "customers/4454506598/adGroupAds/200351114095~824125294699",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:41.584943",
+    "micros": "1789052381584943",
+    "ad": "customers/4454506598/adGroupAds/200351114135~824125294702",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:42.189487",
+    "micros": "1789052382189487",
+    "ad": "customers/4454506598/adGroupAds/200351114135~824125294705",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:42.962015",
+    "micros": "1789052382962015",
+    "ad": "customers/4454506598/adGroupAds/200351114295~824125294708",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-10 07:59:43.630783",
+    "micros": "1789052383630783",
+    "ad": "customers/4454506598/adGroupAds/200351114295~824125294711",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "ENABLED",
+    "to": "PAUSED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351113415~824257911768",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351113575~824257911771",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351113615~824257911774",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351113655~824257911777",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351113815~824257911780",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351113855~824257911783",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351113895~824257911786",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351114055~824257911789",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351114095~824257911792",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351114135~824257911795",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 02:27:45.073535",
+    "micros": "1789118865073535",
+    "ad": "customers/4454506598/adGroupAds/200351114295~824257911798",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "CREATE",
+    "fields": "ad,adGroup,resourceName,status",
+    "from": null,
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351113415~824125294528",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351113575~824125294534",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351113615~824125294540",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351113655~824125294546",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351113815~824125294552",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351113855~824125294558",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351113895~824125294684",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351114055~824125294690",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351114095~824125294696",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351114135~824125294702",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   },
+   {
+    "at": "2026-09-11 03:55:41.209039",
+    "micros": "1789124141209039",
+    "ad": "customers/4454506598/adGroupAds/200351114295~824125294708",
+    "client": "GOOGLE_ADS_API",
+    "user": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "op": "UPDATE",
+    "fields": "ad,status",
+    "from": "PAUSED",
+    "to": "ENABLED"
+   }
+  ],
+  "rawFirst": {
+   "changeEvent": {
+    "resourceName": "customers/4454506598/changeEvents/1789017638036560~0~92",
+    "changeDateTime": "2026-09-09 22:20:38.03656",
+    "changeResourceType": "AD_GROUP_AD",
+    "changeResourceName": "customers/4454506598/adGroupAds/200351113375~824125294522",
+    "clientType": "GOOGLE_ADS_API",
+    "userEmail": "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+    "oldResource": {
+     "adGroupAd": {
+      "ad": {}
+     }
+    },
+    "newResource": {
+     "adGroupAd": {
+      "resourceName": "customers/4454506598/adGroupAds/200351113375~824125294522",
+      "status": "ENABLED",
+      "ad": {
+       "responsiveSearchAd": {
+        "headlines": [
+         {
+          "pinnedField": "HEADLINE_1",
+          "text": "OPS — job management"
+         },
+         {
+          "pinnedField": "HEADLINE_1",
+          "text": "OPS for trades"
+         },
+         {
+          "pinnedField": "HEADLINE_1",
+          "text": "Built by trades, for trades"
+         },
+         {
+          "text": "Your crew will actually use it"
+         },
+         {
+          "text": "One app for the whole crew"
+         },
+         {
+          "text": "Works offline on site"
+         },
+         {
+          "text": "Free to start"
+         },
+         {
+          "text": "No credit card"
+         },
+         {
+          "text": "Every feature, every tier"
+         },
+         {
+          "text": "Crews of 1 to 10"
+         }
+        ],
+        "descriptions": [
+         {
+          "text": "Jobs, crews, quotes and invoices in one app your crew opens without training."
+         },
+         {
+          "text": "Built by a trades owner who got tired of software nobody on the crew would open."
+         },
+         {
+          "text": "Free to start, no credit card. Every feature at every tier, from $90 a month."
+         },
+         {
+          "text": "Works offline. Changes sync the moment signal comes back."
+         }
+        ],
+        "path1": "trades",
+        "path2": "ops"
+       },
+       "resourceName": "customers/4454506598/ads/824125294522",
+       "id": "824125294522",
+       "finalUrls": [
+        "https://try.opsapp.co/"
+       ]
+      },
+      "adGroup": "customers/4454506598/adGroups/200351113375"
+     }
+    },
+    "resourceChangeOperation": "CREATE",
+    "changedFields": "ad,adGroup,resourceName,status"
+   }
+  }
+ },
+ "changesByName": {
+  "ok": false,
+  "count": null,
+  "error": "[{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Request contains an invalid argument.\",\n    \"status\": \"INVALID_ARGUMENT\",\n    \"details\": [\n      {\n        \"@type\": \"type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure\",\n        \"errors\": [\n          {\n            \"errorCode\": {\n              \"queryError\": \"PROHIBITED_FIELD_IN_WHERE_CLAUSE\"\n            },\n            \"message\": \"The following field may not be used in WHERE clause: 'change_event.change_resource_name'.\"\n          }\n        ],\n        \"requestId\": \"eSMbP4oYQXXuNA3vLzjSOw\"\n      }\n    ]\n  }\n}\n]"
+ },
+ "tooOld": {
+  "ok": false,
+  "status": 400,
+  "error": "[{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Request contains an invalid argument.\",\n    \"status\": \"INVALID_ARGUMENT\",\n    \"details\": [\n      {\n        \"@type\": \"type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure\",\n        \"errors\": [\n          {\n            \"errorCode\": {\n              \"changeEventError\": \"START_DATE_TOO_OLD\"\n            },\n            \"message\": \"The requested start date is too old. It cannot be older than 30 days.\"\n          }\n        ],\n        \"requestId\": \"-kf30OT18YrR2Irq6-ZikQ\"\n      }\n    ]\n  }\n}\n]"
+ },
+ "noUpperBound": {
+  "ok": false,
+  "status": 400,
+  "error": "[{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Request contains an invalid argument.\",\n    \"status\": \"INVALID_ARGUMENT\",\n    \"details\": [\n      {\n        \"@type\": \"type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure\",\n        \"errors\": [\n          {\n            \"errorCode\": {\n              \"changeEventError\": \"CHANGE_DATE_RANGE_INFINITE\"\n            },\n            \"message\": \"The change_event request is missing filters on change_event.change_date_time or is filtering on change_event.change_date_time with an infinite range.\"\n          }\n        ],\n        \"requestId\": \"SMPEnG0cVRO9PEgOq6jO_Q\"\n      }\n    ]\n  }\n}\n]"
+ },
+ "timeZone": "America/Vancouver"
+}
