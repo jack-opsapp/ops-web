@@ -592,3 +592,140 @@ describe("engine budget pacing", () => {
     expect(requests[1].body).not.toHaveProperty("pageSize");
   });
 });
+
+describe("guardrail live reads", () => {
+  const DISCOVERY = [
+    customerClientRow(MANAGER_ID, 0, true, "ENABLED", "OPS LTD"),
+    customerClientRow(CLIENT_ID, 1, false, "ENABLED", "OPS"),
+  ];
+  const AD_A = `customers/${CLIENT_ID}/adGroupAds/200351113415~824125294528`;
+  const AD_B = `customers/${CLIENT_ID}/adGroupAds/200351114095~824125294696`;
+
+  it("reads status, verdict and policy topics for exactly the named ads, removed ones included", async () => {
+    installFetch(DISCOVERY, [
+      {
+        adGroupAd: {
+          resourceName: AD_A,
+          status: "ENABLED",
+          policySummary: {
+            approvalStatus: "DISAPPROVED",
+            reviewStatus: "REVIEWED",
+            policyTopicEntries: [{ topic: "DESTINATION_NOT_WORKING", type: "PROHIBITED", evidences: [{ destinationNotWorking: { device: "DESKTOP" } }] }],
+          },
+        },
+      },
+      { adGroupAd: { resourceName: AD_B, status: "REMOVED", policySummary: { approvalStatus: "APPROVED", reviewStatus: "REVIEWED" } } },
+    ]);
+    const client = await importClient();
+    const states = await client.queryAdPolicyStates([AD_A, AD_B]);
+    expect(states).toEqual([
+      { resourceName: AD_A, status: "ENABLED", approvalStatus: "DISAPPROVED", reviewStatus: "REVIEWED", policyTopics: [{ topic: "DESTINATION_NOT_WORKING", type: "PROHIBITED" }] },
+      { resourceName: AD_B, status: "REMOVED", approvalStatus: "APPROVED", reviewStatus: "REVIEWED", policyTopics: [] },
+    ]);
+    const query = String(requests[1].body.query);
+    // Field paths checked against v25 ad_group_ad.proto and policy_summary.proto.
+    expect(query).toContain("ad_group_ad.policy_summary.policy_topic_entries");
+    expect(query).toContain("ad_group_ad.policy_summary.approval_status");
+    expect(query).toContain("ad_group_ad.policy_summary.review_status");
+    expect(query).toContain(`ad_group_ad.resource_name IN ('${AD_A}', '${AD_B}')`);
+    // A removed ad must come back so the guardrail can let go of it.
+    expect(query).not.toContain("REMOVED");
+  });
+
+  it("makes no request for an empty list and refuses anything that is not an ad resource name", async () => {
+    installFetch(DISCOVERY, []);
+    const client = await importClient();
+    await expect(client.queryAdPolicyStates([])).resolves.toEqual([]);
+    expect(requests).toEqual([]);
+    await expect(client.queryAdPolicyStates([`${AD_A}') OR ('1'='1`])).rejects.toThrow(/not an ad resource name/);
+    expect(requests).toEqual([]);
+  });
+
+  it("reads ad status changes with the bounded window Google requires and decodes each event", async () => {
+    installFetch(DISCOVERY, [
+      {
+        changeEvent: {
+          resourceName: `customers/${CLIENT_ID}/changeEvents/1789052369290063~0~0`,
+          changeDateTime: "2026-09-10 07:59:29.290063",
+          changeResourceType: "AD_GROUP_AD",
+          changeResourceName: AD_A,
+          clientType: "GOOGLE_ADS_API",
+          userEmail: "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+          resourceChangeOperation: "UPDATE",
+          changedFields: "ad,status",
+          oldResource: { adGroupAd: { status: "ENABLED" } },
+          newResource: { adGroupAd: { status: "PAUSED" } },
+        },
+      },
+      {
+        changeEvent: {
+          resourceName: `customers/${CLIENT_ID}/changeEvents/1789017638036560~0~92`,
+          changeDateTime: "2026-09-09 22:20:38.03656",
+          changeResourceType: "AD_GROUP_AD",
+          changeResourceName: AD_B,
+          clientType: "GOOGLE_ADS_WEB_CLIENT",
+          userEmail: "j@example.com",
+          resourceChangeOperation: "CREATE",
+          changedFields: "ad,adGroup,resourceName,status",
+          oldResource: { adGroupAd: { ad: {} } },
+          newResource: { adGroupAd: { resourceName: AD_B, status: "ENABLED" } },
+        },
+      },
+    ]);
+    const client = await importClient();
+    const result = await client.queryAdGroupAdChangeEvents("2026-09-09", "2026-09-12");
+    expect(result).toEqual({
+      truncated: false,
+      events: [
+        {
+          micros: 1789052369290063,
+          resourceName: AD_A,
+          operation: "UPDATE",
+          changedFields: ["ad", "status"],
+          clientType: "GOOGLE_ADS_API",
+          userEmail: "firebase-adminsdk-fbsvc@ops-ios-app.iam.gserviceaccount.com",
+          oldStatus: "ENABLED",
+          newStatus: "PAUSED",
+        },
+        {
+          micros: 1789017638036560,
+          resourceName: AD_B,
+          operation: "CREATE",
+          changedFields: ["ad", "adGroup", "resourceName", "status"],
+          clientType: "GOOGLE_ADS_WEB_CLIENT",
+          userEmail: "j@example.com",
+          oldStatus: null,
+          newStatus: "ENABLED",
+        },
+      ],
+    });
+    const query = String(requests[1].body.query);
+    // Google refuses an open-ended range, a start older than 30 days, and a
+    // filter on change_resource_name (probe 2026-09-11) — so both bounds, the
+    // resource type, a LIMIT, and the per-ad filter happens in code.
+    expect(query).toContain("FROM change_event");
+    expect(query).toContain("change_event.change_date_time >= '2026-09-09'");
+    expect(query).toContain("change_event.change_date_time <= '2026-09-12'");
+    expect(query).toContain("change_event.change_resource_type = 'AD_GROUP_AD'");
+    expect(query).toContain("LIMIT 10000");
+    expect(query).not.toContain("change_resource_name IN");
+  });
+
+  it("flags a change history that hit Google's row limit, and refuses a malformed date", async () => {
+    const rows = Array.from({ length: 10000 }, (_, i) => ({
+      changeEvent: {
+        resourceName: `customers/${CLIENT_ID}/changeEvents/${1789052369290063 + i}~0~0`,
+        changeResourceName: AD_A,
+        resourceChangeOperation: "UPDATE",
+        changedFields: "status",
+        newResource: { adGroupAd: { status: "PAUSED" } },
+        oldResource: { adGroupAd: { status: "ENABLED" } },
+      },
+    }));
+    installFetch(DISCOVERY, rows);
+    const client = await importClient();
+    const result = await client.queryAdGroupAdChangeEvents("2026-09-09", "2026-09-12");
+    expect(result.truncated).toBe(true);
+    await expect(client.queryAdGroupAdChangeEvents("2026-9-9", "2026-09-12")).rejects.toThrow(/YYYY-MM-DD/);
+  });
+});
