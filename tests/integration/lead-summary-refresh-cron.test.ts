@@ -648,7 +648,7 @@ describe("buildLeadSummaryContext", () => {
       current_price: 1200,
       excluded_scope: expect.stringMatching(/remove the old railing/i),
       schedule: expect.stringMatching(/tomorrow/i),
-      next_action: expect.stringMatching(/convert|project|schedule/i),
+      next_action: "Is tomorrow still open?",
     });
   });
 
@@ -2046,6 +2046,73 @@ describe("refreshLeadSummariesForOpportunities", () => {
       })
     );
   });
+
+  it.each(["targeted", "scheduled"])(
+    "converges a deferred lead's newer photo request through the %s guarded writer",
+    async (mode) => {
+      const activities = [
+        emailActivity(
+          OPP_A,
+          "2026-07-21T17:00:00.000Z",
+          "The budget is too tight this year. Please follow up next year."
+        ),
+        emailActivity(
+          OPP_A,
+          "2026-07-21T18:00:00.000Z",
+          "Unfortunately your photos did not come through. Could you please resend the missing photos?",
+          "outbound"
+        ),
+      ];
+      tables.opportunities = {
+        rows: [
+          opportunityRow({
+            stage: "quoted",
+            correspondence_count: 2,
+            ai_summary: "Existing summary.",
+            ai_summary_updated_at: STAMP,
+          }),
+        ],
+      };
+      tables.activities = { rows: activities };
+      tables.opportunity_correspondence_events = {
+        rows: activities.map((activity) => correspondenceEvent(activity)),
+      };
+      openAICreateMock.mockResolvedValue(
+        modelResponse("Invalid generic summary.")
+      );
+
+      const result =
+        mode === "targeted"
+          ? await refreshLeadSummariesForOpportunities({
+              supabase: mockSupabase,
+              companyId: COMPANY_ID,
+              opportunityIds: [OPP_A],
+              now: NOW,
+            })
+          : await runLeadSummaryRefresh({
+              supabase: mockSupabase,
+              companyId: COMPANY_ID,
+              mode: "refresh",
+              now: NOW,
+            });
+
+      expect(result).toMatchObject({ failed: [], deferred: [] });
+      expect(
+        "summariesWritten" in result ? result.summariesWritten : result.written
+      ).toBe(1);
+      expect(openAICreateMock).toHaveBeenCalledTimes(2);
+      expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
+      expect(supabaseRpcMock).toHaveBeenCalledWith(
+        "commit_lead_summary_snapshot",
+        expect.objectContaining({
+          p_company_id: COMPANY_ID,
+          p_opportunity_id: OPP_A,
+          p_summary: expect.stringMatching(/Next action:.*resend.*photos/i),
+        })
+      );
+      expect(updateCalls).toEqual([]);
+    }
+  );
 
   it("commits the trusted deterministic fallback after a model refusal", async () => {
     const activity = emailActivity(

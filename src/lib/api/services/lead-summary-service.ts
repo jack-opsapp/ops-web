@@ -616,7 +616,10 @@ export function hasSubstantiveLeadContext(
 }
 
 export type LeadStalenessVerdict =
-  "fresh" | "stale" | "awaiting_event" | "insufficient_context";
+  | "fresh"
+  | "stale"
+  | "awaiting_event"
+  | "insufficient_context";
 
 /**
  * Staleness decision for one open lead.
@@ -711,7 +714,11 @@ export interface LeadSummaryContextBundle {
     duration_min: number | null;
   }>;
   /** Newest notes/events from the linked project's own timeline. */
-  project_activity: Array<{ at: string; note: string | null; event: string | null }>;
+  project_activity: Array<{
+    at: string;
+    note: string | null;
+    event: string | null;
+  }>;
   emails: Array<{
     at: string;
     dir: "inbound" | "outbound";
@@ -739,7 +746,10 @@ export interface LeadSummaryContextBundle {
   commercial_context: {
     outcome: "won" | "deferred" | "declined";
     reason:
-      "customer_committed" | "budget_timing" | "customer_declined" | "price";
+      | "customer_committed"
+      | "budget_timing"
+      | "customer_declined"
+      | "price";
     current_price: number | null;
     current_scope: string | null;
     excluded_scope: string | null;
@@ -751,7 +761,11 @@ export interface LeadSummaryContextBundle {
 }
 
 type ConversationFactKind =
-  "price" | "scope" | "schedule" | "objection" | "next_action";
+  | "price"
+  | "scope"
+  | "schedule"
+  | "objection"
+  | "next_action";
 
 const CONVERSATION_FACT_PATTERNS: Record<ConversationFactKind, RegExp> = {
   price:
@@ -1187,6 +1201,21 @@ function sanitizeSummaryFactText(
   return isContactCardClause(cleaned) ? null : cleaned;
 }
 
+// Greetings and bare links are display metadata, not required action facts.
+// Preserve question marks: a requested date must not become a confirmed date.
+function sanitizeSummaryNextAction(
+  value: string | null | undefined
+): string | null {
+  const fact = sanitizeSummaryFactText(value);
+  if (!fact) return null;
+  const action = fact
+    .replace(SUMMARY_URL_TEXT_RE, " ")
+    .replace(SUMMARY_GREETING_TEXT_RE, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /[\p{L}\p{N}]/u.test(action) ? action : null;
+}
+
 /**
  * Guard a composed summary. A summary cannot be nulled, so only the invisible
  * marks come out here — card and header clauses are rejected upstream, where
@@ -1535,9 +1564,9 @@ function buildCurrentFactContext(input: {
     input.commercialOutcome?.outcome === "declined"
       ? null
       : (pendingNextAction ??
-        commercialNextAction ??
-        scheduleNextAction ??
-        foldedNextAction.postCompletionAction)
+          commercialNextAction ??
+          scheduleNextAction ??
+          foldedNextAction.postCompletionAction)
   );
   const supersededPrices = input.allDiscussedPrices.filter(
     (price) => price !== currentPrice
@@ -1933,9 +1962,7 @@ export function buildLeadSummaryContext(
             currentFactContext?.current_price ??
             commercialOutcome.facts.currentPrice,
           current_scope: currentFactContext?.current_scope ?? null,
-          // `excluded_scope` and `next_action` are the two commercial fields
-          // the current-fact context does not already own, so they carry their
-          // own card/header guard (bug 7ca126d2).
+          // Excluded scope carries its own card/header guard (bug 7ca126d2).
           excluded_scope: sanitizeSummaryFactText(
             clip(commercialOutcome.facts.excludedScope, ACTIVITY_CONTENT_CAP)
           ),
@@ -1943,8 +1970,9 @@ export function buildLeadSummaryContext(
           objection: sanitizeSummaryFactText(
             clip(commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
           ),
-          next_action: sanitizeSummaryFactText(
-            resolveCommercialNextAction(opportunity, commercialOutcome)
+          next_action: sanitizeSummaryNextAction(
+            currentFactContext?.next_action ??
+              resolveCommercialNextAction(opportunity, commercialOutcome)
           ),
           superseded_prices: commercialSupersededPrices.slice(
             -COMMERCIAL_PRICE_FACT_CAP
@@ -2957,7 +2985,8 @@ function summaryPreservesExcludedScopeActor(
 
 function validateCurrentFactSummary(
   summary: string,
-  context: LeadSummaryContextBundle["current_fact_context"]
+  context: LeadSummaryContextBundle["current_fact_context"],
+  renderedClauses?: { schedule: string; nextAction: string }
 ): void {
   if (!context) return;
   if (
@@ -2988,7 +3017,12 @@ function validateCurrentFactSummary(
   }
   if (
     context.superseded_schedules.some((schedule) =>
-      summaryCarriesSchedule(summary, schedule)
+      summaryCarriesSchedule(
+        renderedClauses
+          ? `${renderedClauses.schedule}; ${renderedClauses.nextAction}`
+          : summary,
+        schedule
+      )
     )
   ) {
     throw new LeadSummaryModelContractError(
@@ -3006,7 +3040,11 @@ function validateCurrentFactSummary(
   }
   if (
     context.superseded_next_actions.some((action) =>
-      summaryCarriesSpecificFact(summary, action, 2)
+      summaryCarriesSpecificFact(
+        renderedClauses?.nextAction ?? summary,
+        action,
+        2
+      )
     )
   ) {
     throw new LeadSummaryModelContractError(
@@ -3201,7 +3239,7 @@ function guardedCurrentFactContext(
     current_scope: sanitizeSummaryFactText(context.current_scope),
     schedule: sanitizeSummaryFactText(context.schedule),
     objection: sanitizeSummaryFactText(context.objection),
-    next_action: sanitizeSummaryFactText(context.next_action),
+    next_action: sanitizeSummaryNextAction(context.next_action),
     superseded_scopes: context.superseded_scopes.filter(keepsFact),
     superseded_schedules: context.superseded_schedules.filter(keepsFact),
     resolved_objections: context.resolved_objections.filter(keepsFact),
@@ -3240,7 +3278,9 @@ function fullCommercialValidationContext(
     excluded_scope: sanitizeSummaryFactText(commercial.excluded_scope),
     schedule: sanitizeSummaryFactText(commercial.schedule),
     objection: sanitizeSummaryFactText(commercial.objection),
-    next_action: sanitizeSummaryFactText(commercial.next_action),
+    next_action: sanitizeSummaryNextAction(
+      bundle.current_fact_context?.next_action ?? commercial.next_action
+    ),
     superseded_prices: fullPrices ?? commercial.superseded_prices,
   };
 }
@@ -3270,6 +3310,8 @@ const SUMMARY_PHONE_TEXT_RE =
   /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/g;
 const SUMMARY_EMAIL_TEXT_RE = /\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g;
 const SUMMARY_URL_TEXT_RE = /\b(?:https?:\/\/|www\.)\S+/gi;
+const SUMMARY_GREETING_TEXT_RE =
+  /^\s*(?:hi|hello|hey)\s+[A-Za-z][A-Za-z .'-]{0,50},\s*/i;
 const SUMMARY_PROMPT_TAIL_RE =
   /\b(?:ignore|disregard|override)\b.{0,100}\b(?:instructions?|prompt|system message)\b|\b(?:return|respond|output)\s+(?:with|as)\s+json\b/i;
 const SUMMARY_INLINE_SIGNATURE_RE =
@@ -3315,7 +3357,7 @@ function deterministicSummaryFragment(
   }
   const normalized = source
     .replace(/[\u0000-\u001f\u007f]/g, " ")
-    .replace(/^\s*(?:hi|hello|hey)\s+[A-Za-z][A-Za-z .'-]{0,50},\s*/i, "")
+    .replace(SUMMARY_GREETING_TEXT_RE, "")
     .replace(
       /^\s*(?:(?:current|excluded)\s+scope|scope|(?:requested\s+)?schedule|objection|next\s+(?:action|step))\s*:\s*/i,
       ""
@@ -3544,7 +3586,7 @@ export function renderDeterministicLeadSummaryFallback(
   const objection = sanitizeSummaryFactText(
     current?.objection ?? commercial?.objection ?? null
   );
-  const nextAction = sanitizeSummaryFactText(
+  const nextAction = sanitizeSummaryNextAction(
     current?.next_action ?? commercial?.next_action ?? null
   );
   const clauses: string[] = [];
@@ -3557,16 +3599,20 @@ export function renderDeterministicLeadSummaryFallback(
     commercial?.excluded_scope
   );
   if (excludedScope) clauses.push(`Excluded scope: ${excludedScope}`);
-  const scheduleFact = schedule ? deterministicScheduleFragment(schedule) : null;
-  if (scheduleFact) {
-    clauses.push(
-      `${scheduleExpectsTentativeAssertion(schedule ?? "") ? "Requested schedule" : "Schedule"}: ${scheduleFact}`
-    );
-  }
+  const scheduleFact = schedule
+    ? deterministicScheduleFragment(schedule)
+    : null;
+  const scheduleClause = scheduleFact
+    ? `${scheduleExpectsTentativeAssertion(schedule ?? "") ? "Requested schedule" : "Schedule"}: ${scheduleFact}`
+    : "";
+  if (scheduleClause) clauses.push(scheduleClause);
   const objectionFact = deterministicSummaryFragment(objection);
   if (objectionFact) clauses.push(`Objection: ${objectionFact}`);
   const nextActionFact = deterministicSummaryFragment(nextAction);
-  if (nextActionFact) clauses.push(`Next action: ${nextActionFact}`);
+  const nextActionClause = nextActionFact
+    ? `Next action: ${nextActionFact}`
+    : "";
+  if (nextActionClause) clauses.push(nextActionClause);
   if (clauses.length === 0) {
     throw new LeadSummaryModelContractError(
       "deterministic fallback had no current facts"
@@ -3582,8 +3628,8 @@ export function renderDeterministicLeadSummaryFallback(
     schedule: scheduleFact,
     scheduleClauseCarriesSchedule: Boolean(
       schedule &&
-        scheduleFact &&
-        scheduleFragmentSatisfiesValidator(scheduleFact, schedule)
+      scheduleFact &&
+      scheduleFragmentSatisfiesValidator(scheduleFact, schedule)
     ),
     objection: objectionFact,
     nextAction: nextActionFact,
@@ -3600,7 +3646,11 @@ export function renderDeterministicLeadSummaryFallback(
     fallbackCurrentFactValidationContext(
       fullCurrentFactValidationContext(bundle),
       emitted
-    )
+    ),
+    // Only this renderer owns typed clauses. Scope descriptions and historical
+    // objections are not action/schedule assertions. Model output still uses
+    // the whole-summary checks; price and scope checks remain global here too.
+    { schedule: scheduleClause, nextAction: nextActionClause }
   );
   return summary;
 }
@@ -4446,9 +4496,7 @@ export async function refreshLeadSummariesForOpportunities(input: {
       );
       for (const opportunity of opportunities) {
         const externalIntakeContext =
-          input.externalIntakeContextByOpportunityId?.get(
-            opportunity.id
-          );
+          input.externalIntakeContextByOpportunityId?.get(opportunity.id);
         if (!externalIntakeContext) continue;
         slicesByOpportunity.get(opportunity.id)?.activities.push({
           id: `external-intake:${opportunity.id}`,
