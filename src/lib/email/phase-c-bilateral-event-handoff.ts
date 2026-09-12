@@ -584,7 +584,12 @@ export async function persistPhaseCBilateralEventHandoff(input: {
   companyId: string;
   opportunityId: string;
   evaluation: Exclude<PhaseCBilateralEventEvaluation, { status: "none" }>;
-}): Promise<{ id: string; idempotencyKey: string; status: string }> {
+}): Promise<{
+  id: string;
+  idempotencyKey: string;
+  status: "ready" | "review" | "consumed" | "cancelled";
+  reviewReason: string | null;
+}> {
   const evaluation = input.evaluation;
   const evidenceEventIds = [
     evaluation.proposalEventId,
@@ -649,14 +654,33 @@ export async function persistPhaseCBilateralEventHandoff(input: {
   const handoff = (
     Array.isArray(response.data) ? response.data[0] : response.data
   ) as
-    | { id?: unknown; idempotency_key?: unknown; status?: unknown }
+    | {
+        id?: unknown;
+        idempotency_key?: unknown;
+        initial_status?: unknown;
+        initial_review_reason?: unknown;
+        status?: unknown;
+        review_reason?: unknown;
+      }
     | null
     | undefined;
   if (
     !handoff ||
     typeof handoff.id !== "string" ||
     handoff.idempotency_key !== idempotencyKey ||
-    handoff.status !== evaluation.status
+    // The RPC proves the immutable proposal on replay. Its consumer may
+    // already have moved the same envelope to review, consumed, or cancelled.
+    handoff.initial_status !== evaluation.status ||
+    handoff.initial_review_reason !== evaluation.reviewReason ||
+    (handoff.status !== "ready" &&
+      handoff.status !== "review" &&
+      handoff.status !== "consumed" &&
+      handoff.status !== "cancelled") ||
+    !(
+      handoff.review_reason === null ||
+      typeof handoff.review_reason === "string"
+    ) ||
+    (handoff.status === "review" && !handoff.review_reason?.trim())
   ) {
     throw new Error("Phase C bilateral event handoff returned no result");
   }
@@ -674,6 +698,7 @@ export async function persistPhaseCBilateralEventHandoff(input: {
   return {
     id: handoff.id,
     idempotencyKey,
-    status: evaluation.status,
+    status: handoff.status,
+    reviewReason: handoff.review_reason,
   };
 }

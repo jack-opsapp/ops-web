@@ -294,6 +294,48 @@ describe("Phase C lead-intelligence runtime database wiring", () => {
     );
   });
 
+  it.each([
+    ["review", "event_time_unresolved", "review"],
+    ["cancelled", null, "skipped"],
+    ["consumed", null, "applied"],
+    ["ready", null, "applied"],
+  ])(
+    "acknowledges the current %s handoff state for the exact required event",
+    async (status, reviewReason, outcome) => {
+      evaluateBilateralEventMock.mockReturnValueOnce({
+        status: "ready",
+        reviewReason: null,
+      });
+      persistBilateralEventHandoffMock.mockResolvedValue({
+        id: "handoff-existing",
+        idempotencyKey: "proposal-existing",
+        status,
+        reviewReason,
+      });
+
+      const { result, rpc } = await runEventHandoffWorker();
+      expect(result).toMatchObject({
+        claimed: 1,
+        completed: 1,
+        retrying: 0,
+        errors: [],
+      });
+      expect(rpc).toHaveBeenCalledWith(
+        "acknowledge_opportunity_phase_c_component",
+        expect.objectContaining({
+          p_expected_required_event_id: "event-current",
+          p_component: "event_handoff",
+          p_outcome: outcome,
+          p_detail: {
+            handoffId: "handoff-existing",
+            handoffStatus: status,
+            reviewReason,
+          },
+        })
+      );
+    }
+  );
+
   it.each([null, "   "])(
     "keeps a required event with %s provider message identity on durable retry",
     async (legacyProviderMessageId) => {
