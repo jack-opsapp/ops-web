@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/ops-web/.worktrees/site-visits-p19-release
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > answers 401 with the resource-metadata challenge and zero capability vocabulary when unauthenticated
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > returns 503 without disclosure when the cursor key is not provisioned
+{"at":"mcp_transport","outcome":"unconfigured"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > allows the claude.ai origin through to the auth gate
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > allows the chatgpt.com origin through to the auth gate
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+stderr | src/lib/agent-control-plane/mcp/__tests__/transport.test.ts > /api/mcp route gate > gates GET and DELETE identically and answers 405 when authenticated
+{"at":"mcp_transport","outcome":"unauthenticated"}
+
+ ✓ src/lib/agent-control-plane/mcp/__tests__/transport.test.ts (45 tests) 645ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/grants.test.ts (175 tests) 18ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/clients.test.ts (121 tests) 9ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/grant-pinned-exposure.test.ts (19 tests) 62ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scope-catalog.test.ts (15 tests) 7ms
+ ✓ src/components/agent/__tests__/site-visit-changes-preview.test.tsx (14 tests) 188ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scopes.test.ts (35 tests) 6ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/durable-rate-limit.test.ts (17 tests) 13ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/runtime.test.ts (4 tests) 2150ms
+   ✓ MCP production runtime > preserves Supabase cancellation through the composed authority adapter 1536ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts (111 tests) 1278ms
+   ✓ site visit candidate legacy > routes retained search_customers through the existing limiter and real current-authority facade 1086ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/deck-geometry-candidate-protocol.test.ts (15 tests) 106ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/catalog-candidate-protocol.test.ts (17 tests) 82ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/tool-display-metadata.test.ts (18 tests) 59ms
+
+ Test Files  13 passed (13)
+      Tests  606 passed (606)
+   Start at  18:28:29
+   Duration  12.61s (transform 2.10s, setup 1.03s, collect 3.79s, tests 4.62s, environment 1.65s, prepare 326ms)
+
