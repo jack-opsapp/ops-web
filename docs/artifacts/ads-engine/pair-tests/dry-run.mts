@@ -1,7 +1,9 @@
 // What the pair-test fix does to the real account today, read from production
-// and written nowhere (GOOGLE ADS ENGINE - P2-1-1-1).
+// and written nowhere (GOOGLE ADS ENGINE - P2-1-1-1). Extended by P2-1-1-1-1 to
+// ask the copy rules on their own (`copyRulesAskedOnTheirOwn`).
 //
 //   node --conditions=react-server --import tsx docs/artifacts/ads-engine/pair-tests/dry-run.mts > docs/artifacts/ads-engine/pair-tests/dry-run-2026-09-14.json
+//   node --conditions=react-server --import tsx docs/artifacts/ads-engine/pair-tests/dry-run.mts > docs/artifacts/ads-engine/copy-kinds/dry-run-after-2026-09-14.json
 //
 // Every request goes through a fetch that refuses anything but GET and HEAD,
 // so the run cannot write to the database even by mistake. It reads the same
@@ -111,6 +113,56 @@ const validator = pairs.map((pair) => {
   return { adGroup: `${pair.campaign.name} › ${pair.adGroup.name}`, ok: verdict.ok, code: verdict.ok ? null : verdict.code, message: verdict.ok ? null : verdict.issues[0]?.message };
 });
 
+// ─── The copy rules, asked on their own (GOOGLE ADS ENGINE - P2-1-1-1-1) ─────
+// The one-challenger rule refuses a third ad before the copy is read, so it
+// hides the copy question. Asked on its own: the group's challenger retired
+// (the moment the routine writes the next one), the group's own approved
+// challenger copy resubmitted on its own page. Every group must accept it.
+const retiredChallenger = (pair: (typeof pairs)[number]) => ({
+  ...live,
+  ads: live.ads.map((ad) => (ad.resourceName === pair.challenger.resourceName ? { ...ad, status: "PAUSED" as const } : ad)),
+});
+const ask = (pair: (typeof pairs)[number], headlines: typeof pair.challenger.headlines) => {
+  const verdict = validateProposal(
+    {
+      kind: "create_rsa_challenger",
+      rationale: "dry run",
+      evidence: [],
+      payload: {
+        ad_group: pair.adGroup.resourceName,
+        hypothesis: "dry run",
+        headlines,
+        descriptions: pair.challenger.descriptions,
+        ...(pair.challenger.path1 ? { path1: pair.challenger.path1 } : {}),
+        ...(pair.challenger.path2 ? { path2: pair.challenger.path2 } : {}),
+        final_url: pair.adGroup.finalUrl ?? pair.control.finalUrls[0],
+      },
+    },
+    { ...inputs, snapshot: retiredChallenger(pair), tests: [], allowedFinalUrls: BRAND_FACTS.allowedFinalUrls, structuralAcceptedThisRun: 0, now }
+  );
+  return verdict.ok
+    ? { ok: true, code: null, issues: [] as string[], copyKind: (verdict.normalized.payload as { copyKind?: string }).copyKind ?? null }
+    : { ok: false, code: verdict.code, issues: verdict.issues.map((issue) => `${issue.code} ${issue.field}: ${issue.message}`), copyKind: null };
+};
+const namesCompetitor = (texts: string[]) => BRAND_FACTS.competitors.names.some((name) => texts.some((text) => text.toLowerCase().includes(name.toLowerCase())));
+const copyRules = pairs.map((pair) => {
+  const own = ask(pair, pair.challenger.headlines);
+  // The negative control: a competitor name dropped into a group that may not
+  // carry one must still be refused. The last unpinned headline makes way.
+  const swapAt = pair.challenger.headlines.map((h, i) => (h.pinnedField ? -1 : i)).filter((i) => i >= 0).pop() ?? 0;
+  const planted = pair.challenger.headlines.map((h, i) => (i === swapAt ? { text: "Switching from Jobber?" } : h));
+  const plantedVerdict = pair.adGroup.copyKind === "competitor" ? null : ask(pair, planted);
+  return {
+    adGroup: `${pair.campaign.name} › ${pair.adGroup.name}`,
+    campaignKind: pair.campaign.kind,
+    copyKind: pair.adGroup.copyKind ?? null,
+    landingPage: pair.adGroup.finalUrl,
+    ownCopyNamesACompetitor: namesCompetitor([...pair.challenger.headlines, ...pair.challenger.descriptions].map((a) => a.text)),
+    ownChallengerCopy: own,
+    competitorNamePlanted: plantedVerdict,
+  };
+});
+
 // ─── The committed blueprint against the live account ───────────────────────
 const blueprint = parseBlueprint(JSON.parse(readFileSync("config/ads/blueprint.json", "utf8")));
 let blueprintPlan: { operations: number; error: string | null };
@@ -139,6 +191,18 @@ console.log(
       },
       briefIfEveryCampaignWereLive: { duties: duties.duties, creative: duties.notes.creative ?? null },
       validatorAskedForAThirdAd: validator,
+      snapshotKinds: {
+        campaigns: snapshot.campaigns.filter((c) => c.labels.includes("engine")).map((c) => ({ name: c.name, kind: c.kind })),
+        adGroups: snapshot.adGroups.filter((g) => pairs.some((pair) => pair.adGroup.resourceName === g.resourceName)).map((g) => ({ name: g.name, copyKind: g.copyKind ?? null, finalUrl: g.finalUrl })),
+      },
+      copyRulesAskedOnTheirOwn: {
+        ownChallengerAccepted: copyRules.filter((entry) => entry.ownChallengerCopy.ok).length,
+        ownChallengerCopyRejected: copyRules.filter((entry) => entry.ownChallengerCopy.code === "COPY_REJECTED").map((entry) => entry.adGroup),
+        ownChallengerOtherRefusals: copyRules.filter((entry) => !entry.ownChallengerCopy.ok && entry.ownChallengerCopy.code !== "COPY_REJECTED").map((entry) => ({ adGroup: entry.adGroup, code: entry.ownChallengerCopy.code })),
+        plantedNameRefusedWithTrademarkCampaign: copyRules.filter((entry) => entry.competitorNamePlanted?.issues.some((issue) => issue.startsWith("TRADEMARK_CAMPAIGN"))).length,
+        plantedNameAsked: copyRules.filter((entry) => entry.competitorNamePlanted).length,
+        groups: copyRules,
+      },
       committedBlueprint: { version: blueprint.version, structuralOperations: blueprintPlan.operations, error: blueprintPlan.error },
     },
     null,
