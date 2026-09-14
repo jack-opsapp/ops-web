@@ -15,3 +15,11 @@ Verification on the integrated production base:
 - Exact two-message recovery preflight passed against production. Recovery is separately journaled and must be read back after application.
 
 Deployment, recovery, and production rechecks are recorded separately. No new database migration is required for these application corrections. Cross-customer thread recovery needs an additional guarded database contract and separate migration approval. Customer source emails, identities, database snapshots, and private recovery manifests remain outside this public repository.
+
+## Production application release and partial recovery
+
+Application release `61cc787f9d09c06ff9252b52f234a2636e5cd516` reached Vercel READY at 2026-09-14 20:17:52 UTC (`dpl_5kZwgaDFAo6ZTTN3TjeAWaeji7LW`). Independent lookup of `app.opsapp.co` returned that exact deployment. The full production build compiled, passed type validation, generated 484 routes, and completed deployment.
+
+The exact two-message recovery created the missed inquiry under its correct customer and adopted the misplaced reply into its existing lead. Readback confirms two original activity identities/dates, two projected correspondence events, cleared match-review flags, and no duplicate provider message identities. Replaying the same manifest returned `already_applied` for both entries. Customer evidence and recovery hashes remain private.
+
+The third customer's misbound thread is intentionally untouched until the separately tested cross-customer finalization migration is approved. The runtime correction itself needs no new database schema. Scheduled downstream processing is being checked separately.
