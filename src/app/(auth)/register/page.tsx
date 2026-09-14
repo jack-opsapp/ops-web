@@ -228,14 +228,17 @@ export default function RegisterPage() {
         <p className="font-mohave text-body-sm text-text-3 mt-1">
           {t("register.subtitle")}
         </p>
+        <p className="font-mono text-body-sm text-text-2 mt-2">
+          {t("register.trialOffer")}
+        </p>
       </div>
 
       {/* Auth card */}
       <div className="space-y-2">
         {/* Error */}
         {error && (
-          <div className="bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">
-            <p className="font-mohave text-body-sm text-ops-error">{error}</p>
+          <div role="alert" className="bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">
+            <p className="font-mohave text-body-sm text-status-error">{error}</p>
           </div>
         )}
 
@@ -317,8 +320,10 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={t(showPassword ? "register.hidePassword" : "register.showPassword")}
+                aria-pressed={showPassword}
+                disabled={anyLoading}
                 className="text-text-3 hover:text-text-2 transition-colors"
-                tabIndex={-1}
               >
                 {showPassword ? (
                   <EyeOff className="w-[16px] h-[16px]" />
