@@ -33,6 +33,7 @@ export type NotificationType =
   | "ai_milestone"
   | "ai_provider_quota"
   | "analytics_source_failed"
+  | "tryops_experiment_health"
   | "agent_suggestion"
   | "trial_expiry"
   | "payment_review_stack"
