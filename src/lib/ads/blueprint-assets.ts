@@ -143,12 +143,16 @@ function liveAssetOf(raw: unknown): LiveAsset {
   };
 }
 
-/** Raw searchStream rows (as `queryAssetState` returns them) → live state. */
+/**
+ * Raw searchStream rows (as `queryAssetState` returns them) → live state. Each
+ * row names only the fields read from it, as `unknown`: every value is checked
+ * before it is used, so any row type carrying those fields is accepted as is.
+ */
 export function mapAssetState(raw: {
-  campaigns: Array<Record<string, unknown>>;
-  campaignAssets: Array<Record<string, unknown>>;
-  customerAssets: Array<Record<string, unknown>>;
-  assets: Array<Record<string, unknown>>;
+  campaigns: Array<{ campaign?: unknown }>;
+  campaignAssets: Array<{ campaignAsset?: unknown; campaign?: unknown; asset?: unknown }>;
+  customerAssets: Array<{ customerAsset?: unknown; asset?: unknown }>;
+  assets: Array<{ asset?: unknown }>;
 }): LiveAssetState {
   return {
     campaigns: raw.campaigns.map((row) => {

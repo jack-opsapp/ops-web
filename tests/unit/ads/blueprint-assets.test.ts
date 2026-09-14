@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import type { queryAssetState } from "@/lib/analytics/google-ads-client";
 import { loadBlueprint, parseBlueprint, BlueprintError, type Blueprint } from "@/lib/ads/blueprint";
 import {
   EMPTY_ASSET_STATE,
@@ -217,6 +218,12 @@ describe("planAssets", () => {
 });
 
 describe("mapAssetState", () => {
+  it("takes the rows exactly as queryAssetState types them, with no cast", () => {
+    // The blueprint routes hand queryAssetState's result straight to the mapper
+    // (blueprint-runtime.ts). A type check: tsc holds it, vitest only runs it.
+    expectTypeOf<Awaited<ReturnType<typeof queryAssetState>>>().toExtend<Parameters<typeof mapAssetState>[0]>();
+  });
+
   it("reads Google's rows into content keys the planner can match", () => {
     const live = mapAssetState({
       campaigns: [{ campaign: { resourceName: "customers/1/campaigns/2", name: "X", assetAutomationSettings: [{ assetAutomationType: "TEXT_ASSET_AUTOMATION", assetAutomationStatus: "OPTED_OUT" }] } }],
