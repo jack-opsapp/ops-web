@@ -175,6 +175,51 @@ function facts(
   };
 }
 
+describe("open conversation continuation boundary", () => {
+  it.each([
+    ["no contact", [candidate()], { contactEmail: null }],
+    [
+      "multiple open leads",
+      [candidate(), candidate({ id: "another-lead" })],
+      {},
+    ],
+    ["archived lead", [candidate({ archivedAt: "2026-06-01" })], {}],
+    ["won lead", [candidate({ stage: "won" })], {}],
+    ["lost lead", [candidate({ stage: "lost" })], {}],
+    [
+      "copied customer",
+      [candidate()],
+      {
+        contactEmail: "stranger@example.net",
+        participantEmails: ["john@example.com"],
+      },
+    ],
+    ["different address", [candidate()], { address: "123 Other Street" }],
+  ])(
+    "does not attach uncertain correspondence to %s",
+    (_label, candidates, overrides) => {
+      expect(
+        decideOpportunityRelationshipMatch({
+          candidates,
+          facts: facts({ ...overrides, activeContactOnly: true }),
+        }).action
+      ).toBe("create_new");
+    }
+  );
+
+  it("keeps explicit new work out of a completed customer's old lead", () => {
+    expect(
+      decideOpportunityRelationshipMatch({
+        candidates: [candidate({ stage: "won" })],
+        facts: facts({
+          newWorkRequested: true,
+          description: "Please quote a new deck for another customer.",
+        }),
+      }).action
+    ).toBe("create_new");
+  });
+});
+
 function opportunityRow(index: number, overrides: FixtureRow = {}): FixtureRow {
   return {
     id: `opp-${String(index).padStart(3, "0")}`,

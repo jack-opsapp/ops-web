@@ -118,6 +118,7 @@ import {
   type StaffAliasCandidate,
 } from "@/lib/email/email-ingestion-routing";
 import { resolveExternalIntakeEmailCorrelation } from "@/lib/external-api/intake/email-correlation-routing";
+import { resolveInboundReferralContact } from "@/lib/email/email-referral-contact";
 import { persistStaffEmailAliasCandidate } from "@/lib/email/staff-email-alias";
 import {
   logInvalidProviderEmailIds,
@@ -2035,8 +2036,9 @@ export function opportunityRelationshipFactsFromLeadEnrichment(
     description: facts.description ?? email.bodyText ?? email.snippet ?? null,
     subject: email.subject,
     providerThreadId: facts.providerThreadId,
-    participantEmails,
-    forwardedParticipantEmails,
+    participantEmails: facts.source === "referral" ? [] : participantEmails,
+    forwardedParticipantEmails:
+      facts.source === "referral" ? [] : forwardedParticipantEmails,
     sourcePlatform: facts.sourcePlatform,
     phaseCEnabled: false,
   };
@@ -3680,7 +3682,11 @@ function inboundRoutingIdentity(
     },
     ingestionOperator
   );
-  if (!forceMessageScopedTransport) return identity;
+  if (
+    !forceMessageScopedTransport &&
+    !resolveInboundReferralContact(email, ingestionOperator)
+  )
+    return identity;
   return {
     ...identity,
     sourceKey: `email:${connection.provider.trim().toLowerCase()}:${connection.id}:message:${email.id}`,
@@ -3690,6 +3696,25 @@ function inboundRoutingIdentity(
 }
 
 // ─── Inbound / Outbound Processors ─────────────────────────────────────────
+
+function applyReferralContactToFacts(
+  facts: LeadEnrichmentFacts,
+  email: NormalizedEmail,
+  operator: IngestionOperatorIdentity
+): void {
+  const referral = resolveInboundReferralContact(email, operator);
+  if (!referral) return;
+  facts.contactName = referral.name;
+  facts.contactEmail = referral.email;
+  // The introducer's signature and company are not the referred customer's facts.
+  facts.contactPhone = null;
+  facts.companyName = null;
+  facts.address = null;
+  facts.fieldEvidence = undefined;
+  facts.source = "referral";
+  facts.sourcePlatform = null;
+  facts.extractionSource = "referral_recipient";
+}
 
 interface UnmatchedInboundContext {
   customerContext?: EmailCustomerContext;
@@ -3783,8 +3808,23 @@ async function processInboundEmail(
           email.threadId
         )
       : preloadedExistingActivity;
-  if (isEmailWorkRoutingReceipt(existingActivity)) {
-    await recordActivityCorrespondenceEvent(email, connection, null, existingActivity?.id ?? null, "inbound");
+  const mayRecoverUnlinkedReview = Boolean(
+    recoveryActorUserId &&
+    existingActivity?.match_confidence === "work_intent_review" &&
+    !existingActivity.opportunity_id &&
+    !existingActivity.project_id
+  );
+  if (
+    isEmailWorkRoutingReceipt(existingActivity) &&
+    !mayRecoverUnlinkedReview
+  ) {
+    await recordActivityCorrespondenceEvent(
+      email,
+      connection,
+      null,
+      existingActivity?.id ?? null,
+      "inbound"
+    );
     return null;
   }
   if (
@@ -3846,6 +3886,11 @@ async function processInboundEmail(
       applyResolvedContactToFacts(
         existingEnrichmentFacts,
         existingResolvedContact
+      );
+      applyReferralContactToFacts(
+        existingEnrichmentFacts,
+        email,
+        ingestionOperator
       );
     } catch (err) {
       throw new Error(
@@ -3928,6 +3973,11 @@ async function processInboundEmail(
       contactFormSubmitter
     );
     applyResolvedContactToFacts(inboundEnrichmentFacts, resolvedInboundContact);
+    applyReferralContactToFacts(
+      inboundEnrichmentFacts,
+      email,
+      ingestionOperator
+    );
   } catch (err) {
     throw new Error(
       `[sync-engine] contact hygiene failed: ${err instanceof Error ? err.message : "unknown error"}`
@@ -4292,6 +4342,75 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         address: deterministicFacts.address ?? classified.address,
       });
       if (workRouting.action !== "sales") {
+        const continuation =
+          classified.workIntent === "uncertain" &&
+          workRouting.action === "review" &&
+          customerContext.projects.length === 0
+            ? await findOpportunityRelationshipMatch({
+                supabase: requireSupabase(),
+                companyId: input.connection.companyId,
+                connectionId: null,
+                providerThreadId: null,
+                facts: {
+                  ...opportunityRelationshipFactsFromLeadEnrichment(
+                    deterministicFacts,
+                    effectiveEmail,
+                    input.connection,
+                    input.profile,
+                    await getCachedOperatorIdentity(input.connection)
+                  ),
+                  participantEmails: [],
+                  forwardedParticipantEmails: [],
+                  activeContactOnly: true,
+                },
+              })
+            : null;
+        if (continuation?.action === "link") {
+          const linked =
+            !routingIdentity.mayInheritProviderThread ||
+            (await linkThread(
+              continuation.opportunityId,
+              classifiedEmail.threadId,
+              input.connection.id
+            ));
+          if (!linked) continue;
+          const activity = await createOrAdoptInboundActivity({
+            email: effectiveEmail,
+            connection: input.connection,
+            opportunityId: continuation.opportunityId,
+            extra: {
+              matchConfidence: continuation.confidence,
+              ...(!routingIdentity.mayInheritProviderThread
+                ? { skipThreadState: true }
+                : {}),
+            },
+            executionPolicy: input.executionPolicy,
+            existingOrphanActivity,
+            recoveryActorUserId: input.recoveryActorUserId,
+            syncLockOwner: input.syncLockOwner,
+            contactFormRecipient: contactFormSubmitter?.email ?? null,
+          });
+          if (!activity.persisted) continue;
+          await updateCorrespondenceCounts(
+            continuation.opportunityId,
+            effectiveEmail,
+            input.connection,
+            input.followUpDaysCache,
+            input.result
+          );
+          await applyLabel(
+            classifiedEmail.threadId,
+            classifiedEmail.id,
+            input.connection,
+            input.result,
+            input.providerLockCheckpoint,
+            input.syncLockOwner,
+            input.executionPolicy
+          );
+          if (activity.created) input.result.activitiesCreated++;
+          input.result.matched++;
+          continue;
+        }
         const created = await retainEmailWorkCorrespondence({
           email: effectiveEmail,
           connection: input.connection,
@@ -4341,13 +4460,16 @@ async function persistAIClassifiedUnmatchedInbound(input: {
           ? classifiedEmail.threadId
           : null,
         clientId: matchResult.clientId,
-        facts: opportunityRelationshipFactsFromLeadEnrichment(
-          deterministicFacts,
-          effectiveEmail,
-          input.connection,
-          input.profile,
-          await getCachedOperatorIdentity(input.connection)
-        ),
+        facts: {
+          ...opportunityRelationshipFactsFromLeadEnrichment(
+            deterministicFacts,
+            effectiveEmail,
+            input.connection,
+            input.profile,
+            await getCachedOperatorIdentity(input.connection)
+          ),
+          newWorkRequested: true,
+        },
       });
 
       // Bug 3799225e. A `review` verdict used to fall straight through to the

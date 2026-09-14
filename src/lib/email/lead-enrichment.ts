@@ -47,6 +47,7 @@ export interface LeadEnrichmentFacts {
   extractionSource:
     | "contact_form"
     | "inbound_sender"
+    | "referral_recipient"
     | "outbound_recipient"
     | "import_payload"
     | "historical_metadata"
@@ -378,6 +379,7 @@ function hasVerifiedContactNameEvidence(facts: LeadEnrichmentFacts): boolean {
   return (
     facts.extractionSource === "contact_form" ||
     facts.extractionSource === "inbound_sender" ||
+    facts.extractionSource === "referral_recipient" ||
     facts.extractionSource === "outbound_recipient"
   );
 }
@@ -530,6 +532,7 @@ export function provenanceSourceForFacts(
     case "contact_form":
       return "contact_form";
     case "inbound_sender":
+    case "referral_recipient":
       return "inbound";
     case "outbound_recipient":
       return "outbound";
