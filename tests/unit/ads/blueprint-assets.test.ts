@@ -5,6 +5,7 @@ import {
   EMPTY_ASSET_STATE,
   mapAssetState,
   planAssets,
+  type ImageLoader,
   type LiveAssetState,
 } from "@/lib/ads/blueprint-assets";
 import type { PlannedOperation } from "@/lib/ads/blueprint-planner";
@@ -51,7 +52,7 @@ function withImages(): Blueprint {
 }
 
 const kind = (op: PlannedOperation) => Object.keys(op.op)[0];
-const stubImage = vi.fn(() => "aGVsbG8=");
+const stubImage = vi.fn<ImageLoader>(() => "aGVsbG8=");
 
 /** Plays a plan into the live state the way Google would, so a re-plan can be checked. */
 function simulate(plan: PlannedOperation[], before: LiveAssetState): LiveAssetState {
