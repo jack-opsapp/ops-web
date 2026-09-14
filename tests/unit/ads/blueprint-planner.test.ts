@@ -187,6 +187,7 @@ describe("planBlueprint — idempotence", () => {
           status: "ENABLED",
           labels: [],
           finalUrl: "https://try.opsapp.co/job-management",
+          copyKind: "core",
         },
       ],
       keywords: [
@@ -372,7 +373,7 @@ describe("planBlueprint — refusals", () => {
         { resourceName: "customers/4454506598/campaigns/1", id: "1", name: "TEST · US", status: "PAUSED", labels: ["engine"], kind: "core", budgetResourceName: "customers/4454506598/campaignBudgets/9", dailyBudget: 12, biddingStrategy: "MAXIMIZE_CLICKS", cpcCeiling: 9, targetCpa: null },
       ],
       adGroups: [
-        { resourceName: "customers/4454506598/adGroups/2", id: "2", name: "Group", campaignResourceName: "customers/4454506598/campaigns/1", status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/job-management" },
+        { resourceName: "customers/4454506598/adGroups/2", id: "2", name: "Group", campaignResourceName: "customers/4454506598/campaigns/1", status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/job-management", copyKind: "core" },
       ],
       ads: [
         { resourceName: "customers/4454506598/adGroupAds/2~7", id: "7", adGroupResourceName: "customers/4454506598/adGroups/2", status, labels: ["engine", "role-challenger"], role: "challenger", approvalStatus: "APPROVED", reviewStatus: "REVIEWED", finalUrls: ["https://try.opsapp.co/job-management"], headlines: [{ text: "The live challenger" }], descriptions: [{ text: "Fixture description." }], path1: null, path2: null },
@@ -402,6 +403,37 @@ describe("planBlueprint — refusals", () => {
 
     it("is not stopped by a paused challenger beside the group", () => {
       expect(() => planBlueprint(withAds([ad("challenger", "A new challenger")]), running("PAUSED"))).not.toThrow();
+    });
+  });
+
+  describe("competitor copy runs only where the page compares", () => {
+    const codeOf = (build: () => unknown): string | null => {
+      try {
+        build();
+        return null;
+      } catch (error) {
+        return error instanceof BlueprintError ? error.code : String(error);
+      }
+    };
+    const withGroup = (kind: "brand" | "core" | "competitor", group: Record<string, unknown>) =>
+      minimal({
+        campaigns: [{ ...minimal().campaigns[0], kind, adGroups: [{ ...minimal().campaigns[0].adGroups[0], ...group }] }],
+      });
+
+    it("refuses a group that claims competitor copy off a compare page", () => {
+      expect(codeOf(() => withGroup("core", { copyKind: "competitor" }))).toBe("COMPETITOR_COPY_WITHOUT_COMPARE_PAGE");
+    });
+
+    it("refuses a competitor campaign's group that inherits competitor copy off a compare page", () => {
+      // The engine judges such a group as core, so the file must never describe one.
+      expect(codeOf(() => withGroup("competitor", {}))).toBe("COMPETITOR_COPY_WITHOUT_COMPARE_PAGE");
+    });
+
+    it("accepts competitor copy, claimed or inherited, on a compare page, and a core group anywhere", () => {
+      const compare = "https://try.opsapp.co/compare/jobber";
+      expect(codeOf(() => withGroup("core", { copyKind: "competitor", finalUrl: compare }))).toBeNull();
+      expect(codeOf(() => withGroup("competitor", { finalUrl: compare }))).toBeNull();
+      expect(codeOf(() => withGroup("competitor", { copyKind: "core" }))).toBeNull();
     });
   });
 

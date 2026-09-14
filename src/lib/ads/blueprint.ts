@@ -15,7 +15,7 @@
  */
 import { z } from "zod";
 import blueprintJson from "../../../config/ads/blueprint.json";
-import type { RsaCandidate } from "./copy-rules";
+import { isComparePage, type CopyKind, type RsaCandidate } from "./copy-rules";
 
 /** Google's match types for the keywords we are allowed to buy. */
 export const PositiveMatchType = z.enum(["EXACT", "PHRASE"]);
@@ -77,9 +77,11 @@ export const AdGroupSchema = z
      * Which copy rules this group's ads answer to, when they differ from the
      * campaign's. Intent lives at the ad group, not the campaign: `CORE · CA`
      * is a core campaign, but its `Switching` group bids on competitor terms
-     * and lands on a compare page, so its ads may name the competitor. Only
-     * allowed on a group whose landing page is a `/compare/` page — see
-     * `assertBlueprintCoherent`.
+     * and lands on a compare page, so its ads may name the competitor. The
+     * engine reads this too (`engine/copy-kinds.ts`), so a challenger it writes
+     * answers to the same rules as the ads built here. Competitor copy, claimed
+     * here or inherited from a competitor campaign, is only allowed on a group
+     * whose landing page is a `/compare/` page — see `assertBlueprintCoherent`.
      */
     copyKind: z.enum(["brand", "core", "competitor"]).optional(),
     keywords: z.array(KeywordSchema).min(1),
@@ -333,8 +335,9 @@ export class BlueprintError extends Error {
  * Structural checks zod cannot express: names are unique, every referenced
  * negative list exists, Maximize Clicks always carries a ceiling — an
  * uncapped Maximize Clicks campaign is how a $50/day account spends $50 on
- * four clicks — and a group holds at most one control and one challenger,
- * because a test judges exactly one against the other.
+ * four clicks — a group holds at most one control and one challenger,
+ * because a test judges exactly one against the other, and a group whose ads
+ * may name a competitor lands on a page that compares.
  */
 export function assertBlueprintCoherent(blueprint: Blueprint): void {
   const listNames = new Set(blueprint.sharedNegativeLists.map((l) => l.name));
@@ -374,13 +377,15 @@ export function assertBlueprintCoherent(blueprint: Blueprint): void {
             "DUPLICATE_AD_ROLE",
             `"${campaign.name}" › "${group.name}" has two ${role} ads. A group tests one challenger against one control.`
           );
+      // Claimed or inherited: the engine judges a competitor group off a
+      // compare page as core, so the file may not describe one.
       if (
-        group.copyKind === "competitor" &&
-        !new URL(group.finalUrl).pathname.startsWith("/compare/")
+        copyKindFor(campaign, group) === "competitor" &&
+        !isComparePage(group.finalUrl)
       )
         throw new BlueprintError(
           "COMPETITOR_COPY_WITHOUT_COMPARE_PAGE",
-          `"${campaign.name}" › "${group.name}" claims competitor copy but lands on ${group.finalUrl}. A competitor name may only run where the page actually compares.`
+          `"${campaign.name}" › "${group.name}" answers to competitor copy but lands on ${group.finalUrl}. A competitor name may only run where the page actually compares.`
         );
     }
   }
@@ -404,9 +409,9 @@ export function assertImagesKnown(blueprint: Blueprint): void {
 
 /** Which copy rules an ad group's ads answer to. */
 export function copyKindFor(
-  campaign: BlueprintCampaign,
-  group: BlueprintAdGroup
-): "brand" | "core" | "competitor" {
+  campaign: Pick<BlueprintCampaign, "kind">,
+  group: Pick<BlueprintAdGroup, "copyKind">
+): CopyKind {
   return group.copyKind ?? campaign.kind;
 }
 

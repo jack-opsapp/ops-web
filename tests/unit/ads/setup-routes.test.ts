@@ -115,6 +115,7 @@ function accountWith(options: {
         status: "ENABLED",
         labels: [],
         finalUrl: "https://try.opsapp.co/compare/jobber",
+        copyKind: "competitor",
       },
     ],
     ads,

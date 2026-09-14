@@ -36,7 +36,7 @@ export interface EngineRunRecord {
 
 export type EngineValidationInputs = Pick<
   ValidationContext,
-  "settings" | "snapshot" | "metrics28d" | "tests" | "ledger" | "openProposals" | "funnel" | "guardrailPauses"
+  "settings" | "snapshot" | "metrics28d" | "tests" | "ledger" | "openProposals" | "funnel" | "guardrailPauses" | "blueprint"
 >;
 
 export interface EngineHandoffRepository {

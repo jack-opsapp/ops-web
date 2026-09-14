@@ -5,9 +5,9 @@
  * engine (every challenger the routine proposes). The rules are the OPS voice
  * as hard constraints: lengths Google enforces, the brand-facts allowlist for
  * every number, the copywriter brief's banned words, no shouting, no
- * exclamation, competitor names only in the sanctioned forms and only in the
- * competitor campaign, and a pin plan of two or three headlines on position
- * one and nothing else pinned.
+ * exclamation, competitor names only in the sanctioned forms and only in an ad
+ * group that answers to competitor copy on a compare page, and a pin plan of
+ * two or three headlines on position one and nothing else pinned.
  */
 import brandFacts from "../../../config/ads/brand-facts.json";
 
@@ -34,9 +34,29 @@ export interface RsaCandidate {
   finalUrl: string;
 }
 
+/**
+ * Which copy rules an ad answers to. Only `competitor` changes anything today:
+ * it is the one kind that may name a competitor.
+ */
+export type CopyKind = "brand" | "core" | "competitor";
+
 export interface CopyContext {
-  campaignKind: "brand" | "core" | "competitor";
+  campaignKind: CopyKind;
   allowedFinalUrls: string[];
+}
+
+/**
+ * A competitor name may only run where the page actually compares: a page
+ * under `/compare/`. The blueprint holds every competitor group to it, and the
+ * engine judges every ad it writes by it.
+ */
+export function isComparePage(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    return new URL(url).pathname.startsWith("/compare/");
+  } catch {
+    return false;
+  }
 }
 
 export type CopyIssueCode =
@@ -212,7 +232,7 @@ function checkTrademarks(
       issues.push({
         code: "TRADEMARK_CAMPAIGN",
         field,
-        message: `"${brand}" may only appear in the competitor campaign.`,
+        message: `"${brand}" runs only in a competitor ad group that lands on a compare page. This group runs ${ctx.campaignKind} copy.`,
       });
       continue;
     }

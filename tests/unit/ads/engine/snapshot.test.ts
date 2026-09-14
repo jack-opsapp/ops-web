@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { mapEntitySnapshot, campaignKindOf, type EntityRow } from "@/lib/ads/engine/snapshot";
+import type { BlueprintKinds } from "@/lib/ads/engine/copy-kinds";
+import { mapEntitySnapshot, type EntityRow } from "@/lib/ads/engine/snapshot";
 
 const C = "customers/4454506598";
+
+/** What the blueprint declares about the fixture account. */
+const BLUEPRINT: BlueprintKinds = {
+  campaigns: [
+    { name: "CORE · CA", kind: "core", adGroups: [{ name: "Job management" }, { name: "Switching", copyKind: "competitor" }] },
+    { name: "PRICING · US", kind: "competitor", adGroups: [{ name: "Jobber pricing" }] },
+  ],
+};
 
 // Rows as the phase 1 sync writes them: one per Google resource, payload = the
 // camelCase resource JSON from searchStream, labels resolved to names.
@@ -39,13 +48,13 @@ describe("mapEntitySnapshot", () => {
           }
         : row
     );
-    const campaign = mapEntitySnapshot(live).campaigns.find((c) => c.id === "11")!;
+    const campaign = mapEntitySnapshot(live, BLUEPRINT).campaigns.find((c) => c.id === "11")!;
     expect(campaign.biddingStrategy).toBe("MAXIMIZE_CLICKS");
     expect(campaign.cpcCeiling).toBe(9);
   });
 
   it("normalises campaigns with their budget, bidding and kind", () => {
-    const snapshot = mapEntitySnapshot(rows());
+    const snapshot = mapEntitySnapshot(rows(), BLUEPRINT);
     expect(snapshot.snapshotAt).toBe("2026-10-20T08:10:00.000Z");
     const core = snapshot.campaigns.find((c) => c.id === "11")!;
     expect(core).toMatchObject({
@@ -71,7 +80,7 @@ describe("mapEntitySnapshot", () => {
   });
 
   it("resolves ad roles from labels and lifts RSA assets, pins and paths", () => {
-    const snapshot = mapEntitySnapshot(rows());
+    const snapshot = mapEntitySnapshot(rows(), BLUEPRINT);
     const ad = snapshot.ads[0];
     expect(ad).toMatchObject({
       resourceName: `${C}/adGroupAds/21~201`,
@@ -91,7 +100,7 @@ describe("mapEntitySnapshot", () => {
   });
 
   it("separates keywords, campaign negatives and shared negative lists with their attachments", () => {
-    const snapshot = mapEntitySnapshot(rows());
+    const snapshot = mapEntitySnapshot(rows(), BLUEPRINT);
     expect(snapshot.keywords).toEqual([
       {
         resourceName: `${C}/adGroupCriteria/21~101`,
@@ -121,16 +130,58 @@ describe("mapEntitySnapshot", () => {
 
   it("infers the entity type from the resource name when the stored type is unfamiliar", () => {
     const [budget] = mapEntitySnapshot(
-      rows().map((row) => ({ ...row, entity_type: "unknown" }))
+      rows().map((row) => ({ ...row, entity_type: "unknown" })),
+      BLUEPRINT
     ).campaigns.map((c) => c.dailyBudget);
     expect(budget).toBe(32);
   });
 
-  it("classifies campaign kinds by label first, then by name", () => {
-    expect(campaignKindOf("BRAND · CA", ["engine"])).toBe("brand");
-    expect(campaignKindOf("Core · CA", ["engine"])).toBe("core");
-    expect(campaignKindOf("COMPETITOR · CA", [])).toBe("competitor");
-    expect(campaignKindOf("BRAND · CA", ["legacy"])).toBe("legacy");
-    expect(campaignKindOf("Search - Bubble 2024", [])).toBe("other");
+  describe("campaign kinds and copy rules come from the blueprint, never from a name", () => {
+    const at = "2026-10-20T08:10:00.000Z";
+    // A competitor-intent campaign with no COMPETITOR prefix, and a core
+    // campaign's group that bids on competitor terms and lands on a compare page.
+    const account = (): EntityRow[] => [
+      ...rows(),
+      { resource_name: `${C}/campaigns/12`, entity_type: "campaign", parent_resource_name: null, name: "PRICING · US", status: "PAUSED", payload: { id: "12", name: "PRICING · US", status: "PAUSED", biddingStrategyType: "TARGET_SPEND" }, labels: ["engine"], snapshot_at: at },
+      { resource_name: `${C}/adGroups/31`, entity_type: "ad_group", parent_resource_name: `${C}/campaigns/12`, name: "Jobber pricing", status: "ENABLED", payload: { id: "31", name: "Jobber pricing", status: "ENABLED", campaign: `${C}/campaigns/12` }, labels: [], snapshot_at: at },
+      { resource_name: `${C}/adGroupAds/31~301`, entity_type: "ad_group_ad", parent_resource_name: `${C}/adGroups/31`, name: null, status: "ENABLED", payload: { adGroup: `${C}/adGroups/31`, status: "ENABLED", ad: { id: "301", finalUrls: ["https://try.opsapp.co/compare/jobber"] } }, labels: ["engine", "role-control"], snapshot_at: at },
+      { resource_name: `${C}/adGroups/22`, entity_type: "ad_group", parent_resource_name: `${C}/campaigns/11`, name: "Switching", status: "ENABLED", payload: { id: "22", name: "Switching", status: "ENABLED", campaign: `${C}/campaigns/11` }, labels: [], snapshot_at: at },
+      { resource_name: `${C}/adGroupAds/22~221`, entity_type: "ad_group_ad", parent_resource_name: `${C}/adGroups/22`, name: null, status: "ENABLED", payload: { adGroup: `${C}/adGroups/22`, status: "ENABLED", ad: { id: "221", finalUrls: ["https://try.opsapp.co/compare/jobber"] } }, labels: ["engine", "role-control"], snapshot_at: at },
+      // Named like the old spec's competitor campaign, declared nowhere.
+      { resource_name: `${C}/campaigns/13`, entity_type: "campaign", parent_resource_name: null, name: "COMPETITOR · CA", status: "PAUSED", payload: { id: "13", name: "COMPETITOR · CA", status: "PAUSED" }, labels: ["engine"], snapshot_at: at },
+      { resource_name: `${C}/adGroups/33`, entity_type: "ad_group", parent_resource_name: `${C}/campaigns/13`, name: "Jobber alternative", status: "ENABLED", payload: { id: "33", name: "Jobber alternative", status: "ENABLED", campaign: `${C}/campaigns/13` }, labels: [], snapshot_at: at },
+      { resource_name: `${C}/adGroupAds/33~331`, entity_type: "ad_group_ad", parent_resource_name: `${C}/adGroups/33`, name: null, status: "ENABLED", payload: { adGroup: `${C}/adGroups/33`, status: "ENABLED", ad: { id: "331", finalUrls: ["https://try.opsapp.co/compare/jobber"] } }, labels: ["engine", "role-control"], snapshot_at: at },
+    ];
+    const kinds = (blueprint: BlueprintKinds | null) => {
+      const snapshot = mapEntitySnapshot(account(), blueprint);
+      return {
+        campaigns: Object.fromEntries(snapshot.campaigns.map((c) => [c.name, c.kind])),
+        adGroups: Object.fromEntries(snapshot.adGroups.map((g) => [g.name, g.copyKind])),
+      };
+    };
+
+    it("reads each campaign's kind and each ad group's copy rules from the blueprint", () => {
+      expect(kinds(BLUEPRINT)).toEqual({
+        campaigns: { "CORE · CA": "core", "Old Search 2025": "legacy", "PRICING · US": "competitor", "COMPETITOR · CA": "other" },
+        adGroups: { "Job management": "core", "Jobber pricing": "competitor", Switching: "competitor", "Jobber alternative": "core" },
+      });
+    });
+
+    it("grants nothing when the blueprint cannot be read: no kind, core copy everywhere, legacy still legacy", () => {
+      expect(kinds(null)).toEqual({
+        campaigns: { "CORE · CA": "other", "Old Search 2025": "legacy", "PRICING · US": "other", "COMPETITOR · CA": "other" },
+        adGroups: { "Job management": "core", "Jobber pricing": "core", Switching: "core", "Jobber alternative": "core" },
+      });
+    });
+
+    it("judges a group's copy on the page its ads actually land on", () => {
+      const moved = account().map((row) =>
+        row.resource_name === `${C}/adGroupAds/22~221`
+          ? { ...row, payload: { ...(row.payload as Record<string, unknown>), ad: { id: "221", finalUrls: ["https://try.opsapp.co/job-management"] } } }
+          : row
+      );
+      const switching = mapEntitySnapshot(moved, BLUEPRINT).adGroups.find((g) => g.name === "Switching")!;
+      expect(switching).toMatchObject({ finalUrl: "https://try.opsapp.co/job-management", copyKind: "core" });
+    });
   });
 });

@@ -9,14 +9,13 @@
 import {
   validateRsa,
   isAllowedFinalUrl,
-  type CopyContext,
+  type CopyKind,
   type RsaCandidate,
 } from "../copy-rules";
 import {
   STRUCTURAL_KINDS,
   changeWithinLimit,
   cooldownSatisfied,
-  copyKindOf,
   dailyBudgetSum,
   hash8,
   ladderNextRung,
@@ -28,6 +27,7 @@ import {
   slug,
   themeStems,
 } from "./guardrails";
+import { adGroupCopyKindOf, copyKindOnPage } from "./copy-kinds";
 import { challengerInPlace } from "./disapprovals";
 import { envelopeSchema, issuesOf, payloadSchemas, type PayloadFor, type RsaPayload } from "./proposal-schemas";
 import type {
@@ -110,10 +110,6 @@ class Lookup {
   }
 }
 
-function copyContext(campaign: SnapshotCampaign, finalUrl: string): CopyContext {
-  return { campaignKind: copyKindOf(campaign.kind), allowedFinalUrls: [finalUrl] };
-}
-
 function toCandidate(rsa: RsaPayload): RsaCandidate {
   return {
     headlines: rsa.headlines,
@@ -124,8 +120,9 @@ function toCandidate(rsa: RsaPayload): RsaCandidate {
   };
 }
 
-function copyRejected(rsa: RsaPayload, campaign: SnapshotCampaign, finalUrl: string, prefix = ""): Fail | null {
-  const issues = validateRsa(toCandidate(rsa), copyContext(campaign, finalUrl));
+/** Every copy rule, under the rules the ad's group answers to, on the page it lands on. */
+function copyRejected(rsa: RsaPayload, copyKind: CopyKind, finalUrl: string, prefix = ""): Fail | null {
+  const issues = validateRsa(toCandidate(rsa), { campaignKind: copyKind, allowedFinalUrls: [finalUrl] });
   if (issues.length === 0) return null;
   return {
     ok: false,
@@ -271,7 +268,9 @@ function createChallenger(p: PayloadFor<"create_rsa_challenger">, ctx: Validatio
   const landing = owner.adGroup.finalUrl ?? control.finalUrls[0] ?? null;
   if (!landing || !sameUrl(p.final_url, landing) || !isAllowedFinalUrl(landing, ctx.allowedFinalUrls))
     return fail("URL_NOT_ALLOWED", "payload.final_url", `A challenger lands on its ad group's page: ${landing ?? "unknown"}.`);
-  const copy = copyRejected(p, owner.campaign, landing);
+  // The group's rules, held again to the page this challenger lands on.
+  const copyKind = copyKindOnPage(owner.adGroup.copyKind, landing);
+  const copy = copyRejected(p, copyKind, landing);
   if (copy) return copy;
   const { ad_group: _adGroup, hypothesis, ...rsa } = p;
   void _adGroup;
@@ -285,6 +284,7 @@ function createChallenger(p: PayloadFor<"create_rsa_challenger">, ctx: Validatio
       campaignId: owner.campaign.id,
       campaignName: owner.campaign.name,
       campaignKind: owner.campaign.kind,
+      copyKind,
       controlAd: control.resourceName,
       controlAdId: control.id,
       hypothesis,
@@ -445,10 +445,12 @@ function addAdGroup(p: PayloadFor<"add_ad_group">, ctx: ValidationContext, look:
     if (term.matchType === "BROAD")
       return fail("BROAD_MATCH_REJECTED", `payload.keywords[${index}]`, "No broad match. Use PHRASE or EXACT.");
   }
+  // The rules the snapshot will give this group once it exists.
+  const copyKind = adGroupCopyKindOf({ blueprint: ctx.blueprint, campaign, adGroupName: p.name.trim(), landingUrl: p.final_url });
   for (const [index, ad] of p.ads.entries()) {
     if (!sameUrl(ad.final_url, p.final_url))
       return fail("URL_NOT_ALLOWED", `payload.ads[${index}].final_url`, "Every ad lands on the ad group's page.");
-    const copy = copyRejected(ad, campaign, p.final_url, `payload.ads[${index}]`);
+    const copy = copyRejected(ad, copyKind, p.final_url, `payload.ads[${index}]`);
     if (copy) return copy;
   }
   return {
@@ -458,6 +460,7 @@ function addAdGroup(p: PayloadFor<"add_ad_group">, ctx: ValidationContext, look:
       campaignId: campaign.id,
       campaignName: campaign.name,
       campaignKind: campaign.kind,
+      copyKind,
       name: p.name.trim(),
       theme: p.theme.trim(),
       final_url: p.final_url,

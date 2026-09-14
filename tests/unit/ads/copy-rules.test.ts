@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BRAND_FACTS,
+  isComparePage,
   validateRsa,
   type CopyContext,
   type CopyIssueCode,
@@ -188,6 +189,15 @@ describe("validateRsa", () => {
     expect(codes(candidate, core)).toContain("TRADEMARK_CAMPAIGN");
   });
 
+  it("TRADEMARK_CAMPAIGN tells the writer where the name may run: a competitor ad group, on a compare page", () => {
+    const candidate = good();
+    candidate.headlines[2] = { text: "Jobber alternative" };
+    const issue = validateRsa(candidate, core).find((entry) => entry.code === "TRADEMARK_CAMPAIGN");
+    expect(issue?.message).toBe(
+      `"Jobber" runs only in a competitor ad group that lands on a compare page. This group runs core copy.`
+    );
+  });
+
   it("TRADEMARK_FORM allows only the sanctioned forms in the competitor campaign", () => {
     const candidate = good({
       finalUrl: "https://try.opsapp.co/compare/jobber",
@@ -237,5 +247,21 @@ describe("validateRsa", () => {
       expect.arrayContaining(["headlines[2]"])
     );
     for (const issue of issues) expect(issue.message.length).toBeGreaterThan(8);
+  });
+});
+
+describe("isComparePage", () => {
+  it("is a page under /compare/, where a competitor name has something to stand next to", () => {
+    expect(isComparePage("https://try.opsapp.co/compare/jobber")).toBe(true);
+    expect(isComparePage("https://try.opsapp.co/compare/housecall-pro?gclid=x")).toBe(true);
+  });
+
+  it("is nothing else: the category page, the home page, a lookalike path, a missing or broken URL", () => {
+    expect(isComparePage("https://try.opsapp.co/job-management")).toBe(false);
+    expect(isComparePage("https://try.opsapp.co/")).toBe(false);
+    expect(isComparePage("https://try.opsapp.co/compare")).toBe(false);
+    expect(isComparePage("https://try.opsapp.co/for/compare/jobber")).toBe(false);
+    expect(isComparePage(null)).toBe(false);
+    expect(isComparePage("compare/jobber")).toBe(false);
   });
 });

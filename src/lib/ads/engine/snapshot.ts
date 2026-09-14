@@ -7,10 +7,14 @@
  * contract is Google's resource shape, so the mapper reads the resource
  * fields directly and infers the entity type from the resource name — never
  * from a storage convention that might drift.
+ *
+ * What a campaign is and which copy rules a group answers to are OPS's call,
+ * not Google's: they come from the blueprint (`copy-kinds.ts`), which every
+ * caller must pass — or pass null and get the narrowest answer.
  */
+import { adGroupCopyKindOf, campaignKindOf, type BlueprintKinds } from "./copy-kinds";
 import type {
   BiddingStrategy,
-  CampaignKind,
   EntitySnapshot,
   EntityStatus,
   MatchType,
@@ -150,17 +154,7 @@ function assetsOf(value: unknown): RsaAsset[] {
   return assets;
 }
 
-/** Legacy label wins; otherwise the blueprint's name prefixes; otherwise other. */
-export function campaignKindOf(name: string, labels: string[]): CampaignKind {
-  if (labels.includes("legacy")) return "legacy";
-  const upper = name.trim().toUpperCase();
-  if (upper.startsWith("BRAND")) return "brand";
-  if (upper.startsWith("CORE")) return "core";
-  if (upper.startsWith("COMPETITOR")) return "competitor";
-  return "other";
-}
-
-export function mapEntitySnapshot(rows: EntityRow[]): EntitySnapshot {
+export function mapEntitySnapshot(rows: EntityRow[], blueprint: BlueprintKinds | null): EntitySnapshot {
   const labelNames = new Map<string, string>();
   const labels: SnapshotLabel[] = [];
   for (const row of rows) {
@@ -224,7 +218,7 @@ export function mapEntitySnapshot(rows: EntityRow[]): EntitySnapshot {
           name,
           status: statusOf(resource.status ?? row.status),
           labels: campaignLabels,
-          kind: campaignKindOf(name, campaignLabels),
+          kind: campaignKindOf(name, campaignLabels, blueprint),
           budgetResourceName,
           dailyBudget: budgetResourceName ? (budgets.get(budgetResourceName) ?? null) : null,
           biddingStrategy: strategy,
@@ -242,6 +236,8 @@ export function mapEntitySnapshot(rows: EntityRow[]): EntitySnapshot {
           status: statusOf(resource.status ?? row.status),
           labels: resolveLabels(row, resource),
           finalUrl: null,
+          // Resolved below, once the landing page is known.
+          copyKind: "core",
         });
         break;
       case "ad": {
@@ -333,10 +329,19 @@ export function mapEntitySnapshot(rows: EntityRow[]): EntitySnapshot {
   }
 
   // An ad group's landing page is what its ads point at; enabled ads first.
+  // Its copy rules are judged on that page.
+  const campaignsByResource = new Map(campaigns.map((campaign) => [campaign.resourceName, campaign]));
   for (const adGroup of adGroups) {
     const own = ads.filter((ad) => ad.adGroupResourceName === adGroup.resourceName);
     const preferred = own.find((ad) => ad.status === "ENABLED" && ad.finalUrls.length > 0) ?? own.find((ad) => ad.finalUrls.length > 0);
     adGroup.finalUrl = preferred?.finalUrls[0] ?? null;
+    const campaign = campaignsByResource.get(adGroup.campaignResourceName);
+    adGroup.copyKind = adGroupCopyKindOf({
+      blueprint,
+      campaign: campaign ?? { name: "", kind: "other" },
+      adGroupName: adGroup.name,
+      landingUrl: adGroup.finalUrl,
+    });
   }
 
   return {

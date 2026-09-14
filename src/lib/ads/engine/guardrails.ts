@@ -7,7 +7,6 @@
 import { createHash } from "node:crypto";
 import type {
   BiddingStrategy,
-  CampaignKind,
   ChangeRecord,
   FunnelSignals,
   KeywordMetric,
@@ -225,9 +224,4 @@ export function slug(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 60);
-}
-
-/** The copy-rules campaign kind; anything not brand or competitor is core. */
-export function copyKindOf(kind: CampaignKind): "brand" | "core" | "competitor" {
-  return kind === "brand" || kind === "competitor" ? kind : "core";
 }

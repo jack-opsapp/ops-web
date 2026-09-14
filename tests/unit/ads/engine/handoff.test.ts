@@ -6,6 +6,7 @@ import {
   type EngineRunRecord,
 } from "@/lib/ads/engine/handoff";
 import { ADS_BRIEF_VERSION, BriefUnavailableError, type Brief } from "@/lib/ads/engine/brief";
+import type { BlueprintKinds } from "@/lib/ads/engine/copy-kinds";
 import type { NormalizedProposal } from "@/lib/ads/engine/types";
 import { ALLOWED_URLS, context, R, settings } from "./fixtures";
 
@@ -90,7 +91,7 @@ interface Rig {
   briefs: number;
 }
 
-function rig(options: { brief?: () => Promise<Brief>; initial?: Partial<EngineRunRecord> } = {}): Rig {
+function rig(options: { brief?: () => Promise<Brief>; initial?: Partial<EngineRunRecord>; blueprint?: BlueprintKinds | null } = {}): Rig {
   let stored: EngineRunRecord | null = options.initial === undefined ? null : run(options.initial);
   const accepted: Rig["accepted"] = [];
   const submissions: Rig["submissions"] = [];
@@ -158,6 +159,7 @@ function rig(options: { brief?: () => Promise<Brief>; initial?: Partial<EngineRu
         })),
         funnel: ctx.funnel,
         guardrailPauses: ctx.guardrailPauses,
+        blueprint: "blueprint" in options ? (options.blueprint ?? null) : ctx.blueprint,
       };
     },
     structuralAcceptedInRun: async () => accepted.filter((a) => a.normalized.structural).length,
@@ -442,6 +444,53 @@ describe("proposals", () => {
     });
     expect(r.accepted).toHaveLength(0);
     expect(r.releases).toHaveLength(0);
+  });
+
+  it("judges a new ad group's copy by the blueprint the repository read, and grants nothing without one", async () => {
+    const jobber = "https://try.opsapp.co/compare/jobber";
+    const ad = {
+      headlines: [
+        { text: "Switching from Jobber?", pinnedField: "HEADLINE_1" },
+        { text: "Every crew knows where to be", pinnedField: "HEADLINE_1" },
+        { text: "No training required" },
+        { text: "Built by trades, for trades" },
+        { text: "Every feature, every tier" },
+        { text: "Free to start" },
+        { text: "Works offline in the field" },
+        { text: "Dispatch from the truck" },
+      ],
+      descriptions: [
+        { text: "One app your crew will actually use. No manual, no training." },
+        { text: "Free to start. No credit card. Every feature on every tier." },
+        { text: "Schedule jobs, track the crew and send invoices from the truck." },
+      ],
+      final_url: jobber,
+    };
+    const proposal = {
+      kind: "add_ad_group",
+      rationale: "Jobber switchers land on the compare page.",
+      evidence: [],
+      payload: {
+        campaign: R.competitor,
+        name: "Jobber switch",
+        theme: "jobber",
+        final_url: jobber,
+        keywords: [
+          { text: "jobber alternative app", matchType: "PHRASE" },
+          { text: "switch from jobber", matchType: "PHRASE" },
+          { text: "jobber replacement", matchType: "EXACT" },
+        ],
+        ads: [ad],
+      },
+    };
+    const declared = rig({ initial: {} });
+    const accepted = await (await declared.handlers.proposals(post("/proposals", { claim_token: CLAIM, proposals: [proposal] }), RUN_ID)).json();
+    expect(accepted.results[0]).toMatchObject({ accepted: true, kind: "add_ad_group" });
+    expect(declared.accepted[0].normalized.payload).toMatchObject({ campaignKind: "competitor", copyKind: "competitor" });
+
+    const unreadable = rig({ initial: {}, blueprint: null });
+    const refused = await (await unreadable.handlers.proposals(post("/proposals", { claim_token: CLAIM, proposals: [proposal] }), RUN_ID)).json();
+    expect(refused.results[0]).toMatchObject({ accepted: false, code: "COPY_REJECTED", issues: expect.arrayContaining([expect.objectContaining({ code: "TRADEMARK_CAMPAIGN" })]) });
   });
 
   it("honours the routine's own index and exhausts it on the fourth submission", async () => {

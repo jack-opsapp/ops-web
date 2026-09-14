@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadBlueprint } from "@/lib/ads/blueprint";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { AdminChangeRow, AdminProposalRow, AdminRunRow, EngineAdminRepository, EngineSettingsPatch, EngineSettingsRow } from "./admin";
 import type { ApplyProposalRecord, ApplyRepository, NewChange, NewTest } from "./apply";
@@ -10,6 +11,7 @@ import type { EngineAdDecision, GuardrailPause } from "./disapprovals";
 import { STRUCTURAL_KINDS } from "./guardrails";
 import type { EngineHandoffRepository, EngineRunRecord, EngineValidationInputs } from "./handoff";
 import { aggregateMetrics, historyStart, metricWindows, type DailyRows, type DateWindow } from "./metrics";
+import { blueprintKindsFrom, type BlueprintKinds } from "./copy-kinds";
 import { mapEntitySnapshot, type EntityRow } from "./snapshot";
 import { refreshEntitySnapshot } from "./snapshot-refresh";
 import type { ArmStats } from "./stats";
@@ -175,8 +177,14 @@ function decisionOf(row: Record<string, unknown>): EngineAdDecision {
   };
 }
 
-export function createEngineRepository(client?: SupabaseClient): EngineRepository {
+export interface EngineRepositoryOptions {
+  /** What says each campaign's kind and each ad group's copy rules; the committed blueprint by default. */
+  loadBlueprint?: () => BlueprintKinds;
+}
+
+export function createEngineRepository(client?: SupabaseClient, options: EngineRepositoryOptions = {}): EngineRepository {
   const db = client ?? getServiceRoleClient();
+  const readBlueprint = (): BlueprintKinds | null => blueprintKindsFrom(options.loadBlueprint ?? loadBlueprint);
 
   async function readSettings(): Promise<EngineSettings> {
     const { data, error } = await db.from("ads_engine_settings").select("*").eq("id", true).single();
@@ -184,7 +192,7 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
     return settingsOf(data as Record<string, unknown>);
   }
 
-  async function readSnapshot(): Promise<EntitySnapshot> {
+  async function readSnapshot(blueprint: BlueprintKinds | null = readBlueprint()): Promise<EntitySnapshot> {
     const rows = await readAll<EntityRow>((from, to) =>
       db
         .from("ads_entities")
@@ -192,7 +200,7 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
         .order("resource_name")
         .range(from, to)
     );
-    return mapEntitySnapshot(rows);
+    return mapEntitySnapshot(rows, blueprint);
   }
 
   async function readMetrics(window: DateWindow, snapshot: EntitySnapshot): Promise<MetricsWindow> {
@@ -356,7 +364,8 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
 
   return {
     readSettings,
-    readSnapshot,
+    // Never handed an argument from outside: the blueprint is the repository's to read.
+    readSnapshot: () => readSnapshot(),
     readMetrics,
     readTests,
     readLedger,
@@ -416,7 +425,10 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
     },
     async validationContext(): Promise<EngineValidationInputs> {
       const now = new Date();
-      const [settings, snapshot] = await Promise.all([readSettings(), readSnapshot()]);
+      // One read of the blueprint: the snapshot's kinds and the validator's
+      // rules for a new ad group must come from the same file.
+      const blueprint = readBlueprint();
+      const [settings, snapshot] = await Promise.all([readSettings(), readSnapshot(blueprint)]);
       const [metrics28d, tests, ledger, open, funnel, guardrailPauses] = await Promise.all([
         readMetrics(metricWindows(now).metrics28d, snapshot),
         readTests(),
@@ -425,7 +437,7 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
         readFunnel(now),
         readOpenPauses(),
       ]);
-      return { settings, snapshot, metrics28d, tests, ledger, openProposals: open, funnel, guardrailPauses };
+      return { settings, snapshot, metrics28d, tests, ledger, openProposals: open, funnel, guardrailPauses, blueprint };
     },
     async structuralAcceptedInRun(runId) {
       const { data, error } = await db.from("ads_proposals").select("kind").eq("run_id", runId);
