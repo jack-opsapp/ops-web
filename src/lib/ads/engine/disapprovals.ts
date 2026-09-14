@@ -14,7 +14,7 @@
  * shows OPS's own pause as the last thing that happened to the ad.
  */
 import { hash8 } from "./guardrails";
-import type { EngineSettings, EntitySnapshot, TestRecord } from "./types";
+import type { EngineSettings, EntitySnapshot, SnapshotAd, TestRecord } from "./types";
 
 /**
  * Verdicts that are often a crawl that failed once rather than a problem with
@@ -201,9 +201,10 @@ export function withinChangeHistory(pause: GuardrailPause, now: Date): boolean {
  * verdict is about the ad's copy (a landing-page verdict is not — a new ad on
  * the same page fails the same way), the campaign is a serving engine
  * campaign, the group serves, it still has an enabled control other than the
- * paused ad to test against, and no test is running there. `computeDuties`
- * calls this too, so the promise in the alert and the duty in the brief can
- * never disagree.
+ * paused ad to test against, no test is running there, and no other
+ * challenger is in place (`challengerInPlace`). `computeDuties` calls this
+ * too, so the promise in the alert and the duty in the brief can never
+ * disagree.
  */
 export function replacementDue(input: {
   adResourceName: string;
@@ -211,6 +212,8 @@ export function replacementDue(input: {
   policyTopics: readonly string[];
   snapshot: EntitySnapshot;
   tests: readonly TestRecord[];
+  /** The guardrail's open episodes, so a challenger it holds is judged the way the validator judges it. */
+  pauses: ReadonlyArray<Pick<GuardrailPause, "ad_resource_name" | "state" | "policy_topics">>;
 }): boolean {
   if (isTransient(input.policyTopics)) return false;
   const group = input.snapshot.adGroups.find((g) => g.resourceName === input.adGroupResourceName);
@@ -218,8 +221,35 @@ export function replacementDue(input: {
   const campaign = input.snapshot.campaigns.find((c) => c.resourceName === group.campaignResourceName);
   if (!campaign || campaign.status !== "ENABLED" || !campaign.labels.includes("engine") || campaign.kind === "legacy") return false;
   if (input.tests.some((t) => t.state === "running" && t.ad_group_id === group.id)) return false;
+  if (challengerInPlace(input.snapshot, group.resourceName, input.pauses, input.adResourceName)) return false;
   return input.snapshot.ads.some(
     (ad) => ad.adGroupResourceName === group.resourceName && ad.status === "ENABLED" && ad.role === "control" && ad.resourceName !== input.adResourceName
+  );
+}
+
+/**
+ * The challenger a group already has in place, or null. A group tests one
+ * challenger at a time, so while this returns an ad the brief names no
+ * challenger for the group, the validator refuses one and no replacement is
+ * promised. In place means enabled — or held by the guardrail for a landing
+ * page, which it switches back on once Google approves. A challenger held for
+ * its copy is not in place: Google will not approve those words again, and
+ * its replacement is the next step. The snapshot can trail the guardrail by a
+ * day, so an open episode outranks the status the snapshot shows.
+ */
+export function challengerInPlace(
+  snapshot: EntitySnapshot,
+  adGroupResourceName: string,
+  pauses: ReadonlyArray<Pick<GuardrailPause, "ad_resource_name" | "state" | "policy_topics">>,
+  excludeAdResourceName?: string
+): SnapshotAd | null {
+  const held = new Map(pauses.filter((pause) => pause.state === "paused").map((pause) => [pause.ad_resource_name, pause]));
+  return (
+    snapshot.ads.find((ad) => {
+      if (ad.adGroupResourceName !== adGroupResourceName || ad.role !== "challenger" || ad.resourceName === excludeAdResourceName) return false;
+      const episode = held.get(ad.resourceName);
+      return episode ? isTransient(episode.policy_topics) : ad.status === "ENABLED";
+    }) ?? null
   );
 }
 

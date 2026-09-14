@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alertKeys,
+  challengerInPlace,
   changeWindow,
   engineClaim,
   graceElapsed,
@@ -169,31 +170,68 @@ describe("the change-history window", () => {
 
 describe("when a replacement is really coming", () => {
   it("is due when the paused ad's group still has its enabled control and no running test", () => {
-    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: [] })).toBe(true);
+    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: [], pauses: [] })).toBe(true);
   });
 
   it("is not due for a landing-page verdict: a new ad on the same page fails the same way", () => {
-    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["DESTINATION_NOT_WORKING"], snapshot: snapshot(), tests: [] })).toBe(false);
+    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["DESTINATION_NOT_WORKING"], snapshot: snapshot(), tests: [], pauses: [] })).toBe(false);
     // A copy problem alongside it is still worth a rewrite.
-    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["DESTINATION_NOT_WORKING", "MISLEADING_AD_DESIGN"], snapshot: snapshot(), tests: [] })).toBe(true);
+    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["DESTINATION_NOT_WORKING", "MISLEADING_AD_DESIGN"], snapshot: snapshot(), tests: [], pauses: [] })).toBe(true);
   });
 
   it("is not due while the group has a running test, because the validator refuses a second one", () => {
     const running = tests().map((t) => (t.ad_group_id === "21" ? { ...t, state: "running" as const } : t));
-    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: running })).toBe(false);
+    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: running, pauses: [] })).toBe(false);
   });
 
   it("is not due when the paused ad was the control, because a challenger needs a control to test against", () => {
-    expect(replacementDue({ adResourceName: R.jmControl, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: [] })).toBe(false);
+    expect(replacementDue({ adResourceName: R.jmControl, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: [], pauses: [] })).toBe(false);
   });
 
   it("is not due while the campaign or the group is paused, because the brief only names groups that serve", () => {
     const pausedCampaign = snapshot();
     pausedCampaign.campaigns = pausedCampaign.campaigns.map((c) => (c.resourceName === R.core ? { ...c, status: "PAUSED" as const } : c));
-    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: pausedCampaign, tests: [] })).toBe(false);
+    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: pausedCampaign, tests: [], pauses: [] })).toBe(false);
     const pausedGroup = snapshot();
     pausedGroup.adGroups = pausedGroup.adGroups.map((g) => (g.resourceName === R.jobManagement ? { ...g, status: "PAUSED" as const } : g));
-    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: pausedGroup, tests: [] })).toBe(false);
+    expect(replacementDue({ adResourceName: R.jmChallenger, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: pausedGroup, tests: [], pauses: [] })).toBe(false);
+  });
+
+  it("is not due while the group still runs another challenger, because a group tests one at a time", () => {
+    // 208 is a paused challenger beside the enabled pair 201/202 in Job management.
+    expect(replacementDue({ adResourceName: R.pausedAd, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: [], pauses: [] })).toBe(false);
+    // Held for a landing page, the other challenger is still in place: the guardrail brings it back.
+    const landing = [pause({ ad_resource_name: R.jmChallenger, ad_id: "202", ad_group_resource_name: R.jobManagement })];
+    expect(replacementDue({ adResourceName: R.pausedAd, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: [], pauses: landing })).toBe(false);
+  });
+
+  it("is due once the other challenger is itself held for its copy", () => {
+    const copy = [pause({ ad_resource_name: R.jmChallenger, ad_id: "202", ad_group_resource_name: R.jobManagement, policy_topics: ["TRADEMARKS_IN_AD_TEXT"] })];
+    expect(replacementDue({ adResourceName: R.pausedAd, adGroupResourceName: R.jobManagement, policyTopics: ["TRADEMARKS_IN_AD_TEXT"], snapshot: snapshot(), tests: [], pauses: copy })).toBe(true);
+  });
+});
+
+describe("the challenger a group already has in place", () => {
+  it("is the group's enabled challenger", () => {
+    expect(challengerInPlace(snapshot(), R.jobManagement, [])?.id).toBe("202");
+    expect(challengerInPlace(snapshot(), R.crewScheduling, [])).toBeNull();
+  });
+
+  it("is still in place while the guardrail holds it for a landing page, even once the snapshot shows it paused", () => {
+    const snap = snapshot();
+    snap.ads = snap.ads.map((ad) => (ad.resourceName === R.jmChallenger ? { ...ad, status: "PAUSED" as const } : ad));
+    const landing = [pause({ ad_resource_name: R.jmChallenger, ad_id: "202", ad_group_resource_name: R.jobManagement })];
+    expect(challengerInPlace(snap, R.jobManagement, landing)?.id).toBe("202");
+  });
+
+  it("is gone once the guardrail holds it for its copy, even while the snapshot still shows it enabled", () => {
+    const copy = [pause({ ad_resource_name: R.jmChallenger, ad_id: "202", ad_group_resource_name: R.jobManagement, policy_topics: ["TRADEMARKS_IN_AD_TEXT"] })];
+    expect(challengerInPlace(snapshot(), R.jobManagement, copy)).toBeNull();
+  });
+
+  it("is still in place while a verdict is only being held, because the ad has not been paused", () => {
+    const holding = [pause({ ad_resource_name: R.jmChallenger, ad_id: "202", ad_group_resource_name: R.jobManagement, policy_topics: ["TRADEMARKS_IN_AD_TEXT"], state: "holding" })];
+    expect(challengerInPlace(snapshot(), R.jobManagement, holding)?.id).toBe("202");
   });
 
   it("follows the routine: it has checked in within the stall window and challengers are not switched off", () => {

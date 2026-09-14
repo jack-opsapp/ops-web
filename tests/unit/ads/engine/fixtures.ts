@@ -273,6 +273,7 @@ export function context(overrides: Partial<ValidationContext> = {}): ValidationC
       daysLeftInMonth: 10,
     },
     allowedFinalUrls: ALLOWED_URLS,
+    guardrailPauses: [],
     structuralAcceptedThisRun: 0,
     now: NOW,
     ...overrides,

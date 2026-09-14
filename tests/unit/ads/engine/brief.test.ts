@@ -82,10 +82,27 @@ describe("computeDuties", () => {
     expect(result.notes.creative).toBe("Challengers are due in: Job management (Google disapproved an ad for trademarks in ad text; write its replacement).");
   });
 
-  it("adds creative when an enabled control is four weeks old with no running test", () => {
-    const result = computeDuties(base);
+  // Crew scheduling (22) has a control and no challenger; every other engine group runs a pair.
+  const crewControlOld = { ...base.metrics28d, ads: [...base.metrics28d.ads, { ...base.metrics28d.ads[0], adId: "203", adGroupId: "22", firstSeen: "2026-09-01" }] };
+
+  it("adds creative when an enabled control is four weeks old, with no running test and no challenger", () => {
+    const result = computeDuties({ ...base, metrics28d: crewControlOld });
     expect(result.duties).toContain("creative");
-    expect(result.notes.creative).toMatch(/Job management/);
+    expect(result.notes.creative).toBe("Challengers are due in: Crew scheduling (control 49 days old).");
+  });
+
+  it("never names a group that already runs a challenger: a live pair is tested, or waits for its first day, or waits for a decision", () => {
+    // Job management's 201/202 pair has no running test — its test concluded, or (the phase 2 groups) never opened.
+    expect(computeDuties({ ...base, tests: [] }).duties).not.toContain("creative");
+    expect(computeDuties(base).duties).not.toContain("creative");
+    expect(computeDuties({ ...base, tests: [], metrics28d: crewControlOld }).notes.creative).toBe("Challengers are due in: Crew scheduling (control 49 days old).");
+  });
+
+  it("names no group whose challenger the guardrail holds for a landing page, because it comes back once Google approves it", () => {
+    const snap = snapshot();
+    snap.ads = snap.ads.map((ad) => (ad.resourceName === R.jmChallenger ? { ...ad, status: "PAUSED" as const } : ad));
+    const result = computeDuties({ ...base, snapshot: snap, guardrailPauses: [pausedFor(["DESTINATION_NOT_WORKING"])] });
+    expect(result.duties).not.toContain("creative");
   });
 
   it("skips creative while every eligible ad group has a running test or a young control", () => {

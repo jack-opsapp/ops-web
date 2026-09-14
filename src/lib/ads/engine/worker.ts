@@ -2,7 +2,9 @@
  * Google Ads engine — the daily worker tick (design spec §5.3, §5.4, §5.6, §7).
  *
  * Runs once a day before the routine claims: expires stale proposals, applies
- * the kinds Jackson has flipped to auto, concludes tests by OPS's own
+ * the kinds Jackson has flipped to auto, keeps every live ad pair under test
+ * (opens a test for a pair nobody is judging from the first day both ads
+ * served, cancels one that can no longer finish), concludes tests by OPS's own
  * statistics and opens the follow-up proposals (never auto-promoting), scores
  * applied changes over matched pre/post windows, guards against disapproved
  * ads (pauses them on Google's live verdict, holds a landing-page verdict for
@@ -35,6 +37,7 @@ import {
 } from "./disapprovals";
 import { HUMAN_ONLY_KINDS } from "./guardrails";
 import { metricWindows, type DateWindow } from "./metrics";
+import { disapprovedChallengerReason, livePairs, pairTest, staleTests, testEndedByPause, untrackedPairs, type NewPairTest } from "./pairs";
 import { changeVerdict, DEFAULT_TEST_RULES, testVerdict, type ArmStats, type TestRules, type TestStats } from "./stats";
 import type { ChangeRecord, ChangeVerdict, EngineSettings, EntitySnapshot, ProposalKind, SnapshotAd, SnapshotAdGroup, TestRecord, TestState } from "./types";
 
@@ -100,6 +103,14 @@ export interface WorkerRepository {
   /** Resolves engine alerts and their rail rows; returns how many open alerts it closed. */
   resolveAlerts(dedupeKeys: string[]): Promise<number>;
   refreshSnapshot(): Promise<void>;
+  /** Every test, in any state, for these ad groups: the history that decides whether a pair is judged again. */
+  listPairTests(adGroupIds: string[]): Promise<TestRecord[]>;
+  /** The first account day, on or after `since`, on which both ads recorded impressions; null when they have not served together. */
+  firstSharedServingDay(controlAdId: string, challengerAdId: string, since: string | null): Promise<string | null>;
+  /** Opens the test for a pair; null when the group already has a running test. */
+  openPairTest(test: NewPairTest): Promise<string | null>;
+  /** Cancels a test that is still running; false when it no longer is. */
+  cancelTest(id: string, stats: Record<string, unknown>, cancelledAt: string): Promise<boolean>;
 }
 
 /** Google reads the guardrail decides on: the live verdict and the change history. */
@@ -158,6 +169,10 @@ export interface TickResult {
   autoApplied: number;
   autoFailed: number;
   autoSkipped: number;
+  /** Tests opened for live pairs nobody was judging. */
+  testsOpened: number;
+  /** Running tests cancelled because an ad left the pair. */
+  testsCancelled: number;
   testsConcluded: number;
   followUps: number;
   verdicts: number;
@@ -260,6 +275,28 @@ async function applyPending(d: WorkerDependencies, settings: EngineSettings, res
     } else {
       result.autoSkipped += 1;
     }
+  }
+}
+
+/**
+ * Keep every live pair under test (spec §5.4; rules in pairs.ts). Runs before
+ * the verdicts so a test whose ad left the pair is never judged, and so a
+ * pair's first shared day is on record before the routine claims its brief.
+ */
+async function trackPairs(d: WorkerDependencies, snapshot: EntitySnapshot, now: Date, result: TickResult): Promise<void> {
+  const [running, pauses] = await Promise.all([d.repository.listRunningTests(), d.repository.listOpenGuardrailPauses()]);
+  const cancelledAt = now.toISOString();
+  for (const { test, reason } of staleTests({ running, snapshot, pauses })) {
+    if (await d.repository.cancelTest(test.id, { ...(test.stats ?? {}), reason, cancelled_at: cancelledAt }, cancelledAt)) result.testsCancelled += 1;
+  }
+
+  const pairs = livePairs(snapshot, pauses);
+  if (pairs.length === 0) return;
+  const history = await d.repository.listPairTests([...new Set(pairs.map((pair) => pair.adGroup.id))]);
+  for (const pair of untrackedPairs(pairs, history)) {
+    const firstDay = await d.repository.firstSharedServingDay(pair.control.id, pair.challenger.id, pair.since);
+    if (!firstDay) continue;
+    if (await d.repository.openPairTest(pairTest(pair, firstDay))) result.testsOpened += 1;
   }
 }
 
@@ -367,8 +404,10 @@ async function scoreChanges(d: WorkerDependencies, today: string, now: Date, res
 type StatusWrite = { outcome: "written"; requestId: string | null } | { outcome: "refused"; error: string } | { outcome: "validated" };
 
 interface GuardContext {
-  /** Running tests, read once and only if an alert needs them. */
+  /** Running tests, read once and only if a pause needs them. */
   tests: TestRecord[] | null;
+  /** The guardrail's episodes as this tick found them. */
+  pauses: GuardrailPause[];
   /** Whether the account changed, so the snapshot is refreshed once at the end. */
   mutated: boolean;
 }
@@ -442,11 +481,20 @@ async function pauseEpisode(
   result.disapproved += 1;
   if (pause.pause_error) await d.repository.resolveAlerts([alertKeys.pauseFailed(pause.id)]);
   ctx.tests ??= await d.repository.listRunningTests();
+  // A challenger paused for its copy cannot finish its test, and Google will
+  // not approve those words again: end the test now, so the replacement below
+  // is one the validator will accept on the routine's next run.
+  const cancelledAt = d.now().toISOString();
+  for (const test of ctx.tests.filter((t) => testEndedByPause(t, pause.ad_id, topics))) {
+    const reason = disapprovedChallengerReason(topics);
+    if (await d.repository.cancelTest(test.id, { ...(test.stats ?? {}), reason, cancelled_at: cancelledAt }, cancelledAt)) result.testsCancelled += 1;
+    ctx.tests = ctx.tests.filter((t) => t.id !== test.id);
+  }
   // A replacement is promised only when the routine is running and the brief
   // will name this group in its creative duty — the same predicate decides both.
   const replacement =
     routineActive(settings, now) &&
-    replacementDue({ adResourceName: pause.ad_resource_name, adGroupResourceName: pause.ad_group_resource_name, policyTopics: topics, snapshot, tests: ctx.tests });
+    replacementDue({ adResourceName: pause.ad_resource_name, adGroupResourceName: pause.ad_group_resource_name, policyTopics: topics, snapshot, tests: ctx.tests, pauses: ctx.pauses });
   await d.repository.raiseAlert({
     kind: "ad_disapproved",
     dedupeKey: alertKeys.paused(pause.id),
@@ -574,7 +622,7 @@ async function guardDisapprovals(d: WorkerDependencies, settings: EngineSettings
     return;
   }
   result.guardrail = "checked";
-  const ctx: GuardContext = { tests: null, mutated: false };
+  const ctx: GuardContext = { tests: null, pauses: open, mutated: false };
 
   for (const { ad, adGroup } of suspects) {
     const state = live.get(ad.resourceName);
@@ -673,6 +721,8 @@ export async function runEngineTick(d: WorkerDependencies): Promise<TickResult> 
     autoApplied: 0,
     autoFailed: 0,
     autoSkipped: 0,
+    testsOpened: 0,
+    testsCancelled: 0,
     testsConcluded: 0,
     followUps: 0,
     verdicts: 0,
@@ -692,6 +742,7 @@ export async function runEngineTick(d: WorkerDependencies): Promise<TickResult> 
   result.campaignsLive = campaignsLiveIn(snapshot);
 
   await applyPending(d, settings, result);
+  await trackPairs(d, snapshot, now, result);
   await concludeTests(d, settings, snapshot, today, now, result);
   await scoreChanges(d, today, now, result);
   await guardDisapprovals(d, settings, snapshot, now, result);

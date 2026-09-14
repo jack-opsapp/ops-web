@@ -452,6 +452,35 @@ describe("validateProposal — one failing fixture per code", () => {
     );
   });
 
+  it("TEST_NOT_CONCLUDED for a challenger in a group that already runs one, whatever became of its test", () => {
+    const challenger = (ad_group: string, url: string) => ({
+      kind: "create_rsa_challenger",
+      rationale: "",
+      evidence: [],
+      payload: { ad_group, hypothesis: "x", ...goodRsa(url) },
+    });
+    // Job management's pair won for the challenger and waits for its promotion; Brand's lost and waits for its pause.
+    const won = expectCode(run(challenger(R.jobManagement, "https://try.opsapp.co/job-management")), "TEST_NOT_CONCLUDED");
+    expect(won.issues[0]).toMatchObject({ field: "payload.ad_group", message: "Job management already runs challenger ad 202. A group tests one challenger at a time." });
+    expectCode(run(challenger(R.brandGroup, "https://try.opsapp.co/")), "TEST_NOT_CONCLUDED");
+    // The phase 2 shape: an enabled pair nobody opened a test for.
+    expectCode(run(challenger(R.jobManagement, "https://try.opsapp.co/job-management"), { tests: [] }), "TEST_NOT_CONCLUDED");
+    // Held for a landing page, the challenger is still in place: the guardrail switches it back on.
+    const landing = [{ ad_resource_name: R.jmChallenger, ad_group_resource_name: R.jobManagement, state: "paused" as const, policy_topics: ["DESTINATION_NOT_WORKING"] }];
+    expectCode(run(challenger(R.jobManagement, "https://try.opsapp.co/job-management"), { tests: [], guardrailPauses: landing }), "TEST_NOT_CONCLUDED");
+  });
+
+  it("accepts a challenger once the guardrail holds the group's challenger for its copy — the replacement the alert promised", () => {
+    const copy = [{ ad_resource_name: R.jmChallenger, ad_group_resource_name: R.jobManagement, state: "paused" as const, policy_topics: ["TRADEMARKS_IN_AD_TEXT"] }];
+    const normalized = expectOk(
+      run(
+        { kind: "create_rsa_challenger", rationale: "", evidence: [], payload: { ad_group: R.jobManagement, hypothesis: "x", ...goodRsa("https://try.opsapp.co/job-management") } },
+        { tests: [], guardrailPauses: copy }
+      )
+    );
+    expect(normalized.payload).toMatchObject({ controlAd: R.jmControl, controlAdId: "201" });
+  });
+
   it("VERDICT_MISMATCH", () => {
     expectCode(
       run({
@@ -588,6 +617,9 @@ describe("validateProposal — one failing fixture per code", () => {
   it("keeps the trademark rule tied to the campaign the ad group belongs to", () => {
     const candidate = goodRsa("https://try.opsapp.co/compare/jobber");
     candidate.headlines[2] = { text: "Switching from Jobber?" };
+    // Its last challenger retired, the competitor group is due a new one.
+    const retired = snapshot();
+    retired.ads = retired.ads.map((ad) => (ad.resourceName === R.jaChallenger ? { ...ad, status: "PAUSED" as const } : ad));
     const ok = validateProposal(
       {
         kind: "create_rsa_challenger",
@@ -595,7 +627,7 @@ describe("validateProposal — one failing fixture per code", () => {
         evidence: [],
         payload: { ad_group: R.jobberAlternative, hypothesis: "x", ...candidate },
       },
-      context({ tests: [] })
+      context({ tests: [], snapshot: retired })
     );
     expectOk(ok);
     const core = goodRsa();

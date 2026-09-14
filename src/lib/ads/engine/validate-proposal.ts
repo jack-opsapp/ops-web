@@ -28,6 +28,7 @@ import {
   slug,
   themeStems,
 } from "./guardrails";
+import { challengerInPlace } from "./disapprovals";
 import { envelopeSchema, issuesOf, payloadSchemas, type PayloadFor, type RsaPayload } from "./proposal-schemas";
 import type {
   NormalizedProposal,
@@ -256,6 +257,12 @@ function createChallenger(p: PayloadFor<"create_rsa_challenger">, ctx: Validatio
   const running = look.runningTestFor(owner.adGroup.id);
   if (running)
     return fail("TEST_NOT_CONCLUDED", "payload.ad_group", `${owner.adGroup.name} already has a running test (${running.id}); wait for its verdict.`);
+  // One challenger at a time. A pair with no running test is waiting for its
+  // first shared day or for a decision on its verdict; a second challenger
+  // beside it would never be judged.
+  const inPlace = challengerInPlace(ctx.snapshot, owner.adGroup.resourceName, ctx.guardrailPauses);
+  if (inPlace)
+    return fail("TEST_NOT_CONCLUDED", "payload.ad_group", `${owner.adGroup.name} already runs challenger ad ${inPlace.id}. A group tests one challenger at a time.`);
   const control = ctx.snapshot.ads.find(
     (a) => a.adGroupResourceName === owner.adGroup.resourceName && a.status === "ENABLED" && a.role === "control"
   );

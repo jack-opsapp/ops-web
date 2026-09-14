@@ -11,7 +11,7 @@
  */
 import type { BrandFacts } from "../copy-rules";
 import { COPY_LIMITS } from "../copy-rules";
-import { policyReason, replacementDue, type GuardrailPause } from "./disapprovals";
+import { challengerInPlace, policyReason, replacementDue, type GuardrailPause } from "./disapprovals";
 import { STRUCTURAL_KINDS, ladderTriggerMet } from "./guardrails";
 import { metricWindows, type DateWindow } from "./metrics";
 import {
@@ -30,7 +30,7 @@ export const ADS_BRIEF_VERSION = "ads-brief-2026-09-10-v1";
 
 export type DutyKey = "hygiene" | "creative" | "structure" | "bidding_ladder";
 
-/** Control ads older than this, with no running test, are due a challenger. */
+/** Control ads older than this, with no running test and no challenger in place, are due a challenger. */
 export const CREATIVE_CADENCE_DAYS = 28;
 /** A market digest older than this is refreshed before the run. */
 export const MARKET_DIGEST_MAX_AGE_DAYS = 7;
@@ -192,6 +192,7 @@ export function computeDuties(input: {
         policyTopics: pause.policy_topics,
         snapshot: input.snapshot,
         tests: input.tests,
+        pauses: input.guardrailPauses,
       })
     )
       replacements.set(pause.ad_group_resource_name, policyReason(pause.policy_topics));
@@ -205,6 +206,10 @@ export function computeDuties(input: {
       due.push(`${adGroup.name} (Google disapproved an ad for ${replacement}; write its replacement)`);
       continue;
     }
+    // A group tests one challenger at a time. One already in place is under
+    // test, waiting for its first shared day, or waiting for a decision on its
+    // verdict; a second would never be judged.
+    if (challengerInPlace(input.snapshot, adGroup.resourceName, input.guardrailPauses)) continue;
     const control = input.snapshot.ads.find(
       (ad) => ad.adGroupResourceName === adGroup.resourceName && ad.status === "ENABLED" && ad.role === "control"
     );

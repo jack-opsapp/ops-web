@@ -157,6 +157,7 @@ function rig(options: { brief?: () => Promise<Brief>; initial?: Partial<EngineRu
           payload: a.normalized.payload,
         })),
         funnel: ctx.funnel,
+        guardrailPauses: ctx.guardrailPauses,
       };
     },
     structuralAcceptedInRun: async () => accepted.filter((a) => a.normalized.structural).length,

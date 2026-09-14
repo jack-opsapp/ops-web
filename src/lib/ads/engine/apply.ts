@@ -3,7 +3,8 @@
  *
  * `planOperations` is pure: proposal + snapshot → Google mutate operations
  * with temporary ids wired parent to child, the before/after the ledger
- * records, and the test to open. `applyProposal` runs validateOnly first and
+ * records, and the test to open. `applyProposal` refuses a challenger whose
+ * group has moved on since approval, then runs validateOnly first and
  * only re-sends on a clean pass, with partial failure OFF so a change lands
  * whole or not at all. In rehearsal mode (`ADS_ENGINE_REHEARSAL=1`) it stops
  * after validation and leaves the proposal approved.
@@ -12,6 +13,7 @@
  * shared negatives cannot carry one, so every change also records its
  * `gen-<run id>` label in the ledger.
  */
+import { challengerConflict } from "./pairs";
 import type { EntitySnapshot, ProposalKind, ProposalState } from "./types";
 
 // ─── Gateway contract (mirrors phase 1's mutateGoogleAds) ────────────────────
@@ -427,6 +429,20 @@ export async function applyProposal(proposal: ApplyProposalRecord, deps: ApplyDe
   const [snapshot, customerId] = await Promise.all([deps.repository.readSnapshot(), deps.gateway.customerId()]);
   const knownLabels = Object.fromEntries(snapshot.labels.map((l) => [l.name, l.resourceName]));
   const plan = planOperations(proposal, snapshot, knownLabels, customerId, now);
+
+  if (proposal.kind === "create_rsa_challenger") {
+    // Days can pass between approval and apply. A group that took a challenger
+    // or a new control since would get an ad no test ever judges.
+    const conflict = challengerConflict(snapshot, {
+      adGroupResourceName: str(proposal.payload.ad_group),
+      adGroupName: str(proposal.payload.adGroupName) || str(proposal.payload.ad_group),
+      controlAdId: str(proposal.payload.controlAdId),
+    });
+    if (conflict) {
+      await deps.repository.markApplied(proposal.id, "failed", { validateOnly: false, refused: "group_changed" }, null, plan.label, conflict);
+      return { state: "failed", validation: null, error: conflict, policyTopics: [] };
+    }
+  }
 
   if (plan.operations.length === 0) {
     await deps.repository.markApplied(proposal.id, "applied", { validateOnly: false, noop: true }, [], plan.label, null);

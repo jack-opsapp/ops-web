@@ -364,6 +364,11 @@ export interface ValidationContext {
   openProposals: OpenProposalRef[];
   funnel: FunnelSignals;
   allowedFinalUrls: string[];
+  /**
+   * The disapproved-ad guardrail's open episodes. A challenger it holds for a
+   * landing page is still in place; one it holds for its copy is not.
+   */
+  guardrailPauses: Array<{ ad_resource_name: string; ad_group_resource_name: string; state: "holding" | "paused"; policy_topics: string[] }>;
   /** Structural proposals already accepted in the current run. */
   structuralAcceptedThisRun: number;
   now: Date;

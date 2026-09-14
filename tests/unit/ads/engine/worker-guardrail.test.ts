@@ -111,6 +111,7 @@ function rig(o: RigOptions = {}) {
   const reads: string[][] = [];
   const windows: Array<{ start: string; end: string }> = [];
   const counters = { refreshed: 0, opened: 0 };
+  const cancelled: Array<{ id: string; stats: Record<string, unknown>; at: string }> = [];
   const openRows = () => [...store.values()].filter((p) => p.state === "holding" || p.state === "paused");
 
   const repository: WorkerRepository = {
@@ -118,7 +119,7 @@ function rig(o: RigOptions = {}) {
     readSettings: async () => o.settings ?? settings(),
     readSnapshot: async () => o.snapshot ?? snapshot(),
     listApplicableProposals: async () => [],
-    listRunningTests: async () => o.tests ?? [],
+    listRunningTests: async () => (o.tests ?? []).filter((t) => t.state === "running" && !cancelled.some((c) => c.id === t.id)),
     adArmMetrics: async () => ({}),
     recordTestStats: async () => {},
     openWorkerProposal: async () => null,
@@ -177,6 +178,14 @@ function rig(o: RigOptions = {}) {
     refreshSnapshot: async () => {
       counters.refreshed += 1;
     },
+    // Pair tracking has its own scenarios (worker.test.ts); here no pair has served.
+    listPairTests: async (adGroupIds) => (o.tests ?? []).filter((t) => adGroupIds.includes(t.ad_group_id)),
+    firstSharedServingDay: async () => null,
+    openPairTest: async () => null,
+    cancelTest: async (id, stats, at) => {
+      cancelled.push({ id, stats, at });
+      return true;
+    },
   };
 
   const reader: GuardrailReader | null =
@@ -221,6 +230,7 @@ function rig(o: RigOptions = {}) {
   return {
     deps,
     store,
+    cancelled,
     mutations,
     alerts,
     resolved,
@@ -343,6 +353,59 @@ describe("the guardrail on a fresh disapproval", () => {
     expect(r.alerts.map((a) => a.body)).toEqual([
       "Google disapproved an ad in Job management for trademarks in ad text. OPS paused it and turns it back on once Google approves it. The engine writes a replacement for your review on its next run.",
     ]);
+  });
+
+  it("ends the running test when it pauses that test's challenger for its copy, so the replacement it promises is real", async () => {
+    const test: TestRecord = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+      campaign_id: "13",
+      ad_group_id: "31",
+      ad_group_name: "Jobber alternative",
+      control_ad_id: "204",
+      challenger_ad_id: "205",
+      started_at: "2026-10-12T15:00:00.000Z",
+      min_days: 14,
+      min_impressions: 2000,
+      max_days: 56,
+      state: "running",
+      stats: { days: 7, p: 0.4 },
+      verdict_at: null,
+    };
+    const r = rig({ snapshot: disapprovedIn(R.jaChallenger), tests: [test], live: [live(R.jaChallenger, "ENABLED", "DISAPPROVED", TRADEMARK)] });
+    const result = await runEngineTick(r.deps);
+    expect(result).toMatchObject({ disapproved: 1, testsCancelled: 1 });
+    expect(r.cancelled).toEqual([
+      { id: test.id, stats: { days: 7, p: 0.4, reason: "Google disapproved the challenger for trademarks in ad text.", cancelled_at: NOW.toISOString() }, at: NOW.toISOString() },
+    ]);
+    expect(r.alerts.map((alert) => alert.body)).toEqual([
+      "Google disapproved an ad in Jobber alternative for trademarks in ad text. OPS paused it and turns it back on once Google approves it. The engine writes a replacement for your review on its next run.",
+    ]);
+  });
+
+  it("keeps the running test through a landing-page pause, which the guardrail undoes once Google approves the ad", async () => {
+    const test: TestRecord = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+      campaign_id: "13",
+      ad_group_id: "31",
+      ad_group_name: "Jobber alternative",
+      control_ad_id: "204",
+      challenger_ad_id: "205",
+      started_at: "2026-10-12T15:00:00.000Z",
+      min_days: 14,
+      min_impressions: 2000,
+      max_days: 56,
+      state: "running",
+      stats: null,
+      verdict_at: null,
+    };
+    const r = rig({
+      tests: [test],
+      open: [openPause({ ad_resource_name: R.jaChallenger, ad_id: "205", ad_group_resource_name: R.jobberAlternative, ad_group_name: "Jobber alternative", campaign_resource_name: R.competitor, state: "holding", policy_topics: ["DESTINATION_NOT_WORKING"], observed_at: "2026-10-19T15:04:00.000Z", pause_requested_at: null, paused_at: null })],
+      live: [live(R.jaChallenger, "ENABLED", "DISAPPROVED", DNW)],
+    });
+    const result = await runEngineTick(r.deps);
+    expect(result).toMatchObject({ disapproved: 1, testsCancelled: 0 });
+    expect(r.cancelled).toEqual([]);
   });
 
   it("never promises a replacement for a control, which no challenger can be tested against", async () => {

@@ -417,14 +417,15 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
     async validationContext(): Promise<EngineValidationInputs> {
       const now = new Date();
       const [settings, snapshot] = await Promise.all([readSettings(), readSnapshot()]);
-      const [metrics28d, tests, ledger, open, funnel] = await Promise.all([
+      const [metrics28d, tests, ledger, open, funnel, guardrailPauses] = await Promise.all([
         readMetrics(metricWindows(now).metrics28d, snapshot),
         readTests(),
         readLedger(new Date(now.getTime() - 90 * 86_400_000).toISOString()),
         openProposals(),
         readFunnel(now),
+        readOpenPauses(),
       ]);
-      return { settings, snapshot, metrics28d, tests, ledger, openProposals: open, funnel };
+      return { settings, snapshot, metrics28d, tests, ledger, openProposals: open, funnel, guardrailPauses };
     },
     async structuralAcceptedInRun(runId) {
       const { data, error } = await db.from("ads_proposals").select("kind").eq("run_id", runId);
@@ -507,6 +508,47 @@ export function createEngineRepository(client?: SupabaseClient): EngineRepositor
         .single();
       if (error) throw error;
       return String(proposal.id);
+    },
+    async listPairTests(adGroupIds) {
+      if (adGroupIds.length === 0) return [];
+      const { data, error } = await db.from("ads_tests").select(TEST_FIELDS).in("ad_group_id", adGroupIds).order("started_at", { ascending: true }).limit(1000);
+      if (error) throw error;
+      return (data ?? []) as TestRecord[];
+    },
+    async firstSharedServingDay(controlAdId, challengerAdId, since) {
+      const rows = await readAll<{ date: string; ad_id: string }>((from, to) => {
+        let query = db.from("ads_daily_ad").select("date,ad_id").in("ad_id", [controlAdId, challengerAdId]).gt("impressions", 0);
+        if (since) query = query.gte("date", since);
+        return query.order("date", { ascending: true }).order("ad_id", { ascending: true }).range(from, to);
+      });
+      const served = new Map<string, Set<string>>();
+      for (const row of rows) {
+        const ads = served.get(row.date) ?? new Set<string>();
+        ads.add(row.ad_id);
+        if (ads.size === 2) return row.date;
+        served.set(row.date, ads);
+      }
+      return null;
+    },
+    async openPairTest(test) {
+      const { data, error } = await db.from("ads_tests").insert(test).select("id").single();
+      if (error) {
+        // One running test per ad group (ads_tests_one_running_per_ad_group):
+        // the group is already being judged.
+        if (error.code === "23505") return null;
+        throw error;
+      }
+      return String(data.id);
+    },
+    async cancelTest(id, stats, cancelledAt) {
+      const { data, error } = await db
+        .from("ads_tests")
+        .update({ state: "cancelled", stats, verdict_at: cancelledAt, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("state", "running")
+        .select("id");
+      if (error) throw error;
+      return (data ?? []).length > 0;
     },
     async linkTestProposal(testId, proposalId) {
       const { error } = await db.from("ads_tests").update({ concluded_proposal_id: proposalId, updated_at: new Date().toISOString() }).eq("id", testId);
