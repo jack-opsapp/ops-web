@@ -68,8 +68,10 @@ describe("challenger drafts (2026-09-10)", () => {
   it("sources every line — nothing reaches Jackson without saying where it came from", () => {
     for (const e of entries) {
       const lines = [...e.draft.ad.headlines, ...e.draft.ad.descriptions].map((x) => x.text);
+      // A line with no source reads undefined — the gap this test exists to catch.
+      const evidence: Record<string, string | undefined> = e.draft.evidence;
       for (const line of lines) {
-        const source = (e.draft.evidence as Record<string, string>)[line];
+        const source = evidence[line];
         expect(source, `${e.label}: "${line}"`).toBeTruthy();
         expect(source, `${e.label}: "${line}"`).not.toBe("UNSOURCED");
       }
