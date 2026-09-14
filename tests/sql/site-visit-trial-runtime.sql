@@ -21,6 +21,7 @@ begin
  raise exception 'FAIL: % accepted',label;
 end $$;
 create table trial_test.state(key text primary key,value jsonb not null);
+select trial_test.assert(not exists(select 1 from pg_constraint c where c.contype='f' and c.conrelid='private.agent_site_visit_trial_bindings'::regclass and not exists(select 1 from pg_index i where i.indrelid=c.conrelid and i.indisvalid and i.indkey[0]=c.conkey[1])),'each subject foreign key has a usable leading index');
 insert into public.companies(id,name,public_handle) values
 ('10000000-0000-4000-8000-000000000002','Trial fixture','trial-fixture'),
 ('10000000-0000-4000-8000-000000000003','Unrelated fixture','unrelated-fixture');
