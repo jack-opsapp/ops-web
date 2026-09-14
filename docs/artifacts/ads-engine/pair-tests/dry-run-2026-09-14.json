@@ -1,0 +1,227 @@
+{
+  "ranAt": "2026-09-14T20:40:17.351Z",
+  "snapshotAt": "2026-09-14T08:04:44.139+00:00",
+  "readOnly": {
+    "refusedWrites": []
+  },
+  "window": {
+    "from": "2026-08-15",
+    "to": "2026-09-11"
+  },
+  "worker": {
+    "runningTests": 0,
+    "openGuardrailEpisodes": 0,
+    "testsToCancel": [],
+    "livePairs": 12,
+    "testHistoryForThoseGroups": 0,
+    "untrackedPairs": 12,
+    "testsToOpen": 0,
+    "pairs": [
+      {
+        "campaign": "BRAND · NA",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Brand",
+        "control": "824125294522",
+        "challenger": "824125294525",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "PRICING · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Jobber pricing",
+        "control": "824125294528",
+        "challenger": "824257911768",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "PRICING · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Housecall Pro pricing",
+        "control": "824125294534",
+        "challenger": "824257911771",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "SWITCH · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Jobber alternative",
+        "control": "824125294540",
+        "challenger": "824257911774",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "SWITCH · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Housecall Pro alternative",
+        "control": "824125294546",
+        "challenger": "824257911777",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "SWITCH · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "ServiceTitan alternative",
+        "control": "824125294552",
+        "challenger": "824257911780",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "TRADE · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Cleaning",
+        "control": "824125294558",
+        "challenger": "824257911783",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "TRADE · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Landscaping",
+        "control": "824125294684",
+        "challenger": "824257911786",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "TRADE · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Roofing",
+        "control": "824125294690",
+        "challenger": "824257911789",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "CORE · CA",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Pricing",
+        "control": "824125294696",
+        "challenger": "824257911792",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "CORE · CA",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Switching",
+        "control": "824125294702",
+        "challenger": "824257911795",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "CORE · CA",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Category",
+        "control": "824125294708",
+        "challenger": "824257911798",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      }
+    ]
+  },
+  "briefIfEveryCampaignWereLive": {
+    "duties": [
+      "hygiene"
+    ],
+    "creative": null
+  },
+  "validatorAskedForAThirdAd": [
+    {
+      "adGroup": "BRAND · NA › Brand",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Brand already runs challenger ad 824125294525. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "PRICING · US › Jobber pricing",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Jobber pricing already runs challenger ad 824257911768. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "PRICING · US › Housecall Pro pricing",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Housecall Pro pricing already runs challenger ad 824257911771. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "SWITCH · US › Jobber alternative",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Jobber alternative already runs challenger ad 824257911774. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "SWITCH · US › Housecall Pro alternative",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Housecall Pro alternative already runs challenger ad 824257911777. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "SWITCH · US › ServiceTitan alternative",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "ServiceTitan alternative already runs challenger ad 824257911780. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "TRADE · US › Cleaning",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Cleaning already runs challenger ad 824257911783. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "TRADE · US › Landscaping",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Landscaping already runs challenger ad 824257911786. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "TRADE · US › Roofing",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Roofing already runs challenger ad 824257911789. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "CORE · CA › Pricing",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Pricing already runs challenger ad 824257911792. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "CORE · CA › Switching",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Switching already runs challenger ad 824257911795. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "CORE · CA › Category",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Category already runs challenger ad 824257911798. A group tests one challenger at a time."
+    }
+  ],
+  "committedBlueprint": {
+    "version": "2026-09-11-v1",
+    "structuralOperations": 0,
+    "error": null
+  }
+}
