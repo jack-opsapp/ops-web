@@ -1,0 +1,6 @@
+SET
+BEGIN
+SET
+SET
+psql:/private/tmp/ops-deck-v23-5pc6l0io/trials-financial-rejected.sql:513: ERROR:  DECK_V23_ACTIVE_TRIAL_REQUIRES_SEPARATE_ROLLOUT
+CONTEXT:  PL/pgSQL function inline_code_block line 57 at RAISE

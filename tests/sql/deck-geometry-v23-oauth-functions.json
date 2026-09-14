@@ -1,0 +1,284 @@
+[
+  {
+    "schema": "private",
+    "name": "agent_catalog_effect_revision",
+    "arguments": "",
+    "definition": "CREATE OR REPLACE FUNCTION private.agent_catalog_effect_revision()\n RETURNS text\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n select private.agent_catalog_hash(jsonb_build_object(\n 'columns',(select jsonb_agg(jsonb_build_array(n.nspname,c.relname,a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,a.attgenerated,pg_get_expr(d.adbin,d.adrelid)) order by n.nspname,c.relname,a.attnum) from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum where a.attnum>0 and not a.attisdropped and c.relkind in ('r','p') and n.nspname in ('public','private')),\n 'constraints',(select jsonb_agg(jsonb_build_array(c.conrelid::regclass::text,c.conname,pg_get_constraintdef(c.oid)) order by c.conrelid::regclass::text,c.conname) from pg_constraint c join pg_namespace n on n.oid=c.connamespace where n.nspname in ('public','private')),\n 'rules',(select jsonb_agg(jsonb_build_array(r.ev_class::regclass::text,r.rulename,pg_get_ruledef(r.oid)) order by r.ev_class::regclass::text,r.rulename) from pg_rewrite r join pg_class c on c.oid=r.ev_class join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','private')),\n 'triggers',(select jsonb_agg(jsonb_build_array(t.tgrelid::regclass::text,t.tgname,t.tgenabled,pg_get_triggerdef(t.oid)) order by t.tgrelid::regclass::text,t.tgname) from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where not t.tgisinternal and n.nspname in ('public','private')),\n 'functions',(select jsonb_agg(jsonb_build_array(p.oid::regprocedure::text,pg_get_functiondef(p.oid),p.prosecdef,p.proconfig) order by p.oid::regprocedure::text) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and p.prokind='f')))\n$function$\n",
+    "definition_md5": "ebed053a47b7b1d0244fd57c90daf651",
+    "security_definer": true,
+    "acl": "{postgres=X/postgres}",
+    "config": [
+      "search_path=\"\""
+    ]
+  },
+  {
+    "schema": "private",
+    "name": "financial_document_effect_revision",
+    "arguments": "",
+    "definition": "CREATE OR REPLACE FUNCTION private.financial_document_effect_revision()\n RETURNS text\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\n SET \"TimeZone\" TO 'UTC'\nAS $function$\n select private.financial_document_hash(jsonb_build_object(\n 'triggers',(select jsonb_agg(jsonb_build_array(t.tgrelid::regclass::text,t.tgname,t.tgenabled,pg_get_triggerdef(t.oid)) order by t.tgrelid::regclass::text,t.tgname) from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where not t.tgisinternal and n.nspname in ('public','private')),\n 'functions',(select jsonb_agg(jsonb_build_array(p.oid::regprocedure::text,pg_get_functiondef(p.oid),p.prosecdef,p.proconfig) order by p.oid::regprocedure::text) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and p.prokind='f')))\n\n$function$\n",
+    "definition_md5": "ee77124a3ba4b682067bec8cd4dd8b95",
+    "security_definer": true,
+    "acl": "{postgres=X/postgres}",
+    "config": [
+      "search_path=\"\"",
+      "TimeZone=UTC"
+    ]
+  },
+  {
+    "schema": "private",
+    "name": "financial_document_hash",
+    "arguments": "value jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION private.financial_document_hash(value jsonb)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO ''\n SET \"TimeZone\" TO 'UTC'\nAS $function$\n select 'sha256:'||encode(extensions.digest(convert_to(value::text,'UTF8'),'sha256'),'hex')\n$function$\n",
+    "definition_md5": "241a00effd34b86a8f805a8619f5b436",
+    "security_definer": false,
+    "acl": "{postgres=X/postgres}",
+    "config": [
+      "search_path=\"\"",
+      "TimeZone=UTC"
+    ]
+  },
+  {
+    "schema": "private",
+    "name": "agent_catalog_hash",
+    "arguments": "value jsonb",
+    "definition": "CREATE OR REPLACE FUNCTION private.agent_catalog_hash(value jsonb)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO ''\nAS $function$\n select 'sha256:'||encode(extensions.digest(convert_to(value::text,'UTF8'),'sha256'),'hex')\n$function$\n",
+    "definition_md5": "da008ac01fcfa7b5b887dc9e3773281c",
+    "security_definer": false,
+    "acl": "{postgres=X/postgres}",
+    "config": [
+      "search_path=\"\""
+    ]
+  },
+  {
+    "schema": "private",
+    "name": "agent_catalog_trial_current",
+    "arguments": "p_client uuid, p_actor uuid, p_company uuid",
+    "definition": "CREATE OR REPLACE FUNCTION private.agent_catalog_trial_current(p_client uuid, p_actor uuid, p_company uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n select exists (\n   select 1 from private.agent_catalog_trial_bindings b\n   join private.mcp_oauth_clients c on c.client_id=b.oauth_client_id\n   join private.agent_catalog_effect_policy e on e.revision='2026-09-08.v1' and e.effect_sha256=b.effect_sha256\n   cross join lateral private.resolve_agent_actor_authority(p_actor,p_company,\n     array['agent.review','catalog.import','catalog.manage','catalog.products.manage','catalog.products.view','catalog.stock.adjust','catalog.view','finances.view']::text[]) a\n   where b.oauth_client_id=p_client and b.actor_user_id=p_actor and b.company_id=p_company\n     and b.disabled_at is null and b.expires_at > statement_timestamp()\n     and c.disabled_at is null and c.exposure_revision='2026-09-08.mcp-exposure.v19'\n     and c.consent_catalog_revision='2026-09-08.mcp-consent-catalog.v14'\n     and c.scope_ceiling=private.agent_catalog_trial_scopes()\n     and c.scope=array_to_string(private.agent_catalog_trial_scopes(),' ')\n     and private.user_is_active_company_member(p_actor,p_company)\n     and a.effective_permissions @> '[{\"permission\":\"agent.review\",\"scope\":\"all\"},{\"permission\":\"catalog.import\",\"scope\":\"all\"},{\"permission\":\"catalog.manage\",\"scope\":\"all\"},{\"permission\":\"catalog.products.manage\",\"scope\":\"all\"},{\"permission\":\"catalog.products.view\",\"scope\":\"all\"},{\"permission\":\"catalog.stock.adjust\",\"scope\":\"all\"},{\"permission\":\"catalog.view\",\"scope\":\"all\"},{\"permission\":\"finances.view\",\"scope\":\"all\"}]'::jsonb\n     and b.effect_sha256=private.agent_catalog_effect_revision()\n )\n$function$\n",
+    "definition_md5": "e149490638c1918516775bea6c592aee",
+    "security_definer": true,
+    "config": [
+      "search_path=\"\""
+    ],
+    "acl": "{postgres=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "private",
+    "name": "agent_catalog_trial_scopes",
+    "arguments": "",
+    "definition": "CREATE OR REPLACE FUNCTION private.agent_catalog_trial_scopes()\n RETURNS text[]\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO ''\nAS $function$\n select array['ops.catalog.prepare','ops.catalog.read','ops.catalog_costs.read','ops.catalog_costs.write','ops.catalog_prices.write','ops.company.read','ops.inventory.adjust']::text[]\n$function$\n",
+    "definition_md5": "755bfed0e859881303ca96fb3d27eee5",
+    "security_definer": false,
+    "config": [
+      "search_path=\"\""
+    ],
+    "acl": "{postgres=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "public",
+    "name": "consume_mcp_oauth_authorization_code_as_system",
+    "arguments": "p_code_hash text, p_client_id uuid, p_redirect_uri text",
+    "definition": "CREATE OR REPLACE FUNCTION public.consume_mcp_oauth_authorization_code_as_system(p_code_hash text, p_client_id uuid, p_redirect_uri text)\n RETURNS TABLE(user_id uuid, company_id uuid, scopes text[], accepted_labels text[], consent_catalog_revision text, exposure_revision text, code_challenge text, resource text)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_replayed_grant_id uuid;\nbegin\n  if auth.role() is distinct from 'service_role' then\n    raise exception 'access_denied' using errcode = '42501';\n  end if;\n  select code.minted_grant_id\n  into v_replayed_grant_id\n  from private.mcp_oauth_authorization_codes code\n  where code.code_hash = p_code_hash\n    and code.consumed_at is not null;\n  if found then\n    if v_replayed_grant_id is not null then\n      update private.mcp_oauth_grants grants\n      set revoked_at = coalesce(grants.revoked_at, statement_timestamp())\n      where grants.id = v_replayed_grant_id;\n      update private.mcp_oauth_tokens tokens\n      set revoked_at = coalesce(tokens.revoked_at, statement_timestamp())\n      where tokens.grant_id = v_replayed_grant_id;\n    end if;\n    return;\n  end if;\n\n  return query\n  update private.mcp_oauth_authorization_codes code\n  set consumed_at = statement_timestamp()\n  where code.code_hash = p_code_hash\n    and code.client_id = p_client_id\n    and code.redirect_uri = p_redirect_uri\n    and code.consumed_at is null\n    and code.expires_at > statement_timestamp()\n  returning\n    code.user_id,\n    code.company_id,\n    code.scopes,\n    code.accepted_labels,\n    code.consent_catalog_revision,\n    code.exposure_revision,\n    code.code_challenge,\n    code.resource;\nend;\n$function$\n",
+    "definition_md5": "fc1c19445a8c1303d534cd18f37a7f83",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "public",
+    "name": "consume_mcp_oauth_consent_preview_as_system",
+    "arguments": "p_preview_hash text, p_user_id uuid, p_company_id uuid",
+    "definition": "CREATE OR REPLACE FUNCTION public.consume_mcp_oauth_consent_preview_as_system(p_preview_hash text, p_user_id uuid, p_company_id uuid)\n RETURNS TABLE(client_id uuid, user_id uuid, company_id uuid, client_name text, company_name text, redirect_uri text, response_type text, scopes text[], accepted_labels text[], consent_catalog_revision text, exposure_revision text, state text, code_challenge text, code_challenge_method text, resource text, expires_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\nbegin\n  if auth.role() is distinct from 'service_role' then\n    raise exception 'access_denied' using errcode = '42501';\n  end if;\n  if p_preview_hash is null or p_preview_hash !~ '^[0-9a-f]{64}$'\n     or p_user_id is null or p_company_id is null then\n    raise exception 'mcp_oauth_consent_preview_invalid'\n      using errcode = '22023';\n  end if;\n\n  return query\n  update private.mcp_oauth_consent_previews preview\n  set consumed_at = statement_timestamp()\n  where preview.preview_hash = p_preview_hash\n    and preview.user_id = p_user_id\n    and preview.company_id = p_company_id\n    and preview.consumed_at is null\n    and preview.expires_at > statement_timestamp()\n  returning\n    preview.client_id,\n    preview.user_id,\n    preview.company_id,\n    preview.client_name,\n    preview.company_name,\n    preview.redirect_uri,\n    preview.response_type,\n    preview.scopes,\n    preview.accepted_labels,\n    preview.consent_catalog_revision,\n    preview.exposure_revision,\n    preview.state,\n    preview.code_challenge,\n    preview.code_challenge_method,\n    preview.resource,\n    preview.expires_at;\nend;\n$function$\n",
+    "definition_md5": "263910152fbc8c0479a029ed3fabe67a",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "public",
+    "name": "create_mcp_oauth_authorization_code_as_system",
+    "arguments": "p_code_hash text, p_client_id uuid, p_user_id uuid, p_company_id uuid, p_scopes text[], p_accepted_labels text[], p_consent_catalog_revision text, p_exposure_revision text, p_redirect_uri text, p_code_challenge text, p_resource text, p_expires_at timestamp with time zone",
+    "definition": "CREATE OR REPLACE FUNCTION public.create_mcp_oauth_authorization_code_as_system(p_code_hash text, p_client_id uuid, p_user_id uuid, p_company_id uuid, p_scopes text[], p_accepted_labels text[], p_consent_catalog_revision text, p_exposure_revision text, p_redirect_uri text, p_code_challenge text, p_resource text, p_expires_at timestamp with time zone)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_client private.mcp_oauth_clients%rowtype;\nbegin\n  if auth.role() is distinct from 'service_role' then\n    raise exception 'access_denied' using errcode = '42501';\n  end if;\n  select client.*\n  into v_client\n  from private.mcp_oauth_clients client\n  where client.client_id = p_client_id\n    and client.disabled_at is null\n    and p_redirect_uri = any (client.redirect_uris)\n    and client.consent_catalog_revision = p_consent_catalog_revision\n    and client.exposure_revision = p_exposure_revision\n  for share;\n  if not found then\n    raise exception 'mcp_oauth_client_unavailable' using errcode = '22023';\n  end if;\n  if not private.mcp_oauth_scope_array_is_valid(p_scopes)\n     or not (p_scopes <@ v_client.scope_ceiling)\n     or cardinality(p_accepted_labels) <> cardinality(p_scopes)\n     or p_accepted_labels is distinct from\n       private.mcp_oauth_labels_for_scopes(\n         p_scopes,\n         p_consent_catalog_revision\n       )\n     or p_exposure_revision !~ '^[0-9a-z][0-9a-z._:-]{0,127}$' then\n    raise exception 'mcp_oauth_scope_invalid' using errcode = '22023';\n  end if;\n  if not private.user_is_active_company_member(p_user_id, p_company_id) then\n    raise exception 'mcp_oauth_actor_unavailable' using errcode = '22023';\n  end if;\n  if p_expires_at is null\n     or p_expires_at <= statement_timestamp()\n     or p_expires_at > statement_timestamp() + interval '10 minutes' then\n    raise exception 'mcp_oauth_code_expiry_invalid' using errcode = '22023';\n  end if;\n\n  perform private.prune_expired_mcp_oauth_artifacts();\n\n  insert into private.mcp_oauth_authorization_codes (\n    code_hash,\n    client_id,\n    user_id,\n    company_id,\n    scopes,\n    accepted_labels,\n    consent_catalog_revision,\n    exposure_revision,\n    redirect_uri,\n    code_challenge,\n    code_challenge_method,\n    resource,\n    expires_at\n  ) values (\n    p_code_hash,\n    p_client_id,\n    p_user_id,\n    p_company_id,\n    p_scopes,\n    p_accepted_labels,\n    p_consent_catalog_revision,\n    p_exposure_revision,\n    p_redirect_uri,\n    p_code_challenge,\n    'S256',\n    p_resource,\n    p_expires_at\n  );\nend;\n$function$\n",
+    "definition_md5": "4ed09e7c2ebb58cfc58a9c7e695d6ef4",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "private",
+    "name": "enforce_mcp_v3_canary_write",
+    "arguments": "",
+    "definition": "CREATE OR REPLACE FUNCTION private.enforce_mcp_v3_canary_write()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_client_id uuid;\n  v_user_id uuid;\n  v_company_id uuid;\n  v_exposure_revision text;\n  v_consent_catalog_revision text;\nbegin\n  if tg_table_name = 'mcp_oauth_tokens' then\n    select\n      grant_record.client_id,\n      grant_record.user_id,\n      grant_record.company_id,\n      grant_record.exposure_revision,\n      grant_record.consent_catalog_revision\n    into\n      v_client_id,\n      v_user_id,\n      v_company_id,\n      v_exposure_revision,\n      v_consent_catalog_revision\n    from private.mcp_oauth_grants grant_record\n    where grant_record.id = new.grant_id;\n    if not found then\n      return new;\n    end if;\n  else\n    v_client_id := new.client_id;\n    v_user_id := new.user_id;\n    v_company_id := new.company_id;\n    v_exposure_revision := new.exposure_revision;\n    v_consent_catalog_revision := new.consent_catalog_revision;\n  end if;\n\n  if v_exposure_revision = '2026-08-30.mcp-exposure.v3' then\n    perform private.lock_mcp_v3_canary_client(v_client_id);\n    if v_consent_catalog_revision is distinct from\n         '2026-08-30.mcp-consent-catalog.v2'\n       or not private.mcp_oauth_canary_is_current(\n         v_client_id,\n         v_user_id,\n         v_company_id,\n         '2026-08-30.mcp-exposure.v3',\n         '2026-08-30.mcp-consent-catalog.v2'\n       ) then\n      raise exception 'mcp_oauth_canary_unavailable' using errcode = '42501';\n    end if;\n  end if;\n  if v_exposure_revision='2026-09-07.mcp-exposure.v17' then\n    perform private.lock_mcp_v3_canary_client(v_client_id);\n    if v_consent_catalog_revision is distinct from '2026-09-07.mcp-consent-catalog.v12' or not private.mcp_oauth_canary_is_current(v_client_id,v_user_id,v_company_id,v_exposure_revision,v_consent_catalog_revision) then\n      raise exception 'FINANCIAL_TRIAL_UNAVAILABLE' using errcode='42501';\n    end if;\n  end if;\n  if v_exposure_revision='2026-09-08.mcp-exposure.v19' then\n    perform private.lock_mcp_v3_canary_client(v_client_id);\n    if v_consent_catalog_revision is distinct from '2026-09-08.mcp-consent-catalog.v14' or not private.agent_catalog_trial_current(v_client_id,v_user_id,v_company_id) then\n      raise exception 'CATALOG_TRIAL_UNAVAILABLE' using errcode='42501';\n    end if;\n  end if;\n  return new;\nend;\n$function$\n",
+    "definition_md5": "ef14490819a7a43ebe1a61efe283d4d0",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "public",
+    "name": "issue_mcp_oauth_consent_preview_as_system",
+    "arguments": "p_preview_hash text, p_client_id uuid, p_user_id uuid, p_company_id uuid, p_redirect_uri text, p_response_type text, p_scopes text[], p_accepted_labels text[], p_consent_catalog_revision text, p_exposure_revision text, p_state text, p_code_challenge text, p_code_challenge_method text, p_resource text, p_expires_at timestamp with time zone",
+    "definition": "CREATE OR REPLACE FUNCTION public.issue_mcp_oauth_consent_preview_as_system(p_preview_hash text, p_client_id uuid, p_user_id uuid, p_company_id uuid, p_redirect_uri text, p_response_type text, p_scopes text[], p_accepted_labels text[], p_consent_catalog_revision text, p_exposure_revision text, p_state text, p_code_challenge text, p_code_challenge_method text, p_resource text, p_expires_at timestamp with time zone)\n RETURNS TABLE(client_name text, company_name text, expires_at timestamp with time zone, rate_limited boolean)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_client private.mcp_oauth_clients%rowtype;\n  v_company_name text;\n  v_cleanup_batch integer;\n  v_cleanup_deleted integer;\n  v_binding_live_count integer;\n  v_global_live_count integer;\nbegin\n  if auth.role() is distinct from 'service_role' then\n    raise exception 'access_denied' using errcode = '42501';\n  end if;\n  if p_preview_hash is null or p_preview_hash !~ '^[0-9a-f]{64}$'\n     or p_client_id is null\n     or p_user_id is null\n     or p_company_id is null\n     or p_redirect_uri is null\n     or length(p_redirect_uri) not between 1 and 2048\n     or p_response_type is distinct from 'code'\n     or not private.mcp_oauth_scope_array_is_valid(p_scopes)\n     or cardinality(p_accepted_labels) <> cardinality(p_scopes)\n     or p_accepted_labels is distinct from\n       private.mcp_oauth_labels_for_scopes(\n         p_scopes,\n         p_consent_catalog_revision\n       )\n     or p_exposure_revision !~ '^[0-9a-z][0-9a-z._:-]{0,127}$'\n     or (\n       p_state is not null\n       and (length(p_state) > 2048 or p_state ~ '[[:cntrl:]]')\n     )\n     or p_code_challenge is null\n     or p_code_challenge !~ '^[A-Za-z0-9._~-]{43,128}$'\n     or p_code_challenge_method is distinct from 'S256'\n     or p_resource is null\n     or length(p_resource) not between 1 and 2048\n     or p_expires_at is null\n     or p_expires_at <= statement_timestamp()\n     or p_expires_at > statement_timestamp() + interval '5 minutes' then\n    raise exception 'mcp_oauth_consent_preview_invalid'\n      using errcode = '22023';\n  end if;\n\n  select client.*\n  into v_client\n  from private.mcp_oauth_clients client\n  where client.client_id = p_client_id\n    and client.disabled_at is null\n    and p_redirect_uri = any (client.redirect_uris)\n    and p_scopes <@ client.scope_ceiling\n    and client.consent_catalog_revision = p_consent_catalog_revision\n    and client.exposure_revision = p_exposure_revision\n  for share;\n  if not found then\n    return;\n  end if;\n  if not private.user_is_active_company_member(p_user_id, p_company_id) then\n    return;\n  end if;\n  select coalesce(nullif(btrim(company.name), ''), '\u2014')\n  into v_company_name\n  from public.companies company\n  where company.id = p_company_id\n    and company.deleted_at is null;\n  if not found then\n    return;\n  end if;\n\n  -- The database is the durable authority for both the per-actor/company\n  -- issuance ceiling and the global live-row cardinality ceiling. A fixed\n  -- lock serializes the global count/insert boundary; the binding lock makes\n  -- the narrower policy explicit and stable for future partitioning.\n  perform pg_catalog.pg_advisory_xact_lock(638416, 1);\n  perform pg_catalog.pg_advisory_xact_lock(\n    pg_catalog.hashtextextended(\n      p_user_id::text || ':' || p_company_id::text,\n      638416\n    )\n  );\n\n  -- Cleanup is bounded per request, but can catch up by deleting eight\n  -- ordered index batches. Consumed previews naturally become eligible at\n  -- their five-minute expiry and never require an unindexed consumed scan.\n  for v_cleanup_batch in 1..8 loop\n    delete from private.mcp_oauth_consent_previews preview\n    using (\n      select expired.preview_hash\n      from private.mcp_oauth_consent_previews expired\n      where expired.expires_at <= statement_timestamp()\n      order by expired.expires_at, expired.preview_hash\n      limit 64\n      for update skip locked\n    ) expired\n    where preview.preview_hash = expired.preview_hash;\n\n    get diagnostics v_cleanup_deleted = row_count;\n    exit when v_cleanup_deleted < 64;\n  end loop;\n\n  select pg_catalog.count(*)::integer\n  into v_binding_live_count\n  from (\n    select 1\n    from private.mcp_oauth_consent_previews preview\n    where preview.user_id = p_user_id\n      and preview.company_id = p_company_id\n      and preview.expires_at > statement_timestamp()\n    order by preview.expires_at, preview.preview_hash\n    limit 31\n  ) bounded_binding;\n\n  select pg_catalog.count(*)::integer\n  into v_global_live_count\n  from (\n    select 1\n    from private.mcp_oauth_consent_previews preview\n    where preview.expires_at > statement_timestamp()\n    order by preview.expires_at, preview.preview_hash\n    limit 4097\n  ) bounded_global;\n\n  if v_binding_live_count >= 30 or v_global_live_count >= 4096 then\n    return query\n    select v_client.client_name, v_company_name, p_expires_at, true;\n    return;\n  end if;\n\n  insert into private.mcp_oauth_consent_previews (\n    preview_hash,\n    client_id,\n    user_id,\n    company_id,\n    client_name,\n    company_name,\n    redirect_uri,\n    response_type,\n    scopes,\n    accepted_labels,\n    consent_catalog_revision,\n    exposure_revision,\n    state,\n    code_challenge,\n    code_challenge_method,\n    resource,\n    expires_at\n  ) values (\n    p_preview_hash,\n    p_client_id,\n    p_user_id,\n    p_company_id,\n    v_client.client_name,\n    v_company_name,\n    p_redirect_uri,\n    p_response_type,\n    p_scopes,\n    p_accepted_labels,\n    p_consent_catalog_revision,\n    p_exposure_revision,\n    p_state,\n    p_code_challenge,\n    p_code_challenge_method,\n    p_resource,\n    p_expires_at\n  );\n\n  return query\n  select v_client.client_name, v_company_name, p_expires_at, false;\nend;\n$function$\n",
+    "definition_md5": "23d67f1f85a7b2bcc670b45cbb402bf3",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "private",
+    "name": "lock_mcp_v3_canary_client",
+    "arguments": "p_oauth_client_id uuid",
+    "definition": "CREATE OR REPLACE FUNCTION private.lock_mcp_v3_canary_client(p_oauth_client_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\nbegin\n  if p_oauth_client_id is null then\n    raise exception 'mcp_oauth_canary_client_invalid' using errcode = '22023';\n  end if;\n  perform pg_catalog.pg_advisory_xact_lock(\n    pg_catalog.hashtextextended(\n      'ops-mcp-v3-canary:' || p_oauth_client_id::text,\n      0\n    )\n  );\nend;\n$function$\n",
+    "definition_md5": "59b8e52ed9b0e242c6ba2cfcf790f95e",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "private",
+    "name": "mcp_oauth_canary_is_current",
+    "arguments": "p_oauth_client_id uuid, p_user_id uuid, p_company_id uuid, p_exposure_revision text, p_consent_catalog_revision text",
+    "definition": "CREATE OR REPLACE FUNCTION private.mcp_oauth_canary_is_current(p_oauth_client_id uuid, p_user_id uuid, p_company_id uuid, p_exposure_revision text, p_consent_catalog_revision text)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\n SET \"TimeZone\" TO 'UTC'\nAS $function$\n  select (p_exposure_revision='2026-09-08.mcp-exposure.v19' and p_consent_catalog_revision='2026-09-08.mcp-consent-catalog.v14'\n    and private.agent_catalog_trial_current(p_oauth_client_id,p_user_id,p_company_id)) or exists (\n    select 1\n    from private.mcp_oauth_canary_bindings binding\n    join private.mcp_oauth_clients client\n      on client.client_id = binding.oauth_client_id\n     and client.disabled_at is null\n     and client.exposure_revision = binding.exposure_revision\n     and client.consent_catalog_revision = binding.consent_catalog_revision\n    where binding.oauth_client_id = p_oauth_client_id\n      and binding.user_id = p_user_id\n      and binding.company_id = p_company_id\n      and binding.exposure_revision = p_exposure_revision\n      and binding.consent_catalog_revision = p_consent_catalog_revision\n      and (\n       binding.exposure_revision='2026-08-30.mcp-exposure.v3'\n       or (binding.exposure_revision='2026-09-07.mcp-exposure.v17'\n         and binding.consent_catalog_revision='2026-09-07.mcp-consent-catalog.v12'\n         and client.scope_ceiling=array['ops.company.read','ops.customers.read','ops.financial_documents.prepare','ops.financial_documents.read','ops.jobs.read']::text[]\n         and client.scope=pg_catalog.array_to_string(client.scope_ceiling,' ')\n         and exists(\n          select 1 from private.financial_document_policies policy\n          join public.companies company on company.id=policy.company_id and company.deleted_at is null\n          join public.users owner_record on owner_record.id=policy.approved_by and owner_record.company_id=company.id and owner_record.is_active and owner_record.deleted_at is null\n          join private.financial_policy_previews preview on preview.id=policy.approval_preview_id and preview.company_id=company.id and preview.actor_user_id=owner_record.id and preview.operation='enroll' and preview.consumed_at is not null\n          join public.project_notes note on note.id=policy.source_document_id and note.company_id=company.id::text and note.deleted_at is null\n          join public.projects job on job.id::text=note.project_id and job.company_id=company.id and job.deleted_at is null\n          where policy.id=binding.financial_policy_id and policy.company_id=binding.company_id and policy.status='active'\n           and lower(company.account_holder_id)=owner_record.id::text\n           and policy.currency_code=company.currency_code\n           and private.financial_document_hash(to_jsonb(policy))=binding.financial_policy_sha256\n           and preview.receipt->>'policy_sha256'=binding.financial_policy_sha256\n           and private.financial_document_hash(to_jsonb(note))=policy.source_sha256\n           and (select count(*) from public.tax_rates tax where tax.company_id=company.id and tax.is_active and tax.is_default)=1\n           and preview.context->'tax'=(select to_jsonb(tax) from public.tax_rates tax where tax.company_id=company.id and tax.is_active and tax.is_default)\n         )\n         and exists(select 1 from private.financial_document_effect_policy effect\n          where effect.revision='financial-document-draft:2026-09-07.v1'\n           and effect.effect_revision=binding.financial_effect_revision\n           and effect.effect_revision=private.financial_document_effect_revision())\n         and exists(select 1 from private.resolve_agent_actor_authority(binding.user_id,binding.company_id,\n          array['agent.review','clients.view','estimates.create','estimates.view','pipeline.view','projects.view','settings.integrations']) authority\n          where authority.effective_permissions @> (\n           select jsonb_agg(jsonb_build_object('permission',k,'scope','all'))\n           from unnest(array['agent.review','clients.view','estimates.create','estimates.view','pipeline.view','projects.view','settings.integrations']) k))\n       )\n      )\n      and binding.disabled_at is null\n      and binding.expires_at > statement_timestamp()\n      and private.user_is_active_company_member(\n        binding.user_id,\n        binding.company_id\n      )\n  );\n$function$\n",
+    "definition_md5": "4298af0938e481086ce3b52f8a05da3f",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp",
+      "TimeZone=UTC"
+    ],
+    "acl": "{postgres=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "private",
+    "name": "mcp_oauth_scope_array",
+    "arguments": "p_scope text",
+    "definition": "CREATE OR REPLACE FUNCTION private.mcp_oauth_scope_array(p_scope text)\n RETURNS text[]\n LANGUAGE sql\n IMMUTABLE STRICT\n SET search_path TO 'pg_catalog', 'pg_temp'\nAS $function$\n  select case\n    when btrim(p_scope) = '' then null::text[]\n    else regexp_split_to_array(btrim(p_scope), '[[:space:]]+')\n  end\n$function$\n",
+    "definition_md5": "dc7cb7950505e57e0fb7a6ded91ca668",
+    "security_definer": false,
+    "config": [
+      "search_path=pg_catalog, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "public",
+    "name": "mint_mcp_oauth_grant_as_system",
+    "arguments": "p_code_hash text, p_client_id uuid, p_user_id uuid, p_company_id uuid, p_active_exposure_revision text, p_active_grantable_scopes text[], p_access_hash text, p_refresh_hash text, p_issuer text, p_audience text, p_access_expires_at timestamp with time zone, p_refresh_expires_at timestamp with time zone",
+    "definition": "CREATE OR REPLACE FUNCTION public.mint_mcp_oauth_grant_as_system(p_code_hash text, p_client_id uuid, p_user_id uuid, p_company_id uuid, p_active_exposure_revision text, p_active_grantable_scopes text[], p_access_hash text, p_refresh_hash text, p_issuer text, p_audience text, p_access_expires_at timestamp with time zone, p_refresh_expires_at timestamp with time zone)\n RETURNS TABLE(grant_id uuid, revision text)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_code record;\n  v_grant_id uuid;\n  v_revision text;\n  v_family_id uuid;\nbegin\n  if auth.role() is distinct from 'service_role' then\n    raise exception 'access_denied' using errcode = '42501';\n  end if;\n  select\n    code.scopes,\n    code.accepted_labels,\n    code.consent_catalog_revision,\n    code.exposure_revision,\n    code.resource\n  into v_code\n  from private.mcp_oauth_authorization_codes code\n  where code.code_hash = p_code_hash\n    and code.client_id = p_client_id\n    and code.user_id = p_user_id\n    and code.company_id = p_company_id\n    and code.consumed_at is not null\n    and code.minted_grant_id is null\n    and code.expires_at > statement_timestamp()\n    and code.exposure_revision = p_active_exposure_revision\n    and code.scopes <@ p_active_grantable_scopes\n  for update;\n  if not found then\n    raise exception 'mcp_oauth_code_unavailable' using errcode = '22023';\n  end if;\n  if p_audience is distinct from v_code.resource then\n    raise exception 'mcp_oauth_audience_invalid' using errcode = '22023';\n  end if;\n  if not private.user_is_active_company_member(p_user_id, p_company_id) then\n    raise exception 'mcp_oauth_actor_unavailable' using errcode = '22023';\n  end if;\n  if p_access_hash is null or p_access_hash !~ '^[0-9a-f]{64}$'\n     or p_refresh_hash is null or p_refresh_hash !~ '^[0-9a-f]{64}$'\n     or p_access_hash = p_refresh_hash then\n    raise exception 'mcp_oauth_token_hash_invalid' using errcode = '22023';\n  end if;\n\n  update private.mcp_oauth_grants grants\n  set revoked_at = statement_timestamp()\n  where grants.user_id = p_user_id\n    and grants.company_id = p_company_id\n    and grants.client_id = p_client_id\n    and grants.revoked_at is null;\n  update private.mcp_oauth_tokens tokens\n  set revoked_at = coalesce(tokens.revoked_at, statement_timestamp())\n  from private.mcp_oauth_grants grants\n  where tokens.grant_id = grants.id\n    and grants.user_id = p_user_id\n    and grants.company_id = p_company_id\n    and grants.client_id = p_client_id\n    and grants.revoked_at is not null\n    and tokens.revoked_at is null;\n\n  v_revision := replace(gen_random_uuid()::text, '-', '');\n  v_family_id := gen_random_uuid();\n  insert into private.mcp_oauth_grants (\n    user_id,\n    company_id,\n    client_id,\n    scopes,\n    accepted_labels,\n    consent_catalog_revision,\n    exposure_revision,\n    revision\n  ) values (\n    p_user_id,\n    p_company_id,\n    p_client_id,\n    v_code.scopes,\n    v_code.accepted_labels,\n    v_code.consent_catalog_revision,\n    v_code.exposure_revision,\n    v_revision\n  )\n  returning id into v_grant_id;\n\n  insert into private.mcp_oauth_tokens (\n    token_hash, kind, grant_id, family_id, issuer, audience, expires_at\n  ) values\n    (p_access_hash, 'access', v_grant_id, v_family_id, p_issuer, p_audience,\n     p_access_expires_at),\n    (p_refresh_hash, 'refresh', v_grant_id, v_family_id, p_issuer, p_audience,\n     p_refresh_expires_at);\n\n  update private.mcp_oauth_authorization_codes code\n  set minted_grant_id = v_grant_id\n  where code.code_hash = p_code_hash\n    and code.minted_grant_id is null;\n\n  return query select v_grant_id, v_revision;\nend;\n$function$\n",
+    "definition_md5": "261e707ab5784610db67263f2ef7cdf8",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "private",
+    "name": "prune_expired_mcp_oauth_artifacts",
+    "arguments": "",
+    "definition": "CREATE OR REPLACE FUNCTION private.prune_expired_mcp_oauth_artifacts()\n RETURNS void\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'private', 'pg_temp'\nAS $function$\n  with pruned_codes as (\n    delete from private.mcp_oauth_authorization_codes\n    where expires_at < statement_timestamp() - interval '1 day'\n    returning 1\n  )\n  delete from private.mcp_oauth_tokens\n  where expires_at < statement_timestamp() - interval '30 days';\n$function$\n",
+    "definition_md5": "c8d99bb75fed0d48fa161e396d8c43eb",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "public",
+    "name": "register_mcp_oauth_client_as_system",
+    "arguments": "p_client_name text, p_redirect_uris text[], p_scope text, p_scope_ceiling text[], p_consent_catalog_revision text, p_exposure_revision text, p_software_id text, p_software_version text",
+    "definition": "CREATE OR REPLACE FUNCTION public.register_mcp_oauth_client_as_system(p_client_name text, p_redirect_uris text[], p_scope text, p_scope_ceiling text[], p_consent_catalog_revision text, p_exposure_revision text, p_software_id text, p_software_version text)\n RETURNS TABLE(client_id uuid, client_name text, redirect_uris text[], token_endpoint_auth_method text, grant_types text[], response_types text[], scope text, scope_ceiling text[], consent_catalog_revision text, exposure_revision text, created_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_uri text;\n  v_claude_redirect_count integer := 0;\n  v_chatgpt_redirect_count integer := 0;\n  v_codex_redirect_count integer := 0;\n  v_canpro_redirect_count integer := 0;\n  v_callback_family_count integer;\n  v_codex_port integer;\nbegin\n  if auth.role() is distinct from 'service_role' then\n    raise exception 'access_denied' using errcode = '42501';\n  end if;\n  if p_client_name is null or btrim(p_client_name) = ''\n     or length(p_client_name) > 256 then\n    raise exception 'mcp_oauth_client_name_invalid' using errcode = '22023';\n  end if;\n  if p_redirect_uris is null\n     or cardinality(p_redirect_uris) not between 1 and 8\n     or array_position(p_redirect_uris, null) is not null\n     or cardinality(array(\n       select distinct redirect_uri\n       from unnest(p_redirect_uris) as redirect_uri\n     )) <> cardinality(p_redirect_uris) then\n    raise exception 'mcp_oauth_redirect_uris_invalid' using errcode = '22023';\n  end if;\n\n  foreach v_uri in array p_redirect_uris loop\n    if v_uri = any (array[\n      'https://claude.ai/api/mcp/auth_callback',\n      'https://claude.com/api/mcp/auth_callback'\n    ]::text[]) then\n      v_claude_redirect_count := v_claude_redirect_count + 1;\n      continue;\n    end if;\n\n    if v_uri = 'https://chatgpt.com/connector_platform_oauth_redirect' then\n      v_chatgpt_redirect_count := v_chatgpt_redirect_count + 1;\n      continue;\n    end if;\n\n    if v_uri = 'https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth' then\n      v_canpro_redirect_count := v_canpro_redirect_count + 1;\n      continue;\n    end if;\n\n    if length(v_uri) > 2048\n       or (v_uri collate \"C\") !~ '^http://127[.]0[.]0[.]1:([123456789][0123456789]{0,4})/callback/[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-]{8,128}$' then\n      raise exception 'mcp_oauth_redirect_uri_invalid' using errcode = '22023';\n    end if;\n    v_codex_port := substring(\n      (v_uri collate \"C\")\n      from '^http://127[.]0[.]0[.]1:([123456789][0123456789]{0,4})/'\n    )::integer;\n    if v_codex_port not between 1 and 65535 then\n      raise exception 'mcp_oauth_redirect_uri_invalid' using errcode = '22023';\n    end if;\n    v_codex_redirect_count := v_codex_redirect_count + 1;\n  end loop;\n\n  v_callback_family_count :=\n    case when v_claude_redirect_count > 0 then 1 else 0 end\n    + case when v_chatgpt_redirect_count > 0 then 1 else 0 end\n    + case when v_codex_redirect_count > 0 then 1 else 0 end\n    + case when v_canpro_redirect_count > 0 then 1 else 0 end;\n  if v_callback_family_count is distinct from 1\n     or v_chatgpt_redirect_count > 1\n     or v_codex_redirect_count > 1\n     or v_canpro_redirect_count > 1 then\n    raise exception 'mcp_oauth_redirect_uri_invalid' using errcode = '22023';\n  end if;\n\n  if p_scope is null or btrim(p_scope) = '' or length(p_scope) > 1024\n     or not private.mcp_oauth_scope_array_is_valid(p_scope_ceiling)\n     or p_scope is distinct from array_to_string(p_scope_ceiling, ' ')\n     or private.mcp_oauth_labels_for_scopes(\n       p_scope_ceiling,\n       p_consent_catalog_revision\n     ) is null\n     or p_exposure_revision !~ '^[0-9a-z][0-9a-z._:-]{0,127}$' then\n    raise exception 'mcp_oauth_scope_invalid' using errcode = '22023';\n  end if;\n\n  -- Frozen read-only v2 ceiling. The active consent catalogue may include\n  -- prepare scopes for other clients; this cloud source client never does.\n  if v_canpro_redirect_count = 1 and not (p_scope_ceiling <@ array[\n    'ops.jobs.read',\n    'ops.schedule.read',\n    'ops.customers.read',\n    'ops.customer_contacts.read',\n    'ops.photos.read',\n    'ops.correspondence.read',\n    'ops.financials.read',\n    'ops.tasks.read',\n    'ops.site_visits.read',\n    'ops.files.read',\n    'ops.financial_documents.read',\n    'ops.payments.read',\n    'ops.expenses.read',\n    'ops.catalog.read',\n    'ops.purchasing.read',\n    'ops.catalog_costs.read',\n    'ops.company.read',\n    'ops.team.read',\n    'ops.integrations.read',\n    'ops.operations.read'\n  ]::text[]) then\n    raise exception 'mcp_oauth_scope_invalid' using errcode = '22023';\n  end if;\n\n  return query\n  insert into private.mcp_oauth_clients (\n    client_name,\n    redirect_uris,\n    token_endpoint_auth_method,\n    grant_types,\n    response_types,\n    scope,\n    scope_ceiling,\n    consent_catalog_revision,\n    exposure_revision,\n    registration_source,\n    software_id,\n    software_version\n  ) values (\n    btrim(p_client_name),\n    p_redirect_uris,\n    'none',\n    array['authorization_code', 'refresh_token'],\n    array['code'],\n    p_scope,\n    p_scope_ceiling,\n    p_consent_catalog_revision,\n    p_exposure_revision,\n    'dynamic',\n    nullif(btrim(coalesce(p_software_id, '')), ''),\n    nullif(btrim(coalesce(p_software_version, '')), '')\n  )\n  returning\n    mcp_oauth_clients.client_id,\n    mcp_oauth_clients.client_name,\n    mcp_oauth_clients.redirect_uris,\n    mcp_oauth_clients.token_endpoint_auth_method,\n    mcp_oauth_clients.grant_types,\n    mcp_oauth_clients.response_types,\n    mcp_oauth_clients.scope,\n    mcp_oauth_clients.scope_ceiling,\n    mcp_oauth_clients.consent_catalog_revision,\n    mcp_oauth_clients.exposure_revision,\n    mcp_oauth_clients.created_at;\nend;\n$function$\n",
+    "definition_md5": "4944c9d30c3a0b8d2d1cda6899b6bf2b",
+    "security_definer": true,
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ]
+  },
+  {
+    "schema": "public",
+    "name": "resolve_mcp_oauth_canary_as_system",
+    "arguments": "p_oauth_client_id uuid, p_user_id uuid, p_company_id uuid, p_exposure_revision text, p_consent_catalog_revision text",
+    "definition": "CREATE OR REPLACE FUNCTION public.resolve_mcp_oauth_canary_as_system(p_oauth_client_id uuid, p_user_id uuid, p_company_id uuid, p_exposure_revision text, p_consent_catalog_revision text)\n RETURNS TABLE(exposure_revision text, consent_catalog_revision text, expires_at timestamp with time zone)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\n  select\n    binding.exposure_revision,\n    binding.consent_catalog_revision,\n    binding.expires_at\n  from private.mcp_oauth_canary_bindings binding\n  join private.mcp_oauth_clients client\n    on client.client_id = binding.oauth_client_id\n   and client.disabled_at is null\n   and client.exposure_revision = binding.exposure_revision\n   and client.consent_catalog_revision = binding.consent_catalog_revision\n  where auth.role() is not distinct from 'service_role'\n    and binding.oauth_client_id = p_oauth_client_id\n    and binding.user_id = p_user_id\n    and binding.company_id = p_company_id\n    and binding.exposure_revision = p_exposure_revision\n    and binding.consent_catalog_revision = p_consent_catalog_revision\n    and private.mcp_oauth_canary_is_current(p_oauth_client_id,p_user_id,p_company_id,p_exposure_revision,p_consent_catalog_revision)\n    and binding.disabled_at is null\n    and binding.expires_at > statement_timestamp()\n    and private.user_is_active_company_member(\n      binding.user_id,\n      binding.company_id\n    )\n  union all\n  select '2026-09-08.mcp-exposure.v19','2026-09-08.mcp-consent-catalog.v14',binding.expires_at\n  from private.agent_catalog_trial_bindings binding\n  where auth.role() is not distinct from 'service_role'\n    and binding.oauth_client_id=p_oauth_client_id and binding.actor_user_id=p_user_id and binding.company_id=p_company_id\n    and p_exposure_revision='2026-09-08.mcp-exposure.v19' and p_consent_catalog_revision='2026-09-08.mcp-consent-catalog.v14'\n    and private.agent_catalog_trial_current(p_oauth_client_id,p_user_id,p_company_id);\n$function$\n",
+    "definition_md5": "7d5625606b3db7f12b820bb6eded4043",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "public",
+    "name": "revoke_mcp_oauth_grant_as_system",
+    "arguments": "p_grant_id uuid, p_user_id uuid",
+    "definition": "CREATE OR REPLACE FUNCTION public.revoke_mcp_oauth_grant_as_system(p_grant_id uuid, p_user_id uuid)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_revoked boolean := false;\nbegin\n  if auth.role() is distinct from 'service_role' then\n    raise exception 'access_denied' using errcode = '42501';\n  end if;\n\n  update private.mcp_oauth_grants grants\n  set revoked_at = statement_timestamp()\n  where grants.id = p_grant_id\n    and grants.user_id = p_user_id\n    and grants.revoked_at is null;\n  v_revoked := found;\n\n  if v_revoked then\n    update private.mcp_oauth_tokens tokens\n    set revoked_at = coalesce(tokens.revoked_at, statement_timestamp())\n    where tokens.grant_id = p_grant_id;\n\n    update private.agent_day_closeout_routines routine\n    set enabled = false,\n        claimed_at = null,\n        claim_token = null,\n        claim_expires_at = null,\n        attempt_count = 0,\n        retry_not_before = null,\n        last_failure_code = 'OAUTH_GRANT_REVOKED',\n        schedule_revision = case\n          when routine.schedule_revision = 9007199254740991 then 0\n          else routine.schedule_revision + 1\n        end,\n        updated_at = statement_timestamp()\n    where routine.oauth_grant_id = p_grant_id\n      and routine.enabled;\n  end if;\n\n  return v_revoked;\nend;\n$function$\n",
+    "definition_md5": "f54af5e299541c27fd606b9397699eba",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "public",
+    "name": "revoke_mcp_oauth_token_as_system",
+    "arguments": "p_token_hash text",
+    "definition": "CREATE OR REPLACE FUNCTION public.revoke_mcp_oauth_token_as_system(p_token_hash text)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'public', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_grant_id uuid;\nbegin\n  if auth.role() is distinct from 'service_role' then\n    raise exception 'access_denied' using errcode = '42501';\n  end if;\n\n  select tokens.grant_id\n  into v_grant_id\n  from private.mcp_oauth_tokens tokens\n  where tokens.token_hash = p_token_hash;\n\n  if v_grant_id is not null then\n    update private.mcp_oauth_grants grants\n    set revoked_at = coalesce(grants.revoked_at, statement_timestamp())\n    where grants.id = v_grant_id;\n    update private.mcp_oauth_tokens tokens\n    set revoked_at = coalesce(tokens.revoked_at, statement_timestamp())\n    where tokens.grant_id = v_grant_id;\n\n    update private.agent_day_closeout_routines routine\n    set enabled = false,\n        claimed_at = null,\n        claim_token = null,\n        claim_expires_at = null,\n        attempt_count = 0,\n        retry_not_before = null,\n        last_failure_code = 'OAUTH_GRANT_REVOKED',\n        schedule_revision = case\n          when routine.schedule_revision = 9007199254740991 then 0\n          else routine.schedule_revision + 1\n        end,\n        updated_at = statement_timestamp()\n    where routine.oauth_grant_id = v_grant_id\n      and routine.enabled;\n  end if;\n\n  return true;\nend;\n$function$\n",
+    "definition_md5": "83ea81bf70a0f03b35e72d1dfedcff18",
+    "security_definer": true,
+    "config": [
+      "search_path=pg_catalog, public, private, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,service_role=X/postgres}",
+    "owner": "postgres"
+  },
+  {
+    "schema": "private",
+    "name": "agent_mcp_rate_limit_bucket_digest",
+    "arguments": "p_bucket_kind text, p_company_id uuid, p_actor_user_id uuid, p_grant_id uuid, p_capability_id text, p_policy_id text, p_window_start timestamp with time zone",
+    "definition": "CREATE OR REPLACE FUNCTION private.agent_mcp_rate_limit_bucket_digest(p_bucket_kind text, p_company_id uuid, p_actor_user_id uuid, p_grant_id uuid, p_capability_id text, p_policy_id text, p_window_start timestamp with time zone)\n RETURNS bytea\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'private', 'extensions', 'pg_temp'\nAS $function$\ndeclare\n  v_key bytea;\n  v_canonical text;\nbegin\n  if p_bucket_kind is null\n     or p_bucket_kind not in ('actor', 'grant', 'company')\n     or p_company_id is null\n     or p_capability_id is null\n     or p_policy_id is null\n     or p_window_start is null\n     or (p_bucket_kind = 'actor' and (\n       p_actor_user_id is null or p_grant_id is not null\n     ))\n     or (p_bucket_kind = 'grant' and (\n       p_actor_user_id is null or p_grant_id is null\n     ))\n     or (p_bucket_kind = 'company' and (\n       p_actor_user_id is not null or p_grant_id is not null\n     )) then\n    raise exception 'agent_mcp_rate_limit_digest_input_invalid'\n      using errcode = '22023';\n  end if;\n\n  select key_row.key_material\n    into strict v_key\n  from private.agent_mcp_rate_limit_keys key_row\n  where key_row.key_id = 'mcp-rate-limit-hmac:2026-08-23.v1';\n\n  v_canonical := pg_catalog.jsonb_build_array(\n    'agent-mcp-rate-limit-bucket:2026-08-23.v1',\n    p_bucket_kind,\n    p_company_id::text,\n    coalesce(p_actor_user_id::text, ''),\n    coalesce(p_grant_id::text, ''),\n    p_capability_id,\n    p_policy_id,\n    floor(extract(epoch from p_window_start))::bigint\n  )::text;\n\n  return extensions.hmac(\n    pg_catalog.convert_to(v_canonical, 'UTF8'),\n    v_key,\n    'sha256'\n  );\nend;\n$function$\n",
+    "definition_md5": "373131783bdffe52d8888d9fb2b75b63",
+    "security_definer": true,
+    "acl": "{postgres=X/postgres}",
+    "config": [
+      "search_path=pg_catalog, private, extensions, pg_temp"
+    ]
+  },
+  {
+    "schema": "private",
+    "name": "prune_agent_mcp_rate_limit_buckets",
+    "arguments": "p_limit integer",
+    "definition": "CREATE OR REPLACE FUNCTION private.prune_agent_mcp_rate_limit_buckets(p_limit integer)\n RETURNS integer\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog', 'private', 'pg_temp'\nAS $function$\ndeclare\n  v_deleted integer;\nbegin\n  if p_limit is null or not (p_limit between 1 and 64) then\n    raise exception 'agent_mcp_rate_limit_cleanup_bound_invalid'\n      using errcode = '22023';\n  end if;\n\n  with expired as materialized (\n    select bucket.bucket_digest\n    from private.agent_mcp_rate_limit_buckets bucket\n    where bucket.expires_at <= statement_timestamp()\n    order by bucket.expires_at, bucket.bucket_digest\n    limit p_limit\n    for update skip locked\n  ), deleted as (\n    delete from private.agent_mcp_rate_limit_buckets bucket\n    using expired\n    where bucket.bucket_digest = expired.bucket_digest\n    returning 1\n  )\n  select count(*)::integer\n    into v_deleted\n  from deleted;\n\n  return v_deleted;\nend;\n$function$\n",
+    "definition_md5": "a671f706e17e308b326244c89511eb63",
+    "security_definer": true,
+    "acl": "{postgres=X/postgres}",
+    "config": [
+      "search_path=pg_catalog, private, pg_temp"
+    ]
+  }
+]

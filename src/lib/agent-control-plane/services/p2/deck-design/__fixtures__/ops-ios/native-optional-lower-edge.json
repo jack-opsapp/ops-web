@@ -1,0 +1,194 @@
+{
+  "fixture_kind": "synthetic_native_shape",
+  "producer_repository": "ops-ios",
+  "drawing_data": {
+    "schemaVersion": 11,
+    "scaleFactor": 2,
+    "levels": [
+      {
+        "id": "upper",
+        "sortOrder": 1,
+        "elevation": 6,
+        "vertices": [
+          {
+            "id": "upper-v1",
+            "position": [
+              0,
+              0
+            ]
+          },
+          {
+            "id": "upper-v2",
+            "position": [
+              240,
+              0
+            ]
+          },
+          {
+            "id": "upper-v3",
+            "position": [
+              240,
+              192
+            ]
+          },
+          {
+            "id": "upper-v4",
+            "position": [
+              0,
+              192
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "id": "upper-e1",
+            "startVertexId": "upper-v1",
+            "endVertexId": "upper-v2",
+            "edgeType": "deck_edge",
+            "boundaryRole": "open",
+            "dimension": 120,
+            "dimensionSource": "manual",
+            "dimensionStale": false,
+            "assignedItems": []
+          },
+          {
+            "id": "upper-e2",
+            "startVertexId": "upper-v2",
+            "endVertexId": "upper-v3",
+            "edgeType": "deck_edge",
+            "boundaryRole": "open",
+            "dimension": 96,
+            "dimensionSource": "manual",
+            "dimensionStale": false,
+            "assignedItems": []
+          },
+          {
+            "id": "upper-e3",
+            "startVertexId": "upper-v3",
+            "endVertexId": "upper-v4",
+            "edgeType": "deck_edge",
+            "boundaryRole": "open",
+            "dimension": 120,
+            "dimensionSource": "manual",
+            "dimensionStale": false,
+            "assignedItems": []
+          },
+          {
+            "id": "upper-e4",
+            "startVertexId": "upper-v4",
+            "endVertexId": "upper-v1",
+            "edgeType": "deck_edge",
+            "boundaryRole": "open",
+            "dimension": 96,
+            "dimensionSource": "manual",
+            "dimensionStale": false,
+            "assignedItems": []
+          }
+        ],
+        "surfaces": []
+      },
+      {
+        "id": "lower",
+        "sortOrder": 0,
+        "elevation": 2,
+        "vertices": [
+          {
+            "id": "lower-v1",
+            "position": [
+              0,
+              260
+            ]
+          },
+          {
+            "id": "lower-v2",
+            "position": [
+              240,
+              260
+            ]
+          },
+          {
+            "id": "lower-v3",
+            "position": [
+              240,
+              452
+            ]
+          },
+          {
+            "id": "lower-v4",
+            "position": [
+              0,
+              452
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "id": "lower-e1",
+            "startVertexId": "lower-v1",
+            "endVertexId": "lower-v2",
+            "edgeType": "deck_edge",
+            "boundaryRole": "open",
+            "dimension": 120,
+            "dimensionSource": "manual",
+            "dimensionStale": false,
+            "assignedItems": []
+          },
+          {
+            "id": "lower-e2",
+            "startVertexId": "lower-v2",
+            "endVertexId": "lower-v3",
+            "edgeType": "deck_edge",
+            "boundaryRole": "open",
+            "dimension": 96,
+            "dimensionSource": "manual",
+            "dimensionStale": false,
+            "assignedItems": []
+          },
+          {
+            "id": "lower-e3",
+            "startVertexId": "lower-v3",
+            "endVertexId": "lower-v4",
+            "edgeType": "deck_edge",
+            "boundaryRole": "open",
+            "dimension": 120,
+            "dimensionSource": "manual",
+            "dimensionStale": false,
+            "assignedItems": []
+          },
+          {
+            "id": "lower-e4",
+            "startVertexId": "lower-v4",
+            "endVertexId": "lower-v1",
+            "edgeType": "deck_edge",
+            "boundaryRole": "open",
+            "dimension": 96,
+            "dimensionSource": "manual",
+            "dimensionStale": false,
+            "assignedItems": []
+          }
+        ],
+        "surfaces": []
+      }
+    ],
+    "levelConnections": [
+      {
+        "id": "stair-link",
+        "upperLevelId": "upper",
+        "lowerLevelId": "lower",
+        "upperEdgeId": "upper-e3",
+        "position": {
+          "full": {}
+        },
+        "stairConfig": {
+          "width": 48,
+          "treadCount": 7,
+          "risePerStep": 7.5,
+          "runPerTread": 10,
+          "alignment": "center",
+          "offset": 0,
+          "flipDirection": false
+        }
+      }
+    ]
+  }
+}

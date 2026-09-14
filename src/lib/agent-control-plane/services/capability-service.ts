@@ -4,6 +4,11 @@ import {
   type CatalogAuthoringService,
 } from "./catalog-authoring/catalog-authoring-service";
 import { CATALOG_AUTHORING_MANIFEST } from "../contracts/catalog-authoring";
+import { SITE_VISIT_WORKFLOW_MANIFEST } from "../contracts/site-visit-workflow";
+import {
+  isTrustedSiteVisitWorkflowService,
+  type SiteVisitWorkflowService,
+} from "./site-visit-workflow/site-visit-workflow-service";
 import {
   isTrustedFinancialDocumentService,
   type FinancialDocumentService,
@@ -86,7 +91,8 @@ import {
 
 const TRUSTED_CAPABILITY_SERVICES = new WeakSet<object>();
 
-export type OpsAgentCapabilityService = CatalogAuthoringService &
+export type OpsAgentCapabilityService = SiteVisitWorkflowService &
+  CatalogAuthoringService &
   OpsAgentReadCatalogueService &
   DayCloseoutService &
   CollectionsService &
@@ -121,6 +127,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly scheduleChange: ScheduleChangeService;
   readonly financialDocument: FinancialDocumentService;
   readonly catalogAuthoring: CatalogAuthoringService;
+  readonly siteVisitWorkflow: SiteVisitWorkflowService;
   readonly customerMessage: CustomerMessageService;
   readonly dispatchConfirmationTask: DispatchConfirmationTaskService;
 }): OpsAgentCapabilityService {
@@ -172,6 +179,8 @@ export function createOpsAgentCapabilityService(input: {
   }
   if (!isTrustedCatalogAuthoringService(input.catalogAuthoring))
     throw new TypeError("A trusted catalog authoring service is required");
+  if (!isTrustedSiteVisitWorkflowService(input.siteVisitWorkflow))
+    throw new TypeError("A trusted site visit workflow service is required");
   if (!isTrustedFinancialDocumentService(input.financialDocument))
     throw new TypeError("A trusted financial document service is required");
   if (!isTrustedScheduleChangeService(input.scheduleChange))
@@ -222,6 +231,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.scheduleChange,
     ...input.financialDocument,
     ...input.catalogAuthoring,
+    ...input.siteVisitWorkflow,
     ...input.customerMessage,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
@@ -245,7 +255,8 @@ export async function reauthorizeCustomerUpdateReadActor(
 ): Promise<ActorContext> {
   if (
     !isActorContext(actor) ||
-    (actor.capabilityManifestRevision !== CATALOG_AUTHORING_MANIFEST &&
+    (actor.capabilityManifestRevision !== SITE_VISIT_WORKFLOW_MANIFEST &&
+      actor.capabilityManifestRevision !== CATALOG_AUTHORING_MANIFEST &&
       actor.capabilityManifestRevision !==
         CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
       actor.capabilityManifestRevision !==

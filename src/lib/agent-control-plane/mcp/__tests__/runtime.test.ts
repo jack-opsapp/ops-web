@@ -125,6 +125,17 @@ describe("MCP production runtime", () => {
       "inspectCatalogChanges",
       "prepareCatalogChanges",
       "prepareInventoryAdjustment",
+      "listSiteVisitTemplates",
+      "getSiteVisitTemplate",
+      "getSiteVisitForm",
+      "getSiteVisitSource",
+      "prepareSiteVisitBooking",
+      "prepareSiteVisitReschedule",
+      "prepareSiteVisitBookingCancellation",
+      "prepareSiteVisitTemplate",
+      "prepareSiteVisitTemplateEdit",
+      "prepareSiteVisitChecklistSelection",
+      "prepareSiteVisitAnswers",
       "prepareCustomerMessage",
     ]);
     expect(runtime.hiringWhatIf).toBeDefined();

@@ -79,6 +79,90 @@ const LONG_SCHEDULE = `${"Crew mobilization is confirmed and the customer has be
  * tests now pin the converged behaviour.
  */
 describe("deterministic lead-summary fallback convergence (0700468d)", () => {
+  it("uses the resolved customer request instead of also requiring a generic commercial action", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({
+          next_action: "Please resend the missing photos.",
+        }),
+        commercial: {
+          outcome: "deferred",
+          reason: "budget_timing",
+          current_price: null,
+          current_scope: null,
+          excluded_scope: null,
+          schedule: null,
+          objection: null,
+          next_action: "Follow up next year.",
+          superseded_prices: [],
+        },
+      })
+    );
+    expect(summary).toContain("resend the missing photos");
+    expect(summary).not.toContain("next year");
+  });
+
+  it("does not require the greeting removed from the displayed next action", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({
+          next_action: "Hi Morgan, CAN YOU PLEASE CONTACT ME!",
+        }),
+      })
+    );
+    expect(summary).toContain("CONTACT ME");
+    expect(summary).not.toContain("Morgan");
+  });
+
+  it("does not treat a shared-photo URL as a mandatory next action", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({
+          current_scope: "replace the cedar decking",
+          next_action: "https://photos.example.com/shared/album",
+        }),
+      })
+    );
+    expect(summary).toContain("cedar decking");
+    expect(summary).not.toContain("Next action:");
+    expect(summary).not.toContain("https:");
+  });
+
+  it("does not mistake scope vocabulary for a superseded customer request", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({
+          current_scope: "replace the vinyl and install white railings",
+          next_action: "Please resend the missing photos.",
+          superseded_next_actions: [
+            "Can you install the vinyl next Wednesday?",
+          ],
+        }),
+      })
+    );
+    expect(summary).toContain("white railings");
+    expect(summary).toContain("resend the missing photos");
+    expect(summary).not.toContain("Wednesday");
+  });
+
+  it("does not turn a historical explanation into a current work schedule", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({
+          current_scope: "supply aluminum railings",
+          objection:
+            "The earlier quote was delayed while we assessed costs for the fall.",
+          next_action: "Confirm the final measurements.",
+          superseded_schedules: [
+            "The earlier quote was delayed while we assessed costs for the fall.",
+          ],
+        }),
+      })
+    );
+    expect(summary).toContain("Objection: The earlier quote was delayed");
+    expect(summary).not.toContain("Schedule:");
+  });
+
   it("states the current scope even when a superseded revision overlaps it", () => {
     const summary = renderDeterministicLeadSummaryFallback(
       makeBundle({
@@ -219,9 +303,8 @@ describe("deterministic fallback property: structured bundles always converge", 
               withSuperseded && scope ? [supersededRevision(scope)] : [],
             superseded_schedules:
               withSuperseded && schedule ? [supersededRevision(schedule)] : [],
-            superseded_next_actions: withSuperseded && scope
-              ? ["send the original drawings"]
-              : [],
+            superseded_next_actions:
+              withSuperseded && scope ? ["send the original drawings"] : [],
           });
           bundles.push({
             name: `price=${price} scope=${scope ? "yes" : "no"} schedule=${
@@ -242,11 +325,11 @@ describe("deterministic fallback property: structured bundles always converge", 
     const current = bundle.current_fact_context;
     const hasCurrentFact = Boolean(
       current &&
-        (current.current_price !== null ||
-          current.current_scope ||
-          current.schedule ||
-          current.objection ||
-          current.next_action)
+      (current.current_price !== null ||
+        current.current_scope ||
+        current.schedule ||
+        current.objection ||
+        current.next_action)
     );
     if (!hasCurrentFact) continue;
 

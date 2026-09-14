@@ -9,7 +9,6 @@ import {
   type PrepareCustomerUpdateInput,
 } from "@/lib/agent-control-plane/contracts/customer-update";
 import { CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { MCP_EXPOSURE_V14 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 interface RpcResponse {
   readonly data: unknown;
@@ -86,7 +85,6 @@ function binding(actor: ActorContext) {
     p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
     p_capability_manifest_revision:
       CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
-    p_exposure_revision: MCP_EXPOSURE_V14.revision,
     p_capability_id: "prepare_customer_update",
     p_capability_revision: CUSTOMER_UPDATE_CAPABILITY_REVISION,
   } as const;
@@ -177,7 +175,7 @@ export function createCustomerUpdateRepository(input: {
   const repository: CustomerUpdateRepository = {
     async prepare(read) {
       const response = await execute(
-        input.rpc("prepare_agent_customer_update_as_system", {
+        input.rpc("prepare_agent_customer_update_for_grant_as_system", {
           ...binding(read.actorContext),
           p_request_id: read.actorContext.requestId,
           p_request: read.request,

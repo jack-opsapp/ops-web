@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-deck-geometry-web
+
+ ✓ src/lib/agent-control-plane/mcp/__tests__/deck-geometry-candidate-protocol.test.ts (11 tests) 51ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-railing-estimate.test.ts (15 tests) 24ms
+ ✓ src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-v2-service.test.ts (17 tests) 37ms
+
+ Test Files  3 passed (3)
+      Tests  43 passed (43)
+   Start at  16:08:59
+   Duration  2.56s (transform 870ms, setup 270ms, collect 1.50s, tests 113ms, environment 380ms, prepare 68ms)

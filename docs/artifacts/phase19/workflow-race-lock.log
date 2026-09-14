@@ -1,0 +1,6 @@
+ERROR:  could not obtain lock on relation "public.project_tasks"
+CONTEXT:  SQL statement "lock table public.site_visits,public.site_visit_types,public.site_visit_checklist_answers,
+ public.site_visit_artifacts,public.deck_designs,public.opportunities,public.projects,public.project_tasks,
+ public.calendar_user_events,public.users,public.companies,public.site_visit_booking_policies,
+ public.email_connections,private.guest_booking_intents in share row exclusive mode nowait"
+PL/pgSQL function private.agent_site_visit_workflow_lock(uuid) line 13 at SQL statement

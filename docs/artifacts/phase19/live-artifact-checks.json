@@ -1,0 +1,38 @@
+[
+  {
+    "conname": "site_visit_artifacts_asset_url_length",
+    "definition": "CHECK (((asset_url IS NULL) OR (char_length(asset_url) <= 4096)))"
+  },
+  {
+    "conname": "site_visit_artifacts_body_length",
+    "definition": "CHECK (((body IS NULL) OR (char_length(body) <= 200000)))"
+  },
+  {
+    "conname": "site_visit_artifacts_created_by_length",
+    "definition": "CHECK (((char_length(created_by) >= 1) AND (char_length(created_by) <= 256)))"
+  },
+  {
+    "conname": "site_visit_artifacts_dimensions_shape",
+    "definition": "CHECK (((dimensions IS NULL) OR ((jsonb_typeof(dimensions) = 'object'::text) AND (pg_column_size(dimensions) <= 1048576))))"
+  },
+  {
+    "conname": "site_visit_artifacts_kind_check",
+    "definition": "CHECK ((kind = ANY (ARRAY['photo'::text, 'annotated_photo'::text, 'dimensioned_photo'::text, 'note'::text, 'transcript'::text, 'measurement'::text, 'deck_design'::text])))"
+  },
+  {
+    "conname": "site_visit_artifacts_rendered_url_length",
+    "definition": "CHECK (((rendered_asset_url IS NULL) OR (char_length(rendered_asset_url) <= 4096)))"
+  },
+  {
+    "conname": "site_visit_artifacts_source_check",
+    "definition": "CHECK ((source = ANY (ARRAY['camera'::text, 'gallery'::text, 'microphone'::text, 'keyboard'::text, 'laser'::text, 'lidar'::text, 'deck_builder'::text, 'manual'::text])))"
+  },
+  {
+    "conname": "site_visit_artifacts_thumbnail_url_length",
+    "definition": "CHECK (((thumbnail_url IS NULL) OR (char_length(thumbnail_url) <= 4096)))"
+  },
+  {
+    "conname": "site_visit_artifacts_title_length",
+    "definition": "CHECK (((title IS NULL) OR (char_length(title) <= 500)))"
+  }
+]

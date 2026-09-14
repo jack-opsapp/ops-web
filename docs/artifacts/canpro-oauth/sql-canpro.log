@@ -1,0 +1,96 @@
+SET
+SET
+CREATE FUNCTION
+INSERT 0 1
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:29: NOTICE:  PASS: canpro-cloud registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:29: NOTICE:  PASS: canpro-cloud consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:29: NOTICE:  PASS: canpro-cloud other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:29: NOTICE:  PASS: canpro-cloud exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:29: NOTICE:  PASS: canpro-cloud consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:29: NOTICE:  PASS: canpro-cloud code carries accepted labels
+ connect_canpro 
+----------------
+ 
+(1 row)
+
+SELECT 8
+CREATE FUNCTION
+REVOKE
+GRANT
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:34: NOTICE:  PASS: migration replay preserves every client byte
+ assert 
+--------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth/
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth?
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth?code=x
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth#fragment
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth/extra
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias  https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias http://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias HTTPS://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co:443/functions/v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co.evil.example/functions/v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://ijeekuhbatykdomumfjx.supabase.co/functions/v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://*.supabase.co/functions/v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/%73ource-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/../v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject callback alias https://user@bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject mixed Canpro family
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject mixed Canpro family
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject mixed Canpro family
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject non-ceiling scope ops.customers.prepare
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject non-ceiling scope ops.financial_documents.prepare
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject non-ceiling scope ops.jobs.write
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: reject non-ceiling scope ops.new.read
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:53: NOTICE:  PASS: SQL requires explicit scope
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: Canpro exact stored callback and public PKCE client
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: code issuance rejects redirect mismatch
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: wrong redirect cannot consume code
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: exact redirect consumes code and preserves PKCE challenge
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: code replay returns no authority
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: expired code returns no authority
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: expired consent preview returns no authority
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: Canpro rotation retains exact read-only consent
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: rotated bearer resolves with original read scope
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: Canpro refresh replay detected
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:82: NOTICE:  PASS: Canpro replay revokes grant and whole token family
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:85: NOTICE:  PASS: canpro-code-replay registration pins exact ceiling/consent/exposure
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:85: NOTICE:  PASS: canpro-code-replay consent preview persisted
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:85: NOTICE:  PASS: canpro-code-replay other tenant cannot consume preview
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:85: NOTICE:  PASS: canpro-code-replay exact displayed consent preserved
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:85: NOTICE:  PASS: canpro-code-replay consent preview is single use
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:85: NOTICE:  PASS: canpro-code-replay code carries accepted labels
+ connect_canpro 
+----------------
+ 
+(1 row)
+
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:90: NOTICE:  PASS: minted code replay returns no authority
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:90: NOTICE:  PASS: minted code replay revokes grant and tokens
+DO
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:92: NOTICE:  PASS: registration remains service-only
+ assert 
+--------
+ 
+(1 row)
+
+SET
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/tests/sql/canpro-cloud-oauth-runtime.sql:94: NOTICE:  PASS: registration repeats service-role gate
+ rejects 
+---------
+ 
+(1 row)
+
+SET
+                     result                     
+------------------------------------------------
+ Canpro cloud OAuth PostgreSQL fixture complete
+(1 row)
+

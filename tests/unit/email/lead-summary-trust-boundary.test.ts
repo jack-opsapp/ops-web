@@ -397,7 +397,7 @@ describe("lead-summary trusted correspondence boundary", () => {
     );
     expect(bundle!.commercial_context).toMatchObject({
       outcome: "won",
-      next_action: expect.stringMatching(/convert|project/i),
+      next_action: "Please confirm receipt.",
     });
   });
 
@@ -1774,7 +1774,7 @@ describe("lead-summary live wording regressions", () => {
       /send deposit|instructions/i
     );
     expect(bundle!.commercial_context!.next_action).toBe(
-      "Confirm the work schedule."
+      bundle!.current_fact_context!.next_action
     );
     expect(bundle!.current_fact_context!.next_action).toMatch(
       /crew.*larger.*heavier items/i
@@ -1970,6 +1970,61 @@ function negotiatingCompleteConversationBundle() {
 describe("lead-summary active current-fact model contract", () => {
   const complete =
     "Customer is negotiating the $8,450 quote for the front entrance and upper landing, scheduled for September 14; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+
+  it("accepts the actual next action without requiring its greeting", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.next_action =
+      "Hi Morgan, CAN YOU PLEASE CONTACT ME!";
+    const summary = complete.replace(
+      "confirm material selection by Friday",
+      "contact the customer"
+    );
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("still rejects model-authored stale actions outside a labeled action clause", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    // A direct bundle has no private full-history shadow; retain its new stale
+    // fact exactly as a caller would supply it.
+    const directBundle = { ...bundle };
+    directBundle.current_fact_context = {
+      ...bundle.current_fact_context!,
+      superseded_next_actions: ["Send the original cedar drawings."],
+    };
+    const summary = `${complete} The customer must send the original cedar drawings.`;
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    const result = await generateLeadSummary({
+      companyName: "Canpro",
+      bundle: directBundle,
+    });
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    expect(result).not.toContain("original cedar drawings");
+    expect(result).toContain("material selection");
+  });
+
+  it("still rejects model-authored stale schedules outside a labeled schedule clause", async () => {
+    const bundle = { ...negotiatingCompleteConversationBundle()! };
+    bundle.current_fact_context = {
+      ...bundle.current_fact_context!,
+      schedule: null,
+      objection: null,
+      next_action: null,
+      superseded_schedules: ["Install on Monday."],
+    };
+    const summary =
+      "Customer has a $8,450 quote for the front entrance and upper landing. Installation is confirmed for Monday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    const result = await generateLeadSummary({ companyName: "Canpro", bundle });
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    expect(result).not.toContain("Monday");
+  });
 
   it("rejects vague non-prefix output for an active complete conversation", async () => {
     const bundle = negotiatingCompleteConversationBundle();

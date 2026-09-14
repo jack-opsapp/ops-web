@@ -1,0 +1,246 @@
+SET
+SET
+INSERT 0 3
+ connect
+---------
+
+(1 row)
+
+ connect
+---------
+
+(1 row)
+
+ connect
+---------
+
+(1 row)
+
+ connect
+---------
+
+(1 row)
+
+ connect
+---------
+
+(1 row)
+
+ connect
+---------
+
+(1 row)
+
+ connect
+---------
+
+(1 row)
+
+ connect
+---------
+
+(1 row)
+
+ connect
+---------
+
+(1 row)
+
+DO
+DO
+ connect
+---------
+
+(1 row)
+
+DO
+INSERT 0 1
+ rejects
+---------
+
+(1 row)
+
+ assert
+--------
+
+(1 row)
+
+ assert
+--------
+
+(1 row)
+
+ rejects
+---------
+
+(1 row)
+
+ assert
+--------
+
+(1 row)
+
+ assert
+--------
+
+(1 row)
+
+                    result
+----------------------------------------------
+ OAuth activation PostgreSQL fixture complete
+(1 row)
+
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:4: NOTICE:  PASS: active-v23 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:4: NOTICE:  PASS: active-v23 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:4: NOTICE:  PASS: active-v23 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:4: NOTICE:  PASS: active-v23 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:4: NOTICE:  PASS: active-v23 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:4: NOTICE:  PASS: active-v23 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:5: NOTICE:  PASS: registered-readonly-v23 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:5: NOTICE:  PASS: registered-readonly-v23 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:5: NOTICE:  PASS: registered-readonly-v23 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:5: NOTICE:  PASS: registered-readonly-v23 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:5: NOTICE:  PASS: registered-readonly-v23 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:5: NOTICE:  PASS: registered-readonly-v23 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:6: NOTICE:  PASS: registered-minimum-v23 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:6: NOTICE:  PASS: registered-minimum-v23 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:6: NOTICE:  PASS: registered-minimum-v23 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:6: NOTICE:  PASS: registered-minimum-v23 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:6: NOTICE:  PASS: registered-minimum-v23 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:6: NOTICE:  PASS: registered-minimum-v23 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:7: NOTICE:  PASS: legacy-v1 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:7: NOTICE:  PASS: legacy-v1 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:7: NOTICE:  PASS: legacy-v1 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:7: NOTICE:  PASS: legacy-v1 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:7: NOTICE:  PASS: legacy-v1 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:7: NOTICE:  PASS: legacy-v1 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:8: NOTICE:  PASS: legacy-v2 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:8: NOTICE:  PASS: legacy-v2 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:8: NOTICE:  PASS: legacy-v2 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:8: NOTICE:  PASS: legacy-v2 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:8: NOTICE:  PASS: legacy-v2 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:8: NOTICE:  PASS: legacy-v2 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:9: NOTICE:  PASS: active-v14 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:9: NOTICE:  PASS: active-v14 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:9: NOTICE:  PASS: active-v14 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:9: NOTICE:  PASS: active-v14 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:9: NOTICE:  PASS: active-v14 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:9: NOTICE:  PASS: active-v14 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:10: NOTICE:  PASS: read-only-v14 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:10: NOTICE:  PASS: read-only-v14 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:10: NOTICE:  PASS: read-only-v14 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:10: NOTICE:  PASS: read-only-v14 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:10: NOTICE:  PASS: read-only-v14 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:10: NOTICE:  PASS: read-only-v14 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:11: NOTICE:  PASS: registered-readonly-v14 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:11: NOTICE:  PASS: registered-readonly-v14 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:11: NOTICE:  PASS: registered-readonly-v14 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:11: NOTICE:  PASS: registered-readonly-v14 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:11: NOTICE:  PASS: registered-readonly-v14 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:11: NOTICE:  PASS: registered-readonly-v14 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:12: NOTICE:  PASS: registered-minimum-v14 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:12: NOTICE:  PASS: registered-minimum-v14 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:12: NOTICE:  PASS: registered-minimum-v14 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:12: NOTICE:  PASS: registered-minimum-v14 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:12: NOTICE:  PASS: registered-minimum-v14 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:12: NOTICE:  PASS: registered-minimum-v14 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v14 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v14 old deployment cannot accept new prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v14 one-argument compatibility resolver excludes prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v14 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v14 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v14 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v14 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v14 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v23 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v23 old deployment cannot accept new prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v23 one-argument compatibility resolver excludes prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v23 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v23 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v23 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v23 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: active-v23 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v1 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v1 old deployment remains compatible
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v1 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v1 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v1 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v1 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v1 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v2 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v2 old deployment remains compatible
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v2 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v2 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v2 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v2 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: legacy-v2 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: pre-existing-old bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: pre-existing-old old deployment cannot accept new prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: pre-existing-old one-argument compatibility resolver excludes prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: pre-existing-old unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: pre-existing-old refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: pre-existing-old rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: pre-existing-old replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: pre-existing-old replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: read-only-v14 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: read-only-v14 old deployment cannot accept new prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: read-only-v14 one-argument compatibility resolver excludes prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: read-only-v14 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: read-only-v14 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: read-only-v14 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: read-only-v14 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: read-only-v14 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v14 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v14 old deployment cannot accept new prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v14 one-argument compatibility resolver excludes prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v14 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v14 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v14 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v14 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v14 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v23 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v23 old deployment cannot accept new prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v23 one-argument compatibility resolver excludes prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v23 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v23 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v23 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v23 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-minimum-v23 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v14 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v14 old deployment cannot accept new prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v14 one-argument compatibility resolver excludes prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v14 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v14 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v14 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v14 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v14 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v23 bearer works and stays pinned after activation
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v23 old deployment cannot accept new prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v23 one-argument compatibility resolver excludes prepare grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v23 unsupported active exposure rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v23 refresh preserves immutable original consent with no upgrade
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v23 rotated bearer resolves pinned contract
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v23 replay detected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:35: NOTICE:  PASS: registered-readonly-v23 replay revokes entire token family
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:45: NOTICE:  PASS: existing client cannot be silently upgraded
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:45: NOTICE:  PASS: existing grant cannot gain prepare scope
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:45: NOTICE:  PASS: accepted consent labels cannot be rewritten
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:45: NOTICE:  PASS: external commit scope cannot register
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:45: NOTICE:  PASS: old consent cannot authorize prepare
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:47: NOTICE:  PASS: revoke-v14 registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:47: NOTICE:  PASS: revoke-v14 consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:47: NOTICE:  PASS: revoke-v14 other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:47: NOTICE:  PASS: revoke-v14 exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:47: NOTICE:  PASS: revoke-v14 consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:47: NOTICE:  PASS: revoke-v14 code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:54: NOTICE:  PASS: other operator cannot revoke grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:54: NOTICE:  PASS: named operator can revoke grant
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:54: NOTICE:  PASS: revocation reaches every token
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:54: NOTICE:  PASS: revoked grant cannot mint usable refresh pair
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:58: NOTICE:  PASS: unbound-canary registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:58: NOTICE:  PASS: unbound v3 consent is still denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:59: NOTICE:  PASS: no v3 grant created
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:60: NOTICE:  PASS: activation creates no recurring routine
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:61: NOTICE:  PASS: v14 cannot register another vertical prepare scope
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:62: NOTICE:  PASS: activated bearer resolver remains service-only
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-after.sql:63: NOTICE:  PASS: activated bearer resolver has empty search path

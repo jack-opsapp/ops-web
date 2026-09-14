@@ -109,6 +109,11 @@ const guardedProductionRoutes = new Map<string, string>([
   // so this is the last full-day 15-minute grid inside the three-lane budget:
   // :08 :23 :38 :53.
   ["/api/cron/social-editorial", "8-59/15 * * * *"],
+  // Hourly on purpose: the weekly journal post goes live at its Monday 06:00
+  // slot and a fresh draft needs its preview inside the hour. :09 carries the
+  // full-day 9-59/20 projection-stuck-check lane only, so this is two of the
+  // three-lane budget at every hour.
+  ["/api/cron/journal-editorial", "9 * * * *"],
 ]);
 
 const migrationDirectory = join(process.cwd(), "supabase/migrations");

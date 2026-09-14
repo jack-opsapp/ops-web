@@ -1,0 +1,96 @@
+SET
+SET
+SET
+CREATE SCHEMA
+CREATE FUNCTION
+INSERT 0 2
+INSERT 0 3
+INSERT 0 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+DO
+DO
+DO
+                    result
+----------------------------------------------
+ Phase12 PostgreSQL runtime fixture completed
+(1 row)
+
+DO
+CREATE FUNCTION
+CREATE TRIGGER
+UPDATE 1
+DO
+DROP TRIGGER
+UPDATE 1
+                     result
+-------------------------------------------------
+ All Phase12 PostgreSQL runtime checks completed
+(1 row)
+
+DO
+CREATE TABLE
+DO
+ assert
+--------
+
+(1 row)
+
+            result
+-------------------------------
+ Final Phase12 checks complete
+(1 row)
+
+DO
+INSERT 0 1
+UPDATE 1
+DO
+                  result
+------------------------------------------
+ Extended Phase12 runtime checks complete
+(1 row)
+
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:37: NOTICE:  PASS: opportunity-only commit with null customer
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:37: NOTICE:  PASS: exact commit replay
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:37: NOTICE:  PASS: different replay key rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:37: NOTICE:  PASS: ISO Z timestamp commits
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:37: NOTICE:  PASS: offset timestamp commits
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: prepare replay
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: prepare key conflicts
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: wrong seal denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: same timestamp source content change denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: revoked grant denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: permission provenance mutation denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: cross tenant source denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: cross tenant commit denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:55: NOTICE:  PASS: all rejected commits leave business row unchanged
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:68: NOTICE:  PASS: canonical assignment version increments
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:68: NOTICE:  PASS: canonical assignment event exists
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:68: NOTICE:  PASS: assignment delivery retained without push
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:68: NOTICE:  PASS: assignment and delayed activity never enqueue provider work
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:68: NOTICE:  PASS: real assignment write guard consumes token
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:76: NOTICE:  PASS: linked customer notes commit
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:76: NOTICE:  PASS: even inactive accounting connection blocks notes
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:88: NOTICE:  PASS: expired approval denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:88: NOTICE:  PASS: rejected proposal denied
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:101: NOTICE:  PASS: readback mismatch rejects transaction
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:101: NOTICE:  PASS: failure rolls back assignment event delivery and target
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:101: NOTICE:  PASS: failed commit has no receipt
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:113: NOTICE:  PASS: nested provider helper mutation invalidates seal
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:131: NOTICE:  PASS: enqueue observation hook installed
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:131: NOTICE:  PASS: real delayed activity trigger invokes permanently suppressed helper
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:131: NOTICE:  PASS: ordinary source reaches post-suppression tripwire
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:132: NOTICE:  PASS: public and authenticated cannot call privileged prepare/commit RPCs
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:142: NOTICE:  PASS: new pending suggestion invalidates approval
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:142: NOTICE:  PASS: exact pending suggestion count superseded
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:158: NOTICE:  PASS: real correspondence attribution accepted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:158: NOTICE:  PASS: changed correspondence blocks commit
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:158: NOTICE:  PASS: forged excerpt rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:158: NOTICE:  PASS: wrong field support rejected
+psql:/private/tmp/ops-deck-v23-5pc6l0io/v23-customer.sql:158: NOTICE:  PASS: non-ISO infinite date rejected

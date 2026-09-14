@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "assertions": 316,
+  "migration_sha256": "657578123aeb0196c91abff5004553af524aed5afb1146cd17029c6ca0222989",
+  "postgres": "postgres (PostgreSQL) 17.11 (Homebrew)",
+  "limits": "Disposable synthetic fixtures, exact captured OAuth/authority functions, real approval/commit core. No production or host canary."
+}

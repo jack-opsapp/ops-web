@@ -1,0 +1,48 @@
+{
+  "code_head": "1ecd310fda5110f8ef329e3229a4497ce23b39ed",
+  "relevant_tests_passed": 222,
+  "extended_run": {
+    "passed": 223,
+    "failed": 1,
+    "failure": "Unchanged baseline domain-dispatch expected method list"
+  },
+  "final_refinements_passed": 43,
+  "bounded_typecheck_exit": 0,
+  "targeted_lint_exit": 0,
+  "targeted_lint_warnings": 0,
+  "lint_files": [
+    "src/lib/agent-control-plane/contracts/deck-design-geometry-v2.ts",
+    "src/lib/agent-control-plane/contracts/deck-design-geometry.ts",
+    "src/lib/agent-control-plane/mcp/__tests__/deck-geometry-candidate-protocol.test.ts",
+    "src/lib/agent-control-plane/mcp/server-factory.ts",
+    "src/lib/agent-control-plane/registry/deck-geometry-exposure.ts",
+    "src/lib/agent-control-plane/services/domain-service.ts",
+    "src/lib/agent-control-plane/services/p2/__tests__/read-error-transport.test.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-native-fixtures.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-native.test.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-service-fixtures.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-services.test.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-geometry-v2-service.test.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/__tests__/deck-railing-estimate.test.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/deck-geometry-calculator.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/deck-geometry-proof.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/deck-geometry-reads.ts",
+    "src/lib/agent-control-plane/services/p2/deck-design/deck-railing-estimate.ts",
+    "src/lib/agent-control-plane/services/p2/domain-service.ts",
+    "src/lib/agent-control-plane/services/p2/shared/read-error-transport.ts"
+  ],
+  "full_repository_typecheck": "Stopped under resource pressure; not completed",
+  "independent_review": "No unresolved findings",
+  "customer_live": false,
+  "authenticated_claude_acceptance": false,
+  "runtime": "Node v24.19.0",
+  "production_runtime_requirement": "Node22.x runtime acceptance still required",
+  "parent_independent_verification": {
+    "passed": 150,
+    "files": 12,
+    "duration_seconds": 6.09,
+    "source_replay": "Original opaque reference matched; source unchanged; one connection and null lower edge retained; authoritative stair stringer; configured flat zero; partial perimeter, null total and landing_opening_unlocated",
+    "baseline_dispatch": "Both files independently byte-verified unchanged"
+  },
+  "bible_commit": "6ad7fd3ea25350241fd3acdf6cc5af461e894e14"
+}

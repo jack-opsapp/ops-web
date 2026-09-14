@@ -1,0 +1,32 @@
+SET
+SET
+SET
+CREATE SCHEMA
+CREATE FUNCTION
+CREATE FUNCTION
+INSERT 0 2
+INSERT 0 2
+CREATE TABLE
+INSERT 0 2
+INSERT 0 1
+INSERT 0 2
+CREATE TABLE
+CREATE FUNCTION
+ connect
+---------
+
+(1 row)
+
+ assert
+--------
+
+(1 row)
+
+SELECT 4
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-before.sql:41: NOTICE:  PASS: pre-existing-old registration pins exact ceiling/consent/exposure
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-before.sql:41: NOTICE:  PASS: pre-existing-old consent preview persisted
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-before.sql:41: NOTICE:  PASS: pre-existing-old other tenant cannot consume preview
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-before.sql:41: NOTICE:  PASS: pre-existing-old exact displayed consent preserved
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-before.sql:41: NOTICE:  PASS: pre-existing-old consent preview is single use
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-before.sql:41: NOTICE:  PASS: pre-existing-old code carries accepted labels
+psql:/private/tmp/ops-deck-v23-5pc6l0io/oauth-before.sql:42: NOTICE:  PASS: old grant works before migration

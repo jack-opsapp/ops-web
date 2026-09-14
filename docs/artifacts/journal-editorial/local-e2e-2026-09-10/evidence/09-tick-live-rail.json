@@ -1,0 +1,14 @@
+{
+  "state": "idle",
+  "mode": "prepare",
+  "created": 0,
+  "missed": 0,
+  "promoted": 0,
+  "published": [],
+  "held": [],
+  "newsletter": {
+    "sent": 0,
+    "skipped": 0
+  },
+  "notified": 1
+}

@@ -582,11 +582,16 @@ class PhaseCLeadIntelligenceRuntimeProcessor {
       evaluation,
     });
     return {
-      outcome: evaluation.status === "ready" ? "applied" : "review",
+      outcome:
+        handoff.status === "review"
+          ? "review"
+          : handoff.status === "cancelled"
+            ? "skipped"
+            : "applied",
       detail: {
         handoffId: handoff.id,
         handoffStatus: handoff.status,
-        reviewReason: evaluation.reviewReason,
+        reviewReason: handoff.reviewReason,
       },
     };
   }

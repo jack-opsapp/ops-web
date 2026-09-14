@@ -1,0 +1,18 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19
+
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-repository.test.ts (9 tests) 22ms
+ ✓ src/lib/api/services/__tests__/site-visit-approval.test.ts (27 tests) 15ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-services.test.ts (6 tests) 48ms
+ ✓ src/lib/agent-control-plane/services/site-visit-workflow/__tests__/forms.test.ts (36 tests) 14ms
+ ✓ src/lib/agent-control-plane/services/site-visit-workflow/__tests__/service.test.ts (15 tests) 20ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-authorization.test.ts (6 tests) 19ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-cursor.test.ts (3 tests) 9ms
+ ✓ src/lib/agent-control-plane/services/p2/site-visits/__tests__/site-visit-candidates.test.ts (3 tests) 3ms
+ ✓ src/lib/agent-control-plane/services/site-visit-workflow/__tests__/civil-time.test.ts (10 tests) 4ms
+
+ Test Files  9 passed (9)
+      Tests  115 passed (115)
+   Start at  17:56:12
+   Duration  3.47s (transform 547ms, setup 0ms, collect 2.20s, tests 154ms, environment 1ms, prepare 220ms)

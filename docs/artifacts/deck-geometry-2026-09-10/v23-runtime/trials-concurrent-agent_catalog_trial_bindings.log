@@ -1,0 +1,5 @@
+SET
+SET
+psql:/private/tmp/ops-deck-v23-5pc6l0io/trials-concurrent-agent_catalog_trial_bindings.sql:2: ERROR:  canceling statement due to lock timeout
+LINE 1: insert into private.agent_catalog_trial_bindings select * fr...
+                    ^

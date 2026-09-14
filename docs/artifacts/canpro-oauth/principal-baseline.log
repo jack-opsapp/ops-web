@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/canpro-ops-oauth-baseline-20260910
+
+ ❯ src/lib/agent-control-plane/actor/__tests__/principal-boundary.test.ts (6 tests | 1 failed) 4461ms
+   ✓ verified principal source boundary > allows the trusted principal boundary only in auth adapters and tests 2799ms
+   × verified principal source boundary > allows the MCP reauthorization adapter only at exact composition and domain seams 1634ms
+     → expected [ …(4) ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/actor/__tests__/principal-boundary.test.ts > verified principal source boundary > allows the MCP reauthorization adapter only at exact composition and domain seams
+AssertionError: expected [ …(4) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "src/lib/agent-control-plane/services/catalog-authoring/catalog-authoring-service.ts",
++   "src/lib/agent-control-plane/services/customer-message/customer-message-service.ts",
++   "src/lib/agent-control-plane/services/financial-document/financial-document-service.ts",
++   "src/lib/agent-control-plane/services/schedule-change/schedule-change-service.ts",
++ ]
+
+ ❯ src/lib/agent-control-plane/actor/__tests__/principal-boundary.test.ts:213:24
+    211|     }
+    212| 
+    213|     expect(violations).toEqual([]);
+       |                        ^
+    214|   }, 20_000);
+    215| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  12:09:11
+   Duration  7.59s (transform 261ms, setup 632ms, collect 64ms, tests 4.46s, environment 1.00s, prepare 150ms)
+

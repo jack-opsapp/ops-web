@@ -10,7 +10,9 @@ import {
   getBlogViewsByPost,
   getBlogViewsTimeline,
 } from "@/lib/analytics/ga4-client";
+import { Suspense } from "react";
 import { BlogHubContent } from "./_components/blog-hub-content";
+import { WeeklyPostPanel } from "./_components/weekly-post-panel";
 import { safe } from "@/lib/utils/safe";
 
 export default async function BlogPage() {
@@ -39,6 +41,10 @@ export default async function BlogPage() {
     <div>
       <AdminPageHeader title="Blog" caption="content hub + analytics" />
       <div className="p-8">
+        {/* The weekly post leads the hub only while there is one to decide on. */}
+        <Suspense fallback={null}>
+          <WeeklyPostPanel />
+        </Suspense>
         <BlogHubContent
           counts={counts}
           posts={postsWithViews}

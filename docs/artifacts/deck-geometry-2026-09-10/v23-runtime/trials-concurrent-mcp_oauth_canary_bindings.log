@@ -1,0 +1,5 @@
+SET
+SET
+psql:/private/tmp/ops-deck-v23-5pc6l0io/trials-concurrent-mcp_oauth_canary_bindings.sql:2: ERROR:  canceling statement due to lock timeout
+LINE 1: insert into private.mcp_oauth_canary_bindings select * from ...
+                    ^

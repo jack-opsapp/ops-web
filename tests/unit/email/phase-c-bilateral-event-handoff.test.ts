@@ -219,6 +219,9 @@ describe("Phase C bilateral event handoff", () => {
             id: "handoff-1",
             idempotency_key: params.p_idempotency_key,
             status: "ready",
+            initial_status: "ready",
+            initial_review_reason: null,
+            review_reason: null,
           },
           error: null,
         };
@@ -288,6 +291,9 @@ describe("Phase C bilateral event handoff", () => {
           id: "handoff-review",
           idempotency_key: params.p_idempotency_key,
           status: "review",
+          initial_status: "review",
+          initial_review_reason: params.p_review_reason,
+          review_reason: params.p_review_reason,
         },
         error: null,
       };
@@ -309,6 +315,136 @@ describe("Phase C bilateral event handoff", () => {
         p_review_reason: "event_date_or_time_unresolved",
       })
     );
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("persisted handoff lifecycle replay", () => {
+  const evaluation = {
+    status: "ready" as const,
+    reviewReason: null,
+    proposalEventId: "6939bdfb-a52d-4c67-9dd2-07a8cb7d0849",
+    proposalMessageId: "proposal-message",
+    acceptanceEventId: "92bad29c-d534-4d6d-ab64-34141811deb1",
+    acceptanceMessageId: "acceptance-message",
+    requestedOwnerUserId: OWNER_ID,
+    eventKind: "site_visit" as const,
+    eventTitle: "Site visit",
+    startsAt: "2026-08-27T21:00:00.000Z",
+    endsAt: "2026-08-27T22:00:00.000Z",
+    eventTimezone: "America/Vancouver",
+    location: null,
+    attendees: [
+      { email: "customer@example.com", role: "customer" as const },
+      { email: "operator@example.com", role: "operator" as const },
+    ],
+  };
+
+  function persistedRow(
+    overrides: Record<string, unknown>,
+    error: { message: string } | null = null
+  ) {
+    const rpc = vi.fn(async (name: string, params: Record<string, unknown>) => {
+      if (name === "record_opportunity_lifecycle_decision") {
+        return { data: { id: "decision-1", status: "applied" }, error: null };
+      }
+      if (name === "record_phase_c_bilateral_event_handoff") {
+        return {
+          data: [
+            {
+              id: "adb94ea2-1da9-41f5-8691-fd4e165be807",
+              idempotency_key: params.p_idempotency_key,
+              company_id: COMPANY_ID,
+              opportunity_id: OPPORTUNITY_ID,
+              decision_id: "decision-1",
+              proposal_event_id: evaluation.proposalEventId,
+              acceptance_event_id: evaluation.acceptanceEventId,
+              requested_owner_user_id: OWNER_ID,
+              initial_status: "ready",
+              initial_review_reason: null,
+              status: "ready",
+              review_reason: null,
+              ...overrides,
+            },
+          ],
+          error,
+        };
+      }
+      if (name === "settle_opportunity_lifecycle_decision") {
+        return { data: { id: "decision-1", status: "applied" }, error: null };
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+    return rpc;
+  }
+
+  it.each([
+    ["review", "event_time_unresolved"],
+    ["consumed", null],
+    ["cancelled", null],
+  ] as const)(
+    "preserves a ready handoff that has moved to %s",
+    async (status, reviewReason) => {
+      const rpc = persistedRow({ status, review_reason: reviewReason });
+      await expect(
+        persistPhaseCBilateralEventHandoff({
+          supabase: { rpc },
+          companyId: COMPANY_ID,
+          opportunityId: OPPORTUNITY_ID,
+          evaluation,
+        })
+      ).resolves.toMatchObject({
+        id: "adb94ea2-1da9-41f5-8691-fd4e165be807",
+        status,
+        reviewReason,
+      });
+      expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+        "record_opportunity_lifecycle_decision",
+        "record_phase_c_bilateral_event_handoff",
+        "settle_opportunity_lifecycle_decision",
+      ]);
+    }
+  );
+
+  it.each([
+    ["immutable initial status", { initial_status: "review" }],
+    ["missing immutable status", { initial_status: undefined }],
+    [
+      "immutable review reason",
+      { initial_review_reason: "event_owner_unresolved" },
+    ],
+    ["missing immutable reason", { initial_review_reason: undefined }],
+    ["idempotency key", { idempotency_key: "other-proposal" }],
+    ["unknown current status", { status: "unknown" }],
+    ["missing current status", { status: undefined }],
+    ["review without reason", { status: "review", review_reason: null }],
+    ["malformed current reason", { review_reason: 12 }],
+  ])("rejects a mismatched or malformed %s", async (_name, overrides) => {
+    const rpc = persistedRow(overrides);
+    await expect(
+      persistPhaseCBilateralEventHandoff({
+        supabase: { rpc },
+        companyId: COMPANY_ID,
+        opportunityId: OPPORTUNITY_ID,
+        evaluation,
+      })
+    ).rejects.toThrow("Phase C bilateral event handoff returned no result");
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it("retains the database immutable-proposal conflict instead of acknowledging it", async () => {
+    const rpc = persistedRow(
+      { status: "review", review_reason: "event_time_unresolved" },
+      { message: "bilateral_event_handoff_replay_conflict" }
+    );
+    await expect(
+      persistPhaseCBilateralEventHandoff({
+        supabase: { rpc },
+        companyId: COMPANY_ID,
+        opportunityId: OPPORTUNITY_ID,
+        evaluation,
+      })
+    ).rejects.toThrow("bilateral_event_handoff_replay_conflict");
     expect(rpc).toHaveBeenCalledTimes(2);
   });
 });
