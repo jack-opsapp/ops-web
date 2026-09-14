@@ -49,6 +49,22 @@ function evaluate(messages: PhaseCEventMessage[]) {
   });
 }
 
+function legacyReviewLookup(
+  row: Record<string, unknown> | null = null,
+  error: { message: string } | null = null
+) {
+  const filters: Record<string, unknown> = {};
+  const query = {
+    select: () => query,
+    eq: (column: string, value: unknown) => {
+      filters[column] = value;
+      return query;
+    },
+    maybeSingle: async () => ({ data: row, error }),
+  };
+  return { from: () => query, filters };
+}
+
 describe("Phase C bilateral event handoff", () => {
   it("keeps Crystal's call request in review without inventing a booking", () => {
     const result = evaluate([
@@ -236,13 +252,13 @@ describe("Phase C bilateral event handoff", () => {
     });
 
     const first = await persistPhaseCBilateralEventHandoff({
-      supabase: { rpc } as never,
+      supabase: { rpc, ...legacyReviewLookup() } as never,
       companyId: COMPANY_ID,
       opportunityId: OPPORTUNITY_ID,
       evaluation: evaluation as Exclude<typeof evaluation, { status: "none" }>,
     });
     const second = await persistPhaseCBilateralEventHandoff({
-      supabase: { rpc } as never,
+      supabase: { rpc, ...legacyReviewLookup() } as never,
       companyId: COMPANY_ID,
       opportunityId: OPPORTUNITY_ID,
       evaluation: evaluation as Exclude<typeof evaluation, { status: "none" }>,
@@ -300,7 +316,7 @@ describe("Phase C bilateral event handoff", () => {
     });
 
     await persistPhaseCBilateralEventHandoff({
-      supabase: { rpc } as never,
+      supabase: { rpc, ...legacyReviewLookup() } as never,
       companyId: COMPANY_ID,
       opportunityId: OPPORTUNITY_ID,
       evaluation: evaluation as Exclude<typeof evaluation, { status: "none" }>,
@@ -388,7 +404,7 @@ describe("persisted handoff lifecycle replay", () => {
       const rpc = persistedRow({ status, review_reason: reviewReason });
       await expect(
         persistPhaseCBilateralEventHandoff({
-          supabase: { rpc },
+          supabase: { rpc, ...legacyReviewLookup() },
           companyId: COMPANY_ID,
           opportunityId: OPPORTUNITY_ID,
           evaluation,
@@ -423,7 +439,7 @@ describe("persisted handoff lifecycle replay", () => {
     const rpc = persistedRow(overrides);
     await expect(
       persistPhaseCBilateralEventHandoff({
-        supabase: { rpc },
+        supabase: { rpc, ...legacyReviewLookup() },
         companyId: COMPANY_ID,
         opportunityId: OPPORTUNITY_ID,
         evaluation,
@@ -439,12 +455,174 @@ describe("persisted handoff lifecycle replay", () => {
     );
     await expect(
       persistPhaseCBilateralEventHandoff({
-        supabase: { rpc },
+        supabase: { rpc, ...legacyReviewLookup() },
         companyId: COMPANY_ID,
         opportunityId: OPPORTUNITY_ID,
         evaluation,
       })
     ).rejects.toThrow("bilateral_event_handoff_replay_conflict");
     expect(rpc).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("changing appointment review evidence", () => {
+  const proposal = message({
+    eventId: "review-proposal",
+    providerMessageId: "review-proposal-message",
+    direction: "outbound",
+    body: "Can we arrange a meeting to discuss the deck?",
+  });
+  const thirdPartyReply = message({
+    eventId: "third-party-event",
+    providerMessageId: "third-party-message",
+    direction: "inbound",
+    fromEmail: "new-customer@example.com",
+    body: "Nice to meet you. Here are the photos of my deck.",
+  });
+
+  function persistenceFixture(seedLegacy: boolean) {
+    const decisions = new Map<string, Record<string, unknown>>();
+    const handoffs = new Map<string, Record<string, unknown>>();
+    const legacy = {
+      id: "legacy-review-decision",
+      proposed_stage: null,
+      proposed_outcome: "review",
+      confidence: 0.5,
+      reason: "event_date_or_time_unresolved",
+      initial_status: "review",
+      initial_review_reason: "event_date_or_time_unresolved",
+    };
+    if (seedLegacy) decisions.set("bilateral_event_review", legacy);
+    const lookup = legacyReviewLookup(seedLegacy ? legacy : null);
+    const rpc = vi.fn(async (name: string, params: Record<string, unknown>) => {
+      if (name === "record_opportunity_lifecycle_decision") {
+        const key = params.p_decision_key as string;
+        const existing = decisions.get(key);
+        const conclusion = {
+          proposed_stage: params.p_proposed_stage,
+          proposed_outcome: params.p_proposed_outcome,
+          confidence: params.p_confidence,
+          reason: params.p_reason,
+          initial_status: params.p_status,
+          initial_review_reason: params.p_review_reason,
+        };
+        if (
+          existing &&
+          Object.entries(conclusion).some(
+            ([field, value]) => existing[field] !== value
+          )
+        ) {
+          return {
+            data: null,
+            error: { message: "lifecycle_decision_replay_conflict" },
+          };
+        }
+        const row = existing ?? {
+          id: `decision-${decisions.size}`,
+          ...conclusion,
+        };
+        decisions.set(key, row);
+        return { data: { ...row, status: "review" }, error: null };
+      }
+      if (name === "record_phase_c_bilateral_event_handoff") {
+        const key = params.p_idempotency_key as string;
+        const existing = handoffs.get(key);
+        if (existing && existing.decision_id !== params.p_decision_id) {
+          return {
+            data: null,
+            error: { message: "bilateral_event_handoff_replay_conflict" },
+          };
+        }
+        const row = existing ?? {
+          id: `handoff-${handoffs.size}`,
+          idempotency_key: key,
+          decision_id: params.p_decision_id,
+          initial_status: "review",
+          initial_review_reason: params.p_review_reason,
+          status: "review",
+          review_reason: params.p_review_reason,
+        };
+        handoffs.set(key, row);
+        return { data: row, error: null };
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+    return {
+      supabase: { rpc, from: lookup.from },
+      decisions,
+      handoffs,
+      filters: lookup.filters,
+    };
+  }
+
+  it.each([false, true])(
+    "preserves immutable receipts while review reason changes (legacy: %s)",
+    async (seedLegacy) => {
+      const fixture = persistenceFixture(seedLegacy);
+      const firstEvaluation = evaluate([proposal]);
+      const nextEvaluation = evaluate([proposal, thirdPartyReply]);
+      expect(firstEvaluation).toMatchObject({
+        status: "review",
+        reviewReason: "event_date_or_time_unresolved",
+      });
+      expect(nextEvaluation).toMatchObject({
+        status: "review",
+        reviewReason: "event_participant_authority_unresolved",
+        proposalEventId: proposal.eventId,
+      });
+      const persist = (evaluation: typeof firstEvaluation) => {
+        if (evaluation.status === "none")
+          throw new Error("Expected an appointment review");
+        return persistPhaseCBilateralEventHandoff({
+          supabase: fixture.supabase,
+          companyId: COMPANY_ID,
+          opportunityId: OPPORTUNITY_ID,
+          evaluation,
+        });
+      };
+      const first = await persist(firstEvaluation);
+      const originalDecisions = [...fixture.decisions.values()].map((row) => ({
+        ...row,
+      }));
+      const next = await persist(nextEvaluation);
+      expect(next.id).not.toBe(first.id);
+      expect(await persist(nextEvaluation)).toEqual(next);
+      expect(await persist(firstEvaluation)).toEqual(first);
+      expect(fixture.decisions.size).toBe(2);
+      expect(fixture.handoffs.size).toBe(2);
+      expect([...fixture.decisions.values()]).toEqual(
+        expect.arrayContaining(originalDecisions)
+      );
+      expect(fixture.filters).toEqual({
+        company_id: COMPANY_ID,
+        opportunity_id: OPPORTUNITY_ID,
+        source_event_id: proposal.eventId,
+        decision_kind: "event_handoff",
+        decision_key: "bilateral_event_review",
+      });
+      if (seedLegacy) {
+        expect([...fixture.handoffs.values()][0].decision_id).toBe(
+          "legacy-review-decision"
+        );
+      }
+    }
+  );
+
+  it("fails before writing when the legacy review receipt cannot be checked", async () => {
+    const lookup = legacyReviewLookup(null, {
+      message: "database unavailable",
+    });
+    const rpc = vi.fn();
+    const evaluation = evaluate([proposal]);
+    if (evaluation.status === "none") throw new Error("Expected review");
+    await expect(
+      persistPhaseCBilateralEventHandoff({
+        supabase: { rpc, from: lookup.from },
+        companyId: COMPANY_ID,
+        opportunityId: OPPORTUNITY_ID,
+        evaluation,
+      })
+    ).rejects.toThrow("database unavailable");
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

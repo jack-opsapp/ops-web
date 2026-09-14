@@ -59,10 +59,23 @@ export type PhaseCBilateralEventEvaluation =
     };
 
 interface PhaseCHandoffSupabaseLike {
+  from(table: string): {
+    select(columns: string): {
+      eq(column: string, value: string): PhaseCHandoffReviewQuery;
+    };
+  };
   rpc(
     name: string,
     args: Record<string, unknown>
   ): PromiseLike<{
+    data?: unknown;
+    error?: { message?: string | null } | null;
+  }>;
+}
+
+interface PhaseCHandoffReviewQuery {
+  eq(column: string, value: string): PhaseCHandoffReviewQuery;
+  maybeSingle(): PromiseLike<{
     data?: unknown;
     error?: { message?: string | null } | null;
   }>;
@@ -579,6 +592,46 @@ function handoffIdempotencyKey(input: {
   return createHash("sha256").update(value).digest("hex");
 }
 
+async function reviewDecisionKey(input: {
+  supabase: PhaseCHandoffSupabaseLike;
+  companyId: string;
+  opportunityId: string;
+  sourceEventId: string;
+  reviewReason: string;
+}): Promise<string> {
+  const legacyKey = "bilateral_event_review";
+  const { data, error } = await input.supabase
+    .from("opportunity_lifecycle_decisions")
+    .select(
+      "proposed_stage, proposed_outcome, confidence, reason, initial_status, initial_review_reason"
+    )
+    .eq("company_id", input.companyId)
+    .eq("opportunity_id", input.opportunityId)
+    .eq("source_event_id", input.sourceEventId)
+    .eq("decision_kind", "event_handoff")
+    .eq("decision_key", legacyKey)
+    .maybeSingle();
+  if (error) {
+    throw new Error(
+      `Phase C legacy appointment review lookup failed: ${error.message ?? "unknown error"}`
+    );
+  }
+  const legacy = data as Record<string, unknown> | null | undefined;
+  // Preserve the receipt identity of an unchanged legacy envelope. A later
+  // reason is a separate immutable review, never a rewrite of that receipt.
+  if (
+    legacy?.proposed_stage === null &&
+    legacy.proposed_outcome === "review" &&
+    Number(legacy.confidence) === 0.5 &&
+    legacy.reason === input.reviewReason &&
+    legacy.initial_status === "review" &&
+    legacy.initial_review_reason === input.reviewReason
+  ) {
+    return legacyKey;
+  }
+  return `${legacyKey}:${input.reviewReason}`;
+}
+
 export async function persistPhaseCBilateralEventHandoff(input: {
   supabase: PhaseCHandoffSupabaseLike;
   companyId: string;
@@ -601,16 +654,23 @@ export async function persistPhaseCBilateralEventHandoff(input: {
   ];
   const sourceEventId =
     evaluation.acceptanceEventId ?? evaluation.proposalEventId;
+  const decisionKey =
+    evaluation.status === "ready"
+      ? "bilateral_event"
+      : await reviewDecisionKey({
+          supabase: input.supabase,
+          companyId: input.companyId,
+          opportunityId: input.opportunityId,
+          sourceEventId,
+          reviewReason: evaluation.reviewReason!,
+        });
   const decision = await recordPhaseCLifecycleDecision({
     supabase: input.supabase,
     companyId: input.companyId,
     opportunityId: input.opportunityId,
     sourceEventId,
     decisionKind: "event_handoff",
-    decisionKey:
-      evaluation.status === "ready"
-        ? "bilateral_event"
-        : "bilateral_event_review",
+    decisionKey,
     proposedOutcome: evaluation.status,
     confidence: evaluation.status === "ready" ? 1 : 0.5,
     evidenceEventIds,
