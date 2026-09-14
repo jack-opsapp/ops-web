@@ -25,6 +25,7 @@
   "somethingWentWrong": "Algo salió mal",
   "unexpectedError": "Ocurrió un error inesperado. Puedes intentar de nuevo o contactar a soporte si el problema persiste.",
   "tryAgain": "Intentar de nuevo",
+  "setupSaveUnconfirmed": "No pudimos confirmar que se guardaron tus datos. Intenta de nuevo.",
   "pleaseWait": "Por favor espera...",
   "yes": "Sí",
   "no": "No",

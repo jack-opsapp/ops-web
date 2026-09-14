@@ -17,10 +17,12 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
 import { recordTrialAttribution } from "@/lib/pmf/trial-attribution";
 import { isReferralSourceSlug } from "@/lib/data/referral-sources";
+import { setupSaveContext, recordSetupSaveResult, type SetupSaveContext, type SetupSaveStage } from "@/lib/analytics/setup-save-server";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
 interface ProgressBody {
+  analytics?: unknown;
   token: string;
   step: "identity" | "company" | "starfield";
   data?: {
@@ -54,6 +56,10 @@ interface CreateCompanyForOwnerResult {
 // ─── Route Handler ───────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  let telemetry: SetupSaveContext | null = null;
+  let telemetryDb: ReturnType<typeof getServiceRoleClient> | null = null;
+  let saveStage: SetupSaveStage = "checkpoint";
+  let saveStatus = 500;
   try {
     const body = (await req.json()) as ProgressBody;
     const { token, step, data } = body;
@@ -93,6 +99,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const userId = userRow.id as string;
+    // A checkpoint-only request is a skip, not a submitted company save.
+    if (data && (step === "identity" || step === "company")) {
+      telemetry = setupSaveContext(req, body.analytics, userId, userRow.company_id, step);
+      telemetryDb = db;
+    }
 
     // Read current setup_progress (JSONB, defaults to {})
     const currentProgress: SetupProgress =
@@ -107,6 +118,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // ── Handle step-specific data ──
 
     if (step === "identity" && data) {
+      saveStage = "identity_write";
       const identityUpdates: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       };
@@ -142,6 +154,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       let companyId = userRow.company_id as string | null;
 
       if (companyId) {
+        saveStage = "company_write";
         // User already has a company -- update it
         const companyUpdates: Record<string, unknown> = {
           updated_at: new Date().toISOString(),
@@ -178,6 +191,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           );
         }
       } else {
+        saveStage = "company_create";
         // One transaction: company row + crew join code + Owner `user_roles`
         // row + owner labels + `initialize_company_defaults`.
         //
@@ -230,6 +244,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 : message.includes("USER_INACTIVE")
                   ? 403
                   : 500;
+          saveStatus = status;
           return NextResponse.json(
             {
               error: `Failed to create company: ${message || "Unknown error"}`,
@@ -247,6 +262,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         companyId = created.company_id;
+        if (telemetry) telemetry.companyId = companyId;
 
         // Day 0 founder welcome — fire-and-forget after company creation.
         // Per spec §3 + decision log #25/#26: only fire when the inserting
@@ -339,6 +355,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // validated again by the database RPC. Runs for both branches above
       // (new company and resumed setup) and never blocks company creation.
       if (companyId) {
+        saveStage = "attribution";
         await recordTrialAttribution(
           db,
           companyId,
@@ -358,6 +375,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // is a claim about the database, so it may only be made once this write is
     // known to have landed — the checkpoint is what lets the operator resume
     // setup, and losing it silently strands them on a step they already did.
+    saveStage = "checkpoint";
     const { error: progressError } = await db
       .from("users")
       .update({
@@ -378,6 +396,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    saveStatus = 200;
     return NextResponse.json({
       success: true,
       setupProgress: updatedProgress,
@@ -386,6 +405,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error("[api/setup/progress] Error:", error);
 
     if (error instanceof Error && error.message.includes("Token")) {
+      saveStatus = 401;
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -398,5 +418,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
       { status: 500 }
     );
+  } finally {
+    if (telemetry && telemetryDb) {
+      await recordSetupSaveResult(telemetryDb, telemetry, saveStage, saveStatus);
+    }
   }
 }

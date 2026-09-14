@@ -52,16 +52,21 @@ function resolveEnvironment(): AnalyticsEnvironment {
   if (process.env.NODE_ENV === "test") return "test";
   if (typeof window === "undefined") return "development";
   const hostname = window.location.hostname.toLowerCase();
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+  // NODE_ENV is production for preview builds too. Only the canonical app
+  // may generate production product telemetry; custom aliases are not trusted.
+  if (hostname !== "app.opsapp.co") {
     return "development";
   }
-  if (hostname.endsWith(".vercel.app")) return "preview";
+  if (process.env.NEXT_PUBLIC_VERCEL_ENV && process.env.NEXT_PUBLIC_VERCEL_ENV !== "production") {
+    return "development";
+  }
   return process.env.NODE_ENV === "production" ? "production" : "development";
 }
 
 export class AnalyticsService {
   private queue: AnalyticsClientEvent[] = [];
-  private readonly sessionId: string;
+  /** Anonymous session context reused by server save diagnostics. */
+  readonly sessionId: string;
   private readonly now: () => number;
   private readonly randomUUID: () => string;
   private readonly tokenProvider: (forceRefresh?: boolean) => Promise<string | null>;

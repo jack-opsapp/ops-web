@@ -36,6 +36,7 @@ import {
   MCP_EXPOSURE_V12,
   MCP_EXPOSURE_V13,
   MCP_EXPOSURE_V14,
+  MCP_EXPOSURE_V22,
   MCP_EXPOSURE_V23,
   assertMcpExposureInvariants,
   resolveActiveMcpExposure,
@@ -369,6 +370,7 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_EXPOSURE_V13.revision,
       MCP_EXPOSURE_V14.revision,
       MCP_EXPOSURE_V23.revision,
+      MCP_EXPOSURE_V22.revision,
     ]);
     for (const exposure of [
       MCP_FINANCIAL_TRIAL_EXPOSURE,
@@ -387,6 +389,7 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_EXPOSURE_V13,
       MCP_EXPOSURE_V14,
       MCP_EXPOSURE_V23,
+      MCP_EXPOSURE_V22,
     ]) {
       expect(Object.isFrozen(exposure)).toBe(true);
       expect(Object.isFrozen(exposure.toolIds)).toBe(true);

@@ -13,10 +13,12 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { getAuth } from "firebase/auth";
+import { toast } from "@/components/ui/toast";
+import { useDictionary } from "@/i18n/client";
+import { saveSetupStep } from "@/lib/analytics/setup-save-client";
 import {
   trackSetupStarted,
   trackSetupStepViewed,
-  trackSetupStepCompleted,
   trackSetupStepSkipped,
   trackSetupCompleted,
   trackStarfieldEntered,
@@ -76,6 +78,9 @@ const readSetupSource = (): "direct" | "spec" => {
 
 export default function SetupPage() {
   const router = useRouter();
+  const { t } = useDictionary("common");
+  const saveInFlight = useRef(false);
+  const [saving, setSaving] = useState(false);
   const {
     phase,
     setPhase,
@@ -94,7 +99,6 @@ export default function SetupPage() {
     setStarfieldAnswer,
     steps,
     completeStep,
-    completeSetup,
     reset: resetSetupStore,
   } = useSetupStore();
   const setupHydrated = useSetupStore((s) => s._hydrated);
@@ -255,17 +259,21 @@ export default function SetupPage() {
   const stepStartRef = useRef(Date.now());
   const starfieldStartRef = useRef(0);
 
-  // Fire setup_started once on mount
+  const startedForUser = useRef<string | null>(null);
+  // Wait for account creation/sync: the saved snapshot describes signup,
+  // whereas the current /setup URL cannot recover an older account's source.
   useEffect(() => {
+    if (!authUser || startedForUser.current === authUser.id) return;
+    startedForUser.current = authUser.id;
     setupStartRef.current = Date.now();
-    trackSetupStarted("direct");
+    trackSetupStarted(authUser.setupProgress?.signup_attribution);
     if (readSetupSource() === "spec") {
       analyticsService.track("lifecycle", "spec_default_ops_signup_started", {
         source: "spec",
         continue_to: readSafeReturnTo() ?? "/dashboard",
       });
     }
-  }, []);
+  }, [authUser]);
 
   // Fire step_viewed when phase changes (identity / company / starfield)
   useEffect(() => {
@@ -281,70 +289,41 @@ export default function SetupPage() {
 
   // ─── Navigation ────────────────────────────────────────────────────────
 
-  const handleIdentityNext = useCallback(async () => {
-    const duration_ms = Date.now() - stepStartRef.current;
-    trackSetupStepCompleted("identity", duration_ms);
-    completeStep("identity");
+  const handleNext = useCallback(async () => {
+    if (saveInFlight.current || (phase !== "identity" && phase !== "company")) return;
+    saveInFlight.current = true;
+    setSaving(true);
     try {
-      const token = await getAuthToken();
-      if (token) {
-        await fetch("/api/setup/progress", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token,
-            step: "identity",
-            data: { firstName, lastName, phone },
-          }),
-        });
+      const saved = await saveSetupStep({
+        step: phase,
+        data: phase === "identity"
+          ? { firstName, lastName, phone }
+          : { companyName, industries, companySize, companyAge, weatherDependent, referralMethod },
+        durationMs: Date.now() - stepStartRef.current,
+        getToken: getAuthToken,
+      });
+      if (!saved) {
+        toast.error(t("setupSaveUnconfirmed", "Couldn't confirm your details were saved. Try again."));
+        return;
       }
-    } catch {
-      // Non-blocking — continue even if save fails
-    }
-    setPhase("company");
-  }, [completeStep, setPhase, firstName, lastName, phone]);
-
-  const handleCompanyNext = useCallback(async () => {
-    const duration_ms = Date.now() - stepStartRef.current;
-    trackSetupStepCompleted("company", duration_ms);
-    completeStep("company");
-    try {
-      const token = await getAuthToken();
-      if (token) {
-        await fetch("/api/setup/progress", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token,
-            step: "company",
-            data: { companyName, industries, companySize, companyAge, weatherDependent, referralMethod },
-          }),
-        });
+      completeStep(phase);
+      // SPEC buyers return only after the company save is acknowledged.
+      const safeReturnTo = phase === "company" ? readSafeReturnTo() : null;
+      if (safeReturnTo) {
+        window.location.assign(safeReturnTo);
+        return;
       }
+      setPhase(phase === "identity" ? "company" : "starfield");
     } catch {
-      // Non-blocking
+      toast.error(t("setupSaveUnconfirmed", "Couldn't confirm your details were saved. Try again."));
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
     }
-    // SPEC no-company buyer flow (SPEC/07_ROLLOUT.md § 13B): if /setup was
-    // entered with a returnTo query param pointing back into ops-site (or
-    // another OPS-owned same-origin path), honor it instead of continuing to
-    // starfield. The buyer can come back to /setup later to finish onboarding.
-    const safeReturnTo = readSafeReturnTo();
-    if (safeReturnTo) {
-      window.location.assign(safeReturnTo);
-      return;
-    }
-    setPhase("starfield");
-  }, [completeStep, setPhase, companyName, industries, companySize, companyAge, weatherDependent, referralMethod]);
-
-  const handleNext = useCallback(() => {
-    if (phase === "identity") {
-      handleIdentityNext();
-    } else if (phase === "company") {
-      handleCompanyNext();
-    }
-  }, [phase, handleIdentityNext, handleCompanyNext]);
+  }, [phase, completeStep, setPhase, firstName, lastName, phone, companyName, industries, companySize, companyAge, weatherDependent, referralMethod, t]);
 
   const handleBack = useCallback(() => {
+    if (saveInFlight.current) return;
     if (phase === "company") {
       setPhase("identity");
     } else if (phase === "starfield") {
@@ -354,6 +333,7 @@ export default function SetupPage() {
   }, [phase, setPhase, answeredCount]);
 
   const handleSkip = useCallback(async () => {
+    if (saveInFlight.current) return;
     if (phase === "starfield") {
       trackStarfieldExited(answeredCount, "skip");
     }
@@ -417,6 +397,7 @@ export default function SetupPage() {
 
   const beginSignOut = useSignOutStore((s) => s.begin);
   const handleLogout = useCallback(() => {
+    if (saveInFlight.current) return;
     const user = useAuthStore.getState().currentUser;
     beginSignOut(user?.firstName || "", user?.lastName || "");
   }, [beginSignOut]);
@@ -736,14 +717,14 @@ export default function SetupPage() {
         <div className="border-t border-white/[0.08] mb-3" />
 
         {/* Step content */}
-        <div className="animate-fade-in" key={phase}>
+        <fieldset className="animate-fade-in" key={phase} disabled={saving}>
           {phase === "identity" && (
             <IdentityStep1
               firstName={firstName}
               lastName={lastName}
               phone={phone}
               avatarUrl={avatarUrl}
-              onUpdate={(data) => setIdentity(data)}
+              onUpdate={(data) => { if (!saveInFlight.current) setIdentity(data); }}
             />
           )}
           {phase === "company" && (
@@ -754,16 +735,16 @@ export default function SetupPage() {
               companyAge={companyAge}
               weatherDependent={weatherDependent}
               referralMethod={referralMethod}
-              onUpdate={(data) => setCompanyInfo(data)}
+              onUpdate={(data) => { if (!saveInFlight.current) setCompanyInfo(data); }}
             />
           )}
-        </div>
+        </fieldset>
 
         {/* Navigation */}
         <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/[0.08]">
           <button
             onClick={handleBack}
-            disabled={phase === "identity"}
+            disabled={phase === "identity" || saving}
             aria-label={phase === "company" ? "Back to personal information" : "Back"}
             className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-2 hover:text-text disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[36px]"
           >
@@ -773,6 +754,8 @@ export default function SetupPage() {
 
           <button
             onClick={handleNext}
+            disabled={saving}
+            aria-busy={saving}
             aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
             className="flex items-center gap-0.5 font-mohave text-button uppercase bg-transparent text-ops-accent px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent hover:text-black transition-all duration-150 ease-smooth"
           >
@@ -786,6 +769,7 @@ export default function SetupPage() {
       <div className="flex items-center justify-center gap-4 mt-3">
         <button
           onClick={handleLogout}
+          disabled={saving}
           aria-label="Log out"
           className="flex items-center gap-1 font-mohave text-caption-sm text-text-mute uppercase tracking-[0.08em] hover:text-text-3 transition-colors min-h-[36px]"
         >
@@ -795,6 +779,7 @@ export default function SetupPage() {
         <span className="text-fill-neutral-dim">|</span>
         <button
           onClick={handleSkip}
+          disabled={saving}
           aria-label="Skip setup and go to dashboard"
           className="font-mohave text-caption-sm text-text-mute uppercase tracking-[0.08em] hover:text-text-3 transition-colors min-h-[36px]"
         >

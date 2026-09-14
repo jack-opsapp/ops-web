@@ -1,11 +1,17 @@
 import { analyticsService } from "./analytics-service";
+import type { SignupAttribution } from "./signup-attribution";
 
 export function trackLogin(method: "email" | "google" | "apple") {
   analyticsService?.track("lifecycle", "login", { method });
 }
 
-export function trackSetupStarted(source: "registration" | "direct") {
-  analyticsService?.track("lifecycle", "setup_started", { source });
+export function trackSetupStarted(attribution?: SignupAttribution) {
+  analyticsService?.track("lifecycle", "setup_started", {
+    source: attribution?.channel ?? "unknown",
+    source_basis: attribution?.basis ?? "unknown",
+    source_confidence: attribution?.confidence ?? 0,
+    source_reason: attribution?.reason ?? "no_signup_snapshot",
+  });
 }
 
 export function trackSetupStepViewed(step: "identity" | "company" | "starfield") {

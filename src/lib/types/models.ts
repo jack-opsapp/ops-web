@@ -6,6 +6,7 @@
  */
 
 import type { TaskTypeDependency } from './scheduling';
+import type { SignupAttribution } from "@/lib/analytics/signup-attribution";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -451,6 +452,7 @@ export interface OnboardingCompleted {
 
 /** Setup progress tracking for web onboarding */
 export interface SetupProgress {
+  signup_attribution?: SignupAttribution;
   steps: {
     identity?: boolean;
     company?: boolean;
