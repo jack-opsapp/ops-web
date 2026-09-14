@@ -26,7 +26,8 @@ import {
   type TestRecord,
 } from "./types";
 
-export const ADS_BRIEF_VERSION = "ads-brief-2026-09-10-v1";
+// v2 (2026-09-14): campaign kinds and each ad group's copyKind come from the blueprint.
+export const ADS_BRIEF_VERSION = "ads-brief-2026-09-14-v2";
 
 export type DutyKey = "hygiene" | "creative" | "structure" | "bidding_ladder";
 
