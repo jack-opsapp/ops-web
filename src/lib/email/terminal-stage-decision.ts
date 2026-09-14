@@ -148,10 +148,14 @@ const PAYMENT_REVERSAL_RE =
   /\b(?:deposit|payment)\b.{0,80}\b(?:refund(?:ed)?|revers(?:ed|al)|return(?:ed)?|sent back|chargeback)\b|\b(?:refund(?:ed)?|revers(?:ed|al)|return(?:ed)?|sent back|chargeback)\b.{0,80}\b(?:deposit|payment|funds?)\b/i;
 const IMPERATIVE_CONFIRMATION_REQUEST_RE =
   /\bplease\s+(?:confirm|verify|check)\b|\b(?:can|could|would|will)\s+you\s+(?:confirm|verify|check)\b|^\s*(?:confirm|verify|check)\b/i;
-const SCHEDULE_DATE_ANCHOR_TEXT =
-  "(?:tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next\\s+week|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:\\s*,?\\s*\\d{4})?|\\d{1,2}(?:st|nd|rd|th)|\\d{1,2}[-/]\\d{1,2}(?:[-/]\\d{2,4})?|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2})";
+// A duration such as "1-2 weeks" or "3/4 week" is not a calendar date.
+// Bound the whole numeric token so regex backtracking cannot accept a shorter
+// date-shaped fragment after the duration suffix has been rejected.
+const NUMERIC_SCHEDULE_DATE_TEXT =
+  "(?<![\\d/-])(?:\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}|\\d{1,2}[-/]\\d{1,2}(?:[-/]\\d{2,4})?)(?![\\d/-]|[\\s-]*(?:business\\s+)?(?:hours?|days?|weeks?|months?|years?)\\b)";
+const SCHEDULE_DATE_ANCHOR_TEXT = `(?:tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next\\s+week|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:\\s*,?\\s*\\d{4})?|\\d{1,2}(?:st|nd|rd|th)|${NUMERIC_SCHEDULE_DATE_TEXT})`;
 const SCHEDULE_CONFIRMED_RE = new RegExp(
-  `\\b(?:confirmed|booked|scheduled)\\b.{0,100}\\b${SCHEDULE_DATE_ANCHOR_TEXT}\\b|\\b${SCHEDULE_DATE_ANCHOR_TEXT}\\b.{0,80}\\b(?:is good|works?|confirmed|booked|scheduled|start)\\b`,
+  `\\b(?:confirmed|booked|scheduled)\\b.{0,100}\\b${SCHEDULE_DATE_ANCHOR_TEXT}\\b|\\b${SCHEDULE_DATE_ANCHOR_TEXT}\\b.{0,80}\\b(?:is good|works|work(?=\\s+for\\s+(?:me|us|you|them)\\b)|confirmed|booked|scheduled|start)\\b`,
   "i"
 );
 const COMMITTED_EXECUTION_DETAIL_INQUIRY_RE = new RegExp(
