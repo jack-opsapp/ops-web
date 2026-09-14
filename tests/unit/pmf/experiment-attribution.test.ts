@@ -88,7 +88,7 @@ describe("company attachment through staged identity", () => {
     const { db } = dbWith({ ...attached, status: "already_attached" });
     expect(await retrySignupExperiment(db, req(), actor, company)).toEqual({ status: "already_attached" });
   });
-  it.each(["expired_assignment", "ineligible_company", "trial_before_exposure", "outside_conversion_window", "company_already_attributed", "assignment_already_attributed"])("preserves the database exclusion %s", async reason => {
+  it.each(["expired_assignment", "ineligible_company", "trial_before_exposure", "outside_conversion_window", "company_already_attributed", "assignment_already_attributed", "no_exposure", "trial_not_ready"])("preserves the database exclusion %s", async reason => {
     const { db } = dbWith({ status: "rejected", reason });
     expect(await retrySignupExperiment(db, req(), actor, company)).toEqual({ status: "rejected", reason });
   });

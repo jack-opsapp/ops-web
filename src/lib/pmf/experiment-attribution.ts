@@ -14,7 +14,7 @@ const REJECTION_REASONS = new Set([
   "invalid_token", "expired_assignment", "ineligible_company", "invalid_actor",
   "trial_before_exposure", "outside_conversion_window", "company_already_attributed",
   "assignment_already_attributed", "actor_already_staged",
-  "no_exposure",
+  "no_exposure", "trial_not_ready",
 ]);
 const PENDING_REASONS = new Set(["no_exposure", "trial_not_ready"]);
 
