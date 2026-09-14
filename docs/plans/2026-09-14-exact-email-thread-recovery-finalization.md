@@ -20,7 +20,7 @@
 
 ## Release boundary
 
-This task prepares a migration and local proof only. The parent task must obtain explicit production migration approval before application. The existing inbound-only recovery work registration is not extended, and the legacy thread reassignment overload is never used. The private plan must account for outbound exact-message RPCs and every attachment receipt separately.
+The parent task obtained explicit production migration and exact-recovery approval. Migration `20260914211750_finalize_exact_email_thread_recovery.sql` is installed, and the four-message recovery finalized at 2026-09-14 21:21:34 UTC with independent ownership, attachment-byte, original-job preservation and no-duplicate proof. The existing inbound-only recovery work registration is not extended, and the legacy thread reassignment overload is never used. The private plan accounts for outbound exact-message RPCs and every attachment receipt separately. See the routing continuation verification artifact for the live result and the corrected private URL-check fixture.
 
 ## Verified local proof
 

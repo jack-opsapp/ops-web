@@ -10,7 +10,7 @@ const root = process.cwd();
 const sqlRoot = join(root, "tests/sql");
 const migration = join(
   root,
-  "supabase/migrations/20260914201338_finalize_exact_email_thread_recovery.sql"
+  "supabase/migrations/20260914211750_finalize_exact_email_thread_recovery.sql"
 );
 
 it("executes exact thread finalization contracts on isolated PostgreSQL 17 with real ownership guards", async () => {
