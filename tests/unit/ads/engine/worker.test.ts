@@ -7,8 +7,9 @@ import {
   type WorkerRepository,
 } from "@/lib/ads/engine/worker";
 import type { ApplyOutcome, ApplyProposalRecord, MutateOperation } from "@/lib/ads/engine/apply";
-import type { ChangeRecord, EngineSettings, TestRecord } from "@/lib/ads/engine/types";
-import { NOW, R, settings, snapshot } from "./fixtures";
+import type { NewPairTest } from "@/lib/ads/engine/pairs";
+import type { ChangeRecord, EngineSettings, EntitySnapshot, TestRecord } from "@/lib/ads/engine/types";
+import { NOW, R, settings, snapshot, tests as fixtureTests } from "./fixtures";
 
 const OPERATOR = { userId: "operator", companyId: "11111111-1111-4111-8111-111111111111" };
 
@@ -74,6 +75,10 @@ interface Rig {
   alerts: Array<{ kind: string; dedupeKey: string; title: string; body: string; persistent: boolean }>;
   mutations: Array<{ operations: MutateOperation[]; validateOnly: boolean }>;
   stallChecks: Array<{ staleHours: number; campaignsLive: boolean }>;
+  opened: NewPairTest[];
+  servingQueries: Array<{ control: string; challenger: string; since: string | null }>;
+  historyQueries: string[][];
+  cancelled: Array<{ id: string; stats: Record<string, unknown>; at: string }>;
   cleared: number;
   notified: number;
 }
@@ -87,11 +92,16 @@ function rig(options: {
   entityMetrics?: (change: ChangeRecord, window: { from: string; to: string }) => { impressions: number; clicks: number; conversions: number };
   applyOutcome?: (p: ApplyProposalRecord) => ApplyOutcome;
   apply?: null;
-  gateway?: null;
-  disapproved?: boolean;
   pacing?: PacingRow[] | null;
   operator?: null;
   heartbeat?: string | null;
+  snapshot?: EntitySnapshot;
+  /** Every test for the pair groups, any state; defaults to the running list. */
+  history?: TestRecord[];
+  /** First shared serving day per `control:challenger`. */
+  served?: Record<string, string>;
+  /** The group already has a running test by the time the insert lands. */
+  openConflict?: boolean;
 } = {}): Rig {
   const applied: ApplyProposalRecord[] = [];
   const concluded: Rig["concluded"] = [];
@@ -100,16 +110,19 @@ function rig(options: {
   const alerts: Rig["alerts"] = [];
   const mutations: Rig["mutations"] = [];
   const stallChecks: Rig["stallChecks"] = [];
+  const opened: Rig["opened"] = [];
+  const servingQueries: Rig["servingQueries"] = [];
+  const historyQueries: Rig["historyQueries"] = [];
+  const cancelled: Rig["cancelled"] = [];
   const counters = { cleared: 0, notified: 0 };
-  const snap = snapshot();
-  if (options.disapproved) snap.ads[1] = { ...snap.ads[1], approvalStatus: "DISAPPROVED" };
+  const snap = options.snapshot ?? snapshot();
   const engineSettings = options.settings ?? settings({ heartbeat_at: options.heartbeat === undefined ? "2026-10-20T14:00:00.000Z" : options.heartbeat });
   const repository: WorkerRepository = {
     expireProposals: async () => 2,
     readSettings: async () => engineSettings,
     readSnapshot: async () => snap,
     listApplicableProposals: async () => options.auto ?? [],
-    listRunningTests: async () => options.tests ?? [],
+    listRunningTests: async () => (options.tests ?? []).filter((t) => !cancelled.some((c) => c.id === t.id)),
     adArmMetrics: async (adIds) =>
       Object.fromEntries(adIds.map((id) => [id, options.arms?.[id] ?? { impressions: 0, clicks: 0, conversions: 0 }])),
     recordTestStats: async (id, state, stats) => {
@@ -142,6 +155,34 @@ function rig(options: {
       counters.cleared += 1;
       return 1;
     },
+    // The guardrail has its own suite (worker-guardrail.test.ts); here it has nothing to guard.
+    listOpenGuardrailPauses: async () => [],
+    openGuardrailPause: async () => null,
+    markGuardrailPaused: async () => {},
+    recordGuardrailPauseError: async () => {},
+    closeGuardrailPause: async () => {},
+    listEngineAdDecisions: async () => [],
+    resolveAlerts: async () => 0,
+    refreshSnapshot: async () => {},
+    listPairTests: async (adGroupIds) => {
+      historyQueries.push([...adGroupIds]);
+      return (options.history ?? options.tests ?? [])
+        .filter((t) => adGroupIds.includes(t.ad_group_id))
+        .map((t) => (cancelled.some((c) => c.id === t.id) ? { ...t, state: "cancelled" as const, verdict_at: cancelled.find((c) => c.id === t.id)!.at } : t));
+    },
+    firstSharedServingDay: async (control, challenger, since) => {
+      servingQueries.push({ control, challenger, since });
+      return options.served?.[`${control}:${challenger}`] ?? null;
+    },
+    openPairTest: async (test) => {
+      if (options.openConflict) return null;
+      opened.push(test);
+      return `tttttttt-tttt-4ttt-8ttt-${String(opened.length).padStart(12, "0")}`;
+    },
+    cancelTest: async (id, stats, at) => {
+      cancelled.push({ id, stats, at });
+      return true;
+    },
   };
   const deps: WorkerDependencies = {
     repository,
@@ -156,16 +197,16 @@ function rig(options: {
               ? options.applyOutcome(proposal)
               : { state: "applied", validation: { results: [], failures: [] }, resourceNames: ["x"], label: "gen-x", changeId: "c", testId: null };
           },
-    gateway:
-      options.gateway === null
-        ? null
-        : {
-            customerId: async () => "4454506598",
-            mutate: async (operations, opts) => {
-              mutations.push({ operations, validateOnly: opts.validateOnly });
-              return { results: operations.map(() => ({ adGroupAdResult: { resourceName: "x" } })), failures: [] };
-            },
-          },
+    gateway: {
+      customerId: async () => "4454506598",
+      mutate: async (operations, opts) => {
+        mutations.push({ operations, validateOnly: opts.validateOnly });
+        return { results: operations.map(() => ({ adGroupAdResult: { resourceName: "x" } })), failures: [] };
+      },
+    },
+    reader: null,
+    retiredAdIds: new Set<string>(),
+    rehearsal: false,
     readBudgetPacing: options.pacing === undefined ? null : options.pacing === null ? null : async () => options.pacing as PacingRow[],
   };
   return {
@@ -177,6 +218,10 @@ function rig(options: {
     alerts,
     mutations,
     stallChecks,
+    opened,
+    servingQueries,
+    historyQueries,
+    cancelled,
     get cleared() {
       return counters.cleared;
     },
@@ -334,25 +379,11 @@ describe("runEngineTick", () => {
     expect(r.verdicts[0].post).toMatchObject({ ctr: 0.036, deltaPct: 20 });
   });
 
-  it("pauses a disapproved ad with validateOnly first and raises AD DISAPPROVED", async () => {
-    const r = rig({ disapproved: true });
+  it("leaves the disapproved-ad guardrail idle on a clean account", async () => {
+    const r = rig();
     const result = await runEngineTick(r.deps);
-    expect(result.disapproved).toBe(1);
-    expect(r.mutations.map((m) => m.validateOnly)).toEqual([true, false]);
-    expect(r.mutations[0].operations).toEqual([
-      { adGroupAdOperation: { update: { resourceName: R.jmChallenger, status: "PAUSED" }, updateMask: "status" } },
-    ]);
-    expect(r.alerts).toEqual([
-      expect.objectContaining({ kind: "ad_disapproved", dedupeKey: `ads-engine:disapproved:${R.jmChallenger}`, title: "AD DISAPPROVED", persistent: true }),
-    ]);
-    expect(r.alerts[0].body).toMatch(/paused it/);
-  });
-
-  it("still raises AD DISAPPROVED when Google cannot be reached to pause the ad", async () => {
-    const r = rig({ disapproved: true, gateway: null });
-    await runEngineTick(r.deps);
+    expect(result).toMatchObject({ guardrail: "idle", disapproved: 0, held: 0, restored: 0, released: 0 });
     expect(r.mutations).toEqual([]);
-    expect(r.alerts[0].body).toMatch(/could not pause/);
   });
 
   it("raises ADS BUDGET PACING when a campaign is capped three days running, and not for two", async () => {
@@ -376,5 +407,88 @@ describe("changeScope", () => {
     expect(changeScope(pendingChange({ kind: "add_negatives", campaign_id: null }))).toEqual({ level: "account", id: null });
     expect(changeScope(pendingChange({ kind: "pause_keyword", ad_group_id: "21" }))).toEqual({ level: "ad_group", id: "21" });
     expect(changeScope(pendingChange({ kind: "add_ad_group", ad_group_id: null, resource_names: ["customers/1/adGroups/777", "customers/1/adGroupCriteria/777~1"] }))).toEqual({ level: "ad_group", id: "777" });
+  });
+});
+
+describe("every live ad pair is judged", () => {
+  /** Job management (201/202), Jobber alternative (204/205) and Brand (206/207) each run an enabled pair. */
+  it("opens a test for a pair nobody is judging, started on the first day both ads served", async () => {
+    const r = rig({ tests: [], served: { "201:202": "2026-10-01" } });
+    const result = await runEngineTick(r.deps);
+    expect(r.historyQueries).toEqual([["21", "31", "41"]]);
+    expect(r.servingQueries).toEqual([
+      { control: "201", challenger: "202", since: null },
+      { control: "204", challenger: "205", since: null },
+      { control: "206", challenger: "207", since: null },
+    ]);
+    expect(r.opened).toEqual([
+      {
+        campaign_id: "11",
+        ad_group_id: "21",
+        ad_group_name: "Job management",
+        control_ad_id: "201",
+        challenger_ad_id: "202",
+        proposal_id: null,
+        label: null,
+        started_at: "2026-10-01T07:00:00.000Z",
+      },
+    ]);
+    expect(result.testsOpened).toBe(1);
+  });
+
+  it("opens nothing while the pairs have never served — the twelve phase 2 groups, campaigns paused", async () => {
+    const paused = snapshot();
+    paused.campaigns = paused.campaigns.map((c) => ({ ...c, status: "PAUSED" as const }));
+    const r = rig({ tests: [], snapshot: paused });
+    const result = await runEngineTick(r.deps);
+    expect(r.servingQueries).toHaveLength(3);
+    expect(r.opened).toEqual([]);
+    expect(result).toMatchObject({ testsOpened: 0, testsCancelled: 0 });
+  });
+
+  it("never opens a second test for a pair that already has a verdict, nor beside a running one", async () => {
+    // 21 challenger_won, 31 running, 41 control_won.
+    const r = rig({ tests: fixtureTests().filter((t) => t.state === "running"), history: fixtureTests(), served: { "201:202": "2026-10-01", "206:207": "2026-08-01" } });
+    const result = await runEngineTick(r.deps);
+    expect(r.servingQueries).toEqual([]);
+    expect(r.opened).toEqual([]);
+    expect(result.testsOpened).toBe(0);
+  });
+
+  it("judges a pair again after its test was cancelled, counting from the day after", async () => {
+    const cancelled = { ...fixtureTests()[0], state: "cancelled" as const, verdict_at: "2026-10-05T15:00:00.000Z" };
+    const r = rig({ tests: [], history: [cancelled], served: { "201:202": "2026-10-09" } });
+    await runEngineTick(r.deps);
+    expect(r.servingQueries[0]).toEqual({ control: "201", challenger: "202", since: "2026-10-06" });
+    expect(r.opened.map((t) => t.started_at)).toEqual(["2026-10-09T07:00:00.000Z"]);
+  });
+
+  it("counts a lost race to open a test as nothing opened, not a failure", async () => {
+    const r = rig({ tests: [], served: { "201:202": "2026-10-01" }, openConflict: true });
+    const result = await runEngineTick(r.deps);
+    expect(result.testsOpened).toBe(0);
+  });
+
+  it("cancels a test whose challenger the blueprint retired before judging it, then judges the pair that replaced it", async () => {
+    const retired = snapshot();
+    retired.ads = [
+      ...retired.ads.map((ad) => (ad.resourceName === R.jaChallenger ? { ...ad, status: "PAUSED" as const } : ad)),
+      { ...retired.ads.find((ad) => ad.resourceName === R.jaChallenger)!, resourceName: "customers/4454506598/adGroupAds/31~209", id: "209", status: "ENABLED" as const },
+    ];
+    const test = runningTest({ campaign_id: "13", ad_group_id: "31", ad_group_name: "Jobber alternative", control_ad_id: "204", challenger_ad_id: "205", started_at: "2026-09-01T15:00:00.000Z", stats: { days: 40, p: 0.2 } });
+    const r = rig({
+      snapshot: retired,
+      tests: [test],
+      history: [test],
+      // Enough for a verdict on the old pair, had it been judged.
+      arms: { "204": { impressions: 5000, clicks: 100, conversions: 0 }, "205": { impressions: 5000, clicks: 200, conversions: 0 } },
+      served: { "204:209": "2026-10-16" },
+    });
+    const result = await runEngineTick(r.deps);
+    expect(r.cancelled).toEqual([{ id: test.id, stats: { days: 40, p: 0.2, reason: "The challenger was paused outside the test.", cancelled_at: NOW.toISOString() }, at: NOW.toISOString() }]);
+    expect(r.concluded).toEqual([]);
+    expect(r.followUps).toEqual([]);
+    expect(r.opened.map((t) => [t.ad_group_id, t.control_ad_id, t.challenger_ad_id, t.started_at])).toEqual([["31", "204", "209", "2026-10-16T07:00:00.000Z"]]);
+    expect(result).toMatchObject({ testsCancelled: 1, testsOpened: 1, testsConcluded: 0 });
   });
 });

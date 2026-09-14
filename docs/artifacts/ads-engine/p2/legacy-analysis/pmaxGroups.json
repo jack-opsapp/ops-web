@@ -1,0 +1,121 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "244",
+   "conversions": 26,
+   "costMicros": "173778684",
+   "impressions": "3537"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1",
+   "adStrength": "POOR"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "362",
+   "conversions": 22,
+   "costMicros": "234126858",
+   "impressions": "22255"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1",
+   "adStrength": "POOR"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "217",
+   "conversions": 26,
+   "costMicros": "244759606",
+   "impressions": "15931"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1",
+   "adStrength": "POOR"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "113",
+   "conversions": 16,
+   "costMicros": "184285429",
+   "impressions": "2871"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1",
+   "adStrength": "POOR"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "costMicros": "7898622",
+   "impressions": "577"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1",
+   "adStrength": "UNKNOWN"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "678",
+   "conversions": 0,
+   "costMicros": "511085759",
+   "impressions": "30836"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1",
+   "adStrength": "AVERAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23554825380",
+   "name": "PERFORMANCE MAX OPS 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "costMicros": "0",
+   "impressions": "0"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673653961",
+   "name": "Asset Group 1",
+   "adStrength": "POOR"
+  }
+ }
+]

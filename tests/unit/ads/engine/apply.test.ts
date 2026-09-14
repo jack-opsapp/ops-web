@@ -314,6 +314,26 @@ describe("applyProposal", () => {
     expect(r.changes[0]).toMatchObject({ kind: "create_rsa_challenger", ad_group_id: "22" });
   });
 
+  it("refuses an approved challenger in a group that has taken a challenger since, before anything reaches Google", async () => {
+    // Job management runs 201 against 202: a third ad would never be judged.
+    const r = rig();
+    const outcome = await apply(proposal({ kind: "create_rsa_challenger", payload: { ad_group: R.jobManagement, adGroupId: "21", adGroupName: "Job management", campaign: R.core, campaignId: "11", campaignKind: "core", controlAd: R.jmControl, controlAdId: "201", hypothesis: "x", ...goodRsa("https://try.opsapp.co/job-management") } }), r);
+    expect(outcome).toEqual({ state: "failed", validation: null, error: "Job management already runs a challenger. Nothing changed in Google.", policyTopics: [] });
+    expect(r.calls).toEqual([]);
+    expect(r.marks).toEqual([
+      { id: proposal().id, state: "failed", validation: { validateOnly: false, refused: "group_changed" }, resourceNames: null, label: `gen-${RUN_ID}`, error: "Job management already runs a challenger. Nothing changed in Google." },
+    ]);
+    expect(r.changes).toEqual([]);
+    expect(r.tests).toEqual([]);
+  });
+
+  it("refuses an approved challenger whose control is no longer the group's control", async () => {
+    const r = rig();
+    const outcome = await apply(proposal({ kind: "create_rsa_challenger", payload: { ad_group: R.crewScheduling, adGroupId: "22", adGroupName: "Crew scheduling", campaign: R.core, campaignId: "11", campaignKind: "core", controlAd: `customers/${CUSTOMER}/adGroupAds/22~299`, controlAdId: "299", hypothesis: "x", ...goodRsa() } }), r);
+    expect(outcome).toMatchObject({ state: "failed", error: "Crew scheduling has a new control since you approved this. Nothing changed in Google." });
+    expect(r.calls).toEqual([]);
+  });
+
   it("marks failed with the error when the real mutate throws", async () => {
     const r = rig({ throwOnReal: true });
     const outcome = await apply(proposal(), r);

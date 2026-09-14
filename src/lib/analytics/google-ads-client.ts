@@ -1296,6 +1296,170 @@ export async function queryCampaignBudgetPacing(
   }));
 }
 
+// ─── Guardrail live reads (the engine's disapproved-ad guardrail) ─────────────
+
+const AD_RESOURCE_NAME = /^customers\/\d+\/adGroupAds\/\d+~\d+$/;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const AD_STATE_CHUNK = 200;
+
+/** Google caps one change_event read at 10,000 rows; a full page may be cut short. */
+export const CHANGE_EVENT_LIMIT = 10_000;
+
+export interface AdPolicyTopic {
+  topic: string;
+  type: string | null;
+}
+
+export interface AdPolicyState {
+  resourceName: string;
+  status: string;
+  approvalStatus: string | null;
+  reviewStatus: string | null;
+  policyTopics: AdPolicyTopic[];
+}
+
+interface AdPolicyRow {
+  adGroupAd?: {
+    resourceName?: string;
+    status?: string;
+    policySummary?: {
+      approvalStatus?: string;
+      reviewStatus?: string;
+      policyTopicEntries?: Array<{ topic?: unknown; type?: unknown }>;
+    };
+  };
+}
+
+/**
+ * Live status, review verdict and policy topics for exactly the named ads.
+ * The guardrail decides on this, never on the warehouse snapshot, which is a
+ * copy up to a day old. No status filter: a removed ad comes back REMOVED so
+ * the guardrail can let go of it. Field paths checked against the v25
+ * `ad_group_ad.proto` and `policy_summary.proto` (`policy_topic_entries` →
+ * `PolicyTopicEntry.topic` / `type`) and proved live on 2026-09-11.
+ */
+export async function queryAdPolicyStates(resourceNames: string[]): Promise<AdPolicyState[]> {
+  for (const name of resourceNames)
+    if (!AD_RESOURCE_NAME.test(name)) throw new Error(`"${name}" is not an ad resource name`);
+  const unique = [...new Set(resourceNames)];
+  const states: AdPolicyState[] = [];
+  for (let from = 0; from < unique.length; from += AD_STATE_CHUNK) {
+    const chunk = unique.slice(from, from + AD_STATE_CHUNK);
+    const rows = (await queryGoogleAds(`
+      SELECT
+        ad_group_ad.resource_name,
+        ad_group_ad.status,
+        ad_group_ad.policy_summary.approval_status,
+        ad_group_ad.policy_summary.review_status,
+        ad_group_ad.policy_summary.policy_topic_entries
+      FROM ad_group_ad
+      WHERE ad_group_ad.resource_name IN (${chunk.map((name) => `'${name}'`).join(", ")})
+    `)) as AdPolicyRow[];
+    for (const row of rows) {
+      const ad = row.adGroupAd;
+      if (!ad?.resourceName) continue;
+      states.push({
+        resourceName: ad.resourceName,
+        status: String(ad.status ?? "UNKNOWN"),
+        approvalStatus: ad.policySummary?.approvalStatus ?? null,
+        reviewStatus: ad.policySummary?.reviewStatus ?? null,
+        policyTopics: (ad.policySummary?.policyTopicEntries ?? [])
+          .filter((entry): entry is { topic: string; type?: unknown } => typeof entry?.topic === "string")
+          .map((entry) => ({ topic: entry.topic, type: typeof entry.type === "string" ? entry.type : null })),
+      });
+    }
+  }
+  return states;
+}
+
+export interface AdStatusChangeEvent {
+  /** When Google committed the change, in UTC epoch microseconds (from the event's resource name). */
+  micros: number;
+  /** The ad_group_ad the change touched. */
+  resourceName: string;
+  operation: string;
+  changedFields: string[];
+  clientType: string | null;
+  userEmail: string | null;
+  oldStatus: string | null;
+  newStatus: string | null;
+}
+
+interface ChangeEventRow {
+  changeEvent?: {
+    resourceName?: string;
+    changeResourceName?: string;
+    clientType?: string;
+    userEmail?: string;
+    resourceChangeOperation?: string;
+    changedFields?: unknown;
+    oldResource?: { adGroupAd?: { status?: string } };
+    newResource?: { adGroupAd?: { status?: string } };
+  };
+}
+
+function fieldMaskPaths(mask: unknown): string[] {
+  if (typeof mask === "string") return mask.split(",").map((path) => path.trim()).filter(Boolean);
+  if (mask && typeof mask === "object" && Array.isArray((mask as { paths?: unknown }).paths))
+    return ((mask as { paths: unknown[] }).paths).filter((path): path is string => typeof path === "string");
+  return [];
+}
+
+/**
+ * Every change to any ad in the account between two account-local dates, oldest
+ * first. The guardrail reads it to prove an ad it paused has been touched by
+ * nobody since. Google refuses (probe 2026-09-11) an open-ended range, a start
+ * older than 30 days, and a filter on `change_resource_name`, so the window is
+ * bounded on both sides and the per-ad filter happens in the caller. The
+ * commit time comes from the event's resource name
+ * (`customers/{id}/changeEvents/{timestamp_micros}~{command}~{mutate}`), which
+ * is UTC, unlike `change_date_time` (account time zone). An event whose
+ * resource name cannot be read throws: a history with a hole in it proves
+ * nothing.
+ */
+export async function queryAdGroupAdChangeEvents(
+  startDate: string,
+  endDate: string
+): Promise<{ events: AdStatusChangeEvent[]; truncated: boolean }> {
+  if (!ISO_DAY.test(startDate) || !ISO_DAY.test(endDate))
+    throw new Error("change_event dates must be YYYY-MM-DD");
+  const rows = (await queryGoogleAds(`
+    SELECT
+      change_event.resource_name,
+      change_event.change_date_time,
+      change_event.change_resource_name,
+      change_event.client_type,
+      change_event.user_email,
+      change_event.resource_change_operation,
+      change_event.changed_fields,
+      change_event.old_resource,
+      change_event.new_resource
+    FROM change_event
+    WHERE change_event.change_date_time >= '${startDate}' AND change_event.change_date_time <= '${endDate}'
+      AND change_event.change_resource_type = 'AD_GROUP_AD'
+    ORDER BY change_event.change_date_time ASC
+    LIMIT ${CHANGE_EVENT_LIMIT}
+  `)) as ChangeEventRow[];
+  const events = rows.map((row) => {
+    const event = row.changeEvent ?? {};
+    const stamp = event.resourceName?.slice(event.resourceName.lastIndexOf("/") + 1).split("~")[0] ?? "";
+    const micros = /^\d+$/.test(stamp) ? Number(stamp) : Number.NaN;
+    if (!Number.isFinite(micros) || !event.changeResourceName)
+      throw new Error(`Unreadable change event: ${event.resourceName ?? "(no resource name)"}`);
+    return {
+      micros,
+      resourceName: event.changeResourceName,
+      operation: String(event.resourceChangeOperation ?? "UNKNOWN"),
+      changedFields: fieldMaskPaths(event.changedFields),
+      clientType: event.clientType ?? null,
+      userEmail: event.userEmail ?? null,
+      oldStatus: event.oldResource?.adGroupAd?.status ?? null,
+      newStatus: event.newResource?.adGroupAd?.status ?? null,
+    };
+  });
+  return { events, truncated: rows.length >= CHANGE_EVENT_LIMIT };
+}
+
 // ─── Warehouse grain reports (ad group / ad / asset / keyword / click) ────────
 
 /** The part of a Google resource name after the last slash, split on `~`. */
@@ -1607,6 +1771,54 @@ export interface EntityRow {
  * sets, their members and the campaigns they are attached to, labels — keyed
  * by Google resource name. Ten searchStream calls.
  */
+/**
+ * Everything the blueprint's asset planner diffs against: the campaigns with
+ * their asset-automation settings, every campaign-level and account-level
+ * asset link, and every asset the blueprint could reuse. Four searchStream
+ * reads, returned raw; `mapAssetState` in src/lib/ads/blueprint-assets.ts
+ * turns them into the planner's shape. Field names checked against the v25
+ * protos (asset_types.proto, campaign_asset.proto, customer_asset.proto).
+ */
+const ASSET_CONTENT_FIELDS = [
+  "asset.resource_name",
+  "asset.id",
+  "asset.type",
+  "asset.name",
+  "asset.final_urls",
+  "asset.sitelink_asset.link_text",
+  "asset.sitelink_asset.description1",
+  "asset.sitelink_asset.description2",
+  "asset.callout_asset.callout_text",
+  "asset.structured_snippet_asset.header",
+  "asset.structured_snippet_asset.values",
+  "asset.text_asset.text",
+  "asset.price_asset.type",
+  "asset.price_asset.price_offerings",
+].join(", ");
+
+export async function queryAssetState(): Promise<{
+  campaigns: GoogleAdsRow[];
+  campaignAssets: GoogleAdsRow[];
+  customerAssets: GoogleAdsRow[];
+  assets: GoogleAdsRow[];
+}> {
+  const [campaigns, campaignAssets, customerAssets, assets] = await Promise.all([
+    queryGoogleAds(
+      "SELECT campaign.resource_name, campaign.name, campaign.asset_automation_settings FROM campaign WHERE campaign.status != 'REMOVED'"
+    ),
+    queryGoogleAds(
+      `SELECT campaign.resource_name, campaign_asset.resource_name, campaign_asset.field_type, campaign_asset.status, ${ASSET_CONTENT_FIELDS} FROM campaign_asset WHERE campaign_asset.status != 'REMOVED'`
+    ),
+    queryGoogleAds(
+      "SELECT customer_asset.resource_name, customer_asset.field_type, customer_asset.status, asset.id FROM customer_asset"
+    ),
+    queryGoogleAds(
+      `SELECT ${ASSET_CONTENT_FIELDS} FROM asset WHERE asset.type IN ('SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET', 'TEXT', 'PRICE', 'IMAGE')`
+    ),
+  ]);
+  return { campaigns, campaignAssets, customerAssets, assets };
+}
+
 export async function queryEntitySnapshot(): Promise<EntityRow[]> {
   const out: EntityRow[] = [];
   const push = (

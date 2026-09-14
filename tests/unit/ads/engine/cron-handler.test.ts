@@ -5,7 +5,7 @@ const SECRET = "cron-secret-with-at-least-32-characters-ok";
 
 function deps(overrides: Partial<AdsEngineCronDependencies> = {}): AdsEngineCronDependencies {
   return {
-    run: async () => ({ expired: 0, autoApplied: 0, autoFailed: 0, autoSkipped: 0, testsConcluded: 0, followUps: 0, verdicts: 0, disapproved: 0, pacing: 0, notified: 1, stalled: false, campaignsLive: true, rehearsal: false, google: "available" }),
+    run: async () => ({ expired: 0, autoApplied: 0, autoFailed: 0, autoSkipped: 0, testsOpened: 0, testsCancelled: 0, testsConcluded: 0, followUps: 0, verdicts: 0, disapproved: 0, held: 0, restored: 0, released: 0, guardrail: "idle", pacing: 0, notified: 1, stalled: false, campaignsLive: true, rehearsal: false, google: "available" }),
     loadRuntime: () => ({ supabase: {} as never }),
     runWithControl: (async ({ work }: { work: () => Promise<unknown> }) => ({ status: "completed", value: await work() })) as never,
     ...overrides,

@@ -15,6 +15,7 @@ import type {
 const fake = vi.hoisted(() => ({
   mutate: vi.fn(),
   readSnapshot: vi.fn(),
+  readAssetState: vi.fn(),
   refreshSnapshot: vi.fn(),
   record: vi.fn(),
 }));
@@ -23,9 +24,11 @@ vi.mock("@/lib/ads/blueprint-runtime", () => ({
   googleGateway: (): BlueprintGateway => ({ mutate: fake.mutate }),
   warehouseRepository: (): BlueprintRepository => ({
     readSnapshot: fake.readSnapshot,
+    readAssetState: fake.readAssetState,
     refreshSnapshot: fake.refreshSnapshot,
     record: fake.record,
   }),
+  imageLoader: () => () => "aGVsbG8=",
 }));
 
 import {
@@ -112,6 +115,7 @@ function accountWith(options: {
         status: "ENABLED",
         labels: [],
         finalUrl: "https://try.opsapp.co/compare/jobber",
+        copyKind: "competitor",
       },
     ],
     ads,
@@ -123,6 +127,8 @@ beforeEach(() => {
   process.env.CRON_SECRET = SECRET;
   fake.mutate.mockResolvedValue(clean);
   fake.readSnapshot.mockResolvedValue(EMPTY);
+  // No live campaigns, so the asset planner has nothing to dress in these tests.
+  fake.readAssetState.mockResolvedValue({ campaigns: [], campaignAssets: [], customerAssets: [], assets: [] });
   fake.refreshSnapshot.mockResolvedValue(undefined);
   fake.record.mockResolvedValue(undefined);
 });

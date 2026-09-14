@@ -62,11 +62,23 @@ const syncChunkMock = vi.fn(async (_start: Date, _end: Date) => 0);
 vi.mock("@/lib/admin/ads-history-sync", () => ({
   syncChunk: (start: Date, end: Date) => syncChunkMock(start, end),
   syncDay: vi.fn(async () => undefined),
+  runWarehouseExtension: vi.fn(async () => ({
+    window: { start: "2026-02-26", end: "2026-02-28", days: 3 },
+    grains: { adGroups: 0, ads: 0, assets: 0, keywords: 0, clicks: 0, apiCalls: 7 },
+    entityRows: 0,
+  })),
 }));
 
 // ── cron plumbing fakes (watchdog tests exercise the real route handler) ─────
 vi.mock("@/lib/supabase/admin-client", () => ({
   getAdminSupabase: vi.fn(() => ({})),
+}));
+vi.mock("@/lib/admin/ads-provider-health", () => ({
+  classifyGoogleAdsAccessFailure: vi.fn(() => null),
+  reportAdsProviderHealth: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/ads/readiness-probe", () => ({
+  refreshReadinessProbe: vi.fn(async () => ({})),
 }));
 vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
   CronDatabaseOperationError: class CronDatabaseOperationError extends Error {},
@@ -257,6 +269,9 @@ describe("ads-sync cron watchdog", () => {
     const res = await GET(makeRequest("https://app.example.com/api/cron/ads-sync"));
     const body = await res.json();
 
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("synced");
+
     expect(body.revivedBackfill).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [watchdogUrl] = fetchMock.mock.calls[0] as unknown as [string];
@@ -271,6 +286,9 @@ describe("ads-sync cron watchdog", () => {
     const { GET } = await importCronRoute();
     const res = await GET(makeRequest("https://app.example.com/api/cron/ads-sync"));
     const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("synced");
 
     expect(body.revivedBackfill).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -287,6 +305,9 @@ describe("ads-sync cron watchdog", () => {
     const { GET } = await importCronRoute();
     const res = await GET(makeRequest("https://app.example.com/api/cron/ads-sync"));
     const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("synced");
 
     expect(body.revivedBackfill).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();

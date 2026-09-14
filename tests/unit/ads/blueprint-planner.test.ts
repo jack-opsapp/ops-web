@@ -187,6 +187,7 @@ describe("planBlueprint — idempotence", () => {
           status: "ENABLED",
           labels: [],
           finalUrl: "https://try.opsapp.co/job-management",
+          copyKind: "core",
         },
       ],
       keywords: [
@@ -350,6 +351,90 @@ describe("planBlueprint — refusals", () => {
         ],
       })
     ).toThrowError(/cpcBidCeilingMicros/);
+  });
+
+  describe("one control and one challenger per group", () => {
+    const ad = (role: "control" | "challenger", headline: string) => ({
+      role,
+      angle: `${role} fixture`,
+      headlines: [{ text: headline }],
+      descriptions: [{ text: "Fixture description." }],
+      finalUrl: "https://try.opsapp.co/job-management",
+    });
+    const withAds = (ads: ReturnType<typeof ad>[], retire: string[] = []) =>
+      minimal({
+        campaigns: [{ ...minimal().campaigns[0], adGroups: [{ ...minimal().campaigns[0].adGroups[0], ads }] }],
+        retire: { adIds: retire, customerAssets: [] },
+      });
+    /** The group, already built, running a challenger the file does not describe. */
+    const running = (status: "ENABLED" | "PAUSED" = "ENABLED"): EntitySnapshot => ({
+      ...EMPTY,
+      campaigns: [
+        { resourceName: "customers/4454506598/campaigns/1", id: "1", name: "TEST · US", status: "PAUSED", labels: ["engine"], kind: "core", budgetResourceName: "customers/4454506598/campaignBudgets/9", dailyBudget: 12, biddingStrategy: "MAXIMIZE_CLICKS", cpcCeiling: 9, targetCpa: null },
+      ],
+      adGroups: [
+        { resourceName: "customers/4454506598/adGroups/2", id: "2", name: "Group", campaignResourceName: "customers/4454506598/campaigns/1", status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/job-management", copyKind: "core" },
+      ],
+      ads: [
+        { resourceName: "customers/4454506598/adGroupAds/2~7", id: "7", adGroupResourceName: "customers/4454506598/adGroups/2", status, labels: ["engine", "role-challenger"], role: "challenger", approvalStatus: "APPROVED", reviewStatus: "REVIEWED", finalUrls: ["https://try.opsapp.co/job-management"], headlines: [{ text: "The live challenger" }], descriptions: [{ text: "Fixture description." }], path1: null, path2: null },
+      ],
+      labels: [{ resourceName: "customers/4454506598/labels/6", name: "engine" }],
+    });
+
+    it("the file refuses a group with two challengers or two controls", () => {
+      expect(() => withAds([ad("control", "A"), ad("challenger", "B"), ad("challenger", "C")])).toThrowError(/two challenger ads/);
+      expect(() => withAds([ad("control", "A"), ad("control", "B")])).toThrowError(/two control ads/);
+    });
+
+    it("refuses to add a challenger beside the one the group already runs, so no ad goes untested", () => {
+      try {
+        planBlueprint(withAds([ad("challenger", "A new challenger")]), running());
+        throw new Error("expected the planner to refuse");
+      } catch (error) {
+        expect((error as PlannerError).code).toBe("ROLE_ALREADY_LIVE");
+        expect((error as Error).message).toBe("TEST · US › Group already runs challenger ad 7. To swap it, add 7 to retire.adIds.");
+      }
+    });
+
+    it("swaps the challenger when the file retires the live one in the same apply", () => {
+      const plan = planBlueprint(withAds([ad("challenger", "A new challenger")], ["7"]), running());
+      expect(plan.map((entry) => entry.describe)).toEqual(expect.arrayContaining(["Group: create challenger ad — challenger fixture", "Pause retired ad 7"]));
+    });
+
+    it("is not stopped by a paused challenger beside the group", () => {
+      expect(() => planBlueprint(withAds([ad("challenger", "A new challenger")]), running("PAUSED"))).not.toThrow();
+    });
+  });
+
+  describe("competitor copy runs only where the page compares", () => {
+    const codeOf = (build: () => unknown): string | null => {
+      try {
+        build();
+        return null;
+      } catch (error) {
+        return error instanceof BlueprintError ? error.code : String(error);
+      }
+    };
+    const withGroup = (kind: "brand" | "core" | "competitor", group: Record<string, unknown>) =>
+      minimal({
+        campaigns: [{ ...minimal().campaigns[0], kind, adGroups: [{ ...minimal().campaigns[0].adGroups[0], ...group }] }],
+      });
+
+    it("refuses a group that claims competitor copy off a compare page", () => {
+      expect(codeOf(() => withGroup("core", { copyKind: "competitor" }))).toBe("COMPETITOR_COPY_WITHOUT_COMPARE_PAGE");
+    });
+
+    it("refuses a competitor campaign's group that inherits competitor copy off a compare page", () => {
+      // The engine judges such a group as core, so the file must never describe one.
+      expect(codeOf(() => withGroup("competitor", {}))).toBe("COMPETITOR_COPY_WITHOUT_COMPARE_PAGE");
+    });
+
+    it("accepts competitor copy, claimed or inherited, on a compare page, and a core group anywhere", () => {
+      const compare = "https://try.opsapp.co/compare/jobber";
+      expect(codeOf(() => withGroup("core", { copyKind: "competitor", finalUrl: compare }))).toBeNull();
+      expect(codeOf(() => withGroup("competitor", { finalUrl: compare }))).toBeNull();
+      expect(codeOf(() => withGroup("competitor", { copyKind: "core" }))).toBeNull();
+    });
   });
 
   it("refuses a campaign that attaches a list nothing defines", () => {

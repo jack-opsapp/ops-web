@@ -1,5 +1,9 @@
 import "server-only";
-import { mutateGoogleAds } from "@/lib/analytics/google-ads-client";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { mutateGoogleAds, queryAssetState } from "@/lib/analytics/google-ads-client";
+import { mapAssetState, type ImageLoader } from "@/lib/ads/blueprint-assets";
+import type { Blueprint } from "@/lib/ads/blueprint";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { createEngineRepository } from "@/lib/ads/engine/repository";
 import { refreshEntitySnapshot } from "@/lib/ads/engine/snapshot-refresh";
@@ -40,6 +44,9 @@ export function warehouseRepository(): BlueprintRepository {
   const engine = createEngineRepository();
   return {
     readSnapshot: (): Promise<EntitySnapshot> => engine.readSnapshot(),
+    async readAssetState() {
+      return mapAssetState(await queryAssetState());
+    },
     async refreshSnapshot(): Promise<void> {
       await refreshEntitySnapshot();
     },
@@ -57,5 +64,17 @@ export function warehouseRepository(): BlueprintRepository {
       );
       if (error) throw new Error(`${id} record failed: ${error.message}`);
     },
+  };
+}
+
+/**
+ * Reads a blueprint image from the repo for its one-time upload. Once Google
+ * holds it, the planner matches it by name and never asks for the bytes again.
+ */
+export function imageLoader(blueprint: Blueprint): ImageLoader {
+  return (key) => {
+    const spec = blueprint.images[key];
+    if (!spec?.file) throw new Error(`Image "${key}" has no file to upload.`);
+    return readFileSync(path.join(process.cwd(), spec.file)).toString("base64");
   };
 }

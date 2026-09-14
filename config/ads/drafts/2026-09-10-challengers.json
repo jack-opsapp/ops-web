@@ -1,0 +1,822 @@
+{
+  "version": "2026-09-10-challengers-v1",
+  "status": "DRAFT — awaiting Jackson's approval. Nothing here is in the account.",
+  "source": "ops-software-bible/research/google-ads/2026-09-10-legacy-account-review.md (copy section) · docs/artifacts/ads-engine/p2/legacy-analysis/assetPerf.json",
+  "onApproval": "Each draft replaces its group's current challenger in config/ads/blueprint.json; the old challenger (replacesAdId) is paused; the blueprint apply submits the new one for review.",
+  "drafts": [
+    {
+      "campaign": "PRICING · US",
+      "adGroup": "Jobber pricing",
+      "replacesAdId": "824125294531",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Tired of Jobber?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Jobber alternative",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "We deleted more than we built"
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          },
+          {
+            "text": "10 years in deck and rail. Got sick of apps that don't work on site. Built this."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          },
+          {
+            "text": "Start free with no credit card. Keep it only if your crew opens it."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      "evidence": {
+        "Tired of Jobber?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Jobber alternative": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "We deleted more than we built": "verbatim · app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line",
+        "10 years in deck and rail. Got sick of apps that don't work on site. Built this.": "adapted · from \"10 years commercial railings: got sick of apps that don't work: built this.\" (app ad, 5.2%) · 10 years per the copywriter brief — confirm",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)",
+        "Start free with no credit card. Keep it only if your crew opens it.": "from the current ads · the trial offer, so both ads close the same way"
+      }
+    },
+    {
+      "campaign": "PRICING · US",
+      "adGroup": "Housecall Pro pricing",
+      "replacesAdId": "824125294537",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Tired of Housecall Pro?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Housecall Pro alternative",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "We deleted more than we built"
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          },
+          {
+            "text": "10 years in deck and rail. Got sick of apps that don't work on site. Built this."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          },
+          {
+            "text": "Start free with no credit card. Keep it only if your crew opens it."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+      },
+      "evidence": {
+        "Tired of Housecall Pro?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Housecall Pro alternative": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "We deleted more than we built": "verbatim · app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line",
+        "10 years in deck and rail. Got sick of apps that don't work on site. Built this.": "adapted · from \"10 years commercial railings: got sick of apps that don't work: built this.\" (app ad, 5.2%) · 10 years per the copywriter brief — confirm",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)",
+        "Start free with no credit card. Keep it only if your crew opens it.": "from the current ads · the trial offer, so both ads close the same way"
+      }
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "Jobber alternative",
+      "replacesAdId": "824125294543",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Tired of Jobber?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Switching from Jobber?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "We deleted more than we built"
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Not enterprise software. Simple job management that works where you work."
+          },
+          {
+            "text": "Every feature tested on real job sites. Overcomplicated ones got deleted."
+          },
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      "evidence": {
+        "Tired of Jobber?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Switching from Jobber?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "We deleted more than we built": "verbatim · app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Not enterprise software. Simple job management that works where you work.": "adapted · from \"Not Jobber. Not enterprise software…\" (rated BEST) · competitor name removed — trademark rule",
+        "Every feature tested on real job sites. Overcomplicated ones got deleted.": "verbatim · app ad · 5.9% · rated BEST",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)"
+      }
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "Housecall Pro alternative",
+      "replacesAdId": "824125294549",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Tired of Housecall Pro?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Switching from Housecall Pro?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "We deleted more than we built"
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Not enterprise software. Simple job management that works where you work."
+          },
+          {
+            "text": "Every feature tested on real job sites. Overcomplicated ones got deleted."
+          },
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+      },
+      "evidence": {
+        "Tired of Housecall Pro?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Switching from Housecall Pro?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "We deleted more than we built": "verbatim · app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Not enterprise software. Simple job management that works where you work.": "adapted · from \"Not Jobber. Not enterprise software…\" (rated BEST) · competitor name removed — trademark rule",
+        "Every feature tested on real job sites. Overcomplicated ones got deleted.": "verbatim · app ad · 5.9% · rated BEST",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)"
+      }
+    },
+    {
+      "campaign": "SWITCH · US",
+      "adGroup": "ServiceTitan alternative",
+      "replacesAdId": "824125294555",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Tired of ServiceTitan?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "ServiceTitan alternative",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "We deleted more than we built"
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Not enterprise software. Simple job management that works where you work."
+          },
+          {
+            "text": "Built by necessity on actual job sites. Not VC-funded guesswork."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          },
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/compare/servicetitan"
+      },
+      "evidence": {
+        "Tired of ServiceTitan?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "ServiceTitan alternative": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "We deleted more than we built": "verbatim · app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Not enterprise software. Simple job management that works where you work.": "adapted · from \"Not Jobber. Not enterprise software…\" (rated BEST) · competitor name removed — trademark rule",
+        "Built by necessity on actual job sites. Not VC-funded guesswork.": "verbatim · app ad · 6.9% · rated GOOD",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line"
+      }
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Cleaning",
+      "replacesAdId": "824125294681",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Cleaning business software",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Built for cleaning crews",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "No more \"send me that photo\""
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "No more calls asking which stop is next. The whole route is on their phone."
+          },
+          {
+            "text": "Job photos stay with the job, not buried in someone's camera roll."
+          },
+          {
+            "text": "10 years in deck and rail. Got sick of apps that don't work on site. Built this."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/for/cleaning"
+      },
+      "evidence": {
+        "Cleaning business software": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Built for cleaning crews": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "No more \"send me that photo\"": "adapted · from \"No more 'send photos of job'\" (app ad, 5.7%)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "No more calls asking which stop is next. The whole route is on their phone.": "new · written in the pattern of \"Eliminate status check calls\", named for cleaning",
+        "Job photos stay with the job, not buried in someone's camera roll.": "adapted · from \"Stop digging through camera rolls for job photos\" (app ad)",
+        "10 years in deck and rail. Got sick of apps that don't work on site. Built this.": "adapted · from \"10 years commercial railings: got sick of apps that don't work: built this.\" (app ad, 5.2%) · 10 years per the copywriter brief — confirm",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)"
+      }
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Landscaping",
+      "replacesAdId": "824125294687",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Landscaping business software",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Built for lawn care crews",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "No more \"send me that photo\""
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "No more calls asking which property is next. The day is on their phone."
+          },
+          {
+            "text": "Job photos stay with the job, not buried in someone's camera roll."
+          },
+          {
+            "text": "10 years in deck and rail. Got sick of apps that don't work on site. Built this."
+          },
+          {
+            "text": "See jobs, update status, navigate. All offline, because that's when you need it."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/for/landscaping"
+      },
+      "evidence": {
+        "Landscaping business software": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Built for lawn care crews": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "No more \"send me that photo\"": "adapted · from \"No more 'send photos of job'\" (app ad, 5.7%)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "No more calls asking which property is next. The day is on their phone.": "new · written in the pattern of \"Eliminate status check calls\", named for landscaping",
+        "Job photos stay with the job, not buried in someone's camera roll.": "adapted · from \"Stop digging through camera rolls for job photos\" (app ad)",
+        "10 years in deck and rail. Got sick of apps that don't work on site. Built this.": "adapted · from \"10 years commercial railings: got sick of apps that don't work: built this.\" (app ad, 5.2%) · 10 years per the copywriter brief — confirm",
+        "See jobs, update status, navigate. All offline, because that's when you need it.": "adapted · from \"See jobs, update status, navigate - all offline…\" (app ad, 5.9%, rated GOOD)"
+      }
+    },
+    {
+      "campaign": "TRADE · US",
+      "adGroup": "Roofing",
+      "replacesAdId": "824125294693",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Roofing business software",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Built for roofing crews",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "No more \"send me that photo\""
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Tear-off photos stay with the job, not buried in someone's camera roll."
+          },
+          {
+            "text": "10 years in deck and rail. Got sick of apps that don't work on site. Built this."
+          },
+          {
+            "text": "See jobs, update status, navigate. All offline, because that's when you need it."
+          },
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/for/roofing"
+      },
+      "evidence": {
+        "Roofing business software": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Built for roofing crews": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "No more \"send me that photo\"": "adapted · from \"No more 'send photos of job'\" (app ad, 5.7%)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Tear-off photos stay with the job, not buried in someone's camera roll.": "adapted · the photo line, named for roofing",
+        "10 years in deck and rail. Got sick of apps that don't work on site. Built this.": "adapted · from \"10 years commercial railings: got sick of apps that don't work: built this.\" (app ad, 5.2%) · 10 years per the copywriter brief — confirm",
+        "See jobs, update status, navigate. All offline, because that's when you need it.": "adapted · from \"See jobs, update status, navigate - all offline…\" (app ad, 5.9%, rated GOOD)",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line"
+      }
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Pricing",
+      "replacesAdId": "824125294699",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Tired of Jobber?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Jobber alternative",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "We deleted more than we built"
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          },
+          {
+            "text": "10 years in deck and rail. Got sick of apps that don't work on site. Built this."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          },
+          {
+            "text": "Start free with no credit card. Keep it only if your crew opens it."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      "evidence": {
+        "Tired of Jobber?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Jobber alternative": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "We deleted more than we built": "verbatim · app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line",
+        "10 years in deck and rail. Got sick of apps that don't work on site. Built this.": "adapted · from \"10 years commercial railings: got sick of apps that don't work: built this.\" (app ad, 5.2%) · 10 years per the copywriter brief — confirm",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)",
+        "Start free with no credit card. Keep it only if your crew opens it.": "from the current ads · the trial offer, so both ads close the same way"
+      }
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Switching",
+      "replacesAdId": "824125294705",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Tired of Jobber?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Switching from Jobber?",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "We deleted more than we built"
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Not enterprise software. Simple job management that works where you work."
+          },
+          {
+            "text": "Every feature tested on real job sites. Overcomplicated ones got deleted."
+          },
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      "evidence": {
+        "Tired of Jobber?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Switching from Jobber?": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "We deleted more than we built": "verbatim · app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Not enterprise software. Simple job management that works where you work.": "adapted · from \"Not Jobber. Not enterprise software…\" (rated BEST) · competitor name removed — trademark rule",
+        "Every feature tested on real job sites. Overcomplicated ones got deleted.": "verbatim · app ad · 5.9% · rated BEST",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)"
+      }
+    },
+    {
+      "campaign": "CORE · CA",
+      "adGroup": "Category",
+      "replacesAdId": "824125294711",
+      "ad": {
+        "role": "challenger",
+        "angle": "What already worked: the owner's pain in his own words and the maker's credibility, with no price.",
+        "headlines": [
+          {
+            "text": "Job management app",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Crew scheduling app",
+            "pinnedField": "HEADLINE_1"
+          },
+          {
+            "text": "Eliminate status check calls"
+          },
+          {
+            "text": "No more \"where's the job?\""
+          },
+          {
+            "text": "Never built in a meeting room"
+          },
+          {
+            "text": "Tested on old-timers"
+          },
+          {
+            "text": "Works when Wi-Fi doesn't"
+          },
+          {
+            "text": "No training needed. Done."
+          },
+          {
+            "text": "We deleted more than we built"
+          },
+          {
+            "text": "Built by trades, for trades"
+          }
+        ],
+        "descriptions": [
+          {
+            "text": "Would you hire a crew member who pays for themselves? That's OPS."
+          },
+          {
+            "text": "10 years in deck and rail. Got sick of apps that don't work on site. Built this."
+          },
+          {
+            "text": "Zero learning curve. Zero training cost. If they can text, they can use it."
+          },
+          {
+            "text": "No more calls asking where the crew is. Everyone sees the same job."
+          }
+        ],
+        "finalUrl": "https://try.opsapp.co/job-management"
+      },
+      "evidence": {
+        "Job management app": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Crew scheduling app": "pinned to the first headline so it matches the search — the one thing kept from the keyword, not the old ads",
+        "Eliminate status check calls": "verbatim · app ad · 12.2% click rate over 2,181 views — the best line in the account",
+        "No more \"where's the job?\"": "verbatim · app ad · 7.6% over 2,762 views",
+        "Never built in a meeting room": "verbatim · app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)",
+        "Tested on old-timers": "verbatim · app ad · 6.4% over 2,658 views",
+        "Works when Wi-Fi doesn't": "verbatim · app ad · 5.7%",
+        "No training needed. Done.": "verbatim · app ad · 6.3% · rated GOOD",
+        "We deleted more than we built": "verbatim · app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)",
+        "Built by trades, for trades": "verbatim · 8.9% in app ads, 2.6% in search · already in the current ads",
+        "Would you hire a crew member who pays for themselves? That's OPS.": "verbatim · search ad · 18.2% over 203 views — small sample, the best search line",
+        "10 years in deck and rail. Got sick of apps that don't work on site. Built this.": "adapted · from \"10 years commercial railings: got sick of apps that don't work: built this.\" (app ad, 5.2%) · 10 years per the copywriter brief — confirm",
+        "Zero learning curve. Zero training cost. If they can text, they can use it.": "adapted · from \"Zero learning curve = Zero training cost (Tested on old-timers)\" (app ad, 7.4% over 4,104 views, rated GOOD)",
+        "No more calls asking where the crew is. Everyone sees the same job.": "new · written in the pattern of \"Eliminate status check calls\""
+      }
+    }
+  ]
+}

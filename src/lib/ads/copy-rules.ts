@@ -5,9 +5,9 @@
  * engine (every challenger the routine proposes). The rules are the OPS voice
  * as hard constraints: lengths Google enforces, the brand-facts allowlist for
  * every number, the copywriter brief's banned words, no shouting, no
- * exclamation, competitor names only in the sanctioned forms and only in the
- * competitor campaign, and a pin plan of two or three headlines on position
- * one and nothing else pinned.
+ * exclamation, competitor names only in the sanctioned forms and only in an ad
+ * group that answers to competitor copy on a compare page, and a pin plan of
+ * two or three headlines on position one and nothing else pinned.
  */
 import brandFacts from "../../../config/ads/brand-facts.json";
 
@@ -34,9 +34,29 @@ export interface RsaCandidate {
   finalUrl: string;
 }
 
+/**
+ * Which copy rules an ad answers to. Only `competitor` changes anything today:
+ * it is the one kind that may name a competitor.
+ */
+export type CopyKind = "brand" | "core" | "competitor";
+
 export interface CopyContext {
-  campaignKind: "brand" | "core" | "competitor";
+  campaignKind: CopyKind;
   allowedFinalUrls: string[];
+}
+
+/**
+ * A competitor name may only run where the page actually compares: a page
+ * under `/compare/`. The blueprint holds every competitor group to it, and the
+ * engine judges every ad it writes by it.
+ */
+export function isComparePage(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    return new URL(url).pathname.startsWith("/compare/");
+  } catch {
+    return false;
+  }
 }
 
 export type CopyIssueCode =
@@ -59,7 +79,8 @@ export type CopyIssueCode =
   | "TRADEMARK_CAMPAIGN"
   | "URL_NOT_ALLOWED"
   | "PATH_TOO_LONG"
-  | "PIN_PLAN";
+  | "PIN_PLAN"
+  | "ASSET_TOO_LONG";
 
 export interface CopyIssue {
   code: CopyIssueCode;
@@ -132,7 +153,7 @@ function checkText(
   text: string,
   field: string,
   limit: number,
-  tooLong: "HEADLINE_TOO_LONG" | "DESCRIPTION_TOO_LONG",
+  tooLong: "HEADLINE_TOO_LONG" | "DESCRIPTION_TOO_LONG" | "ASSET_TOO_LONG",
   ctx: CopyContext,
   issues: CopyIssue[]
 ) {
@@ -211,7 +232,7 @@ function checkTrademarks(
       issues.push({
         code: "TRADEMARK_CAMPAIGN",
         field,
-        message: `"${brand}" may only appear in the competitor campaign.`,
+        message: `"${brand}" runs only in a competitor ad group that lands on a compare page. This group runs ${ctx.campaignKind} copy.`,
       });
       continue;
     }
@@ -364,5 +385,33 @@ export function validateRsa(
       message: `Pin ${COPY_LIMITS.pinnedHeadlines.min} or ${COPY_LIMITS.pinnedHeadlines.max} headlines to HEADLINE_1 and nothing else (found ${pinnedToOne} on position one, ${pinnedElsewhere} elsewhere, ${pinnedDescriptions} descriptions pinned).`,
     });
 
+  return issues;
+}
+
+/**
+ * Sitelinks, callouts, structured-snippet values, price items and the business
+ * name are ad text too. They answer to exactly the rules a headline does —
+ * no exclamation, no banned words, no "contractor", numbers from the allowlist,
+ * competitor names only in the sanctioned forms and campaigns — each at its own
+ * Google length limit.
+ */
+export const ASSET_LIMITS = {
+  sitelinkText: 25,
+  sitelinkDescription: 35,
+  callout: 25,
+  snippetValue: 25,
+  priceHeader: 25,
+  priceDescription: 25,
+  businessName: 25,
+} as const;
+
+export function validateAssetText(
+  text: string,
+  field: string,
+  limit: number,
+  ctx: CopyContext
+): CopyIssue[] {
+  const issues: CopyIssue[] = [];
+  checkText(text, field, limit, "ASSET_TOO_LONG", ctx, issues);
   return issues;
 }

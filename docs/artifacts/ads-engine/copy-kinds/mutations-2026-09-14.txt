@@ -1,0 +1,49 @@
+M1 name prefix back: campaign kind ignores blueprint: CAUGHT ['Tests  6 failed | 483 passed (489)']
+     × mapEntitySnapshot > campaign kinds and copy rules come from the blueprint, never from a name > reads each campaign's kind and each ad group's copy rules from the bluepr
+     × mapEntitySnapshot > campaign kinds and copy rules come from the blueprint, never from a name > grants nothing when the blueprint cannot be read: no kind, core copy ever
+     × campaignKindOf — the blueprint says what a campaign is > reads every phase 2 campaign's kind from the blueprint, whatever its name looks like 6ms
+     × campaignKindOf — the blueprint says what a campaign is > gives a campaign the blueprint does not declare no kind, even one named like a declared kind 1ms
+     × createEngineRepository — kinds come from the blueprint > reads the committed blueprint by default: a competitor-intent campaign and its group answer to competitor rules
+     × createEngineRepository — kinds come from the blueprint > hands the validator the same blueprint its snapshot was built with 4ms
+M2 group override ignored: CAUGHT ['Tests  4 failed | 485 passed (489)']
+     × validateProposal — one failing fixture per code > copy rules belong to the ad group > holds a new group the blueprint declares to the blueprint's copy rules, as the sna
+     × mapEntitySnapshot > campaign kinds and copy rules come from the blueprint, never from a name > reads each campaign's kind and each ad group's copy rules from the bluepr
+     × adGroupCopyKindOf — which copy rules a group's ads answer to > answers competitor for all seven competitor-intent groups the blueprint built 5ms
+     × adGroupCopyKindOf — which copy rules a group's ads answer to > matches a group by its exact name inside its own campaign, as the blueprint apply does 1ms
+M3 compare-page rule removed: CAUGHT ['Tests  5 failed | 484 passed (489)']
+     × validateProposal — one failing fixture per code > copy rules belong to the ad group > judges the page the challenger lands on, not only the group's label 8ms
+     × validateProposal — one failing fixture per code > copy rules belong to the ad group > refuses the competitor's name in a new competitor-campaign group that lands off a 
+     × mapEntitySnapshot > campaign kinds and copy rules come from the blueprint, never from a name > judges a group's copy on the page its ads actually land on 7ms
+     × adGroupCopyKindOf — which copy rules a group's ads answer to > lets a group the engine built inherit its campaign's kind, competitor only on a compare page 3ms
+     × adGroupCopyKindOf — which copy rules a group's ads answer to > holds a declared competitor group to core once its ads no longer land on a compare page 1ms
+M4 null blueprint grants campaign kind: CAUGHT ['Tests  3 failed | 486 passed (489)']
+     × validateProposal — one failing fixture per code > copy rules belong to the ad group > holds a new group the blueprint declares to the blueprint's copy rules, as the sna
+     × proposals > judges a new ad group's copy by the blueprint the repository read, and grants nothing without one 70ms
+     × adGroupCopyKindOf — which copy rules a group's ads answer to > answers core everywhere when the blueprint cannot be read, whatever the campaign claims 1ms
+M5 name matched loosely (case-insensitive): CAUGHT ['Tests  1 failed | 488 passed (489)']
+     × adGroupCopyKindOf — which copy rules a group's ads answer to > matches a group by its exact name inside its own campaign, as the blueprint apply does 3ms
+M6 validator uses campaign kind for challenger: CAUGHT ['Tests  1 failed | 488 passed (489)']
+     × validateProposal — one failing fixture per code > copy rules belong to the ad group > lets a core campaign's competitor group name the competitor, and records the rules
+M7 validator trusts group label, skips page: CAUGHT ['Tests  1 failed | 488 passed (489)']
+     × validateProposal — one failing fixture per code > copy rules belong to the ad group > judges the page the challenger lands on, not only the group's label 7ms
+M8 add_ad_group ignores context blueprint: CAUGHT ['Tests  2 failed | 487 passed (489)']
+     × validateProposal — one failing fixture per code > copy rules belong to the ad group > holds a new group the blueprint declares to the blueprint's copy rules, as the sna
+     × proposals > judges a new ad group's copy by the blueprint the repository read, and grants nothing without one 66ms
+M9 snapshot mapper drops blueprint: CAUGHT ['Tests  4 failed | 485 passed (489)']
+     × mapEntitySnapshot > normalises campaigns with their budget, bidding and kind 5ms
+     × mapEntitySnapshot > campaign kinds and copy rules come from the blueprint, never from a name > reads each campaign's kind and each ad group's copy rules from the bluepr
+     × createEngineRepository — kinds come from the blueprint > reads the committed blueprint by default: a competitor-intent campaign and its group answer to competitor rules
+     × createEngineRepository — kinds come from the blueprint > hands the validator the same blueprint its snapshot was built with 2ms
+M10 repository default loader missing: CAUGHT ['Tests  2 failed | 487 passed (489)']
+     × createEngineRepository — kinds come from the blueprint > reads the committed blueprint by default: a competitor-intent campaign and its group answer to competitor rules
+     × createEngineRepository — kinds come from the blueprint > hands the validator the same blueprint its snapshot was built with 22ms
+M11 validationContext omits blueprint: CAUGHT ['Tests  1 failed | 488 passed (489)']
+     × createEngineRepository — kinds come from the blueprint > hands the validator the same blueprint its snapshot was built with 11ms
+M12 handoff overrides blueprint: CAUGHT ['Tests  1 failed | 488 passed (489)']
+     × proposals > judges a new ad group's copy by the blueprint the repository read, and grants nothing without one 56ms
+M13 blueprint coherence only checks overrides: CAUGHT ['Tests  1 failed | 488 passed (489)']
+     × planBlueprint — refusals > competitor copy runs only where the page compares > refuses a competitor campaign's group that inherits competitor copy off a compare page 3m
+M14 isComparePage accepts any path containing compare: CAUGHT ['Tests  1 failed | 488 passed (489)']
+     × isComparePage > is nothing else: the category page, the home page, a lookalike path, a missing or broken URL 3ms
+M15 payload drops copyKind (challenger): CAUGHT ['Tests  1 failed | 488 passed (489)']
+     × validateProposal — one failing fixture per code > copy rules belong to the ad group > lets a core campaign's competitor group name the competitor, and records the rules

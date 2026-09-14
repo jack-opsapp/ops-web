@@ -1,0 +1,103 @@
+{
+  "ranAt": "2026-09-14T20:40:16.686Z",
+  "code": "1ad1fc685 (before the fix)",
+  "snapshotAt": "2026-09-14T08:04:44.139+00:00",
+  "readOnly": {
+    "refusedWrites": []
+  },
+  "tests": 0,
+  "livePairs": 12,
+  "briefIfEveryCampaignWereLive": {
+    "duties": [
+      "hygiene",
+      "creative"
+    ],
+    "creative": "Challengers are due in: Brand (control 60 days old); Jobber pricing (control 60 days old); Housecall Pro pricing (control 60 days old); Jobber alternative (control 60 days old); Housecall Pro alternative (control 60 days old); ServiceTitan alternative (control 60 days old); Cleaning (control 60 days old); Landscaping (control 60 days old); Roofing (control 60 days old); Pricing (control 60 days old); Switching (control 60 days old); Category (control 60 days old)."
+  },
+  "validatorAskedForAThirdAd": [
+    {
+      "adGroup": "BRAND · NA › Brand",
+      "ok": true,
+      "code": null,
+      "message": null,
+      "controlAdId": "824125294522"
+    },
+    {
+      "adGroup": "PRICING · US › Jobber pricing",
+      "ok": false,
+      "code": "COPY_REJECTED",
+      "message": "\"Jobber\" may only appear in the competitor campaign.",
+      "controlAdId": null
+    },
+    {
+      "adGroup": "PRICING · US › Housecall Pro pricing",
+      "ok": false,
+      "code": "COPY_REJECTED",
+      "message": "\"Housecall Pro\" may only appear in the competitor campaign.",
+      "controlAdId": null
+    },
+    {
+      "adGroup": "SWITCH · US › Jobber alternative",
+      "ok": false,
+      "code": "COPY_REJECTED",
+      "message": "\"Jobber\" may only appear in the competitor campaign.",
+      "controlAdId": null
+    },
+    {
+      "adGroup": "SWITCH · US › Housecall Pro alternative",
+      "ok": false,
+      "code": "COPY_REJECTED",
+      "message": "\"Housecall Pro\" may only appear in the competitor campaign.",
+      "controlAdId": null
+    },
+    {
+      "adGroup": "SWITCH · US › ServiceTitan alternative",
+      "ok": false,
+      "code": "COPY_REJECTED",
+      "message": "\"ServiceTitan\" may only appear in the competitor campaign.",
+      "controlAdId": null
+    },
+    {
+      "adGroup": "TRADE · US › Cleaning",
+      "ok": true,
+      "code": null,
+      "message": null,
+      "controlAdId": "824125294558"
+    },
+    {
+      "adGroup": "TRADE · US › Landscaping",
+      "ok": true,
+      "code": null,
+      "message": null,
+      "controlAdId": "824125294684"
+    },
+    {
+      "adGroup": "TRADE · US › Roofing",
+      "ok": true,
+      "code": null,
+      "message": null,
+      "controlAdId": "824125294690"
+    },
+    {
+      "adGroup": "CORE · CA › Pricing",
+      "ok": false,
+      "code": "COPY_REJECTED",
+      "message": "\"Jobber\" may only appear in the competitor campaign.",
+      "controlAdId": null
+    },
+    {
+      "adGroup": "CORE · CA › Switching",
+      "ok": false,
+      "code": "COPY_REJECTED",
+      "message": "\"Jobber\" may only appear in the competitor campaign.",
+      "controlAdId": null
+    },
+    {
+      "adGroup": "CORE · CA › Category",
+      "ok": true,
+      "code": null,
+      "message": null,
+      "controlAdId": "824125294708"
+    }
+  ]
+}

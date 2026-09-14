@@ -1,0 +1,501 @@
+<title>Proven-Line Challengers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mohave:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  /* OPS runs one visual world on purpose: pure black canvas, hairlines, no
+     shadows, one steel-blue accent. Single theme by design — every colour is
+     painted explicitly so the page holds on any host ground. */
+  :root {
+    --ground: #000000; --panel: #0A0A0A; --raised: #141414;
+    --ink: #EDEDED; --ink-2: #B5B5B5; --ink-3: #8A8A8A; --ink-4: #6A6A6A;
+    --line: rgba(255,255,255,0.10); --line-soft: rgba(255,255,255,0.06);
+    --accent: #6F94B0; --olive: #9DB582; --tan: #C4A868;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Mohave", "Helvetica Neue", Arial, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 56px 24px 96px; }
+  code, .lbl, .role, .serp-url, .tag, .src, .crumb, .sub, .pool summary, .num { font-family: var(--mono); font-variant-numeric: tabular-nums slashed-zero; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 18px; }
+  h1 { font-size: clamp(32px, 5.5vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: 0.03em; text-transform: uppercase; text-wrap: balance; margin: 0 0 20px; }
+  .standfirst { font-size: 18px; color: var(--ink-2); max-width: 64ch; margin: 0 0 30px; }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  .brief { display: grid; gap: 1px; background: var(--line-soft); border: 1px solid var(--line); margin: 0 0 14px; }
+  @media (min-width: 760px) { .brief { grid-template-columns: repeat(3, 1fr); } }
+  .brief div { background: var(--panel); padding: 18px 20px; }
+  .brief h3 { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; margin: 0 0 8px; }
+  .brief p { margin: 0; font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+  .brief b { color: var(--ink); font-weight: 600; }
+  .confirm { border: 1px solid rgba(196,168,104,0.35); padding: 14px 18px; margin: 0 0 52px; font-size: 14px; color: var(--ink-2); }
+  .confirm b { color: var(--tan); }
+
+  .group { border-top: 1px solid var(--line); padding-top: 22px; margin: 0 0 52px; }
+  .crumb { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-4); margin: 0 0 4px; }
+  h2 { font-size: 24px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 10px; }
+  .buys { margin: 0 0 18px; font-size: 13px; color: var(--ink-3); }
+  .lbl { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-4); margin-right: 8px; }
+  code { font-size: 12px; color: var(--ink-2); background: var(--raised); border: 1px solid var(--line-soft); padding: 2px 7px; margin: 0 4px 4px 0; display: inline-block; border-radius: 3px; }
+
+  .pair { display: grid; gap: 14px; align-items: start; }
+  @media (min-width: 820px) { .pair { grid-template-columns: 5fr 7fr; } }
+  .ad { background: var(--panel); border: 1px solid var(--line); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .ad-live { opacity: 0.78; }
+  .ad-draft { border-color: rgba(111,148,176,0.45); }
+  .role { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; margin: 0; }
+  .role-live { color: var(--ink-3); }
+  .role-draft { color: var(--accent); }
+
+  .serp { border-left: 2px solid var(--line); padding-left: 14px; display: flex; flex-direction: column; gap: 5px; }
+  .serp-url { font-size: 12px; color: var(--ink-3); }
+  .serp-tag { color: var(--ink); font-weight: 700; letter-spacing: 0.06em; margin-right: 6px; }
+  .serp-title { margin: 0; font-size: 17px; font-weight: 500; line-height: 1.3; color: var(--accent); }
+  .serp-body { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+
+  .pool summary { font-size: 11px; color: var(--ink-3); cursor: pointer; letter-spacing: 0.03em; }
+  .pool summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .sub { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-4); margin: 14px 0 6px; }
+  .lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .lines li { display: grid; grid-template-columns: 120px 1fr; column-gap: 12px; row-gap: 2px; align-items: baseline; }
+  .tag { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 6px; border: 1px solid; width: fit-content; }
+  .tag-verbatim { color: var(--olive); border-color: rgba(157,181,130,0.45); }
+  .tag-adapted { color: var(--olive); border-color: rgba(157,181,130,0.25); }
+  .tag-new { color: var(--tan); border-color: rgba(196,168,104,0.45); }
+  .tag-keyword, .tag-current { color: var(--ink-3); border-color: var(--line); }
+  .line { font-size: 15px; color: var(--ink); }
+  .pin { font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--ink-4); letter-spacing: 0.06em; margin-left: 6px; }
+  .src { grid-column: 2; font-size: 11px; color: var(--ink-3); line-height: 1.45; }
+
+  .next { border-top: 1px solid var(--line); padding-top: 26px; }
+  .next p { color: var(--ink-2); max-width: 66ch; }
+  footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line-soft); font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Google Ads · challenger drafts · 2026-09-10-challengers-v1 · not in the account</p>
+  <h1>Eleven second ads,<br>built from what worked</h1>
+  <p class="standfirst">
+    Each ad group keeps its current ad, which leads with our price. The <strong>second ad</strong> in
+    each group is rewritten with the lines that earned the most attention in the old account —
+    the owner's pain in his own words and the maker's credibility, <strong>with no price at all</strong>.
+    Google shows both and we learn which angle wins. Nothing here reaches Google until you approve it.
+  </p>
+
+  <div class="brief">
+    <div><h3>What the old ads proved</h3><p><b>Concrete pain won everywhere.</b> "Eliminate status check calls" drew 12.2% of viewers; the maker-credibility ad bought the cheapest downloads at $2.63.</p></div>
+    <div><h3>What they disproved</h3><p><b>The military swagger.</b> Fourteen bracketed headlines — "[ Dominate Jobs. ]" and the rest — drew zero clicks in about 5,000 views. None of it is here.</p></div>
+    <div><h3>What is left out on purpose</h3><p><b>The money claims.</b> "$400 a month", "122% ROI" drew clicks but cannot be proven. Our rules block them, and so would Google if challenged.</p></div>
+  </div>
+  <p class="confirm"><b>One fact to confirm:</b> the draft says "10 years in deck and rail". That comes from the copywriter brief — the old ads said 10 in one place and 12 in another. Tell me if it is wrong.</p>
+
+  
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">PRICING · US</p>
+      <h2>Jobber pricing</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>jobber pricing</code><code>jobber cost</code><code>jobber plans</code><code>how much does jobber cost</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/pricing</div>
+    <h4 class="serp-title">Jobber alternative | Switching from Jobber? | Compare the real prices</h4>
+    <p class="serp-body">OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table. Every feature at every tier. No upsell, no add-on, no seat you forgot you bought.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/pricing</div>
+    <h4 class="serp-title">Tired of Jobber? | Jobber alternative</h4>
+    <p class="serp-body">Would you hire a crew member who pays for themselves? That's OPS. 10 years in deck and rail. Got sick of apps that don't work on site. Built this.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Tired of Jobber? <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Jobber alternative <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">We deleted more than we built</span><span class="src">app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">10 years in deck and rail. Got sick of apps that don't work on site. Built this.</span><span class="src">from &quot;10 years commercial railings: got sick of apps that don't work: built this.&quot; (app ad, 5.2%) · 10 years per the copywriter brief — confirm</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li><li><span class="tag tag-current">Current ads</span><span class="line">Start free with no credit card. Keep it only if your crew opens it.</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">PRICING · US</p>
+      <h2>Housecall Pro pricing</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>housecall pro pricing</code><code>housecall pro cost</code><code>how much is housecall pro</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/housecall-pro/compare/pricing</div>
+    <h4 class="serp-title">Housecall Pro alternative | Switching from Housecall Pro? | Compare the real prices</h4>
+    <p class="serp-body">OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table. Every feature at every tier. No upsell, no add-on, no seat you forgot you bought.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/housecall-pro/compare/pricing</div>
+    <h4 class="serp-title">Tired of Housecall Pro? | Housecall Pro alternative</h4>
+    <p class="serp-body">Would you hire a crew member who pays for themselves? That's OPS. 10 years in deck and rail. Got sick of apps that don't work on site. Built this.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Tired of Housecall Pro? <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Housecall Pro alternative <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">We deleted more than we built</span><span class="src">app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">10 years in deck and rail. Got sick of apps that don't work on site. Built this.</span><span class="src">from &quot;10 years commercial railings: got sick of apps that don't work: built this.&quot; (app ad, 5.2%) · 10 years per the copywriter brief — confirm</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li><li><span class="tag tag-current">Current ads</span><span class="line">Start free with no credit card. Keep it only if your crew opens it.</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">SWITCH · US</p>
+      <h2>Jobber alternative</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>jobber alternative</code><code>jobber competitors</code><code>alternatives to jobber</code><code>software like jobber</code><code>apps similar to jobber</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/switch</div>
+    <h4 class="serp-title">Jobber alternative | Switching from Jobber? | Software the crew opens</h4>
+    <p class="serp-body">Most crews quit software because it is too much app. OPS opens and shows the job. Bring your jobs, clients and quotes across. Free to start, no credit card.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/switch</div>
+    <h4 class="serp-title">Tired of Jobber? | Switching from Jobber?</h4>
+    <p class="serp-body">Not enterprise software. Simple job management that works where you work. Every feature tested on real job sites. Overcomplicated ones got deleted.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Tired of Jobber? <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Switching from Jobber? <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">We deleted more than we built</span><span class="src">app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Not enterprise software. Simple job management that works where you work.</span><span class="src">from &quot;Not Jobber. Not enterprise software…&quot; (rated BEST) · competitor name removed — trademark rule</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Every feature tested on real job sites. Overcomplicated ones got deleted.</span><span class="src">app ad · 5.9% · rated BEST</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">SWITCH · US</p>
+      <h2>Housecall Pro alternative</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>housecall pro alternative</code><code>housecall pro competitors</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/housecall-pro/compare/switch</div>
+    <h4 class="serp-title">Housecall Pro alternative | Switching from Housecall Pro? | Software the crew opens</h4>
+    <p class="serp-body">Most crews quit software because it is too much app. OPS opens and shows the job. Bring your jobs, clients and quotes across. Free to start, no credit card.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/housecall-pro/compare/switch</div>
+    <h4 class="serp-title">Tired of Housecall Pro? | Switching from Housecall Pro?</h4>
+    <p class="serp-body">Not enterprise software. Simple job management that works where you work. Every feature tested on real job sites. Overcomplicated ones got deleted.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Tired of Housecall Pro? <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Switching from Housecall Pro? <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">We deleted more than we built</span><span class="src">app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Not enterprise software. Simple job management that works where you work.</span><span class="src">from &quot;Not Jobber. Not enterprise software…&quot; (rated BEST) · competitor name removed — trademark rule</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Every feature tested on real job sites. Overcomplicated ones got deleted.</span><span class="src">app ad · 5.9% · rated BEST</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">SWITCH · US</p>
+      <h2>ServiceTitan alternative</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>servicetitan alternative</code><code>servicetitan competitors</code><code>servicetitan pricing</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/servicetitan/compare/switch</div>
+    <h4 class="serp-title">ServiceTitan alternative | Switching from ServiceTitan? | Built for small crews</h4>
+    <p class="serp-body">Built for crews of 1 to 10, not for a call centre. No rollout, no onboarding fee. $90, $140 or $190 a month. Every feature at every tier. Start free, no card.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/servicetitan/compare/switch</div>
+    <h4 class="serp-title">Tired of ServiceTitan? | ServiceTitan alternative</h4>
+    <p class="serp-body">Not enterprise software. Simple job management that works where you work. Built by necessity on actual job sites. Not VC-funded guesswork.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Tired of ServiceTitan? <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">ServiceTitan alternative <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">We deleted more than we built</span><span class="src">app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Not enterprise software. Simple job management that works where you work.</span><span class="src">from &quot;Not Jobber. Not enterprise software…&quot; (rated BEST) · competitor name removed — trademark rule</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by necessity on actual job sites. Not VC-funded guesswork.</span><span class="src">app ad · 6.9% · rated GOOD</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">TRADE · US</p>
+      <h2>Cleaning</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>cleaning business software</code><code>cleaning company software</code><code>janitorial software</code><code>cleaning business app</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/cleaning/cleaning/crews</div>
+    <h4 class="serp-title">Cleaning business software | Software for cleaning crews | Run every clean from one app</h4>
+    <p class="serp-body">Assign the route, track the clean, invoice from the phone before you leave. Your crew opens it and sees today's stops. No training day, no manual.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/cleaning/cleaning/crews</div>
+    <h4 class="serp-title">Cleaning business software | Built for cleaning crews</h4>
+    <p class="serp-body">No more calls asking which stop is next. The whole route is on their phone. Job photos stay with the job, not buried in someone's camera roll.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Cleaning business software <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Built for cleaning crews <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">No more &quot;send me that photo&quot;</span><span class="src">from &quot;No more 'send photos of job'&quot; (app ad, 5.7%)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-new">New</span><span class="line">No more calls asking which stop is next. The whole route is on their phone.</span><span class="src">written in the pattern of &quot;Eliminate status check calls&quot;, named for cleaning</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Job photos stay with the job, not buried in someone's camera roll.</span><span class="src">from &quot;Stop digging through camera rolls for job photos&quot; (app ad)</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">10 years in deck and rail. Got sick of apps that don't work on site. Built this.</span><span class="src">from &quot;10 years commercial railings: got sick of apps that don't work: built this.&quot; (app ad, 5.2%) · 10 years per the copywriter brief — confirm</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">TRADE · US</p>
+      <h2>Landscaping</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>landscaping business software</code><code>landscaping software</code><code>lawn care software</code><code>lawn care business app</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/landscaping/landscaping/crews</div>
+    <h4 class="serp-title">Landscaping business software | Software for lawn crews | Run the route from one app</h4>
+    <p class="serp-body">Assign the route, track the cut, invoice from the phone before the trailer moves. Your crew opens it and sees today's properties. No training day, no manual.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/landscaping/landscaping/crews</div>
+    <h4 class="serp-title">Landscaping business software | Built for lawn care crews</h4>
+    <p class="serp-body">No more calls asking which property is next. The day is on their phone. Job photos stay with the job, not buried in someone's camera roll.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Landscaping business software <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Built for lawn care crews <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">No more &quot;send me that photo&quot;</span><span class="src">from &quot;No more 'send photos of job'&quot; (app ad, 5.7%)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-new">New</span><span class="line">No more calls asking which property is next. The day is on their phone.</span><span class="src">written in the pattern of &quot;Eliminate status check calls&quot;, named for landscaping</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Job photos stay with the job, not buried in someone's camera roll.</span><span class="src">from &quot;Stop digging through camera rolls for job photos&quot; (app ad)</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">10 years in deck and rail. Got sick of apps that don't work on site. Built this.</span><span class="src">from &quot;10 years commercial railings: got sick of apps that don't work: built this.&quot; (app ad, 5.2%) · 10 years per the copywriter brief — confirm</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">See jobs, update status, navigate. All offline, because that's when you need it.</span><span class="src">from &quot;See jobs, update status, navigate - all offline…&quot; (app ad, 5.9%, rated GOOD)</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">TRADE · US</p>
+      <h2>Roofing</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>roofing contractor software</code><code>roofing software</code><code>roofing business software</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/roofing/roofing/crews</div>
+    <h4 class="serp-title">Roofing business software | Software for roofing crews | Run every roof from one app</h4>
+    <p class="serp-body">Quote the roof, schedule the crew, photograph the work, invoice from the phone. Your crew opens it and sees today's addresses. No training day, no manual.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/for/roofing/roofing/crews</div>
+    <h4 class="serp-title">Roofing business software | Built for roofing crews</h4>
+    <p class="serp-body">Tear-off photos stay with the job, not buried in someone's camera roll. 10 years in deck and rail. Got sick of apps that don't work on site. Built this.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Roofing business software <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Built for roofing crews <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">No more &quot;send me that photo&quot;</span><span class="src">from &quot;No more 'send photos of job'&quot; (app ad, 5.7%)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Tear-off photos stay with the job, not buried in someone's camera roll.</span><span class="src">the photo line, named for roofing</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">10 years in deck and rail. Got sick of apps that don't work on site. Built this.</span><span class="src">from &quot;10 years commercial railings: got sick of apps that don't work: built this.&quot; (app ad, 5.2%) · 10 years per the copywriter brief — confirm</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">See jobs, update status, navigate. All offline, because that's when you need it.</span><span class="src">from &quot;See jobs, update status, navigate - all offline…&quot; (app ad, 5.9%, rated GOOD)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">CORE · CA</p>
+      <h2>Pricing</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>jobber pricing</code><code>jobber cost</code><code>how much does jobber cost</code><code>jobber plans</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/pricing</div>
+    <h4 class="serp-title">Jobber alternative | Switching from Jobber? | Compare the real prices</h4>
+    <p class="serp-body">OPS is $90, $140 or $190 a month for the crew. Not per user. See the whole table. Every feature at every tier. No upsell, no add-on, no seat you forgot you bought.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/pricing</div>
+    <h4 class="serp-title">Tired of Jobber? | Jobber alternative</h4>
+    <p class="serp-body">Would you hire a crew member who pays for themselves? That's OPS. 10 years in deck and rail. Got sick of apps that don't work on site. Built this.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Tired of Jobber? <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Jobber alternative <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">We deleted more than we built</span><span class="src">app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">10 years in deck and rail. Got sick of apps that don't work on site. Built this.</span><span class="src">from &quot;10 years commercial railings: got sick of apps that don't work: built this.&quot; (app ad, 5.2%) · 10 years per the copywriter brief — confirm</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li><li><span class="tag tag-current">Current ads</span><span class="line">Start free with no credit card. Keep it only if your crew opens it.</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">CORE · CA</p>
+      <h2>Switching</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>jobber alternative</code><code>jobber competitors</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/switch</div>
+    <h4 class="serp-title">Jobber alternative | Switching from Jobber? | Software the crew opens</h4>
+    <p class="serp-body">Most crews quit software because it is too much app. OPS opens and shows the job. Bring your jobs, clients and quotes across. Free to start, no credit card.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/compare/jobber/compare/switch</div>
+    <h4 class="serp-title">Tired of Jobber? | Switching from Jobber?</h4>
+    <p class="serp-body">Not enterprise software. Simple job management that works where you work. Every feature tested on real job sites. Overcomplicated ones got deleted.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Tired of Jobber? <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Switching from Jobber? <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">We deleted more than we built</span><span class="src">app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Not enterprise software. Simple job management that works where you work.</span><span class="src">from &quot;Not Jobber. Not enterprise software…&quot; (rated BEST) · competitor name removed — trademark rule</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Every feature tested on real job sites. Overcomplicated ones got deleted.</span><span class="src">app ad · 5.9% · rated BEST</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+  <section class="group">
+    <header class="group-head">
+      <p class="crumb">CORE · CA</p>
+      <h2>Category</h2>
+      <p class="buys"><span class="lbl">Shows for</span> <code>job management app</code><code>crew scheduling app</code><code>contractor scheduling app</code><code>contractor invoicing app</code><code>job management software for trades</code></p>
+    </header>
+    <div class="pair">
+      <article class="ad ad-live">
+        <p class="role role-live">Stays — current ad · price angle</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/job-management/trades/job-management</div>
+    <h4 class="serp-title">Job management app | Job management for trades | One app for the whole crew</h4>
+    <p class="serp-body">Jobs, crews, quotes and invoices in one app your crew opens without training. Your crew opens it and sees today's work. No manual, no training day.</p>
+  </div>
+      </article>
+      <article class="ad ad-draft">
+        <p class="role role-draft">Draft — replaces the second ad · proven lines</p>
+        
+  <div class="serp">
+    <div class="serp-url"><span class="serp-tag">Ad</span> try.opsapp.co/job-management/trades/job-management</div>
+    <h4 class="serp-title">Job management app | Crew scheduling app</h4>
+    <p class="serp-body">Would you hire a crew member who pays for themselves? That's OPS. 10 years in deck and rail. Got sick of apps that don't work on site. Built this.</p>
+  </div>
+        <details class="pool" open>
+          <summary>Every line Google can use, and where it came from</summary>
+          <p class="sub">Headlines</p>
+          
+  <ul class="lines"><li><span class="tag tag-keyword">Keyword</span><span class="line">Job management app <em class="pin">first headline</em></span></li><li><span class="tag tag-keyword">Keyword</span><span class="line">Crew scheduling app <em class="pin">first headline</em></span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Eliminate status check calls</span><span class="src">app ad · 12.2% click rate over 2,181 views — the best line in the account</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No more &quot;where's the job?&quot;</span><span class="src">app ad · 7.6% over 2,762 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Never built in a meeting room</span><span class="src">app ad · 6.1% · Google rated it BEST · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Tested on old-timers</span><span class="src">app ad · 6.4% over 2,658 views</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Works when Wi-Fi doesn't</span><span class="src">app ad · 5.7%</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">No training needed. Done.</span><span class="src">app ad · 6.3% · rated GOOD</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">We deleted more than we built</span><span class="src">app ad · 4.7% · rated GOOD · the cheapest-download ad ($2.63)</span></li><li><span class="tag tag-verbatim">Proven</span><span class="line">Built by trades, for trades</span><span class="src">8.9% in app ads, 2.6% in search · already in the current ads</span></li></ul>
+          <p class="sub">Descriptions</p>
+          
+  <ul class="lines"><li><span class="tag tag-verbatim">Proven</span><span class="line">Would you hire a crew member who pays for themselves? That's OPS.</span><span class="src">search ad · 18.2% over 203 views — small sample, the best search line</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">10 years in deck and rail. Got sick of apps that don't work on site. Built this.</span><span class="src">from &quot;10 years commercial railings: got sick of apps that don't work: built this.&quot; (app ad, 5.2%) · 10 years per the copywriter brief — confirm</span></li><li><span class="tag tag-adapted">Proven, reworded</span><span class="line">Zero learning curve. Zero training cost. If they can text, they can use it.</span><span class="src">from &quot;Zero learning curve = Zero training cost (Tested on old-timers)&quot; (app ad, 7.4% over 4,104 views, rated GOOD)</span></li><li><span class="tag tag-new">New</span><span class="line">No more calls asking where the crew is. Everyone sees the same job.</span><span class="src">written in the pattern of &quot;Eliminate status check calls&quot;</span></li></ul>
+        </details>
+      </article>
+    </div>
+  </section>
+
+  <section class="next">
+    <h2>When you approve</h2>
+    <p>Each draft replaces the second ad in its group in the account file. The current second ad is paused, not deleted, so its history stays readable. The new one goes to Google for review against the live pages — which are up now, so it should not hit the "destination not working" rejection the current ads did. Nothing turns on: every campaign stays paused until you say launch.</p>
+    <p>Approve them all, reject any, or tell me what to change in any line — here in the comments or in the chat.</p>
+  </section>
+
+  <footer>Generated from config/ads/drafts/2026-09-10-challengers.json · every line passes the same copy rules as the live ads · legacy results from the account's own history</footer>
+</div>

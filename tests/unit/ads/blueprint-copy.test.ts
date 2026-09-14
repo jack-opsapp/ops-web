@@ -5,7 +5,7 @@ import {
   loadBlueprint,
   toRsaCandidate,
 } from "@/lib/ads/blueprint";
-import { validateRsa, type CopyIssue } from "@/lib/ads/copy-rules";
+import { ASSET_LIMITS, validateAssetText, validateRsa, type CopyIssue } from "@/lib/ads/copy-rules";
 
 /**
  * Every ad in the account, through the same rules the engine will hold its own
@@ -97,5 +97,45 @@ describe("every ad in the blueprint", () => {
         const shared = [...pinned(a)].filter((text) => pinned(b).has(text));
         expect(shared.length, `${campaign.name} › ${group.name}`).toBeLessThan(2);
       }
+  });
+});
+
+describe("every asset in the blueprint", () => {
+  const withAssets = blueprint.campaigns.filter((c) => c.assets);
+
+  it("dresses all five campaigns", () => {
+    expect(withAssets.map((c) => c.name).sort()).toEqual(blueprint.campaigns.map((c) => c.name).sort());
+  });
+
+  it.each(withAssets.map((c) => [c.name, c] as const))("%s — asset text passes every copy rule", (_n, campaign) => {
+    const a = campaign.assets!;
+    const ctx = { campaignKind: campaign.kind, allowedFinalUrls };
+    const lines: Array<[string, string, number]> = [
+      ...a.sitelinks.flatMap((s, i): Array<[string, string, number]> => [
+        [s.text, `sitelinks[${i}].text`, ASSET_LIMITS.sitelinkText],
+        [s.description1, `sitelinks[${i}].description1`, ASSET_LIMITS.sitelinkDescription],
+        [s.description2, `sitelinks[${i}].description2`, ASSET_LIMITS.sitelinkDescription],
+      ]),
+      ...a.callouts.map((c, i): [string, string, number] => [c.text, `callouts[${i}]`, ASSET_LIMITS.callout]),
+      ...(a.snippet?.values ?? []).map((v, i): [string, string, number] => [v, `snippet[${i}]`, ASSET_LIMITS.snippetValue]),
+      ...(a.businessName ? [[a.businessName, "businessName", ASSET_LIMITS.businessName] as [string, string, number]] : []),
+      ...(a.price?.items ?? []).flatMap((item, i): Array<[string, string, number]> => [
+        [item.header, `price[${i}].header`, ASSET_LIMITS.priceHeader],
+        [item.description, `price[${i}].description`, ASSET_LIMITS.priceDescription],
+      ]),
+    ];
+    const issues = lines.flatMap(([text, field, limit]) => validateAssetText(text, field, limit, ctx));
+    expect(format(issues)).toBe("");
+  });
+
+  it("sends every sitelink and price tier to one of our own live pages", () => {
+    for (const campaign of withAssets) {
+      for (const s of campaign.assets!.sitelinks) expect(allowedFinalUrls, campaign.name).toContain(s.finalUrl);
+      for (const item of campaign.assets!.price?.items ?? []) expect(allowedFinalUrls, campaign.name).toContain(item.finalUrl);
+    }
+  });
+
+  it("keeps Google from writing its own ad text on every campaign", () => {
+    for (const campaign of withAssets) expect(campaign.assets!.automation?.TEXT_ASSET_AUTOMATION, campaign.name).toBe("OPTED_OUT");
   });
 });

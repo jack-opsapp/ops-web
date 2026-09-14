@@ -1,0 +1,2258 @@
+{
+ "links": [
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596009",
+    "structuredSnippetAsset": {
+     "header": "Service catalog"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419878596009~STRUCTURED_SNIPPET",
+    "fieldType": "STRUCTURED_SNIPPET",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596009",
+    "structuredSnippetAsset": {
+     "header": "Service catalog"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419878596009~STRUCTURED_SNIPPET",
+    "fieldType": "STRUCTURED_SNIPPET",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596009",
+    "structuredSnippetAsset": {
+     "header": "Service catalog"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419878596009~STRUCTURED_SNIPPET",
+    "fieldType": "STRUCTURED_SNIPPET",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596009",
+    "structuredSnippetAsset": {
+     "header": "Service catalog"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419878596009~STRUCTURED_SNIPPET",
+    "fieldType": "STRUCTURED_SNIPPET",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596009",
+    "structuredSnippetAsset": {
+     "header": "Service catalog"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419878596009~STRUCTURED_SNIPPET",
+    "fieldType": "STRUCTURED_SNIPPET",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693422409",
+    "sitelinkAsset": {
+     "linkText": "Cleaning crews"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419693422409~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693422409",
+    "sitelinkAsset": {
+     "linkText": "Cleaning crews"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419693422409~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693422409",
+    "sitelinkAsset": {
+     "linkText": "Cleaning crews"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419693422409~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693437697",
+    "sitelinkAsset": {
+     "linkText": "Compare the prices"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419693437697~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693437697",
+    "sitelinkAsset": {
+     "linkText": "Compare the prices"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419693437697~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693452571",
+    "sitelinkAsset": {
+     "linkText": "Housecall Pro alternative"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419693452571~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693452571",
+    "sitelinkAsset": {
+     "linkText": "Housecall Pro alternative"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419693452571~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693470436",
+    "sitelinkAsset": {
+     "linkText": "Jobber alternative"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419693470436~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693470436",
+    "sitelinkAsset": {
+     "linkText": "Jobber alternative"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419693470436~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801728585",
+    "sitelinkAsset": {
+     "linkText": "ServiceTitan alternative"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419801728585~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801728585",
+    "sitelinkAsset": {
+     "linkText": "ServiceTitan alternative"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419801728585~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750809",
+    "sitelinkAsset": {
+     "linkText": "Roofing crews"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419801750809~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750809",
+    "sitelinkAsset": {
+     "linkText": "Roofing crews"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419801750809~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750809",
+    "sitelinkAsset": {
+     "linkText": "Roofing crews"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419801750809~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750818",
+    "sitelinkAsset": {
+     "linkText": "Landscaping crews"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419801750818~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595988",
+    "sitelinkAsset": {
+     "linkText": "How OPS runs a job"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419878595988~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595988",
+    "sitelinkAsset": {
+     "linkText": "How OPS runs a job"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419878595988~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595988",
+    "sitelinkAsset": {
+     "linkText": "How OPS runs a job"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419878595988~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595988",
+    "sitelinkAsset": {
+     "linkText": "How OPS runs a job"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419878595988~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595988",
+    "sitelinkAsset": {
+     "linkText": "How OPS runs a job"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419878595988~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693437703",
+    "calloutAsset": {
+     "calloutText": "Built by trades"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419693437703~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693437703",
+    "calloutAsset": {
+     "calloutText": "Built by trades"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419693437703~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693437703",
+    "calloutAsset": {
+     "calloutText": "Built by trades"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419693437703~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693437703",
+    "calloutAsset": {
+     "calloutText": "Built by trades"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419693437703~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419693437703",
+    "calloutAsset": {
+     "calloutText": "Built by trades"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419693437703~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801728579",
+    "calloutAsset": {
+     "calloutText": "No credit card"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419801728579~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801728579",
+    "calloutAsset": {
+     "calloutText": "No credit card"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419801728579~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801728579",
+    "calloutAsset": {
+     "calloutText": "No credit card"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419801728579~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801728579",
+    "calloutAsset": {
+     "calloutText": "No credit card"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419801728579~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801728579",
+    "calloutAsset": {
+     "calloutText": "No credit card"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419801728579~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750812",
+    "calloutAsset": {
+     "calloutText": "Works when Wi-Fi doesn't"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419801750812~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750812",
+    "calloutAsset": {
+     "calloutText": "Works when Wi-Fi doesn't"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419801750812~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750812",
+    "calloutAsset": {
+     "calloutText": "Works when Wi-Fi doesn't"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419801750812~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750812",
+    "calloutAsset": {
+     "calloutText": "Works when Wi-Fi doesn't"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419801750812~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801750812",
+    "calloutAsset": {
+     "calloutText": "Works when Wi-Fi doesn't"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419801750812~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801759473",
+    "calloutAsset": {
+     "calloutText": "Free for 30 days"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419801759473~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801759473",
+    "calloutAsset": {
+     "calloutText": "Free for 30 days"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419801759473~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801759473",
+    "calloutAsset": {
+     "calloutText": "Free for 30 days"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419801759473~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801759473",
+    "calloutAsset": {
+     "calloutText": "Free for 30 days"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419801759473~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801759473",
+    "calloutAsset": {
+     "calloutText": "Free for 30 days"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419801759473~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878570500",
+    "calloutAsset": {
+     "calloutText": "No training needed"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419878570500~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878570500",
+    "calloutAsset": {
+     "calloutText": "No training needed"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419878570500~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878570500",
+    "calloutAsset": {
+     "calloutText": "No training needed"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419878570500~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878570500",
+    "calloutAsset": {
+     "calloutText": "No training needed"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419878570500~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878570500",
+    "calloutAsset": {
+     "calloutText": "No training needed"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419878570500~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595997",
+    "calloutAsset": {
+     "calloutText": "No contract"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419878595997~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595997",
+    "calloutAsset": {
+     "calloutText": "No contract"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419878595997~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595997",
+    "calloutAsset": {
+     "calloutText": "No contract"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419878595997~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595997",
+    "calloutAsset": {
+     "calloutText": "No contract"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419878595997~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878595997",
+    "calloutAsset": {
+     "calloutText": "No contract"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419878595997~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596000",
+    "calloutAsset": {
+     "calloutText": "Every feature, every tier"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419878596000~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596000",
+    "calloutAsset": {
+     "calloutText": "Every feature, every tier"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419878596000~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596000",
+    "calloutAsset": {
+     "calloutText": "Every feature, every tier"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419878596000~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596000",
+    "calloutAsset": {
+     "calloutText": "Every feature, every tier"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419878596000~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596000",
+    "calloutAsset": {
+     "calloutText": "Every feature, every tier"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419878596000~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596006",
+    "calloutAsset": {
+     "calloutText": "Crews of 1 to 10"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~419878596006~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596006",
+    "calloutAsset": {
+     "calloutText": "Crews of 1 to 10"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419878596006~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596006",
+    "calloutAsset": {
+     "calloutText": "Crews of 1 to 10"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419878596006~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596006",
+    "calloutAsset": {
+     "calloutText": "Crews of 1 to 10"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~419878596006~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419878596006",
+    "calloutAsset": {
+     "calloutText": "Crews of 1 to 10"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419878596006~CALLOUT",
+    "fieldType": "CALLOUT",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/292203591822",
+    "textAsset": {
+     "text": "OPS"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871193~292203591822~BUSINESS_NAME",
+    "fieldType": "BUSINESS_NAME",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/292203591822",
+    "textAsset": {
+     "text": "OPS"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~292203591822~BUSINESS_NAME",
+    "fieldType": "BUSINESS_NAME",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/292203591822",
+    "textAsset": {
+     "text": "OPS"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~292203591822~BUSINESS_NAME",
+    "fieldType": "BUSINESS_NAME",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/292203591822",
+    "textAsset": {
+     "text": "OPS"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871202~292203591822~BUSINESS_NAME",
+    "fieldType": "BUSINESS_NAME",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/292203591822",
+    "textAsset": {
+     "text": "OPS"
+    }
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~292203591822~BUSINESS_NAME",
+    "fieldType": "BUSINESS_NAME",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801759479"
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871196~419801759479~PRICE",
+    "fieldType": "PRICE",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801759479"
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24229871199~419801759479~PRICE",
+    "fieldType": "PRICE",
+    "status": "ENABLED"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "asset": {
+    "resourceName": "customers/4454506598/assets/419801759479"
+   },
+   "campaignAsset": {
+    "resourceName": "customers/4454506598/campaignAssets/24235473779~419801759479~PRICE",
+    "fieldType": "PRICE",
+    "status": "ENABLED"
+   }
+  }
+ ],
+ "ads": [
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113375",
+    "name": "Brand"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113375~824125294522",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294522",
+     "id": "824125294522"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "name": "BRAND · NA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113375",
+    "name": "Brand"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113375~824125294525",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294525",
+     "id": "824125294525"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113415",
+    "name": "Jobber pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113415~824125294528",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294528",
+     "id": "824125294528"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113415",
+    "name": "Jobber pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113415~824125294531",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294531",
+     "id": "824125294531"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113415",
+    "name": "Jobber pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113415~824257911768",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911768",
+     "id": "824257911768"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113575",
+    "name": "Housecall Pro pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113575~824125294534",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294534",
+     "id": "824125294534"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113575",
+    "name": "Housecall Pro pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113575~824125294537",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294537",
+     "id": "824125294537"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "name": "PRICING · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113575",
+    "name": "Housecall Pro pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113575~824257911771",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911771",
+     "id": "824257911771"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113615",
+    "name": "Jobber alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113615~824125294540",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294540",
+     "id": "824125294540"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113615",
+    "name": "Jobber alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113615~824125294543",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294543",
+     "id": "824125294543"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113615",
+    "name": "Jobber alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113615~824257911774",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911774",
+     "id": "824257911774"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113655",
+    "name": "Housecall Pro alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113655~824125294546",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294546",
+     "id": "824125294546"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113655",
+    "name": "Housecall Pro alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113655~824125294549",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294549",
+     "id": "824125294549"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113655",
+    "name": "Housecall Pro alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113655~824257911777",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911777",
+     "id": "824257911777"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113815",
+    "name": "ServiceTitan alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113815~824125294552",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294552",
+     "id": "824125294552"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113815",
+    "name": "ServiceTitan alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113815~824125294555",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294555",
+     "id": "824125294555"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "name": "SWITCH · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113815",
+    "name": "ServiceTitan alternative"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113815~824257911780",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911780",
+     "id": "824257911780"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113855",
+    "name": "Cleaning"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113855~824125294558",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294558",
+     "id": "824125294558"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113855",
+    "name": "Cleaning"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113855~824125294681",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294681",
+     "id": "824125294681"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113855",
+    "name": "Cleaning"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113855~824257911783",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911783",
+     "id": "824257911783"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113895",
+    "name": "Landscaping"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113895~824125294684",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294684",
+     "id": "824125294684"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113895",
+    "name": "Landscaping"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113895~824125294687",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294687",
+     "id": "824125294687"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351113895",
+    "name": "Landscaping"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351113895~824257911786",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911786",
+     "id": "824257911786"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114055",
+    "name": "Roofing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114055~824125294690",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294690",
+     "id": "824125294690"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114055",
+    "name": "Roofing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114055~824125294693",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294693",
+     "id": "824125294693"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "name": "TRADE · US"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114055",
+    "name": "Roofing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114055~824257911789",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911789",
+     "id": "824257911789"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114095",
+    "name": "Pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114095~824125294696",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294696",
+     "id": "824125294696"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114095",
+    "name": "Pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114095~824125294699",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294699",
+     "id": "824125294699"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114095",
+    "name": "Pricing"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114095~824257911792",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911792",
+     "id": "824257911792"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114135",
+    "name": "Switching"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114135~824125294702",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294702",
+     "id": "824125294702"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114135",
+    "name": "Switching"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114135~824125294705",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294705",
+     "id": "824125294705"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114135",
+    "name": "Switching"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114135~824257911795",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911795",
+     "id": "824257911795"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114295",
+    "name": "Category"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114295~824125294708",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294708",
+     "id": "824125294708"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533495"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114295",
+    "name": "Category"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114295~824125294711",
+    "status": "PAUSED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824125294711",
+     "id": "824125294711"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEWED",
+     "approvalStatus": "APPROVED"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "name": "CORE · CA"
+   },
+   "adGroup": {
+    "resourceName": "customers/4454506598/adGroups/200351114295",
+    "name": "Category"
+   },
+   "adGroupAd": {
+    "resourceName": "customers/4454506598/adGroupAds/200351114295~824257911798",
+    "status": "ENABLED",
+    "ad": {
+     "resourceName": "customers/4454506598/ads/824257911798",
+     "id": "824257911798"
+    },
+    "policySummary": {
+     "reviewStatus": "REVIEW_IN_PROGRESS",
+     "approvalStatus": "UNKNOWN"
+    },
+    "labels": [
+     "customers/4454506598/labels/22271533492",
+     "customers/4454506598/labels/22271533498"
+    ]
+   }
+  }
+ ],
+ "acct": [
+  {
+   "asset": {
+    "resourceName": "customers/4454506598/assets/220853832323",
+    "id": "220853832323",
+    "sitelinkAsset": {
+     "linkText": "[ JOIN OPS ]"
+    }
+   },
+   "customerAsset": {
+    "resourceName": "customers/4454506598/customerAssets/220853832323~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "PAUSED"
+   }
+  },
+  {
+   "asset": {
+    "resourceName": "customers/4454506598/assets/301640749369",
+    "id": "301640749369",
+    "sitelinkAsset": {
+     "linkText": "[ OPS PRICING ]"
+    }
+   },
+   "customerAsset": {
+    "resourceName": "customers/4454506598/customerAssets/301640749369~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "PAUSED"
+   }
+  },
+  {
+   "asset": {
+    "resourceName": "customers/4454506598/assets/314317909206",
+    "id": "314317909206",
+    "sitelinkAsset": {
+     "linkText": "[ OPS HOME ]"
+    }
+   },
+   "customerAsset": {
+    "resourceName": "customers/4454506598/customerAssets/314317909206~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "PAUSED"
+   }
+  },
+  {
+   "asset": {
+    "resourceName": "customers/4454506598/assets/314317909212",
+    "id": "314317909212",
+    "sitelinkAsset": {
+     "linkText": "[ OPS iPHONE ]"
+    }
+   },
+   "customerAsset": {
+    "resourceName": "customers/4454506598/customerAssets/314317909212~SITELINK",
+    "fieldType": "SITELINK",
+    "status": "PAUSED"
+   }
+  }
+ ],
+ "camps": [
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871193",
+    "status": "PAUSED",
+    "name": "BRAND · NA"
+   },
+   "metrics": {
+    "costMicros": "0"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871196",
+    "status": "PAUSED",
+    "name": "PRICING · US"
+   },
+   "metrics": {
+    "costMicros": "0"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871199",
+    "status": "PAUSED",
+    "name": "SWITCH · US"
+   },
+   "metrics": {
+    "costMicros": "0"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24229871202",
+    "status": "PAUSED",
+    "name": "TRADE · US"
+   },
+   "metrics": {
+    "costMicros": "0"
+   }
+  },
+  {
+   "campaign": {
+    "resourceName": "customers/4454506598/campaigns/24235473779",
+    "status": "PAUSED",
+    "name": "CORE · CA"
+   },
+   "metrics": {
+    "costMicros": "0"
+   }
+  }
+ ]
+}

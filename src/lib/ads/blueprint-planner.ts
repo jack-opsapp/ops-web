@@ -42,6 +42,8 @@ export const STAGES = {
   ADS: 6,
   SHARED_SETS: 7,
   LABELS: 8,
+  /** Assets, account-level retirements and automation — see blueprint-assets.ts. */
+  ASSETS: 9,
 } as const;
 
 export type Stage = (typeof STAGES)[keyof typeof STAGES];
@@ -58,6 +60,7 @@ export interface PlannedOperation {
 export type PlannerErrorCode =
   | "BROAD_MATCH_REJECTED"
   | "NEGATIVE_BLOCKS_KEYWORD"
+  | "ROLE_ALREADY_LIVE"
   | "CUSTOMER_MISMATCH";
 
 export class PlannerError extends Error {
@@ -187,6 +190,7 @@ export function planBlueprint(
   assertKeywordSafety(blueprint);
 
   const customerId = blueprint.customerId;
+  const retired = new Set(blueprint.retire.adIds);
   const temp = new TempIds();
   const planned: PlannedOperation[] = [];
   const push = (
@@ -449,7 +453,23 @@ export function planBlueprint(
         push,
         ensureLabel,
         labelAssignments,
+        retired,
       });
+  }
+
+  // ─── Retired ads ──────────────────────────────────────────────────────────
+  // An ad the blueprint replaced is paused, never removed, so its history and
+  // its results stay readable. Only ads named in `retire.adIds` are touched —
+  // the engine's own challengers live outside the file and must be left alone.
+  for (const id of blueprint.retire.adIds) {
+    const ad = snapshot.ads.find((candidate) => candidate.id === id);
+    if (!ad || ad.status !== "ENABLED") continue;
+    push(STAGES.ADS, `Pause retired ad ${id}`, {
+      adGroupAdOperation: {
+        update: { resourceName: ad.resourceName, status: "PAUSED" },
+        updateMask: "status",
+      },
+    });
   }
 
   // ─── Legacy labelling ─────────────────────────────────────────────────────
@@ -501,6 +521,8 @@ interface AdGroupPlanArgs {
   ) => void;
   ensureLabel: (name: string) => string;
   labelAssignments: PlannedOperation[];
+  /** Ad ids the blueprint retires in this same apply. */
+  retired: ReadonlySet<string>;
 }
 
 function planAdGroup({
@@ -513,6 +535,7 @@ function planAdGroup({
   push,
   ensureLabel,
   labelAssignments,
+  retired,
 }: AdGroupPlanArgs): void {
   const existing = snapshot.adGroups.find(
     (candidate) =>
@@ -564,9 +587,31 @@ function planAdGroup({
     );
   }
 
+  // The file's own ads, as the account holds them.
+  const own = new Set(
+    group.ads
+      .map((ad) => findSnapshotAd(snapshot, adGroupResource, ad)?.resourceName)
+      .filter((name): name is string => !!name)
+  );
   for (const ad of group.ads) {
     const live = findSnapshotAd(snapshot, adGroupResource, ad);
     if (!live) {
+      // A group tests one challenger against one control. A second live ad in
+      // the same role would never be judged, so the file must retire the one
+      // the account runs in the same apply that adds its successor.
+      const incumbent = snapshot.ads.find(
+        (candidate) =>
+          candidate.adGroupResourceName === adGroupResource &&
+          candidate.status === "ENABLED" &&
+          candidate.role === ad.role &&
+          !retired.has(candidate.id) &&
+          !own.has(candidate.resourceName)
+      );
+      if (incumbent)
+        throw new PlannerError(
+          "ROLE_ALREADY_LIVE",
+          `${blueprintCampaign.name} › ${group.name} already runs ${ad.role} ad ${incumbent.id}. To swap it, add ${incumbent.id} to retire.adIds.`
+        );
       push(STAGES.ADS, `${group.name}: create ${ad.role} ad — ${ad.angle}`, {
         adGroupAdOperation: {
           create: {

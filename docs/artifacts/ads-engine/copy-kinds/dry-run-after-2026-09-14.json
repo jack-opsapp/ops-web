@@ -1,0 +1,525 @@
+{
+  "ranAt": "2026-09-14T22:40:26.876Z",
+  "snapshotAt": "2026-09-14T08:04:44.139+00:00",
+  "readOnly": {
+    "refusedWrites": []
+  },
+  "window": {
+    "from": "2026-08-15",
+    "to": "2026-09-11"
+  },
+  "worker": {
+    "runningTests": 0,
+    "openGuardrailEpisodes": 0,
+    "testsToCancel": [],
+    "livePairs": 12,
+    "testHistoryForThoseGroups": 0,
+    "untrackedPairs": 12,
+    "testsToOpen": 0,
+    "pairs": [
+      {
+        "campaign": "BRAND · NA",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Brand",
+        "control": "824125294522",
+        "challenger": "824125294525",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "PRICING · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Jobber pricing",
+        "control": "824125294528",
+        "challenger": "824257911768",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "PRICING · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Housecall Pro pricing",
+        "control": "824125294534",
+        "challenger": "824257911771",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "SWITCH · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Jobber alternative",
+        "control": "824125294540",
+        "challenger": "824257911774",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "SWITCH · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Housecall Pro alternative",
+        "control": "824125294546",
+        "challenger": "824257911777",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "SWITCH · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "ServiceTitan alternative",
+        "control": "824125294552",
+        "challenger": "824257911780",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "TRADE · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Cleaning",
+        "control": "824125294558",
+        "challenger": "824257911783",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "TRADE · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Landscaping",
+        "control": "824125294684",
+        "challenger": "824257911786",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "TRADE · US",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Roofing",
+        "control": "824125294690",
+        "challenger": "824257911789",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "CORE · CA",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Pricing",
+        "control": "824125294696",
+        "challenger": "824257911792",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "CORE · CA",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Switching",
+        "control": "824125294702",
+        "challenger": "824257911795",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      },
+      {
+        "campaign": "CORE · CA",
+        "campaignStatus": "PAUSED",
+        "adGroup": "Category",
+        "control": "824125294708",
+        "challenger": "824257911798",
+        "since": null,
+        "firstSharedDay": null,
+        "wouldOpen": null
+      }
+    ]
+  },
+  "briefIfEveryCampaignWereLive": {
+    "duties": [
+      "hygiene"
+    ],
+    "creative": null
+  },
+  "validatorAskedForAThirdAd": [
+    {
+      "adGroup": "BRAND · NA › Brand",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Brand already runs challenger ad 824125294525. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "PRICING · US › Jobber pricing",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Jobber pricing already runs challenger ad 824257911768. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "PRICING · US › Housecall Pro pricing",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Housecall Pro pricing already runs challenger ad 824257911771. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "SWITCH · US › Jobber alternative",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Jobber alternative already runs challenger ad 824257911774. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "SWITCH · US › Housecall Pro alternative",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Housecall Pro alternative already runs challenger ad 824257911777. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "SWITCH · US › ServiceTitan alternative",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "ServiceTitan alternative already runs challenger ad 824257911780. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "TRADE · US › Cleaning",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Cleaning already runs challenger ad 824257911783. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "TRADE · US › Landscaping",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Landscaping already runs challenger ad 824257911786. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "TRADE · US › Roofing",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Roofing already runs challenger ad 824257911789. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "CORE · CA › Pricing",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Pricing already runs challenger ad 824257911792. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "CORE · CA › Switching",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Switching already runs challenger ad 824257911795. A group tests one challenger at a time."
+    },
+    {
+      "adGroup": "CORE · CA › Category",
+      "ok": false,
+      "code": "TEST_NOT_CONCLUDED",
+      "message": "Category already runs challenger ad 824257911798. A group tests one challenger at a time."
+    }
+  ],
+  "snapshotKinds": {
+    "campaigns": [
+      {
+        "name": "BRAND · NA",
+        "kind": "brand"
+      },
+      {
+        "name": "PRICING · US",
+        "kind": "competitor"
+      },
+      {
+        "name": "SWITCH · US",
+        "kind": "competitor"
+      },
+      {
+        "name": "TRADE · US",
+        "kind": "core"
+      },
+      {
+        "name": "CORE · CA",
+        "kind": "core"
+      }
+    ],
+    "adGroups": [
+      {
+        "name": "Brand",
+        "copyKind": "brand",
+        "finalUrl": "https://try.opsapp.co/"
+      },
+      {
+        "name": "Jobber pricing",
+        "copyKind": "competitor",
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      {
+        "name": "Housecall Pro pricing",
+        "copyKind": "competitor",
+        "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+      },
+      {
+        "name": "Jobber alternative",
+        "copyKind": "competitor",
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      {
+        "name": "Housecall Pro alternative",
+        "copyKind": "competitor",
+        "finalUrl": "https://try.opsapp.co/compare/housecall-pro"
+      },
+      {
+        "name": "ServiceTitan alternative",
+        "copyKind": "competitor",
+        "finalUrl": "https://try.opsapp.co/compare/servicetitan"
+      },
+      {
+        "name": "Cleaning",
+        "copyKind": "core",
+        "finalUrl": "https://try.opsapp.co/for/cleaning"
+      },
+      {
+        "name": "Landscaping",
+        "copyKind": "core",
+        "finalUrl": "https://try.opsapp.co/for/landscaping"
+      },
+      {
+        "name": "Roofing",
+        "copyKind": "core",
+        "finalUrl": "https://try.opsapp.co/for/roofing"
+      },
+      {
+        "name": "Pricing",
+        "copyKind": "competitor",
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      {
+        "name": "Switching",
+        "copyKind": "competitor",
+        "finalUrl": "https://try.opsapp.co/compare/jobber"
+      },
+      {
+        "name": "Category",
+        "copyKind": "core",
+        "finalUrl": "https://try.opsapp.co/job-management"
+      }
+    ]
+  },
+  "copyRulesAskedOnTheirOwn": {
+    "ownChallengerAccepted": 12,
+    "ownChallengerCopyRejected": [],
+    "ownChallengerOtherRefusals": [],
+    "plantedNameRefusedWithTrademarkCampaign": 5,
+    "plantedNameAsked": 5,
+    "groups": [
+      {
+        "adGroup": "BRAND · NA › Brand",
+        "campaignKind": "brand",
+        "copyKind": "brand",
+        "landingPage": "https://try.opsapp.co/",
+        "ownCopyNamesACompetitor": false,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "brand"
+        },
+        "competitorNamePlanted": {
+          "ok": false,
+          "code": "COPY_REJECTED",
+          "issues": [
+            "TRADEMARK_CAMPAIGN headlines[9]: \"Jobber\" runs only in a competitor ad group that lands on a compare page. This group runs brand copy."
+          ],
+          "copyKind": null
+        }
+      },
+      {
+        "adGroup": "PRICING · US › Jobber pricing",
+        "campaignKind": "competitor",
+        "copyKind": "competitor",
+        "landingPage": "https://try.opsapp.co/compare/jobber",
+        "ownCopyNamesACompetitor": true,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "competitor"
+        },
+        "competitorNamePlanted": null
+      },
+      {
+        "adGroup": "PRICING · US › Housecall Pro pricing",
+        "campaignKind": "competitor",
+        "copyKind": "competitor",
+        "landingPage": "https://try.opsapp.co/compare/housecall-pro",
+        "ownCopyNamesACompetitor": true,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "competitor"
+        },
+        "competitorNamePlanted": null
+      },
+      {
+        "adGroup": "SWITCH · US › Jobber alternative",
+        "campaignKind": "competitor",
+        "copyKind": "competitor",
+        "landingPage": "https://try.opsapp.co/compare/jobber",
+        "ownCopyNamesACompetitor": true,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "competitor"
+        },
+        "competitorNamePlanted": null
+      },
+      {
+        "adGroup": "SWITCH · US › Housecall Pro alternative",
+        "campaignKind": "competitor",
+        "copyKind": "competitor",
+        "landingPage": "https://try.opsapp.co/compare/housecall-pro",
+        "ownCopyNamesACompetitor": true,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "competitor"
+        },
+        "competitorNamePlanted": null
+      },
+      {
+        "adGroup": "SWITCH · US › ServiceTitan alternative",
+        "campaignKind": "competitor",
+        "copyKind": "competitor",
+        "landingPage": "https://try.opsapp.co/compare/servicetitan",
+        "ownCopyNamesACompetitor": true,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "competitor"
+        },
+        "competitorNamePlanted": null
+      },
+      {
+        "adGroup": "TRADE · US › Cleaning",
+        "campaignKind": "core",
+        "copyKind": "core",
+        "landingPage": "https://try.opsapp.co/for/cleaning",
+        "ownCopyNamesACompetitor": false,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "core"
+        },
+        "competitorNamePlanted": {
+          "ok": false,
+          "code": "COPY_REJECTED",
+          "issues": [
+            "TRADEMARK_CAMPAIGN headlines[9]: \"Jobber\" runs only in a competitor ad group that lands on a compare page. This group runs core copy."
+          ],
+          "copyKind": null
+        }
+      },
+      {
+        "adGroup": "TRADE · US › Landscaping",
+        "campaignKind": "core",
+        "copyKind": "core",
+        "landingPage": "https://try.opsapp.co/for/landscaping",
+        "ownCopyNamesACompetitor": false,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "core"
+        },
+        "competitorNamePlanted": {
+          "ok": false,
+          "code": "COPY_REJECTED",
+          "issues": [
+            "TRADEMARK_CAMPAIGN headlines[9]: \"Jobber\" runs only in a competitor ad group that lands on a compare page. This group runs core copy."
+          ],
+          "copyKind": null
+        }
+      },
+      {
+        "adGroup": "TRADE · US › Roofing",
+        "campaignKind": "core",
+        "copyKind": "core",
+        "landingPage": "https://try.opsapp.co/for/roofing",
+        "ownCopyNamesACompetitor": false,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "core"
+        },
+        "competitorNamePlanted": {
+          "ok": false,
+          "code": "COPY_REJECTED",
+          "issues": [
+            "TRADEMARK_CAMPAIGN headlines[9]: \"Jobber\" runs only in a competitor ad group that lands on a compare page. This group runs core copy."
+          ],
+          "copyKind": null
+        }
+      },
+      {
+        "adGroup": "CORE · CA › Pricing",
+        "campaignKind": "core",
+        "copyKind": "competitor",
+        "landingPage": "https://try.opsapp.co/compare/jobber",
+        "ownCopyNamesACompetitor": true,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "competitor"
+        },
+        "competitorNamePlanted": null
+      },
+      {
+        "adGroup": "CORE · CA › Switching",
+        "campaignKind": "core",
+        "copyKind": "competitor",
+        "landingPage": "https://try.opsapp.co/compare/jobber",
+        "ownCopyNamesACompetitor": true,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "competitor"
+        },
+        "competitorNamePlanted": null
+      },
+      {
+        "adGroup": "CORE · CA › Category",
+        "campaignKind": "core",
+        "copyKind": "core",
+        "landingPage": "https://try.opsapp.co/job-management",
+        "ownCopyNamesACompetitor": false,
+        "ownChallengerCopy": {
+          "ok": true,
+          "code": null,
+          "issues": [],
+          "copyKind": "core"
+        },
+        "competitorNamePlanted": {
+          "ok": false,
+          "code": "COPY_REJECTED",
+          "issues": [
+            "TRADEMARK_CAMPAIGN headlines[9]: \"Jobber\" runs only in a competitor ad group that lands on a compare page. This group runs core copy."
+          ],
+          "copyKind": null
+        }
+      }
+    ]
+  },
+  "committedBlueprint": {
+    "version": "2026-09-11-v1",
+    "structuralOperations": 0,
+    "error": null
+  }
+}

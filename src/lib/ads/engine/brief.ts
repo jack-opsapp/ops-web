@@ -11,6 +11,7 @@
  */
 import type { BrandFacts } from "../copy-rules";
 import { COPY_LIMITS } from "../copy-rules";
+import { challengerInPlace, policyReason, replacementDue, type GuardrailPause } from "./disapprovals";
 import { STRUCTURAL_KINDS, ladderTriggerMet } from "./guardrails";
 import { metricWindows, type DateWindow } from "./metrics";
 import {
@@ -25,11 +26,12 @@ import {
   type TestRecord,
 } from "./types";
 
-export const ADS_BRIEF_VERSION = "ads-brief-2026-09-10-v1";
+// v2 (2026-09-14): campaign kinds and each ad group's copyKind come from the blueprint.
+export const ADS_BRIEF_VERSION = "ads-brief-2026-09-14-v2";
 
 export type DutyKey = "hygiene" | "creative" | "structure" | "bidding_ladder";
 
-/** Control ads older than this, with no running test, are due a challenger. */
+/** Control ads older than this, with no running test and no challenger in place, are due a challenger. */
 export const CREATIVE_CADENCE_DAYS = 28;
 /** A market digest older than this is refreshed before the run. */
 export const MARKET_DIGEST_MAX_AGE_DAYS = 7;
@@ -86,6 +88,8 @@ export interface BriefRepository {
   readFunnelByKeyword(): Promise<FunnelRow[]>;
   /** Runs created since the given instant (the current Vancouver month). */
   readRuns(sinceIso: string): Promise<RunSummary[]>;
+  /** The disapproved-ad guardrail's open episodes. */
+  readGuardrailPauses(): Promise<GuardrailPause[]>;
   readMarketDigest(): Promise<MarketDigest | null>;
   writeMarketDigest(text: string, generatedAt: string): Promise<void>;
 }
@@ -162,6 +166,8 @@ export function computeDuties(input: {
   tests: TestRecord[];
   runsThisMonth: RunSummary[];
   funnel: FunnelSignals;
+  /** The guardrail's open episodes; an ad it paused for a copy verdict is due a replacement. */
+  guardrailPauses: ReadonlyArray<Pick<GuardrailPause, "ad_resource_name" | "ad_group_resource_name" | "policy_topics" | "state">>;
 }): { duties: DutyKey[]; notes: Partial<Record<DutyKey, string>> } {
   const duties: DutyKey[] = ["hygiene"];
   const notes: Partial<Record<DutyKey, string>> = {
@@ -174,10 +180,37 @@ export function computeDuties(input: {
       .map((c) => c.resourceName)
   );
   const runningGroups = new Set(input.tests.filter((t) => t.state === "running").map((t) => t.ad_group_id));
+  // A group whose ad the guardrail paused for a copy verdict is due a
+  // replacement now, not at the cadence. The AD DISAPPROVED alert promised it
+  // by the same predicate, so the promise and the duty never disagree.
+  const replacements = new Map<string, string>();
+  for (const pause of input.guardrailPauses) {
+    if (pause.state !== "paused" || replacements.has(pause.ad_group_resource_name)) continue;
+    if (
+      replacementDue({
+        adResourceName: pause.ad_resource_name,
+        adGroupResourceName: pause.ad_group_resource_name,
+        policyTopics: pause.policy_topics,
+        snapshot: input.snapshot,
+        tests: input.tests,
+        pauses: input.guardrailPauses,
+      })
+    )
+      replacements.set(pause.ad_group_resource_name, policyReason(pause.policy_topics));
+  }
   const due: string[] = [];
   for (const adGroup of input.snapshot.adGroups) {
     if (adGroup.status !== "ENABLED" || !engineCampaigns.has(adGroup.campaignResourceName)) continue;
     if (runningGroups.has(adGroup.id)) continue;
+    const replacement = replacements.get(adGroup.resourceName);
+    if (replacement) {
+      due.push(`${adGroup.name} (Google disapproved an ad for ${replacement}; write its replacement)`);
+      continue;
+    }
+    // A group tests one challenger at a time. One already in place is under
+    // test, waiting for its first shared day, or waiting for a decision on its
+    // verdict; a second would never be judged.
+    if (challengerInPlace(input.snapshot, adGroup.resourceName, input.guardrailPauses)) continue;
     const control = input.snapshot.ads.find(
       (ad) => ad.adGroupResourceName === adGroup.resourceName && ad.status === "ENABLED" && ad.role === "control"
     );
@@ -265,7 +298,7 @@ export async function buildBrief(d: BriefDependencies): Promise<Brief> {
     throw new BriefUnavailableError("NO_ENGINE_CAMPAIGNS", "no campaign carries the engine label");
 
   const ninetyDaysAgo = new Date(now.getTime() - 90 * 86_400_000).toISOString();
-  const [tests, ledger, proposals, funnel, byKeyword, runsThisMonth, marketDigest] = await Promise.all([
+  const [tests, ledger, proposals, funnel, byKeyword, runsThisMonth, guardrailPauses, marketDigest] = await Promise.all([
     d.repository.readTests(),
     d.repository.readLedger(ninetyDaysAgo),
     d.repository.readProposals(),
@@ -275,10 +308,11 @@ export async function buildBrief(d: BriefDependencies): Promise<Brief> {
       throw error;
     }),
     d.repository.readRuns(vancouverMonthStart(now).toISOString()),
+    d.repository.readGuardrailPauses(),
     refreshMarketDigest(d, now),
   ]);
 
-  const { duties, notes } = computeDuties({ now, snapshot, metrics28d, tests, runsThisMonth, funnel });
+  const { duties, notes } = computeDuties({ now, snapshot, metrics28d, tests, runsThisMonth, funnel, guardrailPauses });
   const copyBrief = d.loadCopyBrief();
 
   return {

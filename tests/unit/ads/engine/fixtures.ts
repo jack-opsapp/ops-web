@@ -3,6 +3,7 @@
  * blueprint plus one paused legacy campaign, with enough metrics and ledger
  * history to exercise every validator rule in both directions.
  */
+import type { BlueprintKinds } from "@/lib/ads/engine/copy-kinds";
 import type {
   ChangeRecord,
   EngineSettings,
@@ -126,12 +127,12 @@ export function snapshot(): EntitySnapshot {
       },
     ],
     adGroups: [
-      { resourceName: R.jobManagement, id: "21", name: "Job management", campaignResourceName: R.core, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/job-management" },
-      { resourceName: R.crewScheduling, id: "22", name: "Crew scheduling", campaignResourceName: R.core, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/scheduling" },
-      { resourceName: R.quotesInvoices, id: "23", name: "Quotes & invoices", campaignResourceName: R.core, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/quotes-invoices" },
-      { resourceName: R.jobberAlternative, id: "31", name: "Jobber alternative", campaignResourceName: R.competitor, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/compare/jobber" },
-      { resourceName: R.brandGroup, id: "41", name: "Brand", campaignResourceName: R.brand, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/" },
-      { resourceName: R.legacyGroup, id: "91", name: "Legacy group", campaignResourceName: R.legacy, status: "PAUSED", labels: [], finalUrl: "https://opsapp.co/plans" },
+      { resourceName: R.jobManagement, id: "21", name: "Job management", campaignResourceName: R.core, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/job-management", copyKind: "core" },
+      { resourceName: R.crewScheduling, id: "22", name: "Crew scheduling", campaignResourceName: R.core, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/scheduling", copyKind: "core" },
+      { resourceName: R.quotesInvoices, id: "23", name: "Quotes & invoices", campaignResourceName: R.core, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/quotes-invoices", copyKind: "core" },
+      { resourceName: R.jobberAlternative, id: "31", name: "Jobber alternative", campaignResourceName: R.competitor, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/compare/jobber", copyKind: "competitor" },
+      { resourceName: R.brandGroup, id: "41", name: "Brand", campaignResourceName: R.brand, status: "ENABLED", labels: [], finalUrl: "https://try.opsapp.co/", copyKind: "brand" },
+      { resourceName: R.legacyGroup, id: "91", name: "Legacy group", campaignResourceName: R.legacy, status: "PAUSED", labels: [], finalUrl: "https://opsapp.co/plans", copyKind: "core" },
     ],
     ads: [
       { resourceName: R.jmControl, id: "201", adGroupResourceName: R.jobManagement, status: "ENABLED", labels: ["engine", "gen-p2", "role-control"], role: "control", approvalStatus: "APPROVED", reviewStatus: "REVIEWED", ...rsa("https://try.opsapp.co/job-management") },
@@ -249,6 +250,17 @@ export function settings(overrides: Partial<EngineSettings> = {}): EngineSetting
   };
 }
 
+/** What the blueprint declares about the fixture account. */
+export function blueprintKinds(): BlueprintKinds {
+  return {
+    campaigns: [
+      { name: "CORE · CA", kind: "core", adGroups: [{ name: "Job management" }, { name: "Crew scheduling" }, { name: "Quotes & invoices" }] },
+      { name: "BRAND · CA", kind: "brand", adGroups: [{ name: "Brand" }] },
+      { name: "COMPETITOR · CA", kind: "competitor", adGroups: [{ name: "Jobber alternative" }] },
+    ],
+  };
+}
+
 export const ALLOWED_URLS = [
   "https://try.opsapp.co/",
   "https://try.opsapp.co/job-management",
@@ -273,6 +285,8 @@ export function context(overrides: Partial<ValidationContext> = {}): ValidationC
       daysLeftInMonth: 10,
     },
     allowedFinalUrls: ALLOWED_URLS,
+    blueprint: blueprintKinds(),
+    guardrailPauses: [],
     structuralAcceptedThisRun: 0,
     now: NOW,
     ...overrides,

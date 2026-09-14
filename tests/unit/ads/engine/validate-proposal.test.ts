@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateProposal } from "@/lib/ads/engine/validate-proposal";
 import type { ValidationContext, ValidationResult } from "@/lib/ads/engine/types";
-import { context, goodRsa, R, snapshot } from "./fixtures";
+import { blueprintKinds, context, goodRsa, R, snapshot } from "./fixtures";
 
 function run(
   proposal: unknown,
@@ -452,6 +452,35 @@ describe("validateProposal — one failing fixture per code", () => {
     );
   });
 
+  it("TEST_NOT_CONCLUDED for a challenger in a group that already runs one, whatever became of its test", () => {
+    const challenger = (ad_group: string, url: string) => ({
+      kind: "create_rsa_challenger",
+      rationale: "",
+      evidence: [],
+      payload: { ad_group, hypothesis: "x", ...goodRsa(url) },
+    });
+    // Job management's pair won for the challenger and waits for its promotion; Brand's lost and waits for its pause.
+    const won = expectCode(run(challenger(R.jobManagement, "https://try.opsapp.co/job-management")), "TEST_NOT_CONCLUDED");
+    expect(won.issues[0]).toMatchObject({ field: "payload.ad_group", message: "Job management already runs challenger ad 202. A group tests one challenger at a time." });
+    expectCode(run(challenger(R.brandGroup, "https://try.opsapp.co/")), "TEST_NOT_CONCLUDED");
+    // The phase 2 shape: an enabled pair nobody opened a test for.
+    expectCode(run(challenger(R.jobManagement, "https://try.opsapp.co/job-management"), { tests: [] }), "TEST_NOT_CONCLUDED");
+    // Held for a landing page, the challenger is still in place: the guardrail switches it back on.
+    const landing = [{ ad_resource_name: R.jmChallenger, ad_group_resource_name: R.jobManagement, state: "paused" as const, policy_topics: ["DESTINATION_NOT_WORKING"] }];
+    expectCode(run(challenger(R.jobManagement, "https://try.opsapp.co/job-management"), { tests: [], guardrailPauses: landing }), "TEST_NOT_CONCLUDED");
+  });
+
+  it("accepts a challenger once the guardrail holds the group's challenger for its copy — the replacement the alert promised", () => {
+    const copy = [{ ad_resource_name: R.jmChallenger, ad_group_resource_name: R.jobManagement, state: "paused" as const, policy_topics: ["TRADEMARKS_IN_AD_TEXT"] }];
+    const normalized = expectOk(
+      run(
+        { kind: "create_rsa_challenger", rationale: "", evidence: [], payload: { ad_group: R.jobManagement, hypothesis: "x", ...goodRsa("https://try.opsapp.co/job-management") } },
+        { tests: [], guardrailPauses: copy }
+      )
+    );
+    expect(normalized.payload).toMatchObject({ controlAd: R.jmControl, controlAdId: "201" });
+  });
+
   it("VERDICT_MISMATCH", () => {
     expectCode(
       run({
@@ -585,9 +614,12 @@ describe("validateProposal — one failing fixture per code", () => {
     expect(result.issues[0]?.field).toBe("headlines[2]");
   });
 
-  it("keeps the trademark rule tied to the campaign the ad group belongs to", () => {
+  it("ties the trademark rule to the ad group's own copy rules", () => {
     const candidate = goodRsa("https://try.opsapp.co/compare/jobber");
     candidate.headlines[2] = { text: "Switching from Jobber?" };
+    // Its last challenger retired, the competitor group is due a new one.
+    const retired = snapshot();
+    retired.ads = retired.ads.map((ad) => (ad.resourceName === R.jaChallenger ? { ...ad, status: "PAUSED" as const } : ad));
     const ok = validateProposal(
       {
         kind: "create_rsa_challenger",
@@ -595,7 +627,7 @@ describe("validateProposal — one failing fixture per code", () => {
         evidence: [],
         payload: { ad_group: R.jobberAlternative, hypothesis: "x", ...candidate },
       },
-      context({ tests: [] })
+      context({ tests: [], snapshot: retired })
     );
     expectOk(ok);
     const core = goodRsa();
@@ -610,6 +642,91 @@ describe("validateProposal — one failing fixture per code", () => {
       "COPY_REJECTED"
     );
     expect(rejected.issues.map((issue) => issue.code)).toContain("TRADEMARK_CAMPAIGN");
+  });
+
+  describe("copy rules belong to the ad group", () => {
+    const C = "customers/4454506598";
+    const switching = `${C}/adGroups/24`;
+    const compare = "https://try.opsapp.co/compare/jobber";
+    const naming = (finalUrl: string) => {
+      const candidate = goodRsa(finalUrl);
+      candidate.headlines[2] = { text: "Switching from Jobber?" };
+      return candidate;
+    };
+    /** CORE · CA gains the phase 2 shape: a group that bids on competitor terms and lands on a compare page. */
+    const withSwitching = (copyKind: "core" | "competitor", finalUrl = compare) => {
+      const account = snapshot();
+      account.adGroups.push({ resourceName: switching, id: "24", name: "Switching", campaignResourceName: R.core, status: "ENABLED", labels: [], finalUrl, copyKind });
+      account.ads.push({ ...account.ads.find((ad) => ad.resourceName === R.csControl)!, resourceName: `${switching}~209`, id: "209", adGroupResourceName: switching, finalUrls: [finalUrl] });
+      return account;
+    };
+    const challenger = (adGroup: string, candidate: ReturnType<typeof goodRsa>) => ({
+      kind: "create_rsa_challenger",
+      rationale: "",
+      evidence: [],
+      payload: { ad_group: adGroup, hypothesis: "x", ...candidate },
+    });
+    const newGroup = (campaign: string, name: string, finalUrl: string) => ({
+      kind: "add_ad_group",
+      rationale: "",
+      evidence: [],
+      payload: {
+        campaign,
+        name,
+        theme: "jobber",
+        final_url: finalUrl,
+        keywords: [
+          { text: "jobber alternative app", matchType: "PHRASE" },
+          { text: "switch from jobber", matchType: "PHRASE" },
+          { text: "jobber replacement", matchType: "EXACT" },
+        ],
+        ads: [naming(finalUrl)],
+      },
+    });
+
+    it("lets a core campaign's competitor group name the competitor, and records the rules it passed", () => {
+      const normalized = expectOk(run(challenger(switching, naming(compare)), { snapshot: withSwitching("competitor") }));
+      expect(normalized.payload).toMatchObject({ campaignKind: "core", copyKind: "competitor" });
+    });
+
+    it("refuses the competitor's name in that campaign's core group", () => {
+      const rejected = expectCode(run(challenger(switching, naming(compare)), { snapshot: withSwitching("core") }), "COPY_REJECTED");
+      expect(rejected.issues.map((issue) => issue.code)).toContain("TRADEMARK_CAMPAIGN");
+    });
+
+    it("judges the page the challenger lands on, not only the group's label", () => {
+      const scheduling = "https://try.opsapp.co/scheduling";
+      const rejected = expectCode(run(challenger(switching, naming(scheduling)), { snapshot: withSwitching("competitor", scheduling) }), "COPY_REJECTED");
+      expect(rejected.issues.map((issue) => issue.code)).toContain("TRADEMARK_CAMPAIGN");
+    });
+
+    it("lets a new group in a competitor campaign name the competitor on a compare page", () => {
+      const normalized = expectOk(run(newGroup(R.competitor, "Jobber switch", compare)));
+      expect(normalized.payload).toMatchObject({ campaignKind: "competitor", copyKind: "competitor" });
+    });
+
+    it("refuses the competitor's name in a new competitor-campaign group that lands off a compare page", () => {
+      const rejected = expectCode(run(newGroup(R.competitor, "Jobber switch", "https://try.opsapp.co/job-management")), "COPY_REJECTED");
+      expect(rejected.issues.map((issue) => issue.code)).toContain("TRADEMARK_CAMPAIGN");
+    });
+
+    it("never widens a new group in a core campaign, even on a compare page", () => {
+      const rejected = expectCode(run(newGroup(R.core, "Jobber switch", compare)), "COPY_REJECTED");
+      expect(rejected.issues.map((issue) => issue.code)).toContain("TRADEMARK_CAMPAIGN");
+    });
+
+    it("holds a new group the blueprint declares to the blueprint's copy rules, as the snapshot will once it exists", () => {
+      const fixture = blueprintKinds();
+      const declared = {
+        campaigns: fixture.campaigns.map((campaign) =>
+          campaign.name === "CORE · CA" ? { ...campaign, adGroups: [...campaign.adGroups, { name: "Switching", copyKind: "competitor" as const }] } : campaign
+        ),
+      };
+      const normalized = expectOk(run(newGroup(R.core, "Switching", compare), { blueprint: declared }));
+      expect(normalized.payload).toMatchObject({ campaignKind: "core", copyKind: "competitor" });
+      const unreadable = expectCode(run(newGroup(R.competitor, "Jobber switch", compare), { blueprint: null }), "COPY_REJECTED");
+      expect(unreadable.issues.map((issue) => issue.code)).toContain("TRADEMARK_CAMPAIGN");
+    });
   });
 
   it("filters terms already pending in an open negatives proposal instead of duplicating them", () => {

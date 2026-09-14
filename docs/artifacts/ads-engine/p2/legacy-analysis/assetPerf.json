@@ -1,0 +1,5980 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "163"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203367894268",
+   "textAsset": {
+    "text": "[ Crush every project. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~203367894268~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "380"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203367894271",
+   "textAsset": {
+    "text": "[ Simplify job management. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~203367894271~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "237"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203367894277",
+   "textAsset": {
+    "text": "[ Streamline your workflow. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~203367894277~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "261"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284298",
+   "textAsset": {
+    "text": "[ Efficient Job Management. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284298~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "129"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284301",
+   "textAsset": {
+    "text": "[ OPS: Maximum Efficiency. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284301~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "284"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284304",
+   "textAsset": {
+    "text": "[ Trades, Execute. OPS. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284304~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "81"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284307",
+   "textAsset": {
+    "text": "[ Execute With Precision. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284307~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "117"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284310",
+   "textAsset": {
+    "text": "[ Dominate Jobs. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284310~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "406"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284313",
+   "textAsset": {
+    "text": "[ OPS: Built by Trades. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284313~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "207"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284316",
+   "textAsset": {
+    "text": "[ Own Your Trade's Success. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284316~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "662"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284319",
+   "textAsset": {
+    "text": "[ Zero Slack. All Results. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284319~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "127"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284322",
+   "textAsset": {
+    "text": "[ Master Your Operations. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284322~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "539"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284325",
+   "textAsset": {
+    "text": "[ Crush Inefficiency. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284325~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "156"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284328",
+   "textAsset": {
+    "text": "[ Seize Control Of Your Jobs ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284328~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "1367"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284334",
+   "textAsset": {
+    "text": "Ditch inefficient whiteboards & spreadsheets. Built for the leaders who demand execution."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284334~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22393218216",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN CANADA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "784"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/172617484690~743404484872",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/743404484872",
+    "id": "743404484872"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284337",
+   "textAsset": {
+    "text": "Streamline your crew management with lethal precision. The only app built for execution."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/172617484690~743404484872~220920284337~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "53"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203367894268",
+   "textAsset": {
+    "text": "[ Crush every project. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~203367894268~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "204"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203367894271",
+   "textAsset": {
+    "text": "[ Simplify job management. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~203367894271~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "51"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203367894277",
+   "textAsset": {
+    "text": "[ Streamline your workflow. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~203367894277~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "74"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284298",
+   "textAsset": {
+    "text": "[ Efficient Job Management. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284298~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "19"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284301",
+   "textAsset": {
+    "text": "[ OPS: Maximum Efficiency. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284301~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "123"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284304",
+   "textAsset": {
+    "text": "[ Trades, Execute. OPS. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284304~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "21"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284307",
+   "textAsset": {
+    "text": "[ Execute With Precision. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284307~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "27"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284310",
+   "textAsset": {
+    "text": "[ Dominate Jobs. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284310~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "115"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284313",
+   "textAsset": {
+    "text": "[ OPS: Built by Trades. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284313~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "37"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284316",
+   "textAsset": {
+    "text": "[ Own Your Trade's Success. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284316~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "213"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284319",
+   "textAsset": {
+    "text": "[ Zero Slack. All Results. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284319~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "39"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284322",
+   "textAsset": {
+    "text": "[ Master Your Operations. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284322~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "192"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284325",
+   "textAsset": {
+    "text": "[ Crush Inefficiency. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284325~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "51"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284328",
+   "textAsset": {
+    "text": "[ Seize Control Of Your Jobs ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284328~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "467"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284334",
+   "textAsset": {
+    "text": "Ditch inefficient whiteboards & spreadsheets. Built for the leaders who demand execution."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284334~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22445416465",
+   "advertisingChannelType": "SEARCH",
+   "name": "OPS SEARCH CAMPAIGN UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "262"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184818794544~746235419255",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/746235419255",
+    "id": "746235419255"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220920284337",
+   "textAsset": {
+    "text": "Streamline your crew management with lethal precision. The only app built for execution."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184818794544~746235419255~220920284337~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "7",
+   "impressions": "167"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203308598654"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203308598654~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "79"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203326113726~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "26",
+   "impressions": "441"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203357920012"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203357920012~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "142"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203357926063"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203357926063~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "7",
+   "impressions": "231"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203360490106"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~203360490106~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "46",
+   "impressions": "921"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292099630814",
+   "textAsset": {
+    "text": "Built By Railings Contractor"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~292099630814~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "140",
+   "impressions": "2285"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292099630817",
+   "textAsset": {
+    "text": "Never Built In A Meeting Room"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~292099630817~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "27",
+   "impressions": "575"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292099630820",
+   "textAsset": {
+    "text": "We Deleted More Than We Built"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~292099630820~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "92",
+   "impressions": "1552"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292099630826",
+   "textAsset": {
+    "text": "Every feature tested on real job sites. Overcomplicated ones got deleted."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~292099630826~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "90",
+   "impressions": "1305"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292099630829",
+   "textAsset": {
+    "text": "Built by necessity on actual job sites. Not VC-funded guesswork."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~292099630829~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "71",
+   "impressions": "1345"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292099630832",
+   "textAsset": {
+    "text": "Purpose-built through use. Every feature earned its place or got cut."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~292099630832~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "73",
+   "impressions": "1458"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292099630835",
+   "textAsset": {
+    "text": "While others add complexity, we subtract problems. That's it."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~292099630835~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "71",
+   "impressions": "1365"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191503700528~775374121599",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374121599",
+    "id": "775374121599"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292099761656",
+   "textAsset": {
+    "text": "10 years commercial railings: got sick of apps that don't work: built this."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191503700528~775374121599~292099761656~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "185"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203308598654"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203308598654~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "14",
+   "impressions": "245"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203328858165"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203328858165~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "18",
+   "impressions": "252"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203357920012"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203357920012~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "4",
+   "impressions": "119"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203357926063"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203357926063~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "impressions": "108"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203360490106"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203360490106~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "116"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203360535154"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~203360535154~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "20",
+   "impressions": "350"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204157187",
+   "textAsset": {
+    "text": "Works When Wi-Fi Doesn't."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~292204157187~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "UNKNOWN"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "229",
+   "impressions": "4372"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204157190",
+   "textAsset": {
+    "text": "Saves min 2 Hours Per Week ."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~292204157190~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "UNKNOWN"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "69",
+   "impressions": "1178"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204157193",
+   "textAsset": {
+    "text": "See jobs, update status, navigate - all offline. Because that's when you need it."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~292204157193~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "60",
+   "impressions": "1350"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204157196",
+   "textAsset": {
+    "text": "Built for basements, job sites, and dead zones."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~292204157196~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "76",
+   "impressions": "1352"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204157199",
+   "textAsset": {
+    "text": "No learning curve. No training meetings. See jobs, update, done."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~292204157199~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "82",
+   "impressions": "1382"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204157202",
+   "textAsset": {
+    "text": "Everything you need to work. Nothing that wastes your time. Period."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~292204157202~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "78",
+   "impressions": "1277"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/185497122123~775374929169",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775374929169",
+    "id": "775374929169"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204157205",
+   "textAsset": {
+    "text": "Get back hours of wasted time spent coordinating, scheduling and communicating."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/185497122123~775374929169~292204157205~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "19"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204278212524",
+   "textAsset": {
+    "text": "Built By Trades, For Trades"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~204278212524~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "150"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204810332",
+   "textAsset": {
+    "text": "Eliminate status check calls"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~292204810332~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "211",
+   "impressions": "2762"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204810335",
+   "textAsset": {
+    "text": "No more \"where's the job?\""
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~292204810335~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "55"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204810338",
+   "textAsset": {
+    "text": "Tested on old timers"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~292204810338~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "311",
+   "impressions": "3956"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204810341",
+   "textAsset": {
+    "text": "2 Hours Saved Weekly = Saves you $4800 annually. Pays for itself immediately."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~292204810341~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "249",
+   "impressions": "2947"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204810344",
+   "textAsset": {
+    "text": "Zero learning curve = Zero training cost (Tested on old-timers)"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~292204810344~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "171",
+   "impressions": "1916"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284116",
+   "textAsset": {
+    "text": "Built By Trades, For Trades."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~301290284116~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "53"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838411"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311037838411~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "115"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "7",
+   "impressions": "34"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038023766"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311038023766~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "impressions": "145"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "134",
+   "impressions": "1047"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "113"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065203636"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311065203636~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "23"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065249776"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311065249776~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "267",
+   "impressions": "2181"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065364943",
+   "textAsset": {
+    "text": "Eliminate status check calls."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311065364943~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "170",
+   "impressions": "2658"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065364946",
+   "textAsset": {
+    "text": "Tested on old timers."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~311065364946~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "89"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476383",
+   "textAsset": {
+    "text": "No more \"what's my job?\"."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~321210476383~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "33"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476386",
+   "textAsset": {
+    "text": "No more \"where's the job?\"."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~321210476386~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "3"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476389",
+   "textAsset": {
+    "text": "Made by someone like you."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~321210476389~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "54"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476392",
+   "textAsset": {
+    "text": "No more \"send photos of job\"."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~321210476392~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "38"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476395",
+   "textAsset": {
+    "text": "No training needed. Done."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~321210476395~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "impressions": "62"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497545",
+   "textAsset": {
+    "text": "From Whiteboard to Workforce."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~322301497545~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "18"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497548",
+   "textAsset": {
+    "text": "Move past whiteboards and spreadsheets. Job management built for field operations."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~322301497548~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "3",
+   "impressions": "67"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497551",
+   "textAsset": {
+    "text": "Scale from your truck. No office staff needed. Track jobs, schedule crew, get it done."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~322301497551~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "18"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184222898285~775507756235",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/775507756235",
+    "id": "775507756235"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497554",
+   "textAsset": {
+    "text": "Not Jobber. Not enterprise software. Simple job management that works where you work."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184222898285~775507756235~322301497554~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "4",
+   "impressions": "308"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/300356520596",
+   "textAsset": {
+    "text": "Hire OPS. Saves 2 hours weekly. Earns you $400/month. Even at $200, it pays you back."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~300356520596~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "40"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/300356520599",
+   "textAsset": {
+    "text": "Would you hire a crew member who pays for themselves? That's OPS. Hire OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~300356520599~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "109"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/300356520605",
+   "textAsset": {
+    "text": "Better ROI than any crew member. Never calls in sick. Always ready to work. Hire OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~300356520605~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "124"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/300356520608",
+   "textAsset": {
+    "text": "Your time worth $25/hour? OPS saves 8 hours monthly. That's $200 value for $90 cost."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~300356520608~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "52"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284107",
+   "textAsset": {
+    "text": "Hire OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301290284107~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "72"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284110",
+   "textAsset": {
+    "text": "Earns $400/Month For You."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301290284110~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "8"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284113",
+   "textAsset": {
+    "text": "Your Most Profitable Hire."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301290284113~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "20"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284116",
+   "textAsset": {
+    "text": "Built By Trades, For Trades."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301290284116~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "15"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284119",
+   "textAsset": {
+    "text": "122% ROI Every Month."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301290284119~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "143"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301299234463",
+   "textAsset": {
+    "text": "Built by trades for trades. 10 years in railings- needed better- built OPS. Period."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301299234463~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "31"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301323693945"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301323693945~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "33"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301323693948"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~301323693948~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "221"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503780",
+   "textAsset": {
+    "text": "[ Hire OPS. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~303814503780~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "42"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503783",
+   "textAsset": {
+    "text": "[Be the first using OPS 2.0.2]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~303814503783~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "75"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503786",
+   "textAsset": {
+    "text": "[ Your Most Profitable Hire. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~303814503786~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "55"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503789",
+   "textAsset": {
+    "text": "[Built By Trades, For Trades.]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~303814503789~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "32"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503792",
+   "textAsset": {
+    "text": "[ 122% ROI Every Month. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~303814503792~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "6"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038257157"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~311038257157~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "3"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "3"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "3"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064787350",
+   "textAsset": {
+    "text": "[Be the first using OPS 2.0.3]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~311064787350~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "43"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190325086754~780111077462",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780111077462",
+    "id": "780111077462"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064787353",
+   "textAsset": {
+    "text": "[From Whiteboard to Workforce]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190325086754~780111077462~311064787353~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "201",
+   "impressions": "12035"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284107",
+   "textAsset": {
+    "text": "Hire OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301290284107~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE",
+   "pinnedField": "HEADLINE_1"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "45",
+   "impressions": "1018"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284110",
+   "textAsset": {
+    "text": "Earns $400/Month For You."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301290284110~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "34",
+   "impressions": "1162"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301290284113",
+   "textAsset": {
+    "text": "Your Most Profitable Hire."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301290284113~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "22",
+   "impressions": "1763"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301656582202",
+   "textAsset": {
+    "text": "Saves 2.5+ Hours Weekly."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301656582202~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "36",
+   "impressions": "1026"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301656582205",
+   "textAsset": {
+    "text": "122% or more ROI Every Month."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301656582205~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "24",
+   "impressions": "373"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301656582208",
+   "textAsset": {
+    "text": "Cut The Slack. Get OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301656582208~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "39",
+   "impressions": "1431"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301656582211",
+   "textAsset": {
+    "text": "ServiceTitan too complex? OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301656582211~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "29",
+   "impressions": "2392"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301656582214",
+   "textAsset": {
+    "text": "Housecall Pro? OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301656582214~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "53",
+   "impressions": "1633"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301656582217",
+   "textAsset": {
+    "text": "Jobber is overcomplicated."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301656582217~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "12",
+   "impressions": "652"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751526",
+   "textAsset": {
+    "text": "Better ROI Than Any Other Hire"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751526~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "47",
+   "impressions": "1801"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751529",
+   "textAsset": {
+    "text": "Built by Trades, for Trades."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751529~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "33",
+   "impressions": "970"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751532",
+   "textAsset": {
+    "text": "OPS Pays For Itself."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751532~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "11",
+   "impressions": "610"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751535",
+   "textAsset": {
+    "text": "Investment, Not Expense,"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751535~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "44",
+   "impressions": "1437"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751541",
+   "textAsset": {
+    "text": "Actually Works Offline."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751541~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "197",
+   "impressions": "11974"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751547",
+   "textAsset": {
+    "text": "Built by trades for trades. 12 years in deck construction - needed better - built OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751547~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "37",
+   "impressions": "203"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751550",
+   "textAsset": {
+    "text": "Would you hire a crew member who pays for themselves? That's OPS."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751550~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "144",
+   "impressions": "4708"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751553",
+   "textAsset": {
+    "text": "Your time worth $25/hour? OPS saves 8+ hours monthly. That's $200 value for $90 cost."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751553~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23164560623",
+   "advertisingChannelType": "SEARCH",
+   "name": "HIRE OPS - WEB"
+  },
+  "metrics": {
+   "clicks": "25",
+   "impressions": "160"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/184254155901~780136435875",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/780136435875",
+    "id": "780136435875"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301678751556",
+   "textAsset": {
+    "text": "Better ROI than any crew member. Never calls in sick. Always ready to work."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/184254155901~780136435875~301678751556~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "NOT_APPLICABLE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "29"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503780",
+   "textAsset": {
+    "text": "[ Hire OPS. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~303814503780~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "12"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503789",
+   "textAsset": {
+    "text": "[Built By Trades, For Trades.]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~303814503789~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "10"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038257157"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311038257157~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "3",
+   "impressions": "54"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311040409267",
+   "textAsset": {
+    "text": "[Job Details Don't Get Missed]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311040409267~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "49"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311040409270",
+   "textAsset": {
+    "text": "[ Google Sheets? Move On. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311040409270~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "3",
+   "impressions": "71"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311040409273",
+   "textAsset": {
+    "text": "From whiteboards to workforce. Job details don't get lost. No training needed. Period."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311040409273~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "2",
+   "impressions": "58"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311040409276",
+   "textAsset": {
+    "text": "Not built for 50+ employee operations. Built for specialized trades with 1-10 crew."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311040409276~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "14"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311040409279",
+   "textAsset": {
+    "text": "Works without signal. Job details don't get lost. You can actually figure it out."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311040409279~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "30"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311040409282",
+   "textAsset": {
+    "text": "Stop digging through camera rolls for job photos. Everything organized by project. Period."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311040409282~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "17"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311040409285",
+   "textAsset": {
+    "text": "No more \"I thought you told him.\" Job scope with photos. Everyone sees the same thing."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311040409285~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "6"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "24"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/187735663614~785163238011",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785163238011",
+    "id": "785163238011"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064787353",
+   "textAsset": {
+    "text": "[From Whiteboard to Workforce]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/187735663614~785163238011~311064787353~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "10"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503780",
+   "textAsset": {
+    "text": "[ Hire OPS. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~303814503780~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "7"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503789",
+   "textAsset": {
+    "text": "[Built By Trades, For Trades.]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~303814503789~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "14"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/310952511602",
+   "textAsset": {
+    "text": "Stop double-booking your crew. See who's where, when. Schedule from your truck. Done."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~310952511602~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "14"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/310952511605",
+   "textAsset": {
+    "text": "No more texting \"send me that photo from Tuesday.\" All job photos in one place. Simple."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~310952511605~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "7"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/310952511608",
+   "textAsset": {
+    "text": "Job photos stay with the job. Not buried in someone's camera roll. Works offline too."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~310952511608~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "11"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/310952511611",
+   "textAsset": {
+    "text": "Crew gets job details with photos. Sends updates back. No more missed scope on handoff."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~310952511611~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038257157"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311038257157~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311041176112",
+   "textAsset": {
+    "text": "[ Outgrew Your Whiteboard? ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311041176112~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "10"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311041176115",
+   "textAsset": {
+    "text": "[ Schedule from Your Truck. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311041176115~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "12"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311041176118",
+   "textAsset": {
+    "text": "[ Stop Double-Booking Crew. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311041176118~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "2"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/189797156780~785200456276",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/785200456276",
+    "id": "785200456276"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/312829354701",
+   "textAsset": {
+    "text": "Using other job management software is a full-time job. OPS deletes a full-time workload."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/189797156780~785200456276~312829354701~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "23"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/303814503789",
+   "textAsset": {
+    "text": "[Built By Trades, For Trades.]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~303814503789~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "4"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "1"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "1"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "8",
+   "impressions": "232"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064787353",
+   "textAsset": {
+    "text": "[From Whiteboard to Workforce]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~311064787353~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "41",
+   "impressions": "424"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314137182081",
+   "textAsset": {
+    "text": "[ OPS Black Friday. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314137182081~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "UNKNOWN"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "38"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314137182084",
+   "textAsset": {
+    "text": "[ Get 50% Off OPS ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314137182084~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "43"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314137182087",
+   "textAsset": {
+    "text": "[Hlaf price for Black Friday.]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314137182087~HEADLINE",
+   "fieldType": "HEADLINE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "31",
+   "impressions": "570"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314137182090",
+   "textAsset": {
+    "text": "Take advantage of the OPS Black Friday Deal. Grab 50% off for a whole year."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314137182090~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "39"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314137182093",
+   "textAsset": {
+    "text": "Happy Belated Black Friday. Get 50% off the best investment you'll make all year."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314137182093~DESCRIPTION",
+   "fieldType": "DESCRIPTION"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "35",
+   "impressions": "587"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314137182096",
+   "textAsset": {
+    "text": "50% Off the only job management tool built by trades, for trades."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314137182096~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "31",
+   "impressions": "633"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314137182099",
+   "textAsset": {
+    "text": "The best ROI just got even better: 50% off OPS. Get any plan at the discount."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314137182099~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "16",
+   "impressions": "38"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314170661846"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314170661846~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "9"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314248051036"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314248051036~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "5"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314248232554"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314248232554~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "20",
+   "impressions": "522"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314277187678",
+   "textAsset": {
+    "text": "Black Friday Deal: Half Off for 1 Year - No Training Videos Needed."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314277187678~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "27",
+   "impressions": "590"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314277187681",
+   "textAsset": {
+    "text": "Not \"Up to 50% Off\". 50% off, PERIOD."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314277187681~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "18"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314288992245"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314288992245~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23158440149",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS APP - Hire OPS - Performance Max - Primary"
+  },
+  "metrics": {
+   "clicks": "26",
+   "impressions": "854"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/193139522321~786762506346",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/786762506346",
+    "id": "786762506346"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314315778021",
+   "textAsset": {
+    "text": "[ Black Friday: Half Price. ]"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/193139522321~786762506346~314315778021~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "2"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "1"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "59"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "UNKNOWN"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "3"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065203636"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~311065203636~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "10"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139712",
+   "textAsset": {
+    "text": "Run an elite unit."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139712~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "14"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139715",
+   "textAsset": {
+    "text": "Stop reacting-Start operating."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139715~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "37"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139718",
+   "textAsset": {
+    "text": "Plan the work. Work the plan."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139718~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "53"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139721",
+   "textAsset": {
+    "text": "Own your operation."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139721~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "74"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139724",
+   "textAsset": {
+    "text": "Elite operators don't wing it. Neither should your crew. Job details locked in."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139724~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "43"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139727",
+   "textAsset": {
+    "text": "Transform chaos into execution. Your crew operates with elite precision. Job done."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139727~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "38"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139730",
+   "textAsset": {
+    "text": "From whiteboard chaos to elite operations. Your crew knows the mission. Every time."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139730~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "36"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139733",
+   "textAsset": {
+    "text": "Whiteboard won't cut it for elite crews. Job management built for precision work."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139733~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "52"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139736",
+   "textAsset": {
+    "text": "Always ready. Never guessing. Your crew knows what, where, when before they roll out."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322173139736~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23048237240",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "OPS iOS APP PROMOTION 2025"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "32"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/191898724936~792160326231",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792160326231",
+    "id": "792160326231"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497545",
+   "textAsset": {
+    "text": "From Whiteboard to Workforce."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/191898724936~792160326231~322301497545~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "119",
+   "impressions": "2281"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204810341",
+   "textAsset": {
+    "text": "2 Hours Saved Weekly = Saves you $4800 annually. Pays for itself immediately."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~292204810341~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "55",
+   "impressions": "1157"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/292204810344",
+   "textAsset": {
+    "text": "Zero learning curve = Zero training cost (Tested on old-timers)"
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~292204810344~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "31"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "1",
+   "impressions": "33"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "31",
+   "impressions": "166"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "39"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065203636"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311065203636~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "1"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065249776"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~311065249776~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "131",
+   "impressions": "2966"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476383",
+   "textAsset": {
+    "text": "No more \"what's my job?\"."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~321210476383~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "21",
+   "impressions": "473"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476386",
+   "textAsset": {
+    "text": "No more \"where's the job?\"."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~321210476386~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "16",
+   "impressions": "245"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476392",
+   "textAsset": {
+    "text": "No more \"send photos of job\"."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~321210476392~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "29",
+   "impressions": "439"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/321210476395",
+   "textAsset": {
+    "text": "No training needed. Done."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~321210476395~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "16",
+   "impressions": "346"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497545",
+   "textAsset": {
+    "text": "From Whiteboard to Workforce."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~322301497545~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "50",
+   "impressions": "1110"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497548",
+   "textAsset": {
+    "text": "Move past whiteboards and spreadsheets. Job management built for field operations."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~322301497548~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "54",
+   "impressions": "1426"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497551",
+   "textAsset": {
+    "text": "Scale from your truck. No office staff needed. Track jobs, schedule crew, get it done."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~322301497551~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "46",
+   "impressions": "1132"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562054~792404449611",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792404449611",
+    "id": "792404449611"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497554",
+   "textAsset": {
+    "text": "Not Jobber. Not enterprise software. Simple job management that works where you work."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562054~792404449611~322301497554~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "6"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311037838423"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311037838423~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "12"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311064548325~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "16",
+   "impressions": "553"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "UNKNOWN"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "9"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065203636"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311065203636~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "impressions": "2"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311065249776"
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~311065249776~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "6",
+   "impressions": "248"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139712",
+   "textAsset": {
+    "text": "Run an elite unit."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139712~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "3",
+   "impressions": "53"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139715",
+   "textAsset": {
+    "text": "Stop reacting-Start operating."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139715~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LEARNING"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "79",
+   "impressions": "2563"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139718",
+   "textAsset": {
+    "text": "Plan the work. Work the plan."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139718~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "GOOD"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "14",
+   "impressions": "1043"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139721",
+   "textAsset": {
+    "text": "Own your operation."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139721~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "52",
+   "impressions": "1715"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139724",
+   "textAsset": {
+    "text": "Elite operators don't wing it. Neither should your crew. Job details locked in."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139724~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "46",
+   "impressions": "1599"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139727",
+   "textAsset": {
+    "text": "Transform chaos into execution. Your crew operates with elite precision. Job done."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139727~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "42",
+   "impressions": "1459"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139730",
+   "textAsset": {
+    "text": "From whiteboard chaos to elite operations. Your crew knows the mission. Every time."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139730~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "LOW"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "30",
+   "impressions": "1421"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139733",
+   "textAsset": {
+    "text": "Whiteboard won't cut it for elite crews. Job management built for precision work."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139733~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "51",
+   "impressions": "1615"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322173139736",
+   "textAsset": {
+    "text": "Always ready. Never guessing. Your crew knows what, where, when before they roll out."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322173139736~DESCRIPTION",
+   "fieldType": "DESCRIPTION",
+   "performanceLabel": "BEST"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23453254016",
+   "advertisingChannelType": "MULTI_CHANNEL",
+   "name": "iOS APP 2026"
+  },
+  "metrics": {
+   "clicks": "22",
+   "impressions": "323"
+  },
+  "adGroupAd": {
+   "resourceName": "customers/4454506598/adGroupAds/190219562094~792522420692",
+   "ad": {
+    "resourceName": "customers/4454506598/ads/792522420692",
+    "id": "792522420692"
+   }
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/322301497545",
+   "textAsset": {
+    "text": "From Whiteboard to Workforce."
+   }
+  },
+  "adGroupAdAssetView": {
+   "resourceName": "customers/4454506598/adGroupAdAssetViews/190219562094~792522420692~322301497545~HEADLINE",
+   "fieldType": "HEADLINE",
+   "performanceLabel": "BEST"
+  }
+ }
+]

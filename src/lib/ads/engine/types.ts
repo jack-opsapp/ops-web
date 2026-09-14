@@ -5,6 +5,8 @@
  * view of the warehouse (phase 1 tables), so the validators, the brief, the
  * apply layer and the console never depend on Google's raw resource shapes.
  */
+import type { CopyKind } from "../copy-rules";
+import type { BlueprintKinds } from "./copy-kinds";
 
 export const PROPOSAL_KINDS = [
   "add_negatives",
@@ -61,6 +63,7 @@ export interface SnapshotCampaign {
   name: string;
   status: EntityStatus;
   labels: string[];
+  /** The blueprint's kind for this campaign (`copy-kinds.ts`); `legacy` by label; `other` when the blueprint does not declare it. */
   kind: CampaignKind;
   budgetResourceName: string | null;
   /** Daily budget in account currency (CAD). */
@@ -80,6 +83,12 @@ export interface SnapshotAdGroup {
   labels: string[];
   /** The landing page its ads point at (first final URL seen). */
   finalUrl: string | null;
+  /**
+   * Which copy rules its ads answer to (`copy-kinds.ts`): the blueprint's for
+   * the group, else its campaign's, and `competitor` only on a compare page.
+   * Only a `competitor` group's ads may name a competitor.
+   */
+  copyKind: CopyKind;
 }
 
 export type PinnedField =
@@ -364,6 +373,16 @@ export interface ValidationContext {
   openProposals: OpenProposalRef[];
   funnel: FunnelSignals;
   allowedFinalUrls: string[];
+  /**
+   * What the blueprint declares, or null when it cannot be read. A new ad
+   * group is judged by the rules the snapshot will give it once it exists.
+   */
+  blueprint: BlueprintKinds | null;
+  /**
+   * The disapproved-ad guardrail's open episodes. A challenger it holds for a
+   * landing page is still in place; one it holds for its copy is not.
+   */
+  guardrailPauses: Array<{ ad_resource_name: string; ad_group_resource_name: string; state: "holding" | "paused"; policy_topics: string[] }>;
   /** Structural proposals already accepted in the current run. */
   structuralAcceptedThisRun: number;
   now: Date;

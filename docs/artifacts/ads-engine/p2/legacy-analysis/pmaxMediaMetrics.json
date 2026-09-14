@@ -1,0 +1,2226 @@
+[
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "14",
+   "conversions": 0,
+   "impressions": "329"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203306731283",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1000",
+     "url": "https://tpc.googlesyndication.com/simgad/18241817910896113204"
+    }
+   },
+   "id": "203306731283",
+   "name": "OPS BY TRADES FOR TRADES free early access.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6556046466~203306731283~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "67",
+   "conversions": 0,
+   "impressions": "11670"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203306731283",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1000",
+     "url": "https://tpc.googlesyndication.com/simgad/18241817910896113204"
+    }
+   },
+   "id": "203306731283",
+   "name": "OPS BY TRADES FOR TRADES free early access.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~203306731283~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "34",
+   "conversions": 1,
+   "impressions": "4282"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203306731283",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1000",
+     "url": "https://tpc.googlesyndication.com/simgad/18241817910896113204"
+    }
+   },
+   "id": "203306731283",
+   "name": "OPS BY TRADES FOR TRADES free early access.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~203306731283~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "impressions": "867"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203306731283",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1000",
+     "url": "https://tpc.googlesyndication.com/simgad/18241817910896113204"
+    }
+   },
+   "id": "203306731283",
+   "name": "OPS BY TRADES FOR TRADES free early access.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~203306731283~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "impressions": "241"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203325669141",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1000",
+     "url": "https://tpc.googlesyndication.com/simgad/5237544781008762594"
+    }
+   },
+   "id": "203325669141",
+   "name": "OPS TATTERED.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6556046466~203325669141~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "34",
+   "conversions": 0,
+   "impressions": "5710"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203325669141",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1000",
+     "url": "https://tpc.googlesyndication.com/simgad/5237544781008762594"
+    }
+   },
+   "id": "203325669141",
+   "name": "OPS TATTERED.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~203325669141~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "26",
+   "conversions": 0,
+   "impressions": "3869"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203325669141",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1000",
+     "url": "https://tpc.googlesyndication.com/simgad/5237544781008762594"
+    }
+   },
+   "id": "203325669141",
+   "name": "OPS TATTERED.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~203325669141~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "impressions": "71"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203325669141",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1000",
+     "url": "https://tpc.googlesyndication.com/simgad/5237544781008762594"
+    }
+   },
+   "id": "203325669141",
+   "name": "OPS TATTERED.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~203325669141~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "19",
+   "conversions": 0,
+   "impressions": "480"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1890",
+     "widthPixels": "1890",
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6556046466~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "77",
+   "conversions": 2,
+   "impressions": "6402"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1890",
+     "widthPixels": "1890",
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "36",
+   "conversions": 0,
+   "impressions": "4597"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1890",
+     "widthPixels": "1890",
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "11",
+   "conversions": 0,
+   "impressions": "931"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203326113726",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1890",
+     "widthPixels": "1890",
+     "url": "https://tpc.googlesyndication.com/simgad/8670620019194389221"
+    }
+   },
+   "id": "203326113726",
+   "name": "Ops Logo black background.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~203326113726~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "10",
+   "conversions": 0,
+   "impressions": "163"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203358570916",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1024",
+     "widthPixels": "1024",
+     "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772"
+    }
+   },
+   "id": "203358570916",
+   "name": "Ops Logo Black.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6556046466~203358570916~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "87",
+   "conversions": 1,
+   "impressions": "11476"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203358570916",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1024",
+     "widthPixels": "1024",
+     "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772"
+    }
+   },
+   "id": "203358570916",
+   "name": "Ops Logo Black.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~203358570916~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "36",
+   "conversions": 1,
+   "impressions": "5915"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203358570916",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1024",
+     "widthPixels": "1024",
+     "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772"
+    }
+   },
+   "id": "203358570916",
+   "name": "Ops Logo Black.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~203358570916~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "impressions": "72"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203358570916",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1024",
+     "widthPixels": "1024",
+     "url": "https://tpc.googlesyndication.com/simgad/4445978020076314772"
+    }
+   },
+   "id": "203358570916",
+   "name": "Ops Logo Black.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~203358570916~LOGO",
+   "fieldType": "LOGO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "7",
+   "conversions": 0,
+   "impressions": "75"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203672709158",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2354",
+     "widthPixels": "4496",
+     "url": "https://tpc.googlesyndication.com/simgad/12681795250850882639"
+    }
+   },
+   "id": "203672709158",
+   "name": "welder-ops_1.91:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6556046466~203672709158~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "57",
+   "conversions": 2,
+   "impressions": "945"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203672709158",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2354",
+     "widthPixels": "4496",
+     "url": "https://tpc.googlesyndication.com/simgad/12681795250850882639"
+    }
+   },
+   "id": "203672709158",
+   "name": "welder-ops_1.91:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~203672709158~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "16",
+   "conversions": 0,
+   "impressions": "2856"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203672709158",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2354",
+     "widthPixels": "4496",
+     "url": "https://tpc.googlesyndication.com/simgad/12681795250850882639"
+    }
+   },
+   "id": "203672709158",
+   "name": "welder-ops_1.91:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~203672709158~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "5",
+   "conversions": 0,
+   "impressions": "78"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/203672709158",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2354",
+     "widthPixels": "4496",
+     "url": "https://tpc.googlesyndication.com/simgad/12681795250850882639"
+    }
+   },
+   "id": "203672709158",
+   "name": "welder-ops_1.91:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~203672709158~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "1"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204260708669",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "ENo6DAdDsTE",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "204260708669"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6556046466~204260708669~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "6"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204278737509",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "HryBzTnmw9E",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "204278737509"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6556046466~204278737509~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22281113483",
+   "name": "Performance Max- Join Ops USA/UK"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "4"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/204305940922",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "WA4_6cV_y1g",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "204305940922"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6556046466",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6556046466~204305940922~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "29"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/208794966725",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "BgQoXyeTZSw",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "208794966725"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~208794966725~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "37"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/208795074233",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "pgVZ7HC4ssQ",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "208795074233"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~208795074233~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "6",
+   "conversions": 0,
+   "impressions": "194"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/208840193322",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "rLOBTJJC_Dw",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "208840193322"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~208840193322~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "27",
+   "conversions": 0,
+   "impressions": "801"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/208845736264",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "ADNTrUnN1Zc",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "208845736264"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~208845736264~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22298439315",
+   "name": "Performance Max- Join Ops CA"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "22"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/208849166329",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "XzOYUP3rr7I",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "208849166329"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6557854415",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6557854415~208849166329~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "impressions": "38"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/209541951948",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "5HhCe-ldfFc",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "209541951948"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~209541951948~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "14"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/209547900037",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "uXhfIlFcQsI",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "209547900037"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~209547900037~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "impressions": "13"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/209547915538",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "jj2xCitVZms",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "209547915538"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~209547915538~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "impressions": "6"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/209547968026",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "2Q8RwbENB18",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "209547968026"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~209547968026~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22301586936",
+   "name": "Performance Max- Join Ops CA (Competitor SIgnal)"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "impressions": "12"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/209548366696",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "kcq--r__TzY",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "209548366696"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6558105538",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6558105538~209548366696~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "47"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/215427034037",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "HTSmnQe8ip0",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "215427034037"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~215427034037~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "51"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/215427085826",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "ZO8AFNrMYPw",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "215427085826"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~215427085826~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "impressions": "9"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/215467644499",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "GASyXnkW7Lk",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "215467644499"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~215467644499~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "impressions": "27"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/215467724689",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "wb7ayRxT2cI",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "215467724689"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~215467724689~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/22361795219",
+   "name": "Performance Max- Join Ops CA #2"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "11"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/215468650938",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "zsAvEKCsWN8",
+    "youtubeVideoTitle": "OPS APP - [ Lead your crew effectively ]"
+   },
+   "id": "215468650938"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6562017684",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6562017684~215468650938~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "impressions": "227"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220931395642",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1050",
+     "widthPixels": "2006",
+     "url": "https://tpc.googlesyndication.com/simgad/17312033512460658561"
+    }
+   },
+   "id": "220931395642",
+   "name": "pexels-lucas-d-amico-2150246673-31041771_1.9108.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~220931395642~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "impressions": "915"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/220937938227",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2038",
+     "widthPixels": "2048",
+     "url": "https://tpc.googlesyndication.com/simgad/9801749358079764467"
+    }
+   },
+   "id": "220937938227",
+   "name": "pexels-lucas-d-amico-2150246673-31041771_1.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~220937938227~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "1"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301323693948",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "858",
+     "widthPixels": "853",
+     "url": "https://tpc.googlesyndication.com/simgad/16419752207304753131"
+    }
+   },
+   "id": "301323693948",
+   "name": "photo_2025-10-20_15-09-41_1:1.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~301323693948~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "impressions": "402"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301323693948",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "858",
+     "widthPixels": "853",
+     "url": "https://tpc.googlesyndication.com/simgad/16419752207304753131"
+    }
+   },
+   "id": "301323693948",
+   "name": "photo_2025-10-20_15-09-41_1:1.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~301323693948~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "impressions": "127"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/301640128639",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "448",
+     "widthPixels": "853",
+     "url": "https://tpc.googlesyndication.com/simgad/16473687389287485011"
+    }
+   },
+   "id": "301640128639",
+   "name": "photo_2025-10-20_15-09-41_1.91:1.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~301640128639~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "impressions": "4"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038257157",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/10049728154322525556"
+    }
+   },
+   "id": "311038257157",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~311038257157~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "70"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311038257157",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1677",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/10049728154322525556"
+    }
+   },
+   "id": "311038257157",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1:1.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~311038257157~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "impressions": "292"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548325",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/4767922870580278575"
+    }
+   },
+   "id": "311064548325",
+   "name": "1x1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~311064548325~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "3"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "impressions": "591"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/311064548331",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/253789208157360622"
+    }
+   },
+   "id": "311064548331",
+   "name": "1.91x1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~311064548331~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "impressions": "52"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314172784835",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1044",
+     "widthPixels": "835",
+     "url": "https://tpc.googlesyndication.com/simgad/3474087862158674975"
+    }
+   },
+   "id": "314172784835",
+   "name": "photo_2025-10-20_15-09-41_4:5.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~314172784835~PORTRAIT_MARKETING_IMAGE",
+   "fieldType": "PORTRAIT_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "impressions": "14"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314244602372",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "eRIcOZFXi0o",
+    "youtubeVideoTitle": "OPS Job & Crew Management - [Built By Trades, For Trades.]"
+   },
+   "id": "314244602372"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314244602372~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "impressions": "23"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314244828269",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "7aHbVxbXbOE",
+    "youtubeVideoTitle": "OPS Job & Crew Management - [Built By Trades, For Trades.]"
+   },
+   "id": "314244828269"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314244828269~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "1"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314248051036",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1290",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/10680486075667428859"
+    }
+   },
+   "id": "314248051036",
+   "name": "BLACK FRIDAY OPS1x1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314248051036~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "16"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314288992245",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1000",
+     "widthPixels": "1910",
+     "url": "https://tpc.googlesyndication.com/simgad/11053584939791966146"
+    }
+   },
+   "id": "314288992245",
+   "name": "BLACK FRIDAY OPS1.91x1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314288992245~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "10",
+   "conversions": 0,
+   "impressions": "143"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317324341",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "880",
+     "widthPixels": "1677",
+     "url": "https://tpc.googlesyndication.com/simgad/7842607256396350026"
+    }
+   },
+   "id": "314317324341",
+   "name": "ChatGPT Image Oct 19, 2025, 01_08_48 PM-Recovered_1.91:1.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~314317324341~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "impressions": "686"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317395648",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "675",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/3523993582909219440"
+    }
+   },
+   "id": "314317395648",
+   "name": "1x1_1.91:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~314317395648~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "2"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317601706",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "900",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/1130220274466579928"
+    }
+   },
+   "id": "314317601706",
+   "name": "16x9_1:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314317601706~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "impressions": "53"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314317654671",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "675",
+     "widthPixels": "1290",
+     "url": "https://tpc.googlesyndication.com/simgad/875385057118249161"
+    }
+   },
+   "id": "314317654671",
+   "name": "BLACK FRIDAY OPS1x1_1.91:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314317654671~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "193"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314322606982",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "BwiEpNFs0d4",
+    "youtubeVideoTitle": "OPS Job & Crew Management - [Built By Trades, For Trades.]"
+   },
+   "id": "314322606982"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314322606982~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "impressions": "121"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314362295025",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "d_qy_GGYik8",
+    "youtubeVideoTitle": "OPS Job & Crew Management - [Built By Trades, For Trades.]"
+   },
+   "id": "314362295025"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314362295025~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23323769898",
+   "name": "Black Friday Home PAge"
+  },
+  "metrics": {
+   "clicks": "2",
+   "conversions": 0,
+   "impressions": "64"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/314362385283",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "b4KsUZ2uxiA",
+    "youtubeVideoTitle": "OPS Job & Crew Management - [Built By Trades, For Trades.]"
+   },
+   "id": "314362385283"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6641000019",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6641000019~314362385283~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "87"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330942675581",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1120",
+     "widthPixels": "900",
+     "url": "https://tpc.googlesyndication.com/simgad/5519310229390512047"
+    }
+   },
+   "id": "330942675581",
+   "name": "16x9_4:5.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330942675581~PORTRAIT_MARKETING_IMAGE",
+   "fieldType": "PORTRAIT_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "25"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330942787208",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "2532",
+     "widthPixels": "2026",
+     "url": "https://tpc.googlesyndication.com/simgad/16922239514348281092"
+    }
+   },
+   "id": "330942787208",
+   "name": "pexels-lucas-d-amico-2150246673-31041771_0.8.jpg"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330942787208~PORTRAIT_MARKETING_IMAGE",
+   "fieldType": "PORTRAIT_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "0",
+   "conversions": 0,
+   "impressions": "10"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330945874472",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1536",
+     "widthPixels": "1228",
+     "url": "https://tpc.googlesyndication.com/simgad/8163668041737608628"
+    }
+   },
+   "id": "330945874472",
+   "name": "autodetail_mike_4:5.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330945874472~PORTRAIT_MARKETING_IMAGE",
+   "fieldType": "PORTRAIT_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "12",
+   "conversions": 0,
+   "impressions": "817"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330945939323",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1536",
+     "widthPixels": "1536",
+     "url": "https://tpc.googlesyndication.com/simgad/9977691552307134900"
+    }
+   },
+   "id": "330945939323",
+   "name": "autodetail_mike_1:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330945939323~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "1",
+   "conversions": 0,
+   "impressions": "54"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330945939701",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "883",
+     "widthPixels": "704",
+     "url": "https://tpc.googlesyndication.com/simgad/1111801799066222458"
+    }
+   },
+   "id": "330945939701",
+   "name": "OPS in truck_4:5.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330945939701~PORTRAIT_MARKETING_IMAGE",
+   "fieldType": "PORTRAIT_MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "94",
+   "conversions": 0,
+   "impressions": "804"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330946001186",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "1339",
+     "widthPixels": "2558",
+     "url": "https://tpc.googlesyndication.com/simgad/10962853852508150831"
+    }
+   },
+   "id": "330946001186",
+   "name": "autodetail_mike_1.91:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330946001186~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "4",
+   "conversions": 0,
+   "impressions": "217"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330949983344",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "fzw47Tnpqa4",
+    "youtubeVideoTitle": "OPS Job Management Ltd. - Stop reacting-Start operating."
+   },
+   "id": "330949983344"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330949983344~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "18",
+   "conversions": 0,
+   "impressions": "721"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330949986137",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "qnm1lIDovYs",
+    "youtubeVideoTitle": "OPS Job Management Ltd. - Stop reacting-Start operating."
+   },
+   "id": "330949986137"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330949986137~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "41",
+   "conversions": 0,
+   "impressions": "3695"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/330950780954",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "-mxDEDvzHS4",
+    "youtubeVideoTitle": "OPS Job Management Ltd. - Stop reacting-Start operating."
+   },
+   "id": "330950780954"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~330950780954~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "24",
+   "conversions": 0,
+   "impressions": "16647"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/331041136417",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "4VA8xap8Pck",
+    "youtubeVideoTitle": "OPS Job Management Ltd. - Stop reacting-Start operating."
+   },
+   "id": "331041136417"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~331041136417~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "3",
+   "conversions": 0,
+   "impressions": "424"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/331041778090",
+   "type": "YOUTUBE_VIDEO",
+   "youtubeVideoAsset": {
+    "youtubeVideoId": "Jov0IHI32MU",
+    "youtubeVideoTitle": "OPS Job Management Ltd. - Stop reacting-Start operating."
+   },
+   "id": "331041778090"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~331041778090~YOUTUBE_VIDEO",
+   "fieldType": "YOUTUBE_VIDEO"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "9",
+   "conversions": 0,
+   "impressions": "1266"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/331079824344",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "368",
+     "widthPixels": "704",
+     "url": "https://tpc.googlesyndication.com/simgad/2963983466605034239"
+    }
+   },
+   "id": "331079824344",
+   "name": "OPS in truck_1.91:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~331079824344~MARKETING_IMAGE",
+   "fieldType": "MARKETING_IMAGE"
+  }
+ },
+ {
+  "campaign": {
+   "resourceName": "customers/4454506598/campaigns/23560304540",
+   "name": "TRY OPS 2026"
+  },
+  "metrics": {
+   "clicks": "8",
+   "conversions": 0,
+   "impressions": "687"
+  },
+  "asset": {
+   "resourceName": "customers/4454506598/assets/331079824368",
+   "type": "IMAGE",
+   "imageAsset": {
+    "fullSize": {
+     "heightPixels": "707",
+     "widthPixels": "704",
+     "url": "https://tpc.googlesyndication.com/simgad/4399452754747757751"
+    }
+   },
+   "id": "331079824368",
+   "name": "OPS in truck_1:1.png"
+  },
+  "assetGroup": {
+   "resourceName": "customers/4454506598/assetGroups/6673576643",
+   "name": "Asset Group 1"
+  },
+  "assetGroupAsset": {
+   "resourceName": "customers/4454506598/assetGroupAssets/6673576643~331079824368~SQUARE_MARKETING_IMAGE",
+   "fieldType": "SQUARE_MARKETING_IMAGE"
+  }
+ }
+]

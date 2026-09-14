@@ -15,7 +15,7 @@
  */
 import { z } from "zod";
 import blueprintJson from "../../../config/ads/blueprint.json";
-import type { RsaCandidate } from "./copy-rules";
+import { isComparePage, type CopyKind, type RsaCandidate } from "./copy-rules";
 
 /** Google's match types for the keywords we are allowed to buy. */
 export const PositiveMatchType = z.enum(["EXACT", "PHRASE"]);
@@ -77,9 +77,11 @@ export const AdGroupSchema = z
      * Which copy rules this group's ads answer to, when they differ from the
      * campaign's. Intent lives at the ad group, not the campaign: `CORE · CA`
      * is a core campaign, but its `Switching` group bids on competitor terms
-     * and lands on a compare page, so its ads may name the competitor. Only
-     * allowed on a group whose landing page is a `/compare/` page — see
-     * `assertBlueprintCoherent`.
+     * and lands on a compare page, so its ads may name the competitor. The
+     * engine reads this too (`engine/copy-kinds.ts`), so a challenger it writes
+     * answers to the same rules as the ads built here. Competitor copy, claimed
+     * here or inherited from a competitor campaign, is only allowed on a group
+     * whose landing page is a `/compare/` page — see `assertBlueprintCoherent`.
      */
     copyKind: z.enum(["brand", "core", "competitor"]).optional(),
     keywords: z.array(KeywordSchema).min(1),
@@ -99,6 +101,131 @@ export const BiddingSchema = z
   .object({
     type: z.enum(["MANUAL_CPC", "MAXIMIZE_CLICKS"]),
     cpcBidCeilingMicros: z.string().regex(/^\d+$/).optional(),
+  })
+  .strict();
+
+// ─── Assets (sitelinks, callouts, snippet, prices, name, logo, images) ───────
+
+export const SitelinkSchema = z
+  .object({
+    text: z.string().min(1).max(25),
+    description1: z.string().min(1).max(35),
+    description2: z.string().min(1).max(35),
+    finalUrl: z.string().url(),
+    source: z.string().optional(),
+  })
+  .strict();
+
+export const CalloutSchema = z
+  .object({ text: z.string().min(1).max(25), source: z.string().optional() })
+  .strict();
+
+export const SnippetSchema = z
+  .object({
+    header: z.string().min(1),
+    values: z.array(z.string().min(1).max(25)).min(3).max(10),
+    source: z.string().optional(),
+  })
+  .strict();
+
+export const PriceSchema = z
+  .object({
+    type: z.enum(["BRANDS", "EVENTS", "LOCATIONS", "NEIGHBORHOODS", "PRODUCT_CATEGORIES", "PRODUCT_TIERS", "SERVICES", "SERVICE_CATEGORIES", "SERVICE_TIERS"]),
+    currency: z.string().length(3),
+    unit: z.enum(["PER_HOUR", "PER_DAY", "PER_WEEK", "PER_MONTH", "PER_YEAR", "PER_NIGHT"]),
+    items: z
+      .array(
+        z
+          .object({
+            header: z.string().min(1).max(25),
+            description: z.string().min(1).max(25),
+            price: z.number().positive(),
+            finalUrl: z.string().url(),
+          })
+          .strict()
+      )
+      .min(3)
+      .max(8),
+    source: z.string().optional(),
+  })
+  .strict();
+
+/**
+ * Google's asset-automation types. Not every type applies to every campaign:
+ * Search refuses GENERATE_IMAGE_ENHANCEMENT with ENUM_VALUE_NOT_PERMITTED
+ * (dry run, 2026-09-10) — it is a Performance Max setting.
+ */
+export const AUTOMATION_TYPES = [
+  "TEXT_ASSET_AUTOMATION",
+  "GENERATE_VERTICAL_YOUTUBE_VIDEOS",
+  "GENERATE_SHORTER_YOUTUBE_VIDEOS",
+  "GENERATE_LANDING_PAGE_PREVIEW",
+  "GENERATE_LANDING_PAGE_TEXT",
+  "GENERATE_ENHANCED_YOUTUBE_VIDEOS",
+  "GENERATE_IMAGE_ENHANCEMENT",
+  "GENERATE_IMAGE_EXTRACTION",
+  "GENERATE_DESIGN_VERSIONS_FOR_IMAGES",
+  "FINAL_URL_EXPANSION_TEXT_ASSET_AUTOMATION",
+  "GENERATE_VIDEOS_FROM_OTHER_ASSETS",
+  "GENERATE_ANIMATED_IMAGES_FROM_OTHER_ASSETS",
+] as const;
+
+export const CampaignAssetsSchema = z
+  .object({
+    sitelinks: z.array(SitelinkSchema).max(20),
+    callouts: z.array(CalloutSchema).max(20),
+    snippet: SnippetSchema.optional(),
+    price: PriceSchema.nullable().optional(),
+    businessName: z.string().min(1).max(25).optional(),
+    /** A key into the blueprint's `images`. */
+    businessLogo: z.string().optional(),
+    /** Keys into the blueprint's `images`, attached as search ad images. */
+    images: z.array(z.string()).default([]),
+    automation: z
+      .record(z.enum(AUTOMATION_TYPES), z.enum(["OPTED_IN", "OPTED_OUT"]))
+      .optional(),
+  })
+  .strict();
+
+/**
+ * An image the account may show. Either an asset already in the account, or a
+ * file in the repo to upload. `approvedBy` is not decoration: Jackson's rule
+ * (2026-09-10) is that no image reaches an ad until he has seen it, and the
+ * schema will not describe one without that record.
+ */
+export const ImageSchema = z
+  .object({
+    existingAssetId: z.string().regex(/^\d+$/).optional(),
+    file: z.string().min(1).optional(),
+    name: z.string().min(1),
+    aspect: z.enum(["1:1", "1.91:1", "logo"]),
+    approvedBy: z.string().min(1),
+    approvedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    why: z.string().optional(),
+  })
+  .strict()
+  .refine((image) => Boolean(image.existingAssetId) !== Boolean(image.file), {
+    message: "An image is either an existing asset or a file to upload, not both and not neither.",
+  });
+
+/**
+ * Things the blueprint once owned and now retires. Retired means paused —
+ * nothing in the account is ever removed.
+ */
+export const RetireSchema = z
+  .object({
+    adIds: z.array(z.string().regex(/^\d+$/)).default([]),
+    customerAssets: z
+      .array(
+        z
+          .object({
+            assetId: z.string().regex(/^\d+$/),
+            fieldType: z.string().min(1),
+            reason: z.string().min(1),
+          })
+          .strict()
+      )
+      .default([]),
   })
   .strict();
 
@@ -139,6 +266,7 @@ export const CampaignSchema = z
      */
     campaignNegatives: z.array(NegativeSchema).default([]),
     adGroups: z.array(AdGroupSchema).min(1),
+    assets: CampaignAssetsSchema.optional(),
   })
   .strict();
 
@@ -161,6 +289,8 @@ export const BlueprintSchema = z
     sharedNegativeLists: z.array(SharedNegativeListSchema),
     labels: z.array(z.string().min(1)),
     campaigns: z.array(CampaignSchema).min(1),
+    images: z.record(z.string(), ImageSchema).default({}),
+    retire: RetireSchema.default({ adIds: [], customerAssets: [] }),
   })
   .strict();
 
@@ -169,6 +299,8 @@ export type BlueprintCampaign = z.infer<typeof CampaignSchema>;
 export type BlueprintAdGroup = z.infer<typeof AdGroupSchema>;
 export type BlueprintRsa = z.infer<typeof RsaSchema>;
 export type BlueprintNegative = z.infer<typeof NegativeSchema>;
+export type BlueprintCampaignAssets = z.infer<typeof CampaignAssetsSchema>;
+export type BlueprintImage = z.infer<typeof ImageSchema>;
 
 /** The blueprint's ad shape as the copy rules want it. */
 export function toRsaCandidate(ad: BlueprintRsa): RsaCandidate {
@@ -189,7 +321,9 @@ export class BlueprintError extends Error {
       | "DUPLICATE_CAMPAIGN"
       | "DUPLICATE_AD_GROUP"
       | "MISSING_CPC_CEILING"
-      | "COMPETITOR_COPY_WITHOUT_COMPARE_PAGE",
+      | "COMPETITOR_COPY_WITHOUT_COMPARE_PAGE"
+      | "DUPLICATE_AD_ROLE"
+      | "UNKNOWN_IMAGE",
     message: string
   ) {
     super(message);
@@ -199,9 +333,11 @@ export class BlueprintError extends Error {
 
 /**
  * Structural checks zod cannot express: names are unique, every referenced
- * negative list exists, and Maximize Clicks always carries a ceiling — an
+ * negative list exists, Maximize Clicks always carries a ceiling — an
  * uncapped Maximize Clicks campaign is how a $50/day account spends $50 on
- * four clicks.
+ * four clicks — a group holds at most one control and one challenger,
+ * because a test judges exactly one against the other, and a group whose ads
+ * may name a competitor lands on a page that compares.
  */
 export function assertBlueprintCoherent(blueprint: Blueprint): void {
   const listNames = new Set(blueprint.sharedNegativeLists.map((l) => l.name));
@@ -235,23 +371,47 @@ export function assertBlueprintCoherent(blueprint: Blueprint): void {
           `"${campaign.name}" has two ad groups named "${group.name}".`
         );
       seenGroups.add(group.name);
+      for (const role of ["control", "challenger"] as const)
+        if (group.ads.filter((ad) => ad.role === role).length > 1)
+          throw new BlueprintError(
+            "DUPLICATE_AD_ROLE",
+            `"${campaign.name}" › "${group.name}" has two ${role} ads. A group tests one challenger against one control.`
+          );
+      // Claimed or inherited: the engine judges a competitor group off a
+      // compare page as core, so the file may not describe one.
       if (
-        group.copyKind === "competitor" &&
-        !new URL(group.finalUrl).pathname.startsWith("/compare/")
+        copyKindFor(campaign, group) === "competitor" &&
+        !isComparePage(group.finalUrl)
       )
         throw new BlueprintError(
           "COMPETITOR_COPY_WITHOUT_COMPARE_PAGE",
-          `"${campaign.name}" › "${group.name}" claims competitor copy but lands on ${group.finalUrl}. A competitor name may only run where the page actually compares.`
+          `"${campaign.name}" › "${group.name}" answers to competitor copy but lands on ${group.finalUrl}. A competitor name may only run where the page actually compares.`
         );
     }
   }
 }
 
+/** Every image a campaign names must be one the blueprint defines — and therefore approved. */
+export function assertImagesKnown(blueprint: Blueprint): void {
+  for (const campaign of blueprint.campaigns) {
+    const keys = [
+      ...(campaign.assets?.images ?? []),
+      ...(campaign.assets?.businessLogo ? [campaign.assets.businessLogo] : []),
+    ];
+    for (const key of keys)
+      if (!blueprint.images[key])
+        throw new BlueprintError(
+          "UNKNOWN_IMAGE",
+          `"${campaign.name}" uses image "${key}", which is not in the blueprint's approved images.`
+        );
+  }
+}
+
 /** Which copy rules an ad group's ads answer to. */
 export function copyKindFor(
-  campaign: BlueprintCampaign,
-  group: BlueprintAdGroup
-): "brand" | "core" | "competitor" {
+  campaign: Pick<BlueprintCampaign, "kind">,
+  group: Pick<BlueprintAdGroup, "copyKind">
+): CopyKind {
   return group.copyKind ?? campaign.kind;
 }
 
@@ -266,6 +426,7 @@ export function parseBlueprint(input: unknown): Blueprint {
         .join("; ")
     );
   assertBlueprintCoherent(parsed.data);
+  assertImagesKnown(parsed.data);
   return parsed.data;
 }
 

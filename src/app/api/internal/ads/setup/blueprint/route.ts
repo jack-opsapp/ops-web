@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadBlueprint } from "@/lib/ads/blueprint";
 import { applyBlueprint } from "@/lib/ads/blueprint-apply";
-import { googleGateway, warehouseRepository } from "@/lib/ads/blueprint-runtime";
+import { googleGateway, imageLoader, warehouseRepository } from "@/lib/ads/blueprint-runtime";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -40,11 +40,13 @@ export async function POST(request: NextRequest) {
   const validateOnly = request.nextUrl.searchParams.get("validateOnly") !== "0";
 
   try {
+    const blueprint = loadBlueprint();
     const outcome = await applyBlueprint({
-      blueprint: loadBlueprint(),
+      blueprint,
       gateway: googleGateway(),
       repository: warehouseRepository(),
       validateOnly,
+      loadImage: imageLoader(blueprint),
     });
     return NextResponse.json(outcome, {
       status: outcome.failures.length > 0 ? 422 : 200,
