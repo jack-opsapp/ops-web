@@ -1,0 +1,63 @@
+{
+  "baseline_commit": "65adbfd06",
+  "attribution_commit": "e4ef9169dcd946a8e2c727358aea3fae10164d88",
+  "files": {
+    "src/app/(auth)/register/page.tsx": {
+      "sha256": "4225310b997682deb843c6fd67ef7c9b283bff33d58df5ad14f9b717b2e84c65",
+      "bytes": 15106
+    },
+    "src/app/(auth)/layout.tsx": {
+      "sha256": "9466e686c2c1ac694af81ab75426f8cf304dff5bfdc419a52e11a91ad61b5c82",
+      "bytes": 6863
+    },
+    "src/app/api/auth/sync-user/route.ts": {
+      "sha256": "dfa2282bd30277a6e2f84ce9aaa0ff02bc55288205e9309e323293b025271420",
+      "bytes": 19131
+    },
+    "src/app/api/setup/progress/route.ts": {
+      "sha256": "534048a07d946efaaf5eb551f4b3110eaf00d1ba546e8c49051ca7ee38333590",
+      "bytes": 17688
+    },
+    "src/lib/pmf/experiment-attribution.ts": {
+      "sha256": "ccfe925d06fb4c8fc54a703833f4d6c454e6be158c0a6f74c35cf30e0002186c",
+      "bytes": 7401
+    },
+    "src/i18n/dictionaries/en/auth.json": {
+      "sha256": "a56bbae0d5d81e098f036984cc7936245ff276fa8aa8fe8a4dbce23c7d696404",
+      "bytes": 6876
+    },
+    "src/i18n/dictionaries/es/auth.json": {
+      "sha256": "1550b1ac18314fd139f39cc7ba4bec270f0139f6c25d27478a3ad61075acf68b",
+      "bytes": 7781
+    },
+    ".next-dev/static/chunks/app/layout.js": {
+      "sha256": "954629016b7ce0b9f6df507516efdf9ae888dcea0204e3d953ccb91606b17abe",
+      "bytes": 6909663
+    }
+  },
+  "fresh_candidate_layout": {
+    "sha256": "b2d8a6a1c84aac114d354f832436f54482c1afc590ce587eb83e7ddacbad46a6",
+    "bytes": 6909643
+  },
+  "final_source_head": "b9b5196c3e08ac15fd295517bba1d7f75848560f",
+  "final_source_files": {
+    "src/app/(auth)/register/page.tsx": "4225310b997682deb843c6fd67ef7c9b283bff33d58df5ad14f9b717b2e84c65",
+    "src/app/api/auth/sync-user/route.ts": "dfa2282bd30277a6e2f84ce9aaa0ff02bc55288205e9309e323293b025271420",
+    "src/app/api/cron/analytics-health/route.ts": "b8696601f138724e1eae7f46ce53aaa71b4dfb45958e1da7a7836aec044bc018",
+    "src/app/api/setup/progress/route.ts": "534048a07d946efaaf5eb551f4b3110eaf00d1ba546e8c49051ca7ee38333590",
+    "src/i18n/dictionaries/en/auth.json": "a56bbae0d5d81e098f036984cc7936245ff276fa8aa8fe8a4dbce23c7d696404",
+    "src/i18n/dictionaries/es/auth.json": "1550b1ac18314fd139f39cc7ba4bec270f0139f6c25d27478a3ad61075acf68b",
+    "src/lib/api/services/notification-service.ts": "436a9a7011e2a506acab96ab74f3f953593f7d3be9c3692578caf29c3a2233d1",
+    "src/lib/notifications/notification-meta.ts": "d5e974bb64d133da5eeb4714e04972c1baa9282d7bdab6aa699826613116142a",
+    "src/lib/pmf/experiment-attribution.ts": "065408ba4095a349bf82864bfa8d0f903a4c36a8ab4b8a5d1d9dcfb8d52bed73",
+    "src/lib/pmf/tryops-health-delivery.ts": "92e26a3382e2b98afc162e56752382471a0117c8132e7685f2da9a564e4bed55",
+    "tests/integration/setup-experiment-attribution.test.ts": "195ca162538be98536c95876fda6c32a3cb27c60e2448c3d9d0029b77c27b74c",
+    "tests/integration/sync-experiment-attribution.test.ts": "4e94156f479f59b35883dc34c4bb49da08b3cb3243dc613e71f1a6588bb6968b",
+    "tests/integration/sync-user-creation.test.ts": "b1f7d5db24d3a515a665097c073a3af7a9de3d16a7d7e744454383af454ca38c",
+    "tests/integration/tryops-health-cron.test.ts": "f7455446c2d558637593abb41c7f3a9680c5396830f5e777ad4c1aefdc30f8c0",
+    "tests/unit/components/register-continuity.test.tsx": "5755062334853906c447365184c2e0e2d1ee84b0d3ffaf352329b468052fbf53",
+    "tests/unit/pmf/experiment-attribution.test.ts": "3e1fdb7d944cb0b0712058d12095893412532d267ed5b536745ec8ce42c7cfc6",
+    "tests/unit/pmf/experiment-recovery.test.ts": "c7a70aef2ef7755b210a3f1659183a474c81d4427f000b4ddbd63869715862d6",
+    "tests/unit/pmf/tryops-health-delivery.test.ts": "121bc8ef7a2f8194f3d4f070a8d94cf00945303bc88c6e190e4ea60ff59a4190"
+  }
+}

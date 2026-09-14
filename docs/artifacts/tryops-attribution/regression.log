@@ -1,0 +1,78 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/tryops-conversion-web
+
+ ✓ tests/unit/pmf/utm-capture.test.ts (41 tests) 25ms
+stderr | tests/integration/sync-user-update-truthfulness.test.ts
+[2026-09-14T21:35:59.747Z]  @firebase/auth: Auth (11.10.0): INTERNAL ASSERTION FAILED: Expected a class definition
+
+stderr | tests/integration/sync-user-update-truthfulness.test.ts > POST /api/auth/sync-user — update truthfulness > returns 500 when an identity-bearing update is rejected
+[sync-user] Failed to update user auth fields: permission denied for function agent_p2_optional_canonical_text {
+  rowId: '8cd7056e-85d9-4aea-899e-71614c80adb7',
+  carriesIdentity: true
+}
+
+stderr | tests/integration/sync-user-update-truthfulness.test.ts > POST /api/auth/sync-user — update truthfulness > returns 200 with the TRUE stored row when a cosmetic-only update is rejected
+[sync-user] Failed to update user auth fields: permission denied for function agent_p2_optional_canonical_text {
+  rowId: '11111111-1111-4111-8111-111111111111',
+  carriesIdentity: false
+}
+
+stderr | tests/integration/sync-user-update-truthfulness.test.ts > POST /api/auth/sync-user — update truthfulness > returns 500 when the identity-bearing update matches zero rows
+[sync-user] Failed to update user auth fields: no rows returned {
+  rowId: '8cd7056e-85d9-4aea-899e-71614c80adb7',
+  carriesIdentity: true
+}
+
+ ✓ tests/integration/sync-user-update-truthfulness.test.ts (5 tests) 10ms
+stderr | tests/integration/setup-progress-write-truthfulness.test.ts > POST /api/setup/progress — write truthfulness > fails the identity step when the users update is rejected
+[setup/progress] identity update failed: permission denied for function agent_p2_optional_canonical_text { userId: '11111111-1111-4111-8111-111111111111' }
+
+stderr | tests/integration/setup-progress-write-truthfulness.test.ts > POST /api/setup/progress — write truthfulness > fails the company step when the companies update is rejected
+[setup/progress] company update failed: permission denied for function agent_p2_optional_canonical_text { companyId: '22222222-2222-4222-8222-222222222222' }
+
+stderr | tests/integration/setup-progress-write-truthfulness.test.ts > POST /api/setup/progress — write truthfulness > does not claim success when the setup_progress checkpoint is rejected
+[setup/progress] setup_progress write failed: permission denied for function agent_p2_optional_canonical_text { userId: '11111111-1111-4111-8111-111111111111', step: 'identity' }
+
+stderr | tests/integration/setup-progress-write-truthfulness.test.ts > company save server outcome telemetry > records a failed checkpoint even when company creation itself succeeded
+[setup/progress] setup_progress write failed: permission denied for function agent_p2_optional_canonical_text { userId: '11111111-1111-4111-8111-111111111111', step: 'company' }
+
+stderr | tests/integration/setup-progress-write-truthfulness.test.ts > company save server outcome telemetry > never turns successful setup into failure when telemetry storage rejects the event
+[setup/analytics] Outcome write failed { code: '42501' }
+
+ ✓ tests/integration/setup-progress-write-truthfulness.test.ts (17 tests) 24ms
+stderr | tests/integration/sync-user-creation.test.ts
+[2026-09-14T21:36:00.846Z]  @firebase/auth: Auth (11.10.0): INTERNAL ASSERTION FAILED: Expected a class definition
+
+ ✓ tests/integration/sync-user-creation.test.ts (14 tests) 21ms
+ ✓ tests/integration/setup-progress-owner-role.test.ts (11 tests) 15ms
+stderr | tests/integration/sync-user-identity-guard.test.ts
+[2026-09-14T21:36:01.845Z]  @firebase/auth: Auth (11.10.0): INTERNAL ASSERTION FAILED: Expected a class definition
+
+stderr | tests/integration/sync-user-identity-guard.test.ts > POST /api/auth/sync-user — CRIT-3 identity guard > refuses an unverified email-only match against a row bound to a DIFFERENT firebase_uid (403)
+[sync-user] Refused unverified email-only match against a row bound to a different identity { rowId: 'victim' }
+
+stderr | tests/integration/sync-user-identity-guard.test.ts > POST /api/auth/sync-user — CRIT-3 identity guard > refuses an unverified email-only match against a row bound to a DIFFERENT auth_id (403)
+[sync-user] Refused unverified email-only match against a row bound to a different identity { rowId: 'victim2' }
+
+ ✓ tests/integration/sync-user-identity-guard.test.ts (4 tests) 10ms
+ ✓ tests/unit/components/setup-save-navigation.test.tsx (5 tests) 334ms
+ ✓ tests/unit/pmf/experiment-attribution.test.ts (37 tests) 19ms
+ ✓ tests/unit/analytics/setup-save-client.test.ts (17 tests) 13ms
+ ✓ tests/unit/pmf/experiment-recovery.test.ts (8 tests) 25ms
+ ✓ tests/unit/components/register-continuity.test.tsx (9 tests) 265ms
+stderr | tests/integration/sync-experiment-attribution.test.ts
+[2026-09-14T21:36:05.953Z]  @firebase/auth: Auth (11.10.0): INTERNAL ASSERTION FAILED: Expected a class definition
+
+ ✓ tests/integration/sync-experiment-attribution.test.ts (7 tests) 17ms
+ ✓ tests/unit/pmf/record-trial-attribution.test.ts (8 tests) 5ms
+stderr | tests/unit/analytics/signup-capture-client.test.ts
+[2026-09-14T21:36:06.985Z]  @firebase/auth: Auth (11.10.0): INTERNAL ASSERTION FAILED: Expected a class definition
+
+ ✓ tests/unit/analytics/signup-capture-client.test.ts (2 tests) 16ms
+ ✓ tests/integration/setup-experiment-attribution.test.ts (11 tests) 118ms
+
+ Test Files  15 passed (15)
+      Tests  196 passed (196)
+   Start at  14:35:57
+   Duration  9.55s (transform 362ms, setup 1.58s, collect 1.23s, tests 916ms, environment 3.32s, prepare 552ms)

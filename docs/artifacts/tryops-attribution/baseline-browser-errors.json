@@ -1,0 +1,38 @@
+[
+  {
+    "level": "error",
+    "message": "SyntaxError: Invalid or unexpected token",
+    "timestamp": "2026-09-14T21:25:27.666Z",
+    "url": "http://127.0.0.1:3212/_next/static/chunks/app/layout.js"
+  },
+  {
+    "level": "warn",
+    "message": "You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/",
+    "timestamp": "2026-09-14T21:25:27.769Z",
+    "url": "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+  },
+  {
+    "level": "warn",
+    "message": "You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/",
+    "timestamp": "2026-09-14T21:26:56.203Z",
+    "url": "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+  },
+  {
+    "level": "warn",
+    "message": "./src/lib/supabase/helpers.ts\nModule not found: Can't resolve 'async_hooks' in '/Users/jacksonsweet/Projects/OPS/.worktrees/tryops-conversion-web/src/lib/supabase'",
+    "timestamp": "2026-09-14T21:26:56.561Z",
+    "url": "webpack-internal:///(app-pages-browser)/../canpro-cloud-ops-oauth-20260910/node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js"
+  },
+  {
+    "level": "warn",
+    "message": "You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/",
+    "timestamp": "2026-09-14T21:49:20.484Z",
+    "url": "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+  },
+  {
+    "level": "warn",
+    "message": "./src/lib/supabase/helpers.ts\nModule not found: Can't resolve 'async_hooks' in '/private/tmp/tryops-register-baseline-65adbfd06/src/lib/supabase'",
+    "timestamp": "2026-09-14T21:49:20.901Z",
+    "url": "webpack-internal:///(app-pages-browser)/../../../Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910/node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js"
+  }
+]
