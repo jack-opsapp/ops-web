@@ -27,6 +27,7 @@ for (const name of [
   "tests/sql/catalog-trial-live-oauth.sql",
   "supabase/migrations/20260908221635_agent_catalog_authoring.sql",
   "supabase/migrations/20260909015000_catalog_trial_oauth.sql",
+  "supabase/migrations/20260910180330_mcp_oauth_canpro_cloud_callback.sql",
   "supabase/migrations/20260910233314_agent_deck_geometry_v23_exposure.sql",
 ]) {
   const text = read(name);
