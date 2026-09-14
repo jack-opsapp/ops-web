@@ -22,6 +22,7 @@ done
 psql_local -f "$scratch/oauth.sql" > "$logs/oauth.log" 2>&1
 if [[ "$mode" == green ]]; then
   psql_local -f "$root/supabase/migrations/20260914200524_site_visit_oauth_trial.sql" >> "$logs/migrations.log" 2>&1
+  psql_local -f "$root/supabase/migrations/20260914204207_site_visit_trial_subject_indexes.sql" >> "$logs/migrations.log" 2>&1
 fi
 psql_local -f "$root/tests/sql/site-visit-trial-runtime.sql" > "$logs/runtime.log" 2>&1
 rg 'PASS:' "$logs/runtime.log"
