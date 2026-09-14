@@ -1,0 +1,35 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-08-22.mcp-exposure.v1' tool IDs 1`] = `"e89787c4c7034dd2748ff6b651991c2891af56374d115d18313c5b569a579a09"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-08-29.mcp-exposure.v2' tool IDs 1`] = `"88e22db9f3ed34e21f8d35467c35a63e650cd8436375529a2f45ff3d78b86ab6"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-08-30.mcp-exposure.v3' tool IDs 1`] = `"3ae8a11506088f80ee3205502bd9c6e68b895eb22e9cdcfcdb272dd4f25ecb49"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-08-31.mcp-exposure.v4' tool IDs 1`] = `"b316eeed26a52bcf52e21314d6d9aa09e6fb11a59c46769b3e0bc7975af25169"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-08-31.mcp-exposure.v5' tool IDs 1`] = `"1e7512c16418b9b3c292f5cefa03cbeb804668a85a03d151b0f5ff948fd779ad"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-01.mcp-exposure.v6' tool IDs 1`] = `"bd7ff05b9a774c12dc9cc3bb4d2713e5bdef7e5d53db1fac803642157e123927"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-01.mcp-exposure.v7' tool IDs 1`] = `"0acfcebac3ff1d0b20971dcd8cb6924fb2acc19919059d7f650614b29905bfc1"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-01.mcp-exposure.v8' tool IDs 1`] = `"e976688b6e6503edea84c245aa094c87c9c5fd9bf14b6c6eefd0d1bf51977d6c"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-01.mcp-exposure.v9' tool IDs 1`] = `"da1e6a4dee1e05cb1c5c5cf07f3dc7bdbb17f46bd1dd45a4e384c789d10879eb"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-02.mcp-exposure.v10' tool IDs 1`] = `"d38b854e629ea01d052c457c583f0f762994d82ae45c3bf248da375efd59c941"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-03.mcp-exposure.v11' tool IDs 1`] = `"e41a8a1e6b4bc84a265eb8ad053bda91eecc432e78b369532badeea5b2f0fa17"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-03.mcp-exposure.v12' tool IDs 1`] = `"3c16ebd36c199392c9ccdc7874edf136ce94c5da7cfed4a23c940891f6d184ba"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-03.mcp-exposure.v13' tool IDs 1`] = `"880950742f9a72e346dea0efd8dd04216c7c60f5c4c1e9b618dd771327aef91f"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-04.mcp-exposure.v14' tool IDs 1`] = `"26af3088d0841b165c5ee3c6cc5229b0e4e0f21aeabe6a9338bca328181d32b6"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-07.mcp-exposure.v17' tool IDs 1`] = `"f0a9ed737935c9aa1bdffe30e250aefc9fe63ede449b51b34a39469102352be8"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-08.mcp-exposure.v19' tool IDs 1`] = `"8e07b890501203ab4a3b3cc23a6132c9c791f7066377e970c2a50eded11e6b7b"`;
+
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-10.mcp-exposure.v23' tool IDs 1`] = `"83de507c862ed3e4980d05ba54dd37710f2b239371858adbd615a3db1ed2d2c0"`;

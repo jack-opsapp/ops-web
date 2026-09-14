@@ -8,7 +8,7 @@ import { actorFixture, resultFixture, REQUEST, PROOF, ACTOR_ID, COMPANY_ID } fro
 describe("schedule change domain boundary", () => {
   it("remains absent from selectable discovery and preserves the active exposure", () => {
     expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V16.revision]).toBeUndefined();
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-10.mcp-exposure.v23");
     expect(MCP_EXPOSURE_V16.toolIds).not.toContain("prepare_customer_message");
     expect(MCP_EXPOSURE_V16.toolIds).not.toContain("commit_schedule_change");
   });

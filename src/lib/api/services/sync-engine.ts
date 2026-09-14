@@ -109,6 +109,7 @@ import {
   buildLeadRoutingIdentity,
   extractExternalIntakeEmailCorrelationMarker,
   ingestionOperatorIdentityFromAuthoritative,
+  isPendingStaffAlias,
   quarantinePendingStaffAlias,
   resolvePersistedEmailAuthorship,
   resolvePersistedEmailDirection,
@@ -117,6 +118,7 @@ import {
   type StaffAliasCandidate,
 } from "@/lib/email/email-ingestion-routing";
 import { resolveExternalIntakeEmailCorrelation } from "@/lib/external-api/intake/email-correlation-routing";
+import { resolveInboundReferralContact } from "@/lib/email/email-referral-contact";
 import { persistStaffEmailAliasCandidate } from "@/lib/email/staff-email-alias";
 import {
   logInvalidProviderEmailIds,
@@ -2034,8 +2036,9 @@ export function opportunityRelationshipFactsFromLeadEnrichment(
     description: facts.description ?? email.bodyText ?? email.snippet ?? null,
     subject: email.subject,
     providerThreadId: facts.providerThreadId,
-    participantEmails,
-    forwardedParticipantEmails,
+    participantEmails: facts.source === "referral" ? [] : participantEmails,
+    forwardedParticipantEmails:
+      facts.source === "referral" ? [] : forwardedParticipantEmails,
     sourcePlatform: facts.sourcePlatform,
     phaseCEnabled: false,
   };
@@ -3679,7 +3682,11 @@ function inboundRoutingIdentity(
     },
     ingestionOperator
   );
-  if (!forceMessageScopedTransport) return identity;
+  if (
+    !forceMessageScopedTransport &&
+    !resolveInboundReferralContact(email, ingestionOperator)
+  )
+    return identity;
   return {
     ...identity,
     sourceKey: `email:${connection.provider.trim().toLowerCase()}:${connection.id}:message:${email.id}`,
@@ -3689,6 +3696,25 @@ function inboundRoutingIdentity(
 }
 
 // ─── Inbound / Outbound Processors ─────────────────────────────────────────
+
+function applyReferralContactToFacts(
+  facts: LeadEnrichmentFacts,
+  email: NormalizedEmail,
+  operator: IngestionOperatorIdentity
+): void {
+  const referral = resolveInboundReferralContact(email, operator);
+  if (!referral) return;
+  facts.contactName = referral.name;
+  facts.contactEmail = referral.email;
+  // The introducer's signature and company are not the referred customer's facts.
+  facts.contactPhone = null;
+  facts.companyName = null;
+  facts.address = null;
+  facts.fieldEvidence = undefined;
+  facts.source = "referral";
+  facts.sourcePlatform = null;
+  facts.extractionSource = "referral_recipient";
+}
 
 interface UnmatchedInboundContext {
   customerContext?: EmailCustomerContext;
@@ -3782,8 +3808,23 @@ async function processInboundEmail(
           email.threadId
         )
       : preloadedExistingActivity;
-  if (isEmailWorkRoutingReceipt(existingActivity)) {
-    await recordActivityCorrespondenceEvent(email, connection, null, existingActivity?.id ?? null, "inbound");
+  const mayRecoverUnlinkedReview = Boolean(
+    recoveryActorUserId &&
+    existingActivity?.match_confidence === "work_intent_review" &&
+    !existingActivity.opportunity_id &&
+    !existingActivity.project_id
+  );
+  if (
+    isEmailWorkRoutingReceipt(existingActivity) &&
+    !mayRecoverUnlinkedReview
+  ) {
+    await recordActivityCorrespondenceEvent(
+      email,
+      connection,
+      null,
+      existingActivity?.id ?? null,
+      "inbound"
+    );
     return null;
   }
   if (
@@ -3845,6 +3886,11 @@ async function processInboundEmail(
       applyResolvedContactToFacts(
         existingEnrichmentFacts,
         existingResolvedContact
+      );
+      applyReferralContactToFacts(
+        existingEnrichmentFacts,
+        email,
+        ingestionOperator
       );
     } catch (err) {
       throw new Error(
@@ -3927,6 +3973,11 @@ async function processInboundEmail(
       contactFormSubmitter
     );
     applyResolvedContactToFacts(inboundEnrichmentFacts, resolvedInboundContact);
+    applyReferralContactToFacts(
+      inboundEnrichmentFacts,
+      email,
+      ingestionOperator
+    );
   } catch (err) {
     throw new Error(
       `[sync-engine] contact hygiene failed: ${err instanceof Error ? err.message : "unknown error"}`
@@ -4291,6 +4342,75 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         address: deterministicFacts.address ?? classified.address,
       });
       if (workRouting.action !== "sales") {
+        const continuation =
+          classified.workIntent === "uncertain" &&
+          workRouting.action === "review" &&
+          customerContext.projects.length === 0
+            ? await findOpportunityRelationshipMatch({
+                supabase: requireSupabase(),
+                companyId: input.connection.companyId,
+                connectionId: null,
+                providerThreadId: null,
+                facts: {
+                  ...opportunityRelationshipFactsFromLeadEnrichment(
+                    deterministicFacts,
+                    effectiveEmail,
+                    input.connection,
+                    input.profile,
+                    await getCachedOperatorIdentity(input.connection)
+                  ),
+                  participantEmails: [],
+                  forwardedParticipantEmails: [],
+                  activeContactOnly: true,
+                },
+              })
+            : null;
+        if (continuation?.action === "link") {
+          const linked =
+            !routingIdentity.mayInheritProviderThread ||
+            (await linkThread(
+              continuation.opportunityId,
+              classifiedEmail.threadId,
+              input.connection.id
+            ));
+          if (!linked) continue;
+          const activity = await createOrAdoptInboundActivity({
+            email: effectiveEmail,
+            connection: input.connection,
+            opportunityId: continuation.opportunityId,
+            extra: {
+              matchConfidence: continuation.confidence,
+              ...(!routingIdentity.mayInheritProviderThread
+                ? { skipThreadState: true }
+                : {}),
+            },
+            executionPolicy: input.executionPolicy,
+            existingOrphanActivity,
+            recoveryActorUserId: input.recoveryActorUserId,
+            syncLockOwner: input.syncLockOwner,
+            contactFormRecipient: contactFormSubmitter?.email ?? null,
+          });
+          if (!activity.persisted) continue;
+          await updateCorrespondenceCounts(
+            continuation.opportunityId,
+            effectiveEmail,
+            input.connection,
+            input.followUpDaysCache,
+            input.result
+          );
+          await applyLabel(
+            classifiedEmail.threadId,
+            classifiedEmail.id,
+            input.connection,
+            input.result,
+            input.providerLockCheckpoint,
+            input.syncLockOwner,
+            input.executionPolicy
+          );
+          if (activity.created) input.result.activitiesCreated++;
+          input.result.matched++;
+          continue;
+        }
         const created = await retainEmailWorkCorrespondence({
           email: effectiveEmail,
           connection: input.connection,
@@ -4340,13 +4460,16 @@ async function persistAIClassifiedUnmatchedInbound(input: {
           ? classifiedEmail.threadId
           : null,
         clientId: matchResult.clientId,
-        facts: opportunityRelationshipFactsFromLeadEnrichment(
-          deterministicFacts,
-          effectiveEmail,
-          input.connection,
-          input.profile,
-          await getCachedOperatorIdentity(input.connection)
-        ),
+        facts: {
+          ...opportunityRelationshipFactsFromLeadEnrichment(
+            deterministicFacts,
+            effectiveEmail,
+            input.connection,
+            input.profile,
+            await getCachedOperatorIdentity(input.connection)
+          ),
+          newWorkRequested: true,
+        },
       });
 
       // Bug 3799225e. A `review` verdict used to fall straight through to the
@@ -4559,7 +4682,8 @@ async function processSentEmail(
   providerLockCheckpoint: EmailProviderMailboxCheckpoint,
   syncLockOwner: string,
   preloadedExistingActivity?: ExistingProviderActivity | null,
-  staffAliasCandidate: StaffAliasCandidate | null = null
+  staffAliasCandidate: StaffAliasCandidate | null = null,
+  pendingStaffAliasReview = false
 ): Promise<void> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -4583,12 +4707,19 @@ async function processSentEmail(
     ...externalConversationEmail.to,
     ...externalConversationEmail.cc,
   ];
+  const requiresStaffAliasReview =
+    pendingStaffAliasReview ||
+    Boolean(staffAliasCandidate) ||
+    isPendingStaffAlias(
+      email.from,
+      syncIngestionOperatorIdentity(connection, profile, operatorIdentity)
+    );
   // A provider message authored by one teammate solely to other authoritative
   // operator identities is internal company traffic, not a customer
   // conversation or writing sample. Exit before learning, activity/thread
   // persistence, relationship matching, or lead projection so an unrelated
   // learning outage can never hold the mailbox cursor on internal mail.
-  if (externalRecipients.length === 0) return;
+  if (externalRecipients.length === 0 && !requiresStaffAliasReview) return;
 
   await captureProviderDeliveryBeforeMutableIngest({
     email,
@@ -4607,6 +4738,28 @@ async function processSentEmail(
           email.threadId
         )
       : preloadedExistingActivity;
+  // A pending identity is a review hold, never permission to discard mail or
+  // learn the author's style as staff. Retain every exact message, including
+  // signature-free follow-ups addressed only to the connected operator.
+  // Keep review correspondence detached from lead/thread projection until the
+  // identity decision is resolved. Existing activity identity is immutable.
+  if (requiresStaffAliasReview) {
+    if (!existingActivity) {
+      const retained = await createActivity(email, connection, null, "outbound", {
+        matchNeedsReview: true,
+        matchConfidence: "staff_alias_pending",
+        skipThreadState: true,
+      });
+      if (!retained) {
+        throw new LifecyclePersistenceError(
+          "[sync-engine] pending staff alias correspondence was not retained"
+        );
+      }
+      result.activitiesCreated++;
+      result.needsReview++;
+    }
+    return;
+  }
   // Queue the immutable provider sample before any ownership branch. If the
   // queue write fails, the sync checkpoint must not advance; replay then
   // repairs the same provider identity without double-learning.
@@ -4845,6 +4998,12 @@ async function reconcileUnlinkedOutboundEmail(
 ): Promise<void> {
   const supabase = requireSupabase();
   const operatorIdentity = await getCachedOperatorIdentity(connection);
+  if (
+    isPendingStaffAlias(
+      email.from,
+      syncIngestionOperatorIdentity(connection, profile, operatorIdentity)
+    )
+  ) return;
   const externalConversationEmail = emailWithAuthoritativeExternalRecipients(
     email,
     connection,
@@ -4857,7 +5016,13 @@ async function reconcileUnlinkedOutboundEmail(
     email.id,
     email.threadId
   );
-  if (!existingActivity || existingActivity.opportunity_id || isEmailWorkRoutingReceipt(existingActivity) || existingActivity.match_confidence === "work_routing_pending") return;
+  if (
+    !existingActivity ||
+    existingActivity.opportunity_id ||
+    isEmailWorkRoutingReceipt(existingActivity) ||
+    existingActivity.match_confidence === "work_routing_pending" ||
+    existingActivity.match_confidence === "staff_alias_pending"
+  ) return;
   if (!existingActivity.id) {
     throw new LifecyclePersistenceError(
       "[sync-engine] unlinked outbound activity has no durable identity"
@@ -6227,11 +6392,17 @@ export const SyncEngine = {
       const rawInboxEmails = stableDiscoveredEmails
         .filter((entry) => entry.direction === "inbound")
         .map((entry) => entry.email);
-      const rawSentEmails = includeSentMail
-        ? stableDiscoveredEmails
-            .filter((entry) => entry.direction === "outbound")
-            .map((entry) => entry.email)
-        : [];
+      // Identity review is required for discovered mailbox correspondence even
+      // when optional sent-mail synchronization is disabled.
+      const rawSentEmails = stableDiscoveredEmails
+        .filter(
+          (entry) => entry.direction === "outbound" && (
+            includeSentMail ||
+            entry.staffAliasCandidate ||
+            isPendingStaffAlias(entry.email.from, directionIdentity)
+          )
+        )
+        .map((entry) => entry.email);
       const newSyncToken =
         provider.providerType === "microsoft365"
           ? sentResult.nextSyncToken
@@ -6501,7 +6672,8 @@ export const SyncEngine = {
             renewSyncLeaseIfNeeded,
             syncLockOwner,
             item.existingActivity,
-            item.staffAliasCandidate
+            item.staffAliasCandidate,
+            isPendingStaffAlias(item.email.from, directionIdentity)
           );
         }
       }
@@ -6604,6 +6776,7 @@ export const SyncEngine = {
         // full relationship matcher after classification, then adopt the exact
         // durable activity so payment/scheduling evidence cannot disappear.
         for (const sentEmail of sentEmails) {
+          if (isPendingStaffAlias(sentEmail.from, directionIdentity)) continue;
           await reconcileUnlinkedOutboundEmail(
             sentEmail,
             connection,
@@ -7304,7 +7477,8 @@ export const SyncEngine = {
             input.providerLockCheckpoint,
             input.syncLockOwner,
             exact.existingActivity,
-            exact.staffAliasCandidate
+            exact.staffAliasCandidate,
+            isPendingStaffAlias(exact.email.from, directionIdentity)
           );
         } else {
           const unmatched = await processInboundEmail(
@@ -7608,7 +7782,8 @@ export const SyncEngine = {
                   renewSyncLeaseIfNeeded,
                   syncLockOwner,
                   latestOutbound.existingActivity,
-                  latestOutbound.staffAliasCandidate
+                  latestOutbound.staffAliasCandidate,
+                  isPendingStaffAlias(latestOutbound.email.from, directionIdentity)
                 );
               }
               // No inbound message remains, or current authoritative staff

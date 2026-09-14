@@ -1,0 +1,85 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts (81 tests | 1 failed | 80 skipped) 4ms
+   × restricts candidate discovery and consent to the supported site-visit workflow 3ms
+     → expected [ 'list_scheduled_jobs', …(48) ] to deeply equal [ 'search_customers', …(20) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts > restricts candidate discovery and consent to the supported site-visit workflow
+AssertionError: expected [ 'list_scheduled_jobs', …(48) ] to deeply equal [ 'search_customers', …(20) ]
+
+- Expected
++ Received
+
+  Array [
++   "list_scheduled_jobs",
++   "list_job_readiness_issues",
++   "get_job_communication_context",
++   "get_job_conversation_context",
++   "list_customer_jobs",
++   "get_job_summary",
++   "search_job_history",
++   "get_correspondence_evidence",
+    "search_customers",
++   "search_jobs",
++   "resolve_job_participants",
+    "get_customer_context",
+-   "search_jobs",
+-   "get_job_summary",
++   "list_tasks",
++   "get_task_context",
++   "list_job_artifacts",
++   "get_job_artifact_evidence",
+    "list_site_visits",
+    "get_site_visit_context",
+    "get_deck_design_geometry",
++   "list_sales_documents",
++   "get_sales_document",
++   "list_payments",
++   "list_expenses",
++   "get_expense_context",
++   "list_work_queue",
++   "search_catalog_items",
++   "get_catalog_item",
++   "list_purchase_orders",
++   "get_purchase_order",
+    "get_company_context",
+    "list_team_members",
+    "list_team_availability",
++   "get_integration_health",
++   "get_operational_overview",
++   "prepare_customer_update",
++   "inspect_catalog_changes",
++   "prepare_catalog_changes",
++   "prepare_inventory_adjustment",
+    "list_site_visit_templates",
+    "get_site_visit_template",
+    "get_site_visit_form",
+    "get_site_visit_source",
+    "prepare_site_visit_booking",
+    "prepare_site_visit_reschedule",
+    "prepare_site_visit_booking_cancellation",
+    "prepare_site_visit_template",
+    "prepare_site_visit_template_edit",
+    "prepare_site_visit_checklist_selection",
+    "prepare_site_visit_answers",
+  ]
+
+ ❯ src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts:376:36
+    374| ];
+    375| it("restricts candidate discovery and consent to the supported site-vi…
+    376|   expect(MCP_EXPOSURE_V22.toolIds).toEqual([
+       |                                    ^
+    377|     ...expectedDiscovery,
+    378|     ...Object.keys(SITE_VISIT_TOOL_OPERATIONS),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 80 skipped (81)
+   Start at  22:45:36
+   Duration  907ms (transform 327ms, setup 168ms, collect 578ms, tests 4ms, environment 0ms, prepare 29ms)
+

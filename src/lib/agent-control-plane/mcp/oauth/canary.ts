@@ -12,11 +12,13 @@ import {
   MCP_CONSENT_CATALOG_V9,
   MCP_CONSENT_CATALOG_V12,
   MCP_CONSENT_CATALOG_V14,
+  MCP_CONSENT_CATALOG_V17,
 } from "./scope-catalog";
 import {
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V14,
-  resolveActiveMcpExposure,
+  MCP_EXPOSURE_V23,
+  MCP_EXPOSURE_V22,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
   MCP_FINANCIAL_TRIAL_EXPOSURE,
@@ -59,22 +61,23 @@ export async function resolveOAuthExposureForSubject(input: {
   readonly userId: string;
   readonly companyId: string;
 }): Promise<McpExposure | null> {
-  const active = resolveActiveMcpExposure();
+  const ordinary = [MCP_EXPOSURE_V14, MCP_EXPOSURE_V23].find(
+    (exposure) => exposure.revision === input.client.exposure_revision
+  );
   if (
-    active === MCP_EXPOSURE_V14 &&
+    ordinary &&
     !input.client.disabled &&
-    input.client.exposure_revision === active.revision &&
     input.client.consent_catalog_revision === MCP_CONSENT_CATALOG_V9.revision &&
     input.client.scope_ceiling.length > 0 &&
     arraysEqual(
       input.client.scope_ceiling,
-      active.grantableScopes.filter((scope) =>
+      ordinary.grantableScopes.filter((scope) =>
         input.client.scope_ceiling.includes(scope)
       )
     ) &&
     input.client.scope === input.client.scope_ceiling.join(" ")
   )
-    return active;
+    return ordinary;
 
   if (
     clientMatchesExposure(
@@ -97,26 +100,34 @@ export async function resolveOAuthExposureForSubject(input: {
 
   const candidate = clientMatchesExposure(
     input.client,
-    MCP_CATALOG_TRIAL_EXPOSURE,
-    MCP_CONSENT_CATALOG_V14.revision
+    MCP_EXPOSURE_V22,
+    MCP_CONSENT_CATALOG_V17.revision
   )
-    ? MCP_CATALOG_TRIAL_EXPOSURE
+    ? MCP_EXPOSURE_V22
     : clientMatchesExposure(
           input.client,
-          MCP_FINANCIAL_TRIAL_EXPOSURE,
-          MCP_CONSENT_CATALOG_V12.revision
+          MCP_CATALOG_TRIAL_EXPOSURE,
+          MCP_CONSENT_CATALOG_V14.revision
         )
-      ? MCP_FINANCIAL_TRIAL_EXPOSURE
-      : MCP_EXPOSURE_V3;
+      ? MCP_CATALOG_TRIAL_EXPOSURE
+      : clientMatchesExposure(
+            input.client,
+            MCP_FINANCIAL_TRIAL_EXPOSURE,
+            MCP_CONSENT_CATALOG_V12.revision
+          )
+        ? MCP_FINANCIAL_TRIAL_EXPOSURE
+        : MCP_EXPOSURE_V3;
   if (
     !clientMatchesExposure(
       input.client,
       candidate,
-      candidate === MCP_CATALOG_TRIAL_EXPOSURE
-        ? MCP_CONSENT_CATALOG_V14.revision
-        : candidate === MCP_FINANCIAL_TRIAL_EXPOSURE
-          ? MCP_CONSENT_CATALOG_V12.revision
-          : MCP_CONSENT_CATALOG_V2.revision
+      candidate === MCP_EXPOSURE_V22
+        ? MCP_CONSENT_CATALOG_V17.revision
+        : candidate === MCP_CATALOG_TRIAL_EXPOSURE
+          ? MCP_CONSENT_CATALOG_V14.revision
+          : candidate === MCP_FINANCIAL_TRIAL_EXPOSURE
+            ? MCP_CONSENT_CATALOG_V12.revision
+            : MCP_CONSENT_CATALOG_V2.revision
     )
   ) {
     return null;

@@ -5,6 +5,8 @@ import {
   extractContactFormSubmission,
   extractEmailAddress,
   resolveEffectiveSenderEmail,
+  stripOutlookReplyHeaderBlock,
+  stripQuotedHistoryForIdentity,
   type ContactFormSubmissionIdentity,
   type EffectiveSenderIdentity,
 } from "@/lib/utils/email-parsing";
@@ -209,14 +211,23 @@ function normalizedWords(value: string | null | undefined): string {
 }
 
 function authorControlledSignatureText(email: NormalizedEmail): string {
-  const body = (email.bodyText || email.snippet || "")
+  const body = (email.bodyText ?? email.snippet ?? "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n");
+  // Preserve the author's signature; remove history without extracting form
+  // display content or reviving short/empty replies from quoted previews.
+  // Even one indented/nested quote line ends signature authority. This also
+  // covers localized reply headers whose following body uses standard >
+  // prefixes. Wrapped headers must match across lines (Apple Mail/Gmail).
+  // Keep this extra conservative boundary for single quote lines, localized
+  // reply headers, and longer/wrapped headers beyond ordinary display limits.
   const quotedIndex = body.search(
-    /(?:^|\n)\s*(?:on .{0,240}\bwrote:|from:\s+.+@|[-_]{5,}\s*forwarded message)/i
+    /(?:^|\n)[ \t]*(?:>|on\b[^\n]*(?:\n[^\n]*){0,4}?\bwrote:|from:[ \t]+[^\n]*@|[-_]{5,}[ \t]*forwarded message|begin forwarded message:)/i
   );
   const authorText = quotedIndex >= 0 ? body.slice(0, quotedIndex) : body;
-  return authorText.slice(-2_000);
+  return stripQuotedHistoryForIdentity(
+    stripOutlookReplyHeaderBlock(authorText)
+  ).slice(-2_000);
 }
 
 function signaturePhoneSet(value: string): Set<string> {
@@ -313,10 +324,11 @@ function trustedSenderSet(values: string[] | undefined): Set<string> {
   return new Set((values ?? []).map(normalizedEmail).filter(Boolean));
 }
 
-function isPendingStaffAlias(
+export function isPendingStaffAlias(
   sender: string,
   operator: IngestionOperatorIdentity
 ): boolean {
+  sender = normalizedEmail(sender);
   if (!sender) return false;
   const members = operator.staffMembers ?? [];
   if (

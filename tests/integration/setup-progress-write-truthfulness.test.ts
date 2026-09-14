@@ -17,7 +17,7 @@
  * `success: true` claim is actually about.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const {
@@ -79,11 +79,20 @@ function makeDb(options: {
   failUpdatesOn?: string;
   /** 0-based index among that table's updates; every one fails when omitted. */
   failNthUpdate?: number;
+  telemetryError?: boolean;
+  createError?: boolean;
 } = {}) {
   const updates: UpdateOp[] = [];
+  const events: Record<string, unknown>[] = [];
   const perTableCount: Record<string, number> = {};
 
   const builder = (table: string) => ({
+    upsert(row: Record<string, unknown>, settings: { onConflict: string; ignoreDuplicates: boolean }) {
+      if (table !== "analytics_events") throw new Error("Unexpected telemetry table");
+      expect(settings).toEqual({ onConflict: "id", ignoreDuplicates: true });
+      if (!events.some((event) => event.id === row.id)) events.push(row);
+      return { abortSignal: async () => ({ error: options.telemetryError ? { code: "42501", message: "private error" } : null }) };
+    },
     insert() {
       return {
         select: () => ({
@@ -105,10 +114,12 @@ function makeDb(options: {
 
   return {
     updates,
+    events,
     client: {
       from: (table: string) => builder(table),
       rpc: async (fn: string) => {
         if (fn === "create_company_for_owner_by_id") {
+          if (options.createError) return { data: null, error: { message: "NO_USER_ROW private details" } };
           return {
             data: {
               company_id: COMPANY_ID,
@@ -124,8 +135,8 @@ function makeDb(options: {
   };
 }
 
-function request(body: Record<string, unknown>) {
-  return new NextRequest("http://localhost/api/setup/progress", {
+function request(body: Record<string, unknown>, origin = "http://localhost") {
+  return new NextRequest(`${origin}/api/setup/progress`, {
     method: "POST",
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },
@@ -147,6 +158,7 @@ beforeEach(() => {
   readServerFirstTouchMock.mockReturnValue(null);
   recordTrialAttributionMock.mockResolvedValue(undefined);
 });
+afterEach(() => { vi.unstubAllEnvs(); });
 
 describe("POST /api/setup/progress — write truthfulness", () => {
   it("fails the identity step when the users update is rejected", async () => {
@@ -240,5 +252,92 @@ describe("POST /api/setup/progress — write truthfulness", () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.setupProgress).toMatchObject({ steps: { identity: true } });
+  });
+});
+
+describe("company save server outcome telemetry", () => {
+  const analytics = {
+    attemptId: "44444444-4444-4444-8444-444444444444",
+    sessionId: "55555555-5555-4555-8555-555555555555",
+  };
+  const body = { token: "secret-token", step: "company", data: { companyName: "Private business", referralMethod: "friend" }, analytics };
+  beforeEach(() => { vi.stubEnv("VERCEL_ENV", "production"); });
+
+  it("records confirmed company persistence in the browser's session, once per attempt", async () => {
+    const db = makeDb(); getServiceRoleClientMock.mockReturnValue(db.client);
+    for (let i = 0; i < 2; i++) {
+      expect((await POST(request(body, "https://app.opsapp.co"))).status).toBe(200);
+    }
+    expect(db.events).toHaveLength(1);
+    expect(db.events[0]).toMatchObject({
+      user_id: USER_ID, company_id: COMPANY_ID, session_id: analytics.sessionId,
+      event_name: "setup_save_server_result", event_type: "action", platform: "web", environment: "production",
+      properties: { step: "company", outcome: "succeeded", stage: "checkpoint", status_code: 200 },
+    });
+    expect(JSON.stringify(db.events)).not.toMatch(/Private business|secret-token|private details/);
+  });
+
+  it("records a failed checkpoint even when company creation itself succeeded", async () => {
+    const db = makeDb({ failUpdatesOn: "users" }); getServiceRoleClientMock.mockReturnValue(db.client);
+    expect((await POST(request(body, "https://app.opsapp.co"))).status).toBe(500);
+    expect(db.events[0]).toMatchObject({ event_type: "error", company_id: COMPANY_ID,
+      properties: { outcome: "failed", stage: "checkpoint", status_code: 500 },
+    });
+  });
+
+  it("records a retryable rejected company creation without leaking its database message", async () => {
+    const db = makeDb({ createError: true }); getServiceRoleClientMock.mockReturnValue(db.client);
+    expect((await POST(request(body, "https://app.opsapp.co"))).status).toBe(409);
+    expect(db.events[0]).toMatchObject({ company_id: null, properties: { outcome: "failed", stage: "company_create", status_code: 409 } });
+    expect(JSON.stringify(db.events)).not.toContain("private details");
+  });
+
+  it("never turns successful setup into failure when telemetry storage rejects the event", async () => {
+    const db = makeDb({ telemetryError: true }); getServiceRoleClientMock.mockReturnValue(db.client);
+    const response = await POST(request(body, "https://app.opsapp.co"));
+    expect(response.status).toBe(200);
+    expect((await response.json()).success).toBe(true);
+    expect(db.events).toHaveLength(1);
+  });
+
+  it("does not describe skipping/checkpoint-only as a saved company", async () => {
+    const db = makeDb(); getServiceRoleClientMock.mockReturnValue(db.client);
+    await POST(request({ ...body, data: undefined }, "https://app.opsapp.co"));
+    expect(db.events).toEqual([]);
+  });
+
+  it.each([undefined, { attemptId: "not-a-uuid", sessionId: analytics.sessionId }, { ...analytics, sessionId: "private@example.com" }])("ignores missing or invalid telemetry context without blocking setup", async (context) => {
+    const db = makeDb(); getServiceRoleClientMock.mockReturnValue(db.client);
+    expect((await POST(request({ ...body, analytics: context }, "https://app.opsapp.co"))).status).toBe(200);
+    expect(db.events).toEqual([]);
+  });
+
+  it("rejects local-origin telemetry even when calling the production API", async () => {
+    const db = makeDb(); getServiceRoleClientMock.mockReturnValue(db.client);
+    const req = request(body, "https://app.opsapp.co");
+    req.headers.set("origin", "http://localhost:3000");
+    expect((await POST(req)).status).toBe(200);
+    expect(db.events).toEqual([]);
+  });
+
+  it("excludes a preview deployment using the canonical hostname", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const db = makeDb(); getServiceRoleClientMock.mockReturnValue(db.client);
+    expect((await POST(request(body, "https://app.opsapp.co"))).status).toBe(200);
+    expect(db.events).toEqual([]);
+  });
+
+  it.each(["http://localhost", "https://preview.vercel.app"])("excludes %s from production telemetry", async (origin) => {
+    const db = makeDb(); getServiceRoleClientMock.mockReturnValue(db.client);
+    await POST(request(body, origin));
+    expect(db.events).toEqual([]);
+  });
+
+  it("preserves the signup source when later saving setup progress", async () => {
+    const snapshot = { version: 1, channel: "organic_search", basis: "utm_referrer", reason: "organic_utm_medium", confidence: 0.9, recorded_at: "2026-09-14T12:00:00Z" };
+    findUserByAuthMock.mockResolvedValue({ id: USER_ID, company_id: null, setup_progress: { signup_attribution: snapshot } });
+    const db = makeDb(); getServiceRoleClientMock.mockReturnValue(db.client);
+    const response = await POST(request(body, "https://app.opsapp.co"));
+    expect((await response.json()).setupProgress.signup_attribution).toEqual(snapshot);
   });
 });

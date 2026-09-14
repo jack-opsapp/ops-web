@@ -1,0 +1,17 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "../../../src/app/api/mcp/oauth/userinfo/route.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/clients.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/__tests__/clients.test.ts",
+    "../../../src/lib/agent-control-plane/mcp/oauth/__tests__/canpro-client.test.ts",
+    "../../../tests/unit/mcp/oauth-userinfo.test.ts",
+    "../../../tests/unit/mcp/oauth-routes.test.ts"
+  ],
+  "exclude": [
+    "../../../node_modules"
+  ]
+}

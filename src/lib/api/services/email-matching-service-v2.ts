@@ -73,6 +73,42 @@ function assertLookupSucceeded(
   }
 }
 
+function completeNameTokens(value: string | null | undefined): string[] {
+  return (value ?? "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .split(/[^\p{L}\p{M}]+/u)
+    .filter((token) => token && !NAME_STOPWORDS.has(token));
+}
+
+function sameCompleteName(sender: string[], candidate: string[]): boolean {
+  return (
+    sender.length >= 2 &&
+    candidate.length >= 2 &&
+    sender[0] === candidate[0] &&
+    sender.at(-1) === candidate.at(-1)
+  );
+}
+
+function plausibleSubContactName(
+  sender: string[],
+  value: string | null
+): boolean {
+  if (sameCompleteName(sender, completeNameTokens(value))) return true;
+  // An explicitly shared contact such as "Robin and Casey" has no asserted
+  // surname. Retain that review safeguard without treating an unrelated
+  // person's surname, or a conflicting full name, as customer identity.
+  const members = (value ?? "")
+    .split(/\s+(?:and|&)\s+/i)
+    .map(completeNameTokens);
+  return (
+    sender.length >= 2 &&
+    members.length > 1 &&
+    members.every((member) => member.length === 1) &&
+    members.some((member) => member[0] === sender[0])
+  );
+}
+
 export const EmailMatchingServiceV2 = {
   /**
    * Run the 5-tier matching cascade for an email address
@@ -222,8 +258,9 @@ export const EmailMatchingServiceV2 = {
 
     // --- Tier 3: Name match ---
     if (options?.name) {
-      const lastName = options.name.split(" ").pop()?.toLowerCase();
-      if (lastName && lastName.length >= 3) {
+      const senderTokens = completeNameTokens(options.name);
+      const lastName = senderTokens.at(-1);
+      if (lastName && senderTokens.length >= 2) {
         // Escape ilike wildcards in the name — same attack surface.
         const safeLastName = escapeIlikeLiteral(lastName);
         const { data: nameMatches, error: nameMatchesError } = await supabase
@@ -234,14 +271,20 @@ export const EmailMatchingServiceV2 = {
           .is("deleted_at", null);
         assertLookupSucceeded("name lookup", nameMatchesError);
 
-        if (nameMatches && nameMatches.length > 0) {
+        // A shared surname (or a substring such as Smith/Goldsmith) cannot
+        // make two different customers an identity conflict. Require both
+        // given-name and surname tokens before proposing a name-only review.
+        const plausibleMatches = (nameMatches ?? []).filter((candidate) =>
+          sameCompleteName(senderTokens, completeNameTokens(candidate.name))
+        );
+        if (plausibleMatches.length > 0) {
           return {
             clientId: null,
             subClientId: null,
             confidence: "name",
             needsReview: true,
-            suggestedClientId: nameMatches[0].id,
-            reason: `Name match: "${options.name}" may be related to "${nameMatches[0].name}"`,
+            suggestedClientId: plausibleMatches[0].id,
+            reason: `Name match: "${options.name}" may be related to "${plausibleMatches[0].name}"`,
             action: "review",
           };
         }
@@ -256,12 +299,12 @@ export const EmailMatchingServiceV2 = {
     // hit it, and Tier 3 only ever scanned `clients`. The result was a brand-new
     // client and a duplicate opportunity for an existing customer.
     //
-    // This tier is deterministic: token overlap only, no model. It never links
+    // This tier is deterministic: complete names or explicit couple names. It never links
     // on its own — a name is suggestive, not proof — so it always returns
     // `review` with the client it believes is the real owner.
     if (options?.name) {
-      const senderTokens = nameIdentityTokens(options.name);
-      if (senderTokens.length > 0) {
+      const senderTokens = completeNameTokens(options.name);
+      if (senderTokens.length >= 2) {
         const { data: subContacts, error: subContactsError } = await supabase
           .from("sub_clients")
           .select("id, client_id, name, email")
@@ -270,7 +313,6 @@ export const EmailMatchingServiceV2 = {
           .order("created_at", { ascending: false });
         assertLookupSucceeded("sub-contact name lookup", subContactsError);
 
-        const senderTokenSet = new Set(senderTokens);
         const matches = (
           (subContacts ?? []) as Array<{
             id: string;
@@ -284,9 +326,7 @@ export const EmailMatchingServiceV2 = {
           // email-less record, or this very sender, may match on name alone.
           const recordedEmail = subContact.email?.trim().toLowerCase() ?? "";
           if (recordedEmail && recordedEmail !== normalizedEmail) return false;
-          return nameIdentityTokens(subContact.name).some((token) =>
-            senderTokenSet.has(token)
-          );
+          return plausibleSubContactName(senderTokens, subContact.name);
         });
 
         if (matches.length > 0) {

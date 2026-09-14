@@ -19,7 +19,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MCP_EXPOSURE_V14 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import { MCP_EXPOSURE_V14, MCP_EXPOSURE_V22, MCP_EXPOSURE_V23 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 const APP_URL = "https://app.opsapp.co";
 
 const mocks = vi.hoisted(() => {
@@ -53,6 +53,7 @@ import {
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_CONSENT_LABELS,
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
+  SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 import { GET as authorizationServerGet } from "@/app/.well-known/oauth-authorization-server/route";
@@ -306,8 +307,8 @@ function fakeRpc(fn: string, args: Record<string, unknown>) {
         data: state.canaryBindingAvailable
           ? [
               {
-                exposure_revision: CANARY_EXPOSURE_REVISION,
-                consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+                exposure_revision: state.clientRow?.exposure_revision,
+                consent_catalog_revision: state.clientRow?.consent_catalog_revision,
                 expires_at: "2099-08-31T20:00:00.000Z",
               },
             ]
@@ -483,7 +484,7 @@ describe("POST /api/mcp/oauth/register", () => {
       p_scope: MCP_EXPOSURE_V14.grantableScopes.join(" "),
       p_scope_ceiling: [...MCP_EXPOSURE_V14.grantableScopes],
       p_consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
-      p_exposure_revision: MCP_EXPOSURE_V14.revision,
+      p_exposure_revision: MCP_EXPOSURE_V23.revision,
       p_software_id: "claude-connector",
       p_software_version: null,
     });
@@ -969,6 +970,28 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
     };
   }
 
+  it.each([true, false])("reauthorizes the site visit subject during refresh (current=%s)", async (current) => {
+    const scopes = [...MCP_EXPOSURE_V22.grantableScopes];
+    state.clientRow = {
+      ...defaultClientRow(), scope: scopes.join(" "), scope_ceiling: scopes,
+      exposure_revision: "2026-09-10.mcp-exposure.v22",
+      consent_catalog_revision: "2026-09-10.mcp-consent-catalog.v17",
+    };
+    state.rotatedRow = {
+      ...defaultRotatedRow(), scopes,
+      exposure_revision: "2026-09-10.mcp-exposure.v22",
+      consent_catalog_revision: "2026-09-10.mcp-consent-catalog.v17",
+      accepted_labels: scopes.map((scope) => SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS[scope]!),
+    };
+    state.canaryBindingAvailable = current;
+    const { body } = refreshBody();
+    const response = await tokenPost(formRequest("/api/mcp/oauth/token", body));
+    expect(response.status).toBe(current ? 200 : 400);
+    const result = await response.json();
+    if (current) expect(result.scope).toBe(scopes.join(" "));
+    else expect(result).toEqual({ error: "invalid_grant" });
+  });
+
   it("rotates the refresh token and returns a brand-new pair", async () => {
     const { body: requestBody, presented } = refreshBody({
       resource: RESOURCE,
@@ -1321,6 +1344,91 @@ describe("Phase 12 token exchange", () => {
     );
     state.clientRow = {
       ...defaultClientRow(),
+      ...revision,
+      scope: scopes.join(" "),
+      scope_ceiling: scopes,
+    };
+    state.rotatedRow = {
+      ...defaultRotatedRow(),
+      ...revision,
+      scopes,
+      accepted_labels: labels,
+    };
+    const response = await tokenPost(
+      formRequest(
+        "/api/mcp/oauth/token",
+        form({
+          grant_type: "refresh_token",
+          refresh_token: mintCredential(REFRESH_TOKEN_PREFIX),
+          client_id: CLIENT_ID,
+        })
+      )
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).scope).toBe(scopes.join(" "));
+  });
+});
+
+describe("Canpro cloud token exchange", () => {
+  const callback =
+    "https://bpgayztkcuencdzinfxv.supabase.co/functions/v1/source-oauth";
+  const scopes = ["ops.company.read", "ops.jobs.read", "ops.purchasing.read"];
+  const revision = {
+    consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
+    exposure_revision: MCP_EXPOSURE_V14.revision,
+  };
+  it("exchanges an approved minimum-scope code and retains exactly its authority", async () => {
+    const labels = scopes.map(
+      (scope) =>
+        CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS[
+          scope as keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+        ]
+    );
+    state.clientRow = {
+      ...defaultClientRow(),
+      redirect_uris: [callback],
+      ...revision,
+      scope: scopes.join(" "),
+      scope_ceiling: scopes,
+    };
+    state.codeRow = {
+      ...defaultCodeRow(),
+      ...revision,
+      scopes,
+      accepted_labels: labels,
+    };
+    const response = await tokenPost(
+      formRequest(
+        "/api/mcp/oauth/token",
+        form({
+          grant_type: "authorization_code",
+          client_id: CLIENT_ID,
+          code: mintCredential(AUTHORIZATION_CODE_PREFIX),
+          redirect_uri: callback,
+          code_verifier: CODE_VERIFIER,
+          resource: RESOURCE,
+        })
+      )
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).scope).toBe(scopes.join(" "));
+    const args = lastCallTo("mint_mcp_oauth_grant_as_system").args;
+    expect(args).toMatchObject({
+      p_active_grantable_scopes: [...MCP_EXPOSURE_V14.grantableScopes],
+      p_active_exposure_revision: revision.exposure_revision,
+    });
+    expect(args).not.toHaveProperty("p_scopes");
+  });
+  it("refreshes a minimum-scope v14 grant without adding other reads", async () => {
+    const labels = scopes.map(
+      (scope) =>
+        CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS[
+          scope as keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
+        ]
+    );
+    state.clientRow = {
+      ...defaultClientRow(),
+      redirect_uris: [callback],
       ...revision,
       scope: scopes.join(" "),
       scope_ceiling: scopes,

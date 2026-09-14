@@ -1,8 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { verifyAuthTokenMock, getServiceRoleClientMock } = vi.hoisted(() => ({
   verifyAuthTokenMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
+}));
+const experiment = vi.hoisted(() => ({ stage: vi.fn(), retry: vi.fn() }));
+vi.mock("@/lib/pmf/experiment-attribution", () => ({
+  stageSignupExperiment: experiment.stage,
+  retrySignupExperiment: experiment.retry,
 }));
 
 // Use the REAL isFirebaseIssuedToken (issuer-prefix check) so the route's
@@ -121,10 +126,10 @@ function wireDb(state: SyncUserState) {
   getServiceRoleClientMock.mockReturnValue(makeDbDouble(state));
 }
 
-function makeJsonRequest(body: unknown): Request {
-  return new Request("http://localhost/api/auth/sync-user", {
+function makeJsonRequest(body: unknown, url = "http://localhost/api/auth/sync-user", cookie = ""): Request {
+  return new Request(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", cookie },
     body: JSON.stringify(body),
   });
 }
@@ -175,6 +180,8 @@ describe("POST /api/auth/sync-user row creation", () => {
       email: "crew@example.com",
     });
     expect(result.body.user).toMatchObject({ id: "user-new" });
+    expect(experiment.stage).toHaveBeenCalledWith(expect.anything(), expect.any(Request), "user-new");
+    expect(experiment.retry).not.toHaveBeenCalled();
   });
 
   it("creates a new row with firebase_uid set for a Firebase-issued token", async () => {
@@ -235,8 +242,92 @@ describe("POST /api/auth/sync-user row creation", () => {
     expect(result.status).toBe(200);
     expect(state.userInserts).toHaveLength(1);
     expect(result.body.user).toMatchObject({ id: "user-raced" });
+    expect(experiment.stage).toHaveBeenCalledWith(expect.anything(), expect.any(Request), "user-raced");
     // Recovery resolved the row on its first lookup, which filters by
     // auth_id; the firebase_uid fallback lookup was never needed.
     expect(state.recoveryLookups).toEqual([["auth_id", "deleted_at"]]);
+  });
+});
+
+describe("signup attribution before company creation", () => {
+  const now = "2026-09-14T20:00:00.000Z";
+  const touch = {
+    version: 1,
+    anonymous_id: "33333333-3333-4333-8333-333333333333",
+    captured_at: "2026-09-14T19:55:00.000Z",
+    landing_path: "/plans?email=private@example.com",
+    utm_source: "google",
+    utm_medium: "organic",
+  };
+  const cookie = (value: unknown) => `__ops_first_touch=${encodeURIComponent(JSON.stringify(value))}`;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    vi.stubEnv("VERCEL_ENV", "production");
+    verifyAuthTokenMock.mockResolvedValue({
+      uid: "new-firebase-user", email: "owner@example.com", claims: { iss: FIREBASE_ISS },
+    });
+  });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
+
+  async function signup(value = cookie(touch), url = "https://app.opsapp.co/api/auth/sync-user", state = makeState()) {
+    wireDb(state);
+    const response = await POST(makeJsonRequest(
+      { idToken: "valid-token", email: "owner@example.com" }, url, value
+    ) as Parameters<typeof POST>[0]);
+    return { state, response, body: await response.json() };
+  }
+
+  it("atomically retains classified source with the account, without retaining raw touch identifiers", async () => {
+    const { state, response, body } = await signup();
+    expect(response.status).toBe(200);
+    expect(body.company).toBeNull();
+    expect(state.userInserts[0].setup_progress).toEqual({
+      steps: {},
+      signup_attribution: {
+        version: 1, recorded_at: now, channel: "organic_search", basis: "utm_referrer",
+        confidence: 0.9, reason: "organic_utm_medium",
+      },
+    });
+    expect(body.user.setupProgress).toEqual(state.userInserts[0].setup_progress);
+  });
+
+  it.each([
+    ["missing", "", "missing_first_touch"],
+    ["malformed", "__ops_first_touch=%7Bbad", "missing_first_touch"],
+    ["expired", cookie({ ...touch, captured_at: "2026-07-01T00:00:00Z" }), "expired_first_touch"],
+    ["future", cookie({ ...touch, captured_at: "2026-10-01T00:00:00Z" }), "future_first_touch"],
+  ])("keeps %s evidence unknown rather than inventing Direct", async (_label, value, reason) => {
+    const { body } = await signup(value);
+    expect(body.user.setupProgress?.signup_attribution).toMatchObject({ channel: "unknown", basis: "unknown", confidence: 0, reason });
+  });
+
+  it.each(["http://localhost:3000", "https://preview.vercel.app", "https://app.opsapp.co.evil.example"])("excludes nonproduction host %s", async (origin) => {
+    const { state } = await signup(cookie(touch), `${origin}/api/auth/sync-user`);
+    expect(state.userInserts[0].setup_progress).toBeUndefined();
+  });
+
+  it("excludes preview deployment even if its request uses the production host", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const { state } = await signup();
+    expect(state.userInserts[0].setup_progress).toBeUndefined();
+  });
+
+  it("does not assign production attribution to a request originating on localhost", async () => {
+    const state = makeState(); wireDb(state);
+    const req = makeJsonRequest({ idToken: "valid-token", email: "owner@example.com" }, "https://app.opsapp.co/api/auth/sync-user", cookie(touch));
+    req.headers.set("origin", "http://localhost:3000");
+    expect((await POST(req as Parameters<typeof POST>[0])).status).toBe(200);
+    expect(state.userInserts[0].setup_progress).toBeUndefined();
+  });
+
+  it("keeps the concurrent insert winner's attribution instead of relabeling the account", async () => {
+    const state = makeState();
+    state.firstInsertErrorCode = "23505";
+    const original = { steps: {}, signup_attribution: { channel: "referral", recorded_at: now } };
+    state.racedRow = { id: "user-raced", auth_id: "new-firebase-user", company_id: null, setup_progress: original };
+    const { body } = await signup(cookie(touch), undefined, state);
+    expect(body.user.setupProgress).toEqual(original);
   });
 });

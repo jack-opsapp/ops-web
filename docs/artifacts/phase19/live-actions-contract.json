@@ -1,0 +1,402 @@
+{
+  "rls": [
+    {
+      "cmd": "ALL",
+      "qual": "(company_id = ((( SELECT auth.jwt() AS jwt) ->> 'company_id'::text))::uuid)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "PERMISSIVE",
+      "policyname": "agent_actions_company_scope",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(action_type IS DISTINCT FROM 'send_customer_follow_up'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_customer_message_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_customer_message_insert",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'send_customer_follow_up'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((action_type IS DISTINCT FROM 'send_customer_follow_up'::text) OR can_read_agent_customer_message_action(id, company_id))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_customer_message_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(action_type IS DISTINCT FROM 'send_customer_follow_up'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_customer_message_update",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'send_customer_follow_up'::text)"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_customer_update'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_customer_update_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_customer_update_insert",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_customer_update'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((action_type IS DISTINCT FROM 'approve_customer_update'::text) OR can_read_agent_customer_update_action(id, company_id))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_customer_update_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_customer_update'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_customer_update_update",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_customer_update'::text)"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_schedule_change'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_schedule_change_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_schedule_change_insert",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_schedule_change'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((action_type IS DISTINCT FROM 'approve_schedule_change'::text) OR can_read_agent_schedule_change_action(id, company_id))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_schedule_change_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_schedule_change'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "agent_schedule_change_update",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_schedule_change'::text)"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_catalog_changes'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "catalog_action_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "catalog_action_insert",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_catalog_changes'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((action_type IS DISTINCT FROM 'approve_catalog_changes'::text) OR can_read_catalog_action(id, company_id))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "catalog_action_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_catalog_changes'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "catalog_action_update",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_catalog_changes'::text)"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_financial_document'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "financial_document_action_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "financial_document_action_insert",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_financial_document'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((action_type IS DISTINCT FROM 'approve_financial_document'::text) OR can_read_financial_document_action(id, company_id))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "financial_document_action_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(action_type IS DISTINCT FROM 'approve_financial_document'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "agent_actions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "financial_document_action_update",
+      "schemaname": "public",
+      "with_check": "(action_type IS DISTINCT FROM 'approve_financial_document'::text)"
+    }
+  ],
+  "columns": [
+    {
+      "name": "id",
+      "type": "uuid",
+      "default": "gen_random_uuid()",
+      "not_null": true
+    },
+    {
+      "name": "company_id",
+      "type": "uuid",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "user_id",
+      "type": "uuid",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "action_type",
+      "type": "text",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "action_data",
+      "type": "jsonb",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "context_summary",
+      "type": "text",
+      "default": null,
+      "not_null": true
+    },
+    {
+      "name": "context_source",
+      "type": "text",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "source_id",
+      "type": "text",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "confidence",
+      "type": "double precision",
+      "default": "0.5",
+      "not_null": true
+    },
+    {
+      "name": "priority",
+      "type": "text",
+      "default": "'normal'::text",
+      "not_null": true
+    },
+    {
+      "name": "status",
+      "type": "text",
+      "default": "'pending'::text",
+      "not_null": true
+    },
+    {
+      "name": "reviewed_by",
+      "type": "uuid",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "reviewed_at",
+      "type": "timestamp with time zone",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "review_notes",
+      "type": "text",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "executed_at",
+      "type": "timestamp with time zone",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "execution_result",
+      "type": "jsonb",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "error",
+      "type": "text",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "default": null,
+      "not_null": false
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "default": "now()",
+      "not_null": true
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "default": "now()",
+      "not_null": true
+    },
+    {
+      "name": "auto_execute_at",
+      "type": "timestamp with time zone",
+      "default": null,
+      "not_null": false
+    }
+  ],
+  "constraints": [
+    {
+      "name": "agent_actions_company_id_fkey",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "agent_actions_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "agent_actions_priority_check",
+      "definition": "CHECK ((priority = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text, 'urgent'::text])))"
+    },
+    {
+      "name": "agent_actions_status_check",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'executed'::text, 'failed'::text, 'expired'::text, 'cancelled'::text])))"
+    }
+  ]
+}

@@ -281,6 +281,63 @@ beforeEach(() => {
 });
 
 describe("evaluateOpportunityAcceptance", () => {
+  it.each([null, "client-1"])(
+    "does not convert a duration quote with an offered visit (client: %s)",
+    async (clientId) => {
+      const quote = [
+        "The deck resheet and vinyl total is $24,000 plus tax.",
+        "Vinyl is custom ordered with a 1-2 week lead time, and the work takes about 5 days on site.",
+        "I have availability this Wednesday if you'd like to set up a site visit. Let me know a time that works and I'll come by!",
+      ].join("\n\n");
+      const { client, rpc } = makeSupabase({
+        opportunity: {
+          stage: "quoted",
+          stage_manually_set: false,
+          client_id: clientId,
+          client_ref: null,
+          assignment_version: 0,
+        },
+        client: clientId
+          ? { id: clientId, email: "customer@example.com" }
+          : null,
+        events: [
+          {
+            id: "event-quote",
+            activity_id: "activity-quote",
+            connection_id: connection.id,
+            provider_thread_id: "quote-thread",
+            provider_message_id: "quote-message",
+            direction: "outbound",
+            party_role: "operator",
+            occurred_at: "2026-09-11T21:00:00Z",
+          },
+        ],
+        activities: [
+          {
+            id: "activity-quote",
+            email_connection_id: connection.id,
+            email_message_id: "quote-message",
+            subject: "Deck quote",
+            body_text_clean: quote,
+          },
+        ],
+      });
+      await expect(
+        evaluateOpportunityCommercialOutcome({
+          supabase: client as never,
+          opportunityId: "opportunity-1",
+          connection,
+        })
+      ).resolves.toEqual({ stageChanged: false });
+      expect(
+        mocks.findUniqueExistingProjectForEmailConversion
+      ).not.toHaveBeenCalled();
+      expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+      expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+      expect(rpc).not.toHaveBeenCalled();
+    }
+  );
+
   it("keeps engine-deferred lost leads eligible for later decisive correspondence", () => {
     expect(shouldEvaluateOpportunityCommercialOutcome("lost", false)).toBe(
       true

@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19
+
+ ✓ src/lib/agent-control-plane/mcp/__tests__/site-visit-candidate-protocol.test.ts (80 tests) 270ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/durable-rate-limit.test.ts (17 tests) 7ms
+
+ Test Files  2 passed (2)
+      Tests  97 passed (97)
+   Start at  17:34:15
+   Duration  1.68s (transform 346ms, setup 225ms, collect 606ms, tests 276ms, environment 255ms, prepare 44ms)

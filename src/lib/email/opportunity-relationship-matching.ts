@@ -63,6 +63,10 @@ export interface OpportunityRelationshipFacts {
   forwardedParticipantEmails?: string[];
   sourcePlatform: string | null;
   phaseCEnabled?: boolean;
+  /** Continuation lookup may associate only the exact sender's open sales record. */
+  activeContactOnly?: boolean;
+  /** Set only after a current, source-backed new-work request passes the creation gate. */
+  newWorkRequested?: boolean;
 }
 
 export type OpportunityRelationshipDecision =
@@ -444,7 +448,13 @@ export function decideOpportunityRelationshipMatch({
     );
   }
 
-  const sortedCandidates = [...candidates].sort(byNewest);
+  const sortedCandidates = candidates
+    .filter(
+      (candidate) =>
+        !facts.newWorkRequested ||
+        (!isTerminalOpportunity(candidate) && !hasClosedProject(candidate))
+    )
+    .sort(byNewest);
   const contactEmail = normalizeEmail(facts.contactEmail);
   const participantEmails = new Set(
     (facts.participantEmails ?? [])
@@ -454,6 +464,35 @@ export function decideOpportunityRelationshipMatch({
   if (contactEmail) participantEmails.delete(contactEmail);
   const contactPhone = normalizePhone(facts.contactPhone);
   const address = normalizeAddress(facts.address);
+
+  if (facts.activeContactOnly) {
+    const matches = sortedCandidates.filter((candidate) => {
+      if (!contactEmail || !isActiveOpportunity(candidate) || candidate.project)
+        return false;
+      if (hasConflictingJobAddress(address, candidate)) return false;
+      const emails = normalizedCandidateEmails(candidate);
+      return (
+        emails.contactEmail === contactEmail ||
+        emails.clientEmails.has(contactEmail) ||
+        emails.subClientEmails.has(contactEmail)
+      );
+    });
+    if (matches.length === 1) {
+      return linkDecision(
+        matches[0],
+        "exact_contact_email",
+        "Exact customer email matched one open sales conversation",
+        [`email:${contactEmail}`]
+      );
+    }
+    // An uncertain reply cannot choose between jobs or create a sales record.
+    return {
+      action: "create_new",
+      reason: "No unique open sales conversation",
+      suggestedOpportunityId: null,
+      evidence: [],
+    };
+  }
 
   // A fragmented thread may carry both a placeholder sender opportunity and
   // the real customer's alternate contacts in To/CC. A unique accepted or

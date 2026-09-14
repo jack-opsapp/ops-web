@@ -3,6 +3,8 @@ import {
   catalogAuthoringHasEffect,
 } from "./catalog-authoring-capability";
 import { CATALOG_AUTHORING_MANIFEST } from "../contracts/catalog-authoring";
+import { SITE_VISIT_WORKFLOW_MANIFEST } from "../contracts/site-visit-workflow";
+import { SITE_VISIT_WORKFLOW_DEFINITIONS } from "./site-visit-workflow-capability";
 import {
   INSPECT_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
   PREPARE_FINANCIAL_DOCUMENT_CAPABILITY_DEFINITION,
@@ -772,6 +774,43 @@ export function getCapabilityManifestEntry(
   const entry = CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
+}
+
+// Phase 19 remints the candidate and replaces the three older dark booking
+// preparations by name. Existing manifests and all direct host commits stay dark.
+const siteVisitNames = new Set(
+  SITE_VISIT_WORKFLOW_DEFINITIONS.map((entry) => entry.name)
+);
+export const SITE_VISIT_WORKFLOW_CAPABILITY_MANIFEST = Object.freeze([
+  ...CATALOG_AUTHORING_CAPABILITY_MANIFEST.filter(
+    (entry) => !siteVisitNames.has(entry.name)
+  ).map((entry) => remintEntry(entry, SITE_VISIT_WORKFLOW_MANIFEST)),
+  ...SITE_VISIT_WORKFLOW_DEFINITIONS.map((entry) =>
+    mintImplementationEntry(entry, SITE_VISIT_WORKFLOW_MANIFEST)
+  ),
+]);
+assertCapabilityManifestInvariants(
+  SITE_VISIT_WORKFLOW_CAPABILITY_MANIFEST,
+  SITE_VISIT_WORKFLOW_MANIFEST
+);
+activateManifestPolicies(SITE_VISIT_WORKFLOW_CAPABILITY_MANIFEST);
+export function getSiteVisitWorkflowCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = SITE_VISIT_WORKFLOW_CAPABILITY_MANIFEST.find(
+    (entry) => entry.name === name
+  );
+  if (!entry) throw new TypeError("Unknown site visit capability");
+  return entry;
+}
+export function resolveSiteVisitWorkflowCapabilityAuthorization(
+  name: string,
+  input: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getSiteVisitWorkflowCapabilityManifestEntry(name),
+    input
+  );
 }
 
 export function getInvisibleOfficeCapabilityManifestEntry(

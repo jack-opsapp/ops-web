@@ -37,6 +37,62 @@ const operator = {
   companyDomains: ["canprodeckandrail.com"],
 };
 
+describe("staff alias signature quote isolation", () => {
+  const identity = {
+    connectionEmail: "office@example.com",
+    staffMembers: [{
+      userId: "operator-1",
+      registeredEmail: "office@example.com",
+      fullName: "Alex Morgan",
+      phone: "2025550119",
+      verifiedAliases: [], pendingAliases: [], rejectedAliases: [],
+    }],
+  };
+  const signature = "Alex Morgan\n(202) 555-0119\nExample Decks";
+  const quoted = signature.split("\n").map((line) => `> ${line}`).join("\n");
+
+  it.each([
+    ["Apple Mail prefixed header", `> On Aug 3, 2026, at 10:00 AM, Alex Morgan <office@example.com> wrote:\n>\n${quoted}`],
+    ["wrapped Gmail header", `On Mon, Aug 3, 2026 at 10:00 AM Alex Morgan <office@example.com>\nwrote:\n\n${quoted}`],
+    ["nested quoted signature", `> On Monday, Customer wrote:\n>\n>> ${signature.replaceAll("\n", "\n>> ")}`],
+    ["localized header", `Alex Morgan <office@example.com> 于2026年8月3日写道：\n\n${quoted}`],
+    ["indented quote lines", `  > ${signature.replaceAll("\n", "\n  > ")}`],
+    ["unmarked single quoted line", "> Alex Morgan (202) 555-0119"],
+    ["forwarded message", `Begin forwarded message:\n${signature}`],
+    ["Outlook spaced headers", `From: Alex Morgan <office@example.com>\n\nSent: Monday\n\n${signature}`],
+    ["long wrapped header", `On Monday, ${"long display name ".repeat(20)}\n<office@example.com> wrote:\n${signature}`],
+    ["nested contact form", `On Monday, August 3, 2026 Alex Morgan <office@example.com> wrote:\n\nNew contact form submission\nName: Casey Taylor\nEmail: customer@example.net\nMessage: Deck estimate\n\n${signature}`],
+    ["Outlook nested contact form", `-----Original Message-----\n\nNew contact form submission\nName: Casey Taylor\nEmail: customer@example.net\nMessage: Deck estimate\n\n${signature}`],
+  ])("does not turn a customer's %s into staff identity", (_name, history) => {
+    expect(resolvePersistedEmailAuthorship(email({
+      from: "Casey Taylor <customer@example.net>",
+      to: ["office@example.com"], cc: [],
+      bodyText: `Tuesday at ten works.\n\nCasey\n\n${history}`,
+    }), identity)).toEqual({ direction: "inbound", staffAliasCandidate: null });
+  });
+
+  it("never revives a quoted signature from a snippet when the body is empty", () => {
+    expect(resolvePersistedEmailAuthorship(email({
+      from: "customer@example.net", bodyText: "", snippet: signature,
+    }), identity)).toEqual({ direction: "inbound", staffAliasCandidate: null });
+  });
+
+  it.each(["", "OK\n\n"])("preserves short authored content without quote-only fallback: %j", (reply) => {
+    expect(resolvePersistedEmailAuthorship(email({
+      from: "customer@example.net", bodyText: `${reply}${quoted}`,
+    }), identity)).toEqual({ direction: "inbound", staffAliasCandidate: null });
+  });
+
+  it("still detects the author's actual staff signature above a reply chain", () => {
+    expect(resolvePersistedEmailAuthorship(email({
+      from: "secondary@example.net",
+      bodyText: `Please see the revised quote.\n\n${signature}\n\n> Customer's previous request`,
+    }), identity)).toMatchObject({
+      direction: "outbound", staffAliasCandidate: { userId: "operator-1", email: "secondary@example.net" },
+    });
+  });
+});
+
 describe("extractExternalIntakeEmailCorrelationMarker", () => {
   const marker = `emc_${"A".repeat(95)}`;
 

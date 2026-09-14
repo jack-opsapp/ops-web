@@ -49,6 +49,22 @@ function evaluate(messages: PhaseCEventMessage[]) {
   });
 }
 
+function legacyReviewLookup(
+  row: Record<string, unknown> | null = null,
+  error: { message: string } | null = null
+) {
+  const filters: Record<string, unknown> = {};
+  const query = {
+    select: () => query,
+    eq: (column: string, value: unknown) => {
+      filters[column] = value;
+      return query;
+    },
+    maybeSingle: async () => ({ data: row, error }),
+  };
+  return { from: () => query, filters };
+}
+
 describe("Phase C bilateral event handoff", () => {
   it("keeps Crystal's call request in review without inventing a booking", () => {
     const result = evaluate([
@@ -219,6 +235,9 @@ describe("Phase C bilateral event handoff", () => {
             id: "handoff-1",
             idempotency_key: params.p_idempotency_key,
             status: "ready",
+            initial_status: "ready",
+            initial_review_reason: null,
+            review_reason: null,
           },
           error: null,
         };
@@ -233,13 +252,13 @@ describe("Phase C bilateral event handoff", () => {
     });
 
     const first = await persistPhaseCBilateralEventHandoff({
-      supabase: { rpc } as never,
+      supabase: { rpc, ...legacyReviewLookup() } as never,
       companyId: COMPANY_ID,
       opportunityId: OPPORTUNITY_ID,
       evaluation: evaluation as Exclude<typeof evaluation, { status: "none" }>,
     });
     const second = await persistPhaseCBilateralEventHandoff({
-      supabase: { rpc } as never,
+      supabase: { rpc, ...legacyReviewLookup() } as never,
       companyId: COMPANY_ID,
       opportunityId: OPPORTUNITY_ID,
       evaluation: evaluation as Exclude<typeof evaluation, { status: "none" }>,
@@ -288,13 +307,16 @@ describe("Phase C bilateral event handoff", () => {
           id: "handoff-review",
           idempotency_key: params.p_idempotency_key,
           status: "review",
+          initial_status: "review",
+          initial_review_reason: params.p_review_reason,
+          review_reason: params.p_review_reason,
         },
         error: null,
       };
     });
 
     await persistPhaseCBilateralEventHandoff({
-      supabase: { rpc } as never,
+      supabase: { rpc, ...legacyReviewLookup() } as never,
       companyId: COMPANY_ID,
       opportunityId: OPPORTUNITY_ID,
       evaluation: evaluation as Exclude<typeof evaluation, { status: "none" }>,
@@ -310,5 +332,297 @@ describe("Phase C bilateral event handoff", () => {
       })
     );
     expect(rpc).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("persisted handoff lifecycle replay", () => {
+  const evaluation = {
+    status: "ready" as const,
+    reviewReason: null,
+    proposalEventId: "6939bdfb-a52d-4c67-9dd2-07a8cb7d0849",
+    proposalMessageId: "proposal-message",
+    acceptanceEventId: "92bad29c-d534-4d6d-ab64-34141811deb1",
+    acceptanceMessageId: "acceptance-message",
+    requestedOwnerUserId: OWNER_ID,
+    eventKind: "site_visit" as const,
+    eventTitle: "Site visit",
+    startsAt: "2026-08-27T21:00:00.000Z",
+    endsAt: "2026-08-27T22:00:00.000Z",
+    eventTimezone: "America/Vancouver",
+    location: null,
+    attendees: [
+      { email: "customer@example.com", role: "customer" as const },
+      { email: "operator@example.com", role: "operator" as const },
+    ],
+  };
+
+  function persistedRow(
+    overrides: Record<string, unknown>,
+    error: { message: string } | null = null
+  ) {
+    const rpc = vi.fn(async (name: string, params: Record<string, unknown>) => {
+      if (name === "record_opportunity_lifecycle_decision") {
+        return { data: { id: "decision-1", status: "applied" }, error: null };
+      }
+      if (name === "record_phase_c_bilateral_event_handoff") {
+        return {
+          data: [
+            {
+              id: "adb94ea2-1da9-41f5-8691-fd4e165be807",
+              idempotency_key: params.p_idempotency_key,
+              company_id: COMPANY_ID,
+              opportunity_id: OPPORTUNITY_ID,
+              decision_id: "decision-1",
+              proposal_event_id: evaluation.proposalEventId,
+              acceptance_event_id: evaluation.acceptanceEventId,
+              requested_owner_user_id: OWNER_ID,
+              initial_status: "ready",
+              initial_review_reason: null,
+              status: "ready",
+              review_reason: null,
+              ...overrides,
+            },
+          ],
+          error,
+        };
+      }
+      if (name === "settle_opportunity_lifecycle_decision") {
+        return { data: { id: "decision-1", status: "applied" }, error: null };
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+    return rpc;
+  }
+
+  it.each([
+    ["review", "event_time_unresolved"],
+    ["consumed", null],
+    ["cancelled", null],
+  ] as const)(
+    "preserves a ready handoff that has moved to %s",
+    async (status, reviewReason) => {
+      const rpc = persistedRow({ status, review_reason: reviewReason });
+      await expect(
+        persistPhaseCBilateralEventHandoff({
+          supabase: { rpc, ...legacyReviewLookup() },
+          companyId: COMPANY_ID,
+          opportunityId: OPPORTUNITY_ID,
+          evaluation,
+        })
+      ).resolves.toMatchObject({
+        id: "adb94ea2-1da9-41f5-8691-fd4e165be807",
+        status,
+        reviewReason,
+      });
+      expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+        "record_opportunity_lifecycle_decision",
+        "record_phase_c_bilateral_event_handoff",
+        "settle_opportunity_lifecycle_decision",
+      ]);
+    }
+  );
+
+  it.each([
+    ["immutable initial status", { initial_status: "review" }],
+    ["missing immutable status", { initial_status: undefined }],
+    [
+      "immutable review reason",
+      { initial_review_reason: "event_owner_unresolved" },
+    ],
+    ["missing immutable reason", { initial_review_reason: undefined }],
+    ["idempotency key", { idempotency_key: "other-proposal" }],
+    ["unknown current status", { status: "unknown" }],
+    ["missing current status", { status: undefined }],
+    ["review without reason", { status: "review", review_reason: null }],
+    ["malformed current reason", { review_reason: 12 }],
+  ])("rejects a mismatched or malformed %s", async (_name, overrides) => {
+    const rpc = persistedRow(overrides);
+    await expect(
+      persistPhaseCBilateralEventHandoff({
+        supabase: { rpc, ...legacyReviewLookup() },
+        companyId: COMPANY_ID,
+        opportunityId: OPPORTUNITY_ID,
+        evaluation,
+      })
+    ).rejects.toThrow("Phase C bilateral event handoff returned no result");
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it("retains the database immutable-proposal conflict instead of acknowledging it", async () => {
+    const rpc = persistedRow(
+      { status: "review", review_reason: "event_time_unresolved" },
+      { message: "bilateral_event_handoff_replay_conflict" }
+    );
+    await expect(
+      persistPhaseCBilateralEventHandoff({
+        supabase: { rpc, ...legacyReviewLookup() },
+        companyId: COMPANY_ID,
+        opportunityId: OPPORTUNITY_ID,
+        evaluation,
+      })
+    ).rejects.toThrow("bilateral_event_handoff_replay_conflict");
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("changing appointment review evidence", () => {
+  const proposal = message({
+    eventId: "review-proposal",
+    providerMessageId: "review-proposal-message",
+    direction: "outbound",
+    body: "Can we arrange a meeting to discuss the deck?",
+  });
+  const thirdPartyReply = message({
+    eventId: "third-party-event",
+    providerMessageId: "third-party-message",
+    direction: "inbound",
+    fromEmail: "new-customer@example.com",
+    body: "Nice to meet you. Here are the photos of my deck.",
+  });
+
+  function persistenceFixture(seedLegacy: boolean) {
+    const decisions = new Map<string, Record<string, unknown>>();
+    const handoffs = new Map<string, Record<string, unknown>>();
+    const legacy = {
+      id: "legacy-review-decision",
+      proposed_stage: null,
+      proposed_outcome: "review",
+      confidence: 0.5,
+      reason: "event_date_or_time_unresolved",
+      initial_status: "review",
+      initial_review_reason: "event_date_or_time_unresolved",
+    };
+    if (seedLegacy) decisions.set("bilateral_event_review", legacy);
+    const lookup = legacyReviewLookup(seedLegacy ? legacy : null);
+    const rpc = vi.fn(async (name: string, params: Record<string, unknown>) => {
+      if (name === "record_opportunity_lifecycle_decision") {
+        const key = params.p_decision_key as string;
+        const existing = decisions.get(key);
+        const conclusion = {
+          proposed_stage: params.p_proposed_stage,
+          proposed_outcome: params.p_proposed_outcome,
+          confidence: params.p_confidence,
+          reason: params.p_reason,
+          initial_status: params.p_status,
+          initial_review_reason: params.p_review_reason,
+        };
+        if (
+          existing &&
+          Object.entries(conclusion).some(
+            ([field, value]) => existing[field] !== value
+          )
+        ) {
+          return {
+            data: null,
+            error: { message: "lifecycle_decision_replay_conflict" },
+          };
+        }
+        const row = existing ?? {
+          id: `decision-${decisions.size}`,
+          ...conclusion,
+        };
+        decisions.set(key, row);
+        return { data: { ...row, status: "review" }, error: null };
+      }
+      if (name === "record_phase_c_bilateral_event_handoff") {
+        const key = params.p_idempotency_key as string;
+        const existing = handoffs.get(key);
+        if (existing && existing.decision_id !== params.p_decision_id) {
+          return {
+            data: null,
+            error: { message: "bilateral_event_handoff_replay_conflict" },
+          };
+        }
+        const row = existing ?? {
+          id: `handoff-${handoffs.size}`,
+          idempotency_key: key,
+          decision_id: params.p_decision_id,
+          initial_status: "review",
+          initial_review_reason: params.p_review_reason,
+          status: "review",
+          review_reason: params.p_review_reason,
+        };
+        handoffs.set(key, row);
+        return { data: row, error: null };
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+    return {
+      supabase: { rpc, from: lookup.from },
+      decisions,
+      handoffs,
+      filters: lookup.filters,
+    };
+  }
+
+  it.each([false, true])(
+    "preserves immutable receipts while review reason changes (legacy: %s)",
+    async (seedLegacy) => {
+      const fixture = persistenceFixture(seedLegacy);
+      const firstEvaluation = evaluate([proposal]);
+      const nextEvaluation = evaluate([proposal, thirdPartyReply]);
+      expect(firstEvaluation).toMatchObject({
+        status: "review",
+        reviewReason: "event_date_or_time_unresolved",
+      });
+      expect(nextEvaluation).toMatchObject({
+        status: "review",
+        reviewReason: "event_participant_authority_unresolved",
+        proposalEventId: proposal.eventId,
+      });
+      const persist = (evaluation: typeof firstEvaluation) => {
+        if (evaluation.status === "none")
+          throw new Error("Expected an appointment review");
+        return persistPhaseCBilateralEventHandoff({
+          supabase: fixture.supabase,
+          companyId: COMPANY_ID,
+          opportunityId: OPPORTUNITY_ID,
+          evaluation,
+        });
+      };
+      const first = await persist(firstEvaluation);
+      const originalDecisions = [...fixture.decisions.values()].map((row) => ({
+        ...row,
+      }));
+      const next = await persist(nextEvaluation);
+      expect(next.id).not.toBe(first.id);
+      expect(await persist(nextEvaluation)).toEqual(next);
+      expect(await persist(firstEvaluation)).toEqual(first);
+      expect(fixture.decisions.size).toBe(2);
+      expect(fixture.handoffs.size).toBe(2);
+      expect([...fixture.decisions.values()]).toEqual(
+        expect.arrayContaining(originalDecisions)
+      );
+      expect(fixture.filters).toEqual({
+        company_id: COMPANY_ID,
+        opportunity_id: OPPORTUNITY_ID,
+        source_event_id: proposal.eventId,
+        decision_kind: "event_handoff",
+        decision_key: "bilateral_event_review",
+      });
+      if (seedLegacy) {
+        expect([...fixture.handoffs.values()][0].decision_id).toBe(
+          "legacy-review-decision"
+        );
+      }
+    }
+  );
+
+  it("fails before writing when the legacy review receipt cannot be checked", async () => {
+    const lookup = legacyReviewLookup(null, {
+      message: "database unavailable",
+    });
+    const rpc = vi.fn();
+    const evaluation = evaluate([proposal]);
+    if (evaluation.status === "none") throw new Error("Expected review");
+    await expect(
+      persistPhaseCBilateralEventHandoff({
+        supabase: { rpc, from: lookup.from },
+        companyId: COMPANY_ID,
+        opportunityId: OPPORTUNITY_ID,
+        evaluation,
+      })
+    ).rejects.toThrow("database unavailable");
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

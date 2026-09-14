@@ -1,0 +1,14 @@
+SET
+SET
+ assert
+--------
+
+(1 row)
+
+ assert
+--------
+
+(1 row)
+
+psql:/private/tmp/ops-deck-v23-5pc6l0io/pending-committed-after.sql:2: NOTICE:  PASS: migration preserves old pending proposal exactly
+psql:/private/tmp/ops-deck-v23-5pc6l0io/pending-committed-after.sql:2: NOTICE:  PASS: old V14 proposal commits after V23 migration under original grant

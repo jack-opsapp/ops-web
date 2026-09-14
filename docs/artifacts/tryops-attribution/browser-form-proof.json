@@ -1,0 +1,10 @@
+{
+  "error": "Please fill in all fields",
+  "errorColor": "rgb(181, 130, 137)",
+  "name": "Local preview",
+  "passwordButton": "Hide password",
+  "passwordType": "text",
+  "pressed": "true",
+  "scrollWidth": 384,
+  "width": 390
+}

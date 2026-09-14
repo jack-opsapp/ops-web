@@ -1,0 +1,24 @@
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:10: NOTICE:  PASS: exact typed checklist preview without business mutation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:23: NOTICE:  PASS: dormant prepare requires exact effect seal
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:33: NOTICE:  PASS: company civil time, exact appointment and unknown external coverage
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:52: NOTICE:  PASS: exact approval, atomic checklist receipt and lost-response replay
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:81: NOTICE:  PASS: golden booking, reusable checklist, evidence answers, false/zero and missing access
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:109: NOTICE:  PASS: uncertainty, explicit clear and fabricated source quote denial
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:109: NOTICE:  PASS: ABA source change, supersession and rejection invalidate old approvals
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:122: NOTICE:  PASS: text-answer inspection redacts inaccessible historical media evidence
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:136: NOTICE:  PASS: needs-input correction closes old approval and replays durably
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:149: NOTICE:  PASS: approved cancellation preserves historical inactive assignees
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:159: NOTICE:  PASS: actor-bound phone completion delegates canonical activity and replays once
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:172: NOTICE:  PASS: cancellation preserves legacy duration and empty crew
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-compiler.sql:184: NOTICE:  PASS: malformed assigned task and active calendar sources block availability
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:27: NOTICE:  PASS ADVERSARIAL: MCP current grant revoke, disable, scope/revision, client substitution, and permission revocation
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:40: NOTICE:  PASS ADVERSARIAL: authenticated owner reads workflow actions; raw mutation is denied
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:47: NOTICE:  PASS ADVERSARIAL: wrong actor cannot read workflow actions despite matching company JWT
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:56: NOTICE:  PASS ADVERSARIAL: DST gap/fold denial and exact explicit offsets
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:70: NOTICE:  PASS: unlinked form/source reads require all scope and exact company
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-boundaries.sql:80: NOTICE:  PASS: null historical crew cancellation and exact lost-response replay
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-timezones.sql:20: NOTICE:  PASS: PostgreSQL Vancouver, half/quarter-hour, negative offsets and cross-year UTC proof
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-timezones.sql:51: NOTICE:  PASS: changed company timezone, ABA and appointment edits invalidate approval; exact booking/reschedule proof is sealed in receipts
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-discovery.sql:12: NOTICE:  PASS: exact template edit/default changes preserve all historical answer snapshots
+psql:/Users/jacksonsweet/Projects/OPS/.worktrees/ops-mcp-site-visits-web-p19/tests/sql/site-visit-mcp-discovery.sql:29: NOTICE:  PASS: bounded template discovery returns stable nonoverlapping pages and rejects a changed source revision
+PASS: an ordinary task writer prevents partial workflow source inspection

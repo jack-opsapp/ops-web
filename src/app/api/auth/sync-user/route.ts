@@ -37,6 +37,8 @@ import type {
   PaymentSchedule,
 } from "@/lib/types/models";
 import { UserRole as UserRoleEnum } from "@/lib/types/models";
+import { buildSignupAttribution } from "@/lib/analytics/signup-attribution";
+import { stageSignupExperiment, retrySignupExperiment } from "@/lib/pmf/experiment-attribution";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
@@ -325,6 +327,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // On a tolerated (cosmetic-only) failure fall back to the row as last
       // read — never to a merge of the updates we failed to write.
       const user = mapUserFromDb(updatedRow ?? existingRow);
+      await stageSignupExperiment(db, req, user.id);
+      await retrySignupExperiment(db, req, user.id, user.companyId);
       const company = user.companyId ? await fetchCompanyById(user.companyId) : null;
 
       return NextResponse.json({ user, company });
@@ -349,6 +353,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // carries the same defense-in-depth Firebase-issued gate as the backfill
     // above (always true today, since OPS is Firebase-only) — a non-Firebase
     // issuer's sub must never seed the column.
+    const signupAttribution = buildSignupAttribution(req);
     const newRow = {
       auth_id: firebaseUid,
       firebase_uid: isFirebaseIssuedToken(firebaseUser.claims)
@@ -364,6 +369,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       onboarding_completed: {},
       has_completed_tutorial: false,
       dev_permission: false,
+      // Same insert as the account: leaving before company setup cannot lose
+      // the classified source. Login/race recovery never replaces this snapshot.
+      ...(signupAttribution ? {
+        setup_progress: { steps: {}, signup_attribution: signupAttribution },
+      } : {}),
     };
 
     const { data: inserted, error: insertError } = await db
@@ -400,6 +410,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
         if (raced) {
           const user = mapUserFromDb(raced);
+          await stageSignupExperiment(db, req, user.id);
+          await retrySignupExperiment(db, req, user.id, user.companyId);
           const company = user.companyId ? await fetchCompanyById(user.companyId) : null;
           return NextResponse.json({ user, company });
         }
@@ -411,6 +423,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const user = mapUserFromDb(inserted);
+    await stageSignupExperiment(db, req, user.id);
     return NextResponse.json({ user, company: null });
   } catch (error) {
     console.error("[api/auth/sync-user] Error:", error);

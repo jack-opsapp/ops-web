@@ -1,0 +1,28 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/canpro-cloud-ops-oauth-20260910
+
+ ✓ tests/unit/mcp/oauth-consent.test.ts (73 tests) 473ms
+ ✓ tests/unit/mcp/oauth-routes.test.ts (55 tests) 320ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/grants.test.ts (175 tests) 189ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/clients.test.ts (121 tests) 64ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scope-catalog.test.ts (13 tests) 22ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/grant-pinned-exposure.test.ts (19 tests) 575ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/scopes.test.ts (35 tests) 42ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/tokens.test.ts (40 tests) 18ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/canary.test.ts (17 tests) 48ms
+ ✓ src/lib/agent-control-plane/mcp/__tests__/bearer.test.ts (4 tests) 37ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/config.test.ts (36 tests) 55ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/pkce.test.ts (50 tests) 32ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/catalog-canary.test.ts (8 tests) 115ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/canpro-client.test.ts (31 tests) 94ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/financial-canary.test.ts (5 tests) 17ms
+ ✓ src/lib/agent-control-plane/mcp/oauth/__tests__/authorization-response.test.ts (4 tests) 12ms
+ ✓ tests/unit/mcp/oauth-consent-protocol.test.ts (2 tests) 5ms
+ ✓ tests/unit/mcp/oauth-userinfo.test.ts (30 tests) 34ms
+
+ Test Files  18 passed (18)
+      Tests  718 passed (718)
+   Start at  12:11:40
+   Duration  54.74s (transform 9.57s, setup 13.78s, collect 40.83s, tests 2.15s, environment 27.12s, prepare 3.59s)
+

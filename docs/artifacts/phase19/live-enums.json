@@ -1,0 +1,152 @@
+[
+  {
+    "nspname": "public",
+    "typname": "assessment_type",
+    "labels": "{quiz,assignment,test}"
+  },
+  {
+    "nspname": "public",
+    "typname": "bundle_type",
+    "labels": "{fixed,pick_n}"
+  },
+  {
+    "nspname": "public",
+    "typname": "content_block_type",
+    "labels": "{video,text,download,quiz,action_item,image,embed,assignment,interactive_tool}"
+  },
+  {
+    "nspname": "public",
+    "typname": "course_status",
+    "labels": "{draft,published,archived}"
+  },
+  {
+    "nspname": "public",
+    "typname": "email_anomaly_kind",
+    "labels": "{bounce_spike,spam_spike,delivery_drop,volume_drop}"
+  },
+  {
+    "nspname": "public",
+    "typname": "email_anomaly_severity",
+    "labels": "{warn,critical}"
+  },
+  {
+    "nspname": "public",
+    "typname": "email_campaign_status",
+    "labels": "{draft,scheduled,in_flight,completed,failed,cancelled,paused}"
+  },
+  {
+    "nspname": "public",
+    "typname": "email_job_status",
+    "labels": "{pending,dispatching,sent,bounced,failed,cancelled,skipped_suppressed}"
+  },
+  {
+    "nspname": "public",
+    "typname": "enrollment_status",
+    "labels": "{active,completed,expired,purchased}"
+  },
+  {
+    "nspname": "public",
+    "typname": "gmail_connection_type",
+    "labels": "{company,individual}"
+  },
+  {
+    "nspname": "public",
+    "typname": "lesson_progress_status",
+    "labels": "{not_started,in_progress,completed}"
+  },
+  {
+    "nspname": "public",
+    "typname": "onboarding_email_status",
+    "labels": "{pending,sent,failed,skipped}"
+  },
+  {
+    "nspname": "public",
+    "typname": "photo_source",
+    "labels": "{site_visit,in_progress,completion,other,measurement,deck_design,email}"
+  },
+  {
+    "nspname": "public",
+    "typname": "quiz_question_type",
+    "labels": "{multiple_choice,scenario,true_false}"
+  },
+  {
+    "nspname": "public",
+    "typname": "site_visit_status",
+    "labels": "{scheduled,in_progress,completed,cancelled}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_change_order_status",
+    "labels": "{proposed,customer_approved,customer_declined,in_progress,completed,paid}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_change_order_type",
+    "labels": "{minor_hourly,major_fixed,polish_budget,platform_compat_rebuild,tier_upgrade}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_feature_status",
+    "labels": "{pending,passing,failing}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_hold_type",
+    "labels": "{customer_requested,ops_blocked}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_owner_approval_status",
+    "labels": "{pending,approved,declined,expired}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_payment_milestone",
+    "labels": "{deposit,scope_signoff,midpoint,delivery}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_payment_status",
+    "labels": "{pending,invoiced,paid,overdue,disputed,refunded,partially_refunded,voided,uncollectible}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_project_status",
+    "labels": "{awaiting_owner_approval,awaiting_deposit,deposit_paid,discovery,building,on_hold,stalled_on_hold,support,on_retainer,completed,stalled,cancelled,refunded}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_referral_status",
+    "labels": "{pending,eligible,kyc_required,review,paid,forfeited,held}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_refund_source",
+    "labels": "{customer_initiated,stripe_dispute}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_refund_status",
+    "labels": "{pending,processed,partial,failed,denied}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_retainer_status",
+    "labels": "{active,paused,cancelled}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_ticket_phase",
+    "labels": "{support,retainer,ad_hoc}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_ticket_severity",
+    "labels": "{critical,high,cosmetic_enhancement}"
+  },
+  {
+    "nspname": "public",
+    "typname": "spec_ticket_status",
+    "labels": "{open,in_progress,resolved,escalated_to_change_order}"
+  }
+]

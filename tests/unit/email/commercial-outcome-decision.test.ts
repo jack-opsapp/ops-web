@@ -107,6 +107,74 @@ function message(
 
 const NOW = new Date("2026-07-21T18:00:00.000Z");
 
+describe("quoted durations and offered appointments", () => {
+  it.each([
+    "Vinyl is custom ordered with a 1-2 week lead time, and the work takes about 5 days on site.",
+    "Materials have a 2-3 week lead time and installation work takes five days.",
+    "Our 3/4 week lead time includes supply and installation work.",
+    "The installation is scheduled for 1-2 weeks after approval.",
+    "For requests received by September 30, the installation work costs $8,000.",
+    "For requests by 9/18, our installation work costs $8,000.",
+  ])(
+    "does not turn quote timing or a work description into a won job: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message("duration-quote", NOW.toISOString(), "outbound", body),
+          ],
+        })
+      ).toBeNull();
+    }
+  );
+
+  it("keeps a priced quote and an offered site visit unaccepted", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "quote-request",
+            "2026-07-20T10:00:00Z",
+            "inbound",
+            "I'm still looking. A quote would be great."
+          ),
+          message(
+            "quote-offer",
+            NOW.toISOString(),
+            "outbound",
+            [
+              "The deck resheet and vinyl total is $24,000 plus tax.",
+              "Vinyl is custom ordered with a 1-2 week lead time, and the work takes about 5 days on site.",
+              "I have availability this Wednesday if you'd like to set up a site visit. Let me know a time that works and I'll come by!",
+            ].join("\n\n")
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "The installation is booked for 9/18.",
+    "Installation is booked for September 18, with a 1-2 week material lead time.",
+    "Installation on 9/18 works for us.",
+    "Monday and Tuesday work for us for installation.",
+  ])("preserves a confirmed execution date alongside durations: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message("confirmed-work", NOW.toISOString(), "outbound", body),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveSignals: ["schedule_confirmed"],
+    });
+  });
+});
+
 describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
   it("treats Camille's acceptance and confirmed installation date as Won while superseding removal and the old price", () => {
     const result = detectCommercialOutcome({

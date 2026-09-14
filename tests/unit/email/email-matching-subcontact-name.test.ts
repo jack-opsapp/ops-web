@@ -145,6 +145,39 @@ describe("nameIdentityTokens", () => {
 });
 
 describe("Tier 3.5 — sub-contact name match", () => {
+  it.each([
+    "Taylor Smith",
+    "Jordan Winters",
+    "Jordan Goldsmith",
+    "Taylor Smith and Robin Jones",
+  ])(
+    "does not block Jordan Smith because an unrelated sub-contact is named %s",
+    async (name) => {
+      expect(
+        (
+          await match(
+            { clients: [], sub_clients: [subContact({ name })] },
+            "Jordan Smith",
+            "jordan@example.net"
+          )
+        ).action
+      ).toBe("create_new");
+    }
+  );
+  it.each(["Jo Li", "Li Chen", "Élodie Noël"])(
+    "retains complete-name review for %s",
+    async (name) => {
+      expect(
+        (
+          await match(
+            { clients: [], sub_clients: [subContact({ name })] },
+            name,
+            "customer@example.net"
+          )
+        ).action
+      ).toBe("review");
+    }
+  );
   it("routes Elaine to review against Mark's existing client", async () => {
     const result = await match(
       { clients: [], sub_clients: [subContact()] },
@@ -238,7 +271,7 @@ describe("Tier 3.5 — sub-contact name match", () => {
           subContact({
             id: "sub-newer",
             client_id: "client-other",
-            name: "Elaine Winters",
+            name: "Elaine Beattie",
             created_at: "2026-07-01T00:00:00.000Z",
           }),
         ],
@@ -262,7 +295,7 @@ describe("Tier 3.5 — sub-contact name match", () => {
           {
             id: "client-beattie",
             company_id: "company-1",
-            name: "Beattie Holdings",
+            name: "Elaine Beattie",
             email: "office@beattieholdings.example",
             deleted_at: null,
           },

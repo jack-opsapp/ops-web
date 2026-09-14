@@ -1,0 +1,11 @@
+{
+  "approved": false,
+  "grounded": false,
+  "current": true,
+  "original": true,
+  "useful": true,
+  "on_voice": true,
+  "structured": true,
+  "reason": "unsupported_claim",
+  "notes": "Email line 'Regulators are coaching your customer to treat a handshake as a warning sign' goes past the sources: the FTC 'Signs of a Home Improvement Scam' list and Virginia DPOR's warning-sign list name pressure, pay-everything-up-front and cash-only, never a missing written contract. The FTC only says 'ask for one'; Virginia says 'Don't rely on verbal agreements.' Rewrite to what they say, e.g. 'Regulators are coaching your customer to ask for paper even where no law requires it.' Recast FAQ 6's 'Regulators coached your customer to read paper as the sign of a real business' as our read, not the regulators'. Everything else checks: all 30 quotes verbatim, every number sourced, 1,318 words, 10 valid internal links, structure and voice on brief. Minor: the brief bolds only one or two key numbers, so unbold the eight checklist labels."
+}

@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/jacksonsweet/Projects/OPS/.worktrees/tryops-conversion-web
+
+ ✓ tests/unit/analytics-health.test.ts (13 tests) 4ms
+stderr | tests/integration/tryops-health-cron.test.ts > does not count a waiting backoff row alone as a new delivery failure
+[tryops/health] delivery pending { status: 'drained', delivered: 0, pending: 1, failed: 0 }
+
+ ✓ tests/integration/tryops-health-cron.test.ts (8 tests) 6ms
+ ✓ tests/unit/pmf/tryops-health-delivery.test.ts (12 tests) 4ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  15:03:18
+   Duration  1.06s (transform 62ms, setup 277ms, collect 52ms, tests 14ms, environment 263ms, prepare 66ms)

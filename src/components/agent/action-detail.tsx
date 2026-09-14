@@ -1,5 +1,7 @@
 "use client";
 
+import { SiteVisitChangesPreview } from "./site-visit-changes-preview";
+import { SiteVisitWorkflowProposalSchema } from "@/lib/agent-control-plane/contracts/site-visit-workflow";
 import { CatalogChangesPreview } from "./catalog-changes-preview";
 import { CatalogPreviewSchema } from "@/lib/agent-control-plane/contracts/catalog-authoring";
 import { FinancialDocumentPreview } from "./financial-document-preview";
@@ -515,6 +517,16 @@ export const ActionDetail = memo(function ActionDetail({
       !catalogPreview.data.ready ||
       !action.expiresAt ||
       action.expiresAt.getTime() <= Date.now());
+  const siteVisitPreview =
+    action.actionType === "approve_site_visit_changes"
+      ? SiteVisitWorkflowProposalSchema.safeParse(action.actionData.proposal)
+      : null;
+  const siteVisitPreviewInvalid =
+    siteVisitPreview !== null &&
+    (!siteVisitPreview.success ||
+      !siteVisitPreview.data.ready ||
+      !action.expiresAt ||
+      action.expiresAt.getTime() <= Date.now());
   const financialPreview =
     action.actionType === "approve_financial_document"
       ? FinancialDocumentPreviewSchema.safeParse(action.actionData.proposal)
@@ -551,6 +563,23 @@ export const ActionDetail = memo(function ActionDetail({
   const handleApproveWithEdits = useCallback(() => {
     if (action.actionType === "approve_catalog_changes") {
       const parsed = CatalogPreviewSchema.safeParse(action.actionData.proposal);
+      if (
+        !parsed.success ||
+        !parsed.data.ready ||
+        !action.expiresAt ||
+        action.expiresAt.getTime() <= Date.now()
+      )
+        return;
+      onApprove(action.id, {
+        preview_sha256: action.actionData.preview_sha256,
+        change_set_id: action.actionData.change_set_id,
+      });
+      return;
+    }
+    if (action.actionType === "approve_site_visit_changes") {
+      const parsed = SiteVisitWorkflowProposalSchema.safeParse(
+        action.actionData.proposal
+      );
       if (
         !parsed.success ||
         !parsed.data.ready ||
@@ -1158,6 +1187,12 @@ export const ActionDetail = memo(function ActionDetail({
 
         {action.actionType === "approve_catalog_changes" && (
           <CatalogChangesPreview
+            proposal={action.actionData.proposal}
+            expiresAt={action.expiresAt}
+          />
+        )}
+        {action.actionType === "approve_site_visit_changes" && (
+          <SiteVisitChangesPreview
             proposal={action.actionData.proposal}
             expiresAt={action.expiresAt}
           />
@@ -3099,6 +3134,7 @@ export const ActionDetail = memo(function ActionDetail({
           !isCollectionsDraft &&
           !isDispatchConfirmation &&
           action.actionType !== "approve_catalog_changes" &&
+          action.actionType !== "approve_site_visit_changes" &&
           !isPending && (
             <div>
               <span className="font-mono text-[11px] uppercase text-text-3">
@@ -3145,29 +3181,32 @@ export const ActionDetail = memo(function ActionDetail({
               onClick={handleApproveWithEdits}
               disabled={
                 catalogPreviewInvalid ||
+                siteVisitPreviewInvalid ||
                 financialPreviewInvalid ||
                 schedulePreviewInvalid ||
                 customerPreviewInvalid ||
                 customerMessagePreviewInvalid
               }
             >
-              {action.actionType === "approve_financial_document"
-                ? t("financialDocument.approve")
-                : action.actionType === "approve_schedule_change"
-                  ? t("scheduleChange.approve")
-                  : action.actionType === "approve_customer_update"
-                    ? t("customerUpdate.save")
-                    : action.actionType === "send_customer_follow_up"
-                      ? t("customerMessage.send")
-                      : isDayCloseout
-                        ? t("dayCloseout.action.file")
-                        : isCollectionsDraft
-                          ? t("collections.action.approve")
-                          : isDispatchConfirmation
-                            ? t("dispatch.action.create")
-                            : isFinancialInsight
-                              ? t("financial.action.acknowledge")
-                              : t("action.approve")}
+              {action.actionType === "approve_site_visit_changes"
+                ? t("siteVisit.save")
+                : action.actionType === "approve_financial_document"
+                  ? t("financialDocument.approve")
+                  : action.actionType === "approve_schedule_change"
+                    ? t("scheduleChange.approve")
+                    : action.actionType === "approve_customer_update"
+                      ? t("customerUpdate.save")
+                      : action.actionType === "send_customer_follow_up"
+                        ? t("customerMessage.send")
+                        : isDayCloseout
+                          ? t("dayCloseout.action.file")
+                          : isCollectionsDraft
+                            ? t("collections.action.approve")
+                            : isDispatchConfirmation
+                              ? t("dispatch.action.create")
+                              : isFinancialInsight
+                                ? t("financial.action.acknowledge")
+                                : t("action.approve")}
             </Button>
             <Button
               variant="ghost"

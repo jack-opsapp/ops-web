@@ -41,6 +41,7 @@ export type Namespace =
   | 'project-workspace'
   | 'catalog-setup'
   | 'admin-social'
+  | 'admin-blog'
   | 'picker'
   | 'estimate-calculator'
   | 'admin-growth'

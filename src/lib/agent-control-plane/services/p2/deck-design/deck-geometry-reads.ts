@@ -13,6 +13,13 @@ import {
   type DeckDesignGeometryResult,
 } from "@/lib/agent-control-plane/contracts/deck-design-geometry";
 import {
+  DECK_GEOMETRY_CALCULATOR_V2_REVISION,
+  DECK_GEOMETRY_RESULT_V2_REVISION,
+  DeckDesignGeometryResultV2Schema,
+  type DeckDesignGeometryResultV2,
+  type DeckGeometryResultRevision,
+} from "@/lib/agent-control-plane/contracts/deck-design-geometry-v2";
+import {
   P2RepositoryBoundaryError,
   readThroughP2RepositoryBoundary,
 } from "../shared/repository-boundary";
@@ -41,6 +48,7 @@ import {
 export class DeckGeometryReadError extends Error {
   readonly code:
     | "INTERNAL"
+    | "DECK_GEOMETRY_RESULT_REVISION_UNSUPPORTED"
     | "INVALID_GEOMETRY"
     | "NOT_FOUND"
     | "RESULT_TOO_LARGE"
@@ -55,7 +63,10 @@ export class DeckGeometryReadError extends Error {
   }) {
     const messages = {
       INTERNAL: "Deck geometry could not be read.",
-      INVALID_GEOMETRY: "Deck geometry could not be validated.",
+      INVALID_GEOMETRY:
+        "The saved deck geometry is invalid. Open the design in OPS and review its geometry before trying again.",
+      DECK_GEOMETRY_RESULT_REVISION_UNSUPPORTED:
+        "This connection version cannot represent the saved deck geometry. OPS must release and enable a compatible connection version; the drawing does not need an invented edge.",
       NOT_FOUND: "Deck geometry was not found.",
       RESULT_TOO_LARGE: "Deck geometry is too large to return safely.",
       STALE_CONTEXT: "Deck geometry changed. Start the read again.",
@@ -172,18 +183,31 @@ function calculationErrorCode(
 }
 
 function buildResult(input: {
+  readonly resultRevision: DeckGeometryResultRevision;
   readonly authorization: AuthorizedDeckDesignGeometryRead;
   readonly snapshot: Extract<
     DeckGeometryRepositoryResult,
     { readonly state: "found" }
   >["snapshot"];
-}): DeckDesignGeometryResult {
+}): DeckDesignGeometryResult | DeckDesignGeometryResultV2 {
   const { authorization, snapshot } = input;
   const calculation = calculateDeckGeometryFromSourceJson(
     snapshot.drawingSource
   );
+  const v2 = input.resultRevision === "v2";
+  if (
+    !v2 &&
+    calculation.topology.connections.some(
+      (c) => c.kind === "level_stair" && c.lower_edge_ref === null
+    )
+  )
+    throw readError("DECK_GEOMETRY_RESULT_REVISION_UNSUPPORTED", authorization);
+  const calculatorRevision = v2
+    ? DECK_GEOMETRY_CALCULATOR_V2_REVISION
+    : DECK_GEOMETRY_CALCULATOR_REVISION;
   const geometrySourceFence = deckGeometrySourceFence({
     authorization,
+    calculatorRevision,
     selectedAuthorization: snapshot.selectedAuthorization,
     designId: snapshot.designId,
     drawingContentHash: snapshot.drawingContentHash,
@@ -203,7 +227,7 @@ function buildResult(input: {
       occurred_at: snapshot.readAt,
     },
   ];
-  const resultWithoutProof: Omit<DeckDesignGeometryResult, "proof"> = {
+  const baseResult = {
     deck_design_ref: authorization.query.deck_design_ref,
     design: {
       title:
@@ -211,23 +235,39 @@ function buildResult(input: {
           ? null
           : {
               text: snapshot.titleText,
-              content_kind: "untrusted_business_data",
+              content_kind: "untrusted_business_data" as const,
             },
       drawing_schema_version: calculation.drawing_schema_version,
-      calculator_revision: DECK_GEOMETRY_CALCULATOR_REVISION,
+      calculator_revision: calculatorRevision,
       local_ref_revision: DECK_GEOMETRY_LOCAL_REF_REVISION,
     },
     coordinate_system: {
-      axes: "x_right_y_down",
-      unit: "drawing_unit",
+      axes: "x_right_y_down" as const,
+      unit: "drawing_unit" as const,
     },
     topology: calculation.topology,
     measurements: calculation.measurements,
     geometry_source_fence: geometrySourceFence,
     evidence,
   };
+  const resultWithoutProof = v2
+    ? {
+        ...baseResult,
+        result_revision: DECK_GEOMETRY_RESULT_V2_REVISION,
+        railing_estimate: calculation.railing_estimate,
+        stair_placements: [...calculation.stair_placements],
+        measurement_basis: {
+          flat_railing_linear_feet: "configured_edges_only",
+          parapet_linear_feet: "configured_wall_edges_only",
+          stair_railing_linear_feet: "native_two_sided_stair_geometry",
+          combined_guard_linear_feet:
+            "configured_flat_plus_native_stairs_plus_parapet",
+        } as const,
+      }
+    : baseResult;
   const proofContext = deckGeometryProofContext({
     authorization,
+    calculatorRevision,
     selectedAuthorization: snapshot.selectedAuthorization,
     authorityPath: snapshot.authorityPath,
     designId: snapshot.designId,
@@ -240,12 +280,16 @@ function buildResult(input: {
   const proof: P2EntityProof = {
     proof_ref: deckGeometryEntityProofRef({
       context: proofContext,
-      result: resultWithoutProof,
+      result: resultWithoutProof as
+        | Omit<DeckDesignGeometryResult, "proof">
+        | Omit<DeckDesignGeometryResultV2, "proof">,
     }),
     read_at: snapshot.readAt,
     source_revisions: [...snapshot.sourceRevisions],
   };
-  const parsed = DeckDesignGeometryResultSchema.parse({
+  const parsed = (
+    v2 ? DeckDesignGeometryResultV2Schema : DeckDesignGeometryResultSchema
+  ).parse({
     ...resultWithoutProof,
     proof,
   });
@@ -254,11 +298,24 @@ function buildResult(input: {
   return deepFreeze(parsed);
 }
 
-export async function getDeckDesignGeometry(input: {
+interface DeckReadInput {
+  readonly resultRevision?: DeckGeometryResultRevision;
   readonly authorization: AuthorizedDeckDesignGeometryRead;
   readonly repository: DeckGeometryReadRepository;
   readonly signal?: AbortSignal;
-}): Promise<DeckDesignGeometryResult> {
+}
+export function getDeckDesignGeometry(
+  input: DeckReadInput & { resultRevision: "v2" }
+): Promise<DeckDesignGeometryResultV2>;
+export function getDeckDesignGeometry(
+  input: DeckReadInput & { resultRevision?: "v1" }
+): Promise<DeckDesignGeometryResult>;
+export function getDeckDesignGeometry(
+  input: DeckReadInput
+): Promise<DeckDesignGeometryResult | DeckDesignGeometryResultV2>;
+export async function getDeckDesignGeometry(
+  input: DeckReadInput
+): Promise<DeckDesignGeometryResult | DeckDesignGeometryResultV2> {
   const authorization = input.authorization;
   if (!isAuthorizedDeckDesignGeometryRead(authorization)) {
     throw new DeckGeometryReadError({
@@ -266,6 +323,12 @@ export async function getDeckDesignGeometry(input: {
       requestId: "unknown-request",
     });
   }
+  if (
+    input.resultRevision !== undefined &&
+    input.resultRevision !== "v1" &&
+    input.resultRevision !== "v2"
+  )
+    throw readError("INTERNAL", authorization);
   if (!isTrustedDeckGeometryReadRepository(input.repository)) {
     throw readError("INTERNAL", authorization);
   }
@@ -302,7 +365,11 @@ export async function getDeckDesignGeometry(input: {
   }
 
   try {
-    return buildResult({ authorization, snapshot: result.snapshot });
+    return buildResult({
+      authorization,
+      snapshot: result.snapshot,
+      resultRevision: input.resultRevision ?? "v1",
+    });
   } catch (error) {
     if (error instanceof DeckGeometryReadError) throw error;
     if (error instanceof DeckGeometryResultBudgetError) {

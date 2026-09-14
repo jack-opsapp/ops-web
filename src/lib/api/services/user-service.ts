@@ -11,6 +11,7 @@ import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import type { Company, User, UserRole } from "../../types/models";
 import { UserRole as UserRoleEnum } from "../../types/models";
 import { normalizeImageUrl } from "@/lib/utils/image-url";
+import { captureOnLanding } from "@/lib/pmf/utm-capture";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -274,6 +275,9 @@ export const UserService = {
     /** If false, returns error instead of auto-creating user row. Default true. */
     createIfMissing = true
   ): Promise<{ user: User; company: Company | null }> {
+    // Account creation can race the layout's capture effect. Ensure the cookie
+    // accompanies this request; privacy/browser restrictions must not break auth.
+    try { captureOnLanding(); } catch { /* Cookie access is optional. */ }
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => controller.abort(), 15_000);
 

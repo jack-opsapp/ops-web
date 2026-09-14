@@ -342,16 +342,16 @@ const QUOTE_MARKERS = [
 function stripQuotedContentInternal(
   body: string,
   subject: string,
-  preserveQuoteOnlyPreview: boolean
+  preserveQuoteOnlyPreview: boolean,
+  preserveContactFormContent = true
 ): string {
   if (!body) return body;
 
   // Normalize line endings — Gmail/M365 APIs may return \r\n
   const normalized = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const contactFormDisplay = extractContactFormSubmissionDisplayText(
-    subject,
-    normalized
-  );
+  const contactFormDisplay = preserveContactFormContent
+    ? extractContactFormSubmissionDisplayText(subject, normalized)
+    : null;
   if (contactFormDisplay) return contactFormDisplay;
 
   let earliest = normalized.length;
@@ -390,6 +390,15 @@ export function stripQuotedContent(body: string, subject = ""): string {
  */
 export function stripQuotedContentStrict(body: string, subject = ""): string {
   return stripQuotedContentInternal(body, subject, false);
+}
+
+/**
+ * Strip reply history for sender identity evidence. Unlike form-aware message
+ * display, this cannot substitute content extracted from a nested form and
+ * thereby erase the boundary proving that content belongs to another author.
+ */
+export function stripQuotedHistoryForIdentity(body: string): string {
+  return stripQuotedContentInternal(body, "", false, false);
 }
 
 // ─── Outlook reply-header blocks ───────────────────────────────────────────

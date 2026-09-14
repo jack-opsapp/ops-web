@@ -86,7 +86,7 @@ describe("weather reschedule dormant capability", () => {
   });
 
   it("makes v11 additive to v10 while the historical v2 catalogue stays immutable", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-04.mcp-exposure.v14");
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-10.mcp-exposure.v23");
     expect(MCP_EXPOSURE_V11.toolIds).toEqual([
       ...MCP_EXPOSURE_V10.toolIds,
       "prepare_weather_reschedule",

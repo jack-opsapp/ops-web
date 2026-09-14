@@ -73,7 +73,6 @@ describe("customer update domain boundary", () => {
         p_oauth_grant_id: GRANT_ID,
         p_oauth_client_id: CLIENT_ID,
         p_grant_revision: "8".repeat(32),
-        p_exposure_revision: "2026-09-04.mcp-exposure.v14",
       });
       return Promise.resolve({ data: resultFixture(), error: null });
     });
@@ -101,8 +100,9 @@ describe("customer update domain boundary", () => {
     expect(authorityClient.actorLookups).toHaveLength(1);
     expect(result.proposal.after.title).toBe(REQUEST.changes.title);
     expect(result.proposal.effects.messages_sent).toBe(0);
+    expect(rpc.mock.calls[0]?.[1]).not.toHaveProperty("p_exposure_revision");
     expect(rpc).toHaveBeenCalledWith(
-      "prepare_agent_customer_update_as_system",
+      "prepare_agent_customer_update_for_grant_as_system",
       expect.objectContaining({
         p_actor_user_id: ACTOR_ID,
         p_company_id: COMPANY_ID,
@@ -111,7 +111,6 @@ describe("customer update domain boundary", () => {
         p_granted_scope_ceiling: SCOPES,
         p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
         p_capability_manifest_revision: "2026-09-04.capability-manifest.v20",
-        p_exposure_revision: "2026-09-04.mcp-exposure.v14",
         p_capability_id: "prepare_customer_update",
         p_request: REQUEST,
       })
