@@ -17,6 +17,7 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
 import { recordTrialAttribution } from "@/lib/pmf/trial-attribution";
 import { isReferralSourceSlug } from "@/lib/data/referral-sources";
+import { stageSignupExperiment, retrySignupExperiment, type ExperimentAttributionResult } from "@/lib/pmf/experiment-attribution";
 import { setupSaveContext, recordSetupSaveResult, type SetupSaveContext, type SetupSaveStage } from "@/lib/analytics/setup-save-server";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
@@ -99,6 +100,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const userId = userRow.id as string;
+    // Stage before creating the company. The server-owned binding lets the
+    // engine reconcile a lost response without depending on a setup revisit.
+    // The shared resolver still has a legacy email fallback. Experiment
+    // authority requires a cryptographic identity match, not that fallback.
+    const experimentActorVerified = userRow.auth_id === verifiedUser.uid ||
+      userRow.firebase_uid === verifiedUser.uid;
+    const stagedExperiment: ExperimentAttributionResult = experimentActorVerified
+      ? await stageSignupExperiment(db, req, userId) : { status: "excluded" };
+    let experimentCompanyId = userRow.company_id as string | null;
     // A checkpoint-only request is a skip, not a submitted company save.
     if (data && (step === "identity" || step === "company")) {
       telemetry = setupSaveContext(req, body.analytics, userId, userRow.company_id, step);
@@ -262,6 +272,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         companyId = created.company_id;
+        experimentCompanyId = companyId;
         if (telemetry) telemetry.companyId = companyId;
 
         // Day 0 founder welcome — fire-and-forget after company creation.
@@ -371,6 +382,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       };
     }
 
+    const attachedExperiment: ExperimentAttributionResult = experimentActorVerified
+      ? await retrySignupExperiment(db, req, userId, experimentCompanyId) : { status: "excluded" };
+    const experimentAttribution = attachedExperiment.status === "absent"
+      ? stagedExperiment : attachedExperiment;
+
     // Write updated setup_progress back to users table. `success: true` below
     // is a claim about the database, so it may only be made once this write is
     // known to have landed — the checkpoint is what lets the operator resume
@@ -400,6 +416,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       success: true,
       setupProgress: updatedProgress,
+      // Diagnostic acknowledgement only: no token or client-writable trusted
+      // state. The existing success flag still describes the product save.
+      experimentAttribution,
     });
   } catch (error) {
     console.error("[api/setup/progress] Error:", error);

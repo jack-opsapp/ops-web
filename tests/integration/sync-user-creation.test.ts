@@ -4,6 +4,11 @@ const { verifyAuthTokenMock, getServiceRoleClientMock } = vi.hoisted(() => ({
   verifyAuthTokenMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
 }));
+const experiment = vi.hoisted(() => ({ stage: vi.fn(), retry: vi.fn() }));
+vi.mock("@/lib/pmf/experiment-attribution", () => ({
+  stageSignupExperiment: experiment.stage,
+  retrySignupExperiment: experiment.retry,
+}));
 
 // Use the REAL isFirebaseIssuedToken (issuer-prefix check) so the route's
 // firebase_uid gating is exercised against actual claims, while verifyAuthToken
@@ -175,6 +180,8 @@ describe("POST /api/auth/sync-user row creation", () => {
       email: "crew@example.com",
     });
     expect(result.body.user).toMatchObject({ id: "user-new" });
+    expect(experiment.stage).toHaveBeenCalledWith(expect.anything(), expect.any(Request), "user-new");
+    expect(experiment.retry).not.toHaveBeenCalled();
   });
 
   it("creates a new row with firebase_uid set for a Firebase-issued token", async () => {
@@ -235,6 +242,7 @@ describe("POST /api/auth/sync-user row creation", () => {
     expect(result.status).toBe(200);
     expect(state.userInserts).toHaveLength(1);
     expect(result.body.user).toMatchObject({ id: "user-raced" });
+    expect(experiment.stage).toHaveBeenCalledWith(expect.anything(), expect.any(Request), "user-raced");
     // Recovery resolved the row on its first lookup, which filters by
     // auth_id; the firebase_uid fallback lookup was never needed.
     expect(state.recoveryLookups).toEqual([["auth_id", "deleted_at"]]);
