@@ -112,7 +112,8 @@ export async function resolveMcpBearer(
     resolveMcpExposure(row.exposure_revision);
     if (
       row.exposure_revision === "2026-09-07.mcp-exposure.v17" ||
-      row.exposure_revision === "2026-09-08.mcp-exposure.v19"
+      row.exposure_revision === "2026-09-08.mcp-exposure.v19" ||
+      row.exposure_revision === "2026-09-10.mcp-exposure.v22"
     ) {
       const client = await getClient(runtime.rpcClient, row.client_id);
       if (

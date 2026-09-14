@@ -473,7 +473,7 @@ const siteVisitWorkflowScopes = new Set(
   )
 );
 
-/** Phase 19 candidate only. No selectable exposure or grant enrollment. */
+/** Frozen Phase 19 workflow; selectable only through an exact subject-bound trial. */
 export const MCP_EXPOSURE_V22 = Object.freeze({
   revision: SITE_VISIT_WORKFLOW_EXPOSURE,
   toolIds: siteVisitWorkflowTools,
@@ -559,6 +559,7 @@ export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
     [MCP_EXPOSURE_V13.revision]: MCP_EXPOSURE_V13,
     [MCP_EXPOSURE_V14.revision]: MCP_EXPOSURE_V14,
     [MCP_EXPOSURE_V23.revision]: MCP_EXPOSURE_V23,
+    [MCP_EXPOSURE_V22.revision]: MCP_EXPOSURE_V22,
   });
 
 function requiredNonBlank(value: unknown, field: string): string {

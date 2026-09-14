@@ -19,7 +19,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MCP_EXPOSURE_V14, MCP_EXPOSURE_V23 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import { MCP_EXPOSURE_V14, MCP_EXPOSURE_V22, MCP_EXPOSURE_V23 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 const APP_URL = "https://app.opsapp.co";
 
 const mocks = vi.hoisted(() => {
@@ -53,6 +53,7 @@ import {
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_CONSENT_LABELS,
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
+  SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 import { GET as authorizationServerGet } from "@/app/.well-known/oauth-authorization-server/route";
@@ -306,8 +307,8 @@ function fakeRpc(fn: string, args: Record<string, unknown>) {
         data: state.canaryBindingAvailable
           ? [
               {
-                exposure_revision: CANARY_EXPOSURE_REVISION,
-                consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+                exposure_revision: state.clientRow?.exposure_revision,
+                consent_catalog_revision: state.clientRow?.consent_catalog_revision,
                 expires_at: "2099-08-31T20:00:00.000Z",
               },
             ]
@@ -968,6 +969,28 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
       presented,
     };
   }
+
+  it.each([true, false])("reauthorizes the site visit subject during refresh (current=%s)", async (current) => {
+    const scopes = [...MCP_EXPOSURE_V22.grantableScopes];
+    state.clientRow = {
+      ...defaultClientRow(), scope: scopes.join(" "), scope_ceiling: scopes,
+      exposure_revision: "2026-09-10.mcp-exposure.v22",
+      consent_catalog_revision: "2026-09-10.mcp-consent-catalog.v17",
+    };
+    state.rotatedRow = {
+      ...defaultRotatedRow(), scopes,
+      exposure_revision: "2026-09-10.mcp-exposure.v22",
+      consent_catalog_revision: "2026-09-10.mcp-consent-catalog.v17",
+      accepted_labels: scopes.map((scope) => SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS[scope]!),
+    };
+    state.canaryBindingAvailable = current;
+    const { body } = refreshBody();
+    const response = await tokenPost(formRequest("/api/mcp/oauth/token", body));
+    expect(response.status).toBe(current ? 200 : 400);
+    const result = await response.json();
+    if (current) expect(result.scope).toBe(scopes.join(" "));
+    else expect(result).toEqual({ error: "invalid_grant" });
+  });
 
   it("rotates the refresh token and returns a brand-new pair", async () => {
     const { body: requestBody, presented } = refreshBody({

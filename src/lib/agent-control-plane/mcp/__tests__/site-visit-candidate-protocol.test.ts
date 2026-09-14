@@ -506,7 +506,9 @@ for (const era of ["legacy", "modern"] as const)
       expect(resolveActiveMcpExposure().revision).not.toBe(
         MCP_EXPOSURE_V22.revision
       );
-      expect(() => createOpsMcpServer(f.input)).toThrow();
+      // A current, pinned trial can now use the shared factory. OAuth resolves
+      // the exact binding before construction; public registration stays V23.
+      expect(() => createOpsMcpServer(f.input)).not.toThrow();
       expect(f.rpc).not.toHaveBeenCalled();
     });
     it.each(Object.keys(SITE_VISIT_TOOL_OPERATIONS))(

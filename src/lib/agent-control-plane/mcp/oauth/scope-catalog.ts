@@ -141,17 +141,22 @@ export const MCP_CONSENT_CATALOG_V14 = Object.freeze({
   allowedOperations: Object.freeze(["read", "prepare", "write"] as const),
 } as const satisfies McpConsentCatalog);
 
-/** Dormant Phase 19 candidate: deliberately absent from selectable catalogs. */
+/** Exact-bound site-visit trials only; ordinary public consent remains v9. */
 export const MCP_CONSENT_CATALOG_V17 = Object.freeze({
   revision: "2026-09-10.mcp-consent-catalog.v17",
   registeredScopes: MCP_EXPOSURE_V22.grantableScopes,
   operations: MCP_SCOPE_OPERATION_BY_ID,
-  consentLabels: SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS,
+  consentLabels: Object.freeze(Object.fromEntries(
+    Object.entries(SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS).filter(([scope]) =>
+      MCP_EXPOSURE_V22.grantableScopes.some((registered) => registered === scope)
+    )
+  )),
   allowedOperations: Object.freeze(["read", "prepare"] as const),
 } as const satisfies McpConsentCatalog);
 
 export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
   Object.freeze({
+    [MCP_CONSENT_CATALOG_V17.revision]: MCP_CONSENT_CATALOG_V17,
     [MCP_CONSENT_CATALOG_V14.revision]: MCP_CONSENT_CATALOG_V14,
     [MCP_CONSENT_CATALOG_V12.revision]: MCP_CONSENT_CATALOG_V12,
     [MCP_CONSENT_CATALOG_V1.revision]: MCP_CONSENT_CATALOG_V1,

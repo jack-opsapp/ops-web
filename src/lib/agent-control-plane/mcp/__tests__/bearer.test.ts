@@ -5,6 +5,7 @@ import { StubAuthoritySupabaseRpcClient } from "@/lib/agent-control-plane/actor/
 import { resolveMcpBearer } from "@/lib/agent-control-plane/mcp/bearer";
 import { credentialDigest } from "@/lib/agent-control-plane/mcp/oauth";
 import type { McpServerRuntime } from "@/lib/agent-control-plane/mcp/runtime";
+import { MCP_EXPOSURE_V22 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
@@ -30,7 +31,8 @@ function authority(): ActorAuthoritySnapshot {
 function runtime(
   exposureRevision = EXPOSURE_REVISION,
   accessAvailable = true,
-  observeArgs?: (args: Readonly<Record<string, unknown>>) => void
+  observeArgs?: (args: Readonly<Record<string, unknown>>) => void,
+  trialCurrent = true
 ): McpServerRuntime {
   const authorityClient = new StubAuthoritySupabaseRpcClient(authority());
   return {
@@ -55,6 +57,43 @@ function runtime(
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {
+        if (functionName === "get_mcp_oauth_client_as_system") {
+          return {
+            error: null,
+            data: [
+              {
+                client_id: CLIENT_ID,
+                client_name: "Codex trial",
+                redirect_uris: [
+                  "http://127.0.0.1:43177/callback/sitevisittrial",
+                ],
+                token_endpoint_auth_method: "none",
+                grant_types: ["authorization_code", "refresh_token"],
+                response_types: ["code"],
+                scope: MCP_EXPOSURE_V22.grantableScopes.join(" "),
+                scope_ceiling: MCP_EXPOSURE_V22.grantableScopes,
+                exposure_revision: MCP_EXPOSURE_V22.revision,
+                consent_catalog_revision: "2026-09-10.mcp-consent-catalog.v17",
+                disabled: false,
+              },
+            ],
+          };
+        }
+        if (functionName === "resolve_mcp_oauth_canary_as_system") {
+          return {
+            error: null,
+            data: trialCurrent
+              ? [
+                  {
+                    exposure_revision: MCP_EXPOSURE_V22.revision,
+                    consent_catalog_revision:
+                      "2026-09-10.mcp-consent-catalog.v17",
+                    expires_at: "2099-08-29T12:10:00+00:00",
+                  },
+                ]
+              : [],
+          };
+        }
         if (functionName !== "resolve_mcp_oauth_access_token_as_system") {
           throw new Error("unexpected RPC");
         }
@@ -70,7 +109,10 @@ function runtime(
                   company_id: COMPANY_ID,
                   scopes: ["ops.jobs.read"],
                   accepted_labels: ["See your jobs and their status"],
-                  consent_catalog_revision: "2026-08-22.mcp-consent-catalog.v1",
+                  consent_catalog_revision:
+                    exposureRevision === MCP_EXPOSURE_V22.revision
+                      ? "2026-09-10.mcp-consent-catalog.v17"
+                      : "2026-08-22.mcp-consent-catalog.v1",
                   exposure_revision: exposureRevision,
                   revision: GRANT_REVISION,
                   issuer: "https://app.opsapp.co",
@@ -95,6 +137,23 @@ afterEach(() => {
 });
 
 describe("MCP bearer grant boundary", () => {
+  it.each([true, false])(
+    "rechecks the site visit subject binding before granting host access: %s",
+    async (current) => {
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.opsapp.co");
+      const resolution = await resolveMcpBearer(
+        new Request("https://app.opsapp.co/api/mcp", {
+          headers: { Authorization: `Bearer ${TOKEN}` },
+        }),
+        runtime(MCP_EXPOSURE_V22.revision, true, undefined, current)
+      );
+      expect(resolution.kind).toBe(current ? "authenticated" : "invalid_token");
+      if (resolution.kind === "authenticated")
+        expect(resolution.actorContext.capabilityManifestRevision).toBe(
+          "2026-09-10.capability-manifest.v27"
+        );
+    }
+  );
   it("carries the database exposure revision unchanged into immutable grant facts", async () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.opsapp.co");
 
@@ -170,7 +229,7 @@ describe("MCP bearer grant boundary", () => {
     expect(resolution).toEqual({ kind: "invalid_token" });
     expect(observed).toHaveBeenCalledWith({
       p_token_hash: credentialDigest(TOKEN, "ops_mcp_at_"),
-      p_active_exposure_revision: "2026-09-04.mcp-exposure.v14",
+      p_active_exposure_revision: "2026-09-10.mcp-exposure.v23",
     });
   });
 });
