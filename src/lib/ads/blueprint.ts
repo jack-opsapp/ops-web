@@ -320,6 +320,7 @@ export class BlueprintError extends Error {
       | "DUPLICATE_AD_GROUP"
       | "MISSING_CPC_CEILING"
       | "COMPETITOR_COPY_WITHOUT_COMPARE_PAGE"
+      | "DUPLICATE_AD_ROLE"
       | "UNKNOWN_IMAGE",
     message: string
   ) {
@@ -330,9 +331,10 @@ export class BlueprintError extends Error {
 
 /**
  * Structural checks zod cannot express: names are unique, every referenced
- * negative list exists, and Maximize Clicks always carries a ceiling — an
+ * negative list exists, Maximize Clicks always carries a ceiling — an
  * uncapped Maximize Clicks campaign is how a $50/day account spends $50 on
- * four clicks.
+ * four clicks — and a group holds at most one control and one challenger,
+ * because a test judges exactly one against the other.
  */
 export function assertBlueprintCoherent(blueprint: Blueprint): void {
   const listNames = new Set(blueprint.sharedNegativeLists.map((l) => l.name));
@@ -366,6 +368,12 @@ export function assertBlueprintCoherent(blueprint: Blueprint): void {
           `"${campaign.name}" has two ad groups named "${group.name}".`
         );
       seenGroups.add(group.name);
+      for (const role of ["control", "challenger"] as const)
+        if (group.ads.filter((ad) => ad.role === role).length > 1)
+          throw new BlueprintError(
+            "DUPLICATE_AD_ROLE",
+            `"${campaign.name}" › "${group.name}" has two ${role} ads. A group tests one challenger against one control.`
+          );
       if (
         group.copyKind === "competitor" &&
         !new URL(group.finalUrl).pathname.startsWith("/compare/")
