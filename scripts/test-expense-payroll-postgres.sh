@@ -23,8 +23,8 @@ for file in \
   tests/sql/expense-payroll-projection-live-baseline.sql \
   tests/sql/agent-payroll-readiness-runtime.sql \
   tests/sql/expense-payroll-projection-fixture.sql \
-  supabase/migrations/20260914200910_expense_payroll_reimbursement_projection.sql \
-  supabase/migrations/20260914200910_expense_payroll_reimbursement_projection.sql \
+  docs/artifacts/expense-release/constituents/20260914200910_expense_payroll_reimbursement_projection.sql \
+  docs/artifacts/expense-release/constituents/20260914200910_expense_payroll_reimbursement_projection.sql \
   tests/sql/expense-payroll-projection-runtime.sql; do
   if ! "$task_pg/psql" -h "$task_scratch/socket" -p 55491 -U postgres -d postgres \
     -X -v ON_ERROR_STOP=1 -f "$task_root/$file" >> "$task_logs/psql.log" 2>&1; then
@@ -36,13 +36,13 @@ tail -n 5 "$task_logs/psql.log"
 task_signature='public.read_agent_payroll_readiness_as_system(uuid,uuid,uuid,uuid,text,text[],text,text,text,text,text,timestamp with time zone,date,integer,integer,integer,integer)'
 task_psql=("$task_pg/psql" -h "$task_scratch/socket" -p 55491 -U postgres -d postgres -X -v ON_ERROR_STOP=1)
 "${task_psql[@]}" -c "ALTER FUNCTION $task_signature VOLATILE" >> "$task_logs/psql.log" 2>&1
-if "${task_psql[@]}" -f "$task_root/supabase/migrations/20260914200910_expense_payroll_reimbursement_projection.sql" > "$task_logs/drift-rejection.log" 2>&1; then
+if "${task_psql[@]}" -f "$task_root/docs/artifacts/expense-release/constituents/20260914200910_expense_payroll_reimbursement_projection.sql" > "$task_logs/drift-rejection.log" 2>&1; then
   echo 'Expected payroll source-drift rejection did not occur'
   exit 1
 fi
 rg -q 'Payroll readiness function changed' "$task_logs/drift-rejection.log"
 "${task_psql[@]}" -c "ALTER FUNCTION $task_signature RENAME TO test_removed_payroll_read" >> "$task_logs/psql.log" 2>&1
-if "${task_psql[@]}" -f "$task_root/supabase/migrations/20260914200910_expense_payroll_reimbursement_projection.sql" > "$task_logs/missing-rejection.log" 2>&1; then
+if "${task_psql[@]}" -f "$task_root/docs/artifacts/expense-release/constituents/20260914200910_expense_payroll_reimbursement_projection.sql" > "$task_logs/missing-rejection.log" 2>&1; then
   echo 'Expected missing payroll function rejection did not occur'
   exit 1
 fi

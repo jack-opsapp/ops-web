@@ -22,13 +22,13 @@ for file in \
   tests/sql/expense-correction-fixture.sql \
   supabase/migrations/20260720024121_expense_atomic_save.sql \
   supabase/migrations/20260720024623_fix_expense_batch_recalculation_alias.sql \
-  supabase/migrations/20260912012607_expense_decision_company_authority.sql \
-  supabase/migrations/20260912203328_expense_accounting_lifecycle.sql \
+  docs/artifacts/expense-release/constituents/20260912012607_expense_decision_company_authority.sql \
+  docs/artifacts/expense-release/constituents/20260912203328_expense_accounting_lifecycle.sql \
   tests/sql/expense-payroll-projection-live-baseline.sql \
-  supabase/migrations/20260914200910_expense_payroll_reimbursement_projection.sql \
+  docs/artifacts/expense-release/constituents/20260914200910_expense_payroll_reimbursement_projection.sql \
   tests/sql/expense-correction-baseline.sql \
-  supabase/migrations/20260914214748_expense_admin_correction_review.sql \
-  supabase/migrations/20260914214748_expense_admin_correction_review.sql \
+  docs/artifacts/expense-release/constituents/20260914214748_expense_admin_correction_review.sql \
+  docs/artifacts/expense-release/constituents/20260914214748_expense_admin_correction_review.sql \
   tests/sql/expense-correction-runtime.sql; do
   if ! "$task_pg/psql" -h "$task_scratch/socket" -p 55494 -U postgres -d postgres -X -v ON_ERROR_STOP=1 \
     -f "$task_root/$file" >> "$task_logs/psql.log" 2>&1; then
@@ -48,11 +48,11 @@ for file in \
   tests/sql/expense-correction-fixture.sql \
   supabase/migrations/20260720024121_expense_atomic_save.sql \
   supabase/migrations/20260720024623_fix_expense_batch_recalculation_alias.sql \
-  supabase/migrations/20260912012607_expense_decision_company_authority.sql \
-  supabase/migrations/20260912203328_expense_accounting_lifecycle.sql \
+  docs/artifacts/expense-release/constituents/20260912012607_expense_decision_company_authority.sql \
+  docs/artifacts/expense-release/constituents/20260912203328_expense_accounting_lifecycle.sql \
   tests/sql/expense-payroll-projection-live-baseline.sql \
-  supabase/migrations/20260914200910_expense_payroll_reimbursement_projection.sql \
-  supabase/migrations/20260914214748_expense_admin_correction_review.sql \
+  docs/artifacts/expense-release/constituents/20260914200910_expense_payroll_reimbursement_projection.sql \
+  docs/artifacts/expense-release/constituents/20260914214748_expense_admin_correction_review.sql \
   tests/sql/expense-accounting-runtime.sql; do
   if ! "$task_pg/psql" -h "$task_scratch/socket" -p 55494 -U postgres -d expense_p5 -X -v ON_ERROR_STOP=1 \
     -f "$task_root/$file" >> "$task_logs/p5-accounting.log" 2>&1; then
@@ -65,14 +65,14 @@ tail -n 5 "$task_logs/p5-accounting.log"
 "$task_pg/psql" -h "$task_scratch/socket" -p 55494 -U postgres -d expense_p5 -X -v ON_ERROR_STOP=1 \
   -c "alter function public.tg_place_expense() set search_path='public';" >> "$task_logs/p5-accounting.log" 2>&1
 if "$task_pg/psql" -h "$task_scratch/socket" -p 55494 -U postgres -d expense_p5 -X -v ON_ERROR_STOP=1 \
-  -f "$task_root/supabase/migrations/20260914214748_expense_admin_correction_review.sql" > "$task_logs/drift-rejection.log" 2>&1; then
+  -f "$task_root/docs/artifacts/expense-release/constituents/20260914214748_expense_admin_correction_review.sql" > "$task_logs/drift-rejection.log" 2>&1; then
   echo 'Expected source drift rejection did not occur'; exit 1
 fi
 rg -q 'Expense authority or placement changed' "$task_logs/drift-rejection.log"
 "$task_pg/psql" -h "$task_scratch/socket" -p 55494 -U postgres -d postgres -X -v ON_ERROR_STOP=1 \
   -c "alter function private.lock_expense_approver_context() rename to test_missing_expense_context;" >> "$task_logs/psql.log" 2>&1
 if "$task_pg/psql" -h "$task_scratch/socket" -p 55494 -U postgres -d postgres -X -v ON_ERROR_STOP=1 \
-  -f "$task_root/supabase/migrations/20260914214748_expense_admin_correction_review.sql" > "$task_logs/prerequisite-rejection.log" 2>&1; then
+  -f "$task_root/docs/artifacts/expense-release/constituents/20260914214748_expense_admin_correction_review.sql" > "$task_logs/prerequisite-rejection.log" 2>&1; then
   echo 'Expected prerequisite rejection did not occur'; exit 1
 fi
 rg -q 'Install the P5 expense decision and accounting migrations first' "$task_logs/prerequisite-rejection.log"

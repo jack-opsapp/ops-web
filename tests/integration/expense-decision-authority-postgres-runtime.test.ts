@@ -308,13 +308,13 @@ describe.runIf(RUN_POSTGRES)("Expense decision company authority PostgreSQL 17 r
       await runFile(database, runtime);
       // Prove the repaired expectation actually fails against the old functions.
       await expect(runFile(database, runtime, true)).rejects.toThrow(/foreign payout result: allowed/);
-      const migration = "supabase/migrations/20260912012607_expense_decision_company_authority.sql";
+      const migration = "docs/artifacts/expense-release/constituents/20260912012607_expense_decision_company_authority.sql";
       await runFile(database, migration);
       await runFile(database, migration);
       await runFile(database, runtime, true);
       if (process.env.OPS_RUN_EXPENSE_ACCOUNTING_POSTGRES === "1") {
         await runFile(database, "tests/sql/expense-accounting-fixture.sql");
-        await runFile(database, "supabase/migrations/20260912203328_expense_accounting_lifecycle.sql");
+        await runFile(database, "docs/artifacts/expense-release/constituents/20260912203328_expense_accounting_lifecycle.sql");
       }
       await checkConcurrentSaveLockOrder(database, "canonical_save");
       await checkConcurrentSaveLockOrder(database, "direct_same_child");

@@ -20,9 +20,9 @@ unset PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD PGPASSFILE PGSERVICE PGSERVICEF
 for file in \
   tests/sql/expense-decision-authority-baseline.sql \
   tests/sql/expense-accounting-fixture.sql \
-  supabase/migrations/20260912012607_expense_decision_company_authority.sql \
-  supabase/migrations/20260912203328_expense_accounting_lifecycle.sql \
-  supabase/migrations/20260912203328_expense_accounting_lifecycle.sql \
+  docs/artifacts/expense-release/constituents/20260912012607_expense_decision_company_authority.sql \
+  docs/artifacts/expense-release/constituents/20260912203328_expense_accounting_lifecycle.sql \
+  docs/artifacts/expense-release/constituents/20260912203328_expense_accounting_lifecycle.sql \
   tests/sql/expense-accounting-runtime.sql; do
   if ! "$task_pg/psql" -h "$task_scratch/socket" -p 55491 -U postgres -d postgres \
     -X -v ON_ERROR_STOP=1 -f "$task_root/$file" >> "$task_logs/psql.log" 2>&1; then
