@@ -99,7 +99,7 @@ export function createJournalRepository(): JournalHandoffRepository {
       const [live, cats, topics, fetched, max] = await Promise.all([
         db
           .from("blog_posts")
-          .select("slug,title,published_at,summary,category_id")
+          .select("slug,title,published_at,summary,category_id,image_prompt")
           .eq("is_live", true)
           .lte("published_at", new Date().toISOString())
           .order("published_at", { ascending: false })
@@ -125,6 +125,13 @@ export function createJournalRepository(): JournalHandoffRepository {
           category: row.category_id ? (bySlug.get(String(row.category_id)) ?? null) : null,
         })),
         backlogTopics: topics,
+        recentImages: (live.data ?? [])
+          .filter((row) => typeof row.image_prompt === "string" && row.image_prompt.trim().length > 0)
+          .slice(0, 8)
+          .map((row) => ({
+            title: String(row.title),
+            image_prompt: String(row.image_prompt).replace(/\s+/g, " ").trim().slice(0, 400),
+          })),
         categories: cats,
         fetchedSources: (fetched.data ?? []).map((row) => ({
           id: String(row.id),

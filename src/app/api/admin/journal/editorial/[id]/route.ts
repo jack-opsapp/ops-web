@@ -7,7 +7,8 @@ import {
 } from "@/lib/journal/editorial/admin";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// NEW PHOTO waits for the image service, which can take two minutes.
+export const maxDuration = 300;
 
 const json = (body: unknown, status = 200) =>
   NextResponse.json(body, { status, headers: { "cache-control": "no-store" } });

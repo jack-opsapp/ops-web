@@ -81,6 +81,10 @@ function repository(overrides: Partial<JournalHandoffRepository> = {}): JournalH
         { slug: "word-of-mouth-isnt-a-marketing-plan", title: "WORD OF MOUTH", published_at: "2026-08-31T12:00:00Z", summary: "s", category: "growth" },
       ],
       backlogTopics: [{ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", topic: "Response time" }],
+      recentImages: Array.from({ length: 10 }, (_, index) => ({
+        title: `POST ${index}`,
+        image_prompt: `A different trades scene number ${index}.`,
+      })),
       categories: [{ id: "c1", slug: "operations", name: "Operations" }],
       fetchedSources: [],
       maxSources: 24,
@@ -175,7 +179,7 @@ describe("journal handoff", () => {
         attempts_remaining: 2,
         claim_token: CLAIM,
         max_sources: 24,
-        brief_version: "ops-journal-2026-09-10-v1",
+        brief_version: "ops-journal-2026-09-15-v2",
       });
       expect(body.assignment.brief.sha256).toHaveLength(64);
       expect(body.assignment.guide.path).toBe("docs/journal/voice/blog-voice-sam-parr.md");
@@ -183,6 +187,9 @@ describe("journal handoff", () => {
       expect(body.assignment.industry_pages).toContain("/industries/hvac");
       expect(body.assignment.recent_posts[0].slug).toBe("word-of-mouth-isnt-a-marketing-plan");
       expect(body.assignment.backlog_topics).toHaveLength(1);
+      expect(body.assignment.recent_images).toHaveLength(8);
+      expect(body.assignment.recent_images[0]).toEqual({ title: "POST 0", image_prompt: "A different trades scene number 0." });
+      expect(body.assignment.limits.image_prompt).toEqual([120, 1500]);
       expect(JSON.stringify(body)).not.toMatch(/service_role|SUPABASE|AWS_|Bearer/);
     });
   });
@@ -264,7 +271,7 @@ describe("journal handoff", () => {
       });
       const [, , state, code, pack, slug, title] = (repo.finishAssignment as ReturnType<typeof vi.fn>).mock.calls[0];
       expect([state, code, slug, title]).toEqual(["drafted", null, "the-first-call-decides-the-week", "THE FIRST CALL DECIDES THE WHOLE WEEK"]);
-      expect(pack.brief_version).toBe("ops-journal-2026-09-10-v1");
+      expect(pack.brief_version).toBe("ops-journal-2026-09-15-v2");
       expect(pack.references.map((entry: { path: string }) => entry.path)).toEqual([
         "docs/journal/voice/ops-journal-brief.md",
         "docs/journal/voice/blog-voice-sam-parr.md",

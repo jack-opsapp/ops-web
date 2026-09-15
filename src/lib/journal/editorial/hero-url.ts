@@ -1,7 +1,9 @@
 /**
- * Every OPS-rendered journal plate lives under this key prefix, in S3 or in the
- * Supabase `images` bucket. The plate is typography, so Instagram must never
- * lay its own cover text over it (see social/editorial/repository.ts).
+ * Retired text plates. Before generated photographs (2026-09-15), OPS rendered
+ * a typographic plate under this prefix, in S3 or in the Supabase `images`
+ * bucket, and assignment previews from that week still point at them. A plate
+ * is typography, not a photograph, so Instagram must never use one as a cover
+ * (see social/editorial/repository.ts).
  */
 export const JOURNAL_HERO_PREFIX = "blog/journal/";
 

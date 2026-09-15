@@ -3,12 +3,13 @@ import { z } from "zod";
 import { sendBlogNewsletter } from "@/lib/email/sendgrid";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { JournalPackage } from "./handoff";
+import { fulfilJournalImageRequestNow } from "./runtime";
 
 const assignmentFields =
-  "id,identity,state,mode,slot_at,publish_at,drafted_at,published_at,cancelled_at,title,slug,last_code,preview,package,blog_id,newsletter_state,attempt_log";
+  "id,identity,state,mode,slot_at,publish_at,drafted_at,published_at,cancelled_at,title,slug,last_code,preview,package,blog_id,newsletter_state,attempt_log,image_generations,image_requested_at,image_failures";
 
 export const journalAdminActionSchema = z
-  .object({ action: z.enum(["stop", "publish_now", "write_another", "send_test"]) })
+  .object({ action: z.enum(["stop", "publish_now", "write_another", "new_image", "send_test"]) })
   .strict();
 export type JournalAdminAction = z.infer<typeof journalAdminActionSchema>["action"];
 
@@ -64,7 +65,7 @@ export async function readJournalEditorial() {
 }
 
 /**
- * The operator's three decisions plus a test send. Every change goes through
+ * The operator's decisions, a new photograph, and a test send. Every change goes through
  * the ledger's own guarded functions; a manual publish skips only the clock
  * and the mode, never the slug or freshness checks.
  */
@@ -103,6 +104,17 @@ export async function actOnJournalAssignment(
     return data === "queued"
       ? { status: 200, body: { state: "queued" } }
       : { status: 409, body: { code: "SLOT_PASSED" } };
+  }
+
+  if (action === "new_image") {
+    const { data, error } = await db.rpc("request_journal_editorial_image", { p_id: id, p_actor: actor });
+    if (error) throw error;
+    if (data !== "requested") return { status: 409, body: { code: typeof data === "string" ? data : "NOT_ELIGIBLE" } };
+    const result = await fulfilJournalImageRequestNow(id);
+    if (!result) return { status: 409, body: { code: "NOT_ELIGIBLE" } };
+    return "state" in result
+      ? { status: 200, body: { state: result.state, url: result.url } }
+      : { status: 502, body: { code: result.code, retry: result.retry } };
   }
 
   // send_test: the operator reads the newsletter exactly as subscribers would,

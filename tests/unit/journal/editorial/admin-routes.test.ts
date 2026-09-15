@@ -6,6 +6,7 @@ const state = vi.hoisted(() => ({
   rpc: vi.fn(),
   send: vi.fn(),
   insert: vi.fn(async () => ({ error: null })),
+  fulfil: vi.fn(),
   row: null as Record<string, unknown> | null,
 }));
 
@@ -20,6 +21,7 @@ vi.mock("@/lib/admin/api-auth", async () => {
   };
 });
 vi.mock("@/lib/email/sendgrid", () => ({ sendBlogNewsletter: state.send }));
+vi.mock("@/lib/journal/editorial/runtime", () => ({ fulfilJournalImageRequestNow: state.fulfil }));
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({
     rpc: state.rpc,
@@ -55,6 +57,7 @@ describe("admin journal actions", () => {
     state.rpc.mockReset();
     state.send.mockReset();
     state.insert.mockClear();
+    state.fulfil.mockReset();
     state.row = null;
   });
 
@@ -68,6 +71,37 @@ describe("admin journal actions", () => {
   it("rejects an unknown action and a malformed id", async () => {
     expect((await call({ action: "delete" })).status).toBe(400);
     expect((await call({ action: "stop" }, "nope")).status).toBe(404);
+  });
+
+  it("makes a new photo now: opens the request through the ledger, then fulfils it", async () => {
+    state.rpc.mockResolvedValue({ data: "requested", error: null });
+    state.fulfil.mockResolvedValue({ state: "published", url: "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/weekly/2026-09-14-abc.jpg" });
+    const response = await call({ action: "new_image" });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      state: "published",
+      url: "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/weekly/2026-09-14-abc.jpg",
+    });
+    expect(state.rpc).toHaveBeenCalledWith("request_journal_editorial_image", { p_id: ID, p_actor: "admin:jackson@opsapp.co" });
+    expect(state.fulfil).toHaveBeenCalledWith(ID);
+  });
+
+  it("explains a refused photo request without calling the image service", async () => {
+    for (const code of ["IMAGE_LIMIT", "NOT_ELIGIBLE", "NO_IMAGE_PROMPT"]) {
+      state.rpc.mockResolvedValue({ data: code, error: null });
+      const response = await call({ action: "new_image" });
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({ code });
+    }
+    expect(state.fulfil).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed generation and whether the next tick retries it", async () => {
+    state.rpc.mockResolvedValue({ data: "requested", error: null });
+    state.fulfil.mockResolvedValue({ code: "IMAGE_REFUSED", retry: true });
+    const response = await call({ action: "new_image" });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ code: "IMAGE_REFUSED", retry: true });
   });
 
   it("stops through the ledger and names the operator", async () => {

@@ -1,7 +1,7 @@
 import type { EditorialOperator } from "../../social/editorial/worker";
 import type { JournalMode, JournalPackage } from "./handoff";
-import type { RenderedJournalHero } from "./hero";
-import type { JournalHeroAsset } from "./hero-store";
+import type { GeneratedJournalImage } from "./image";
+import type { JournalImageAsset } from "./image-store";
 
 export interface JournalWorkerRow {
   id: string;
@@ -19,6 +19,7 @@ export interface JournalWorkerRow {
   notified_state: string | null;
   blog_id: string | null;
   newsletter_state: string | null;
+  image_requested_at: string | null;
 }
 
 export type JournalPublishResult =
@@ -44,6 +45,15 @@ export interface JournalStallCopy {
   actionLabel: string;
 }
 
+export interface JournalImageFailedCopy {
+  title: string;
+  body: string;
+}
+
+export type JournalImageResult =
+  | { state: "scheduled" | "published"; url: string }
+  | { code: string; retry: boolean };
+
 export interface JournalWorkerRepository {
   recover(): Promise<number>;
   discover(now: Date): Promise<{ created: number; missed: number }>;
@@ -51,7 +61,7 @@ export interface JournalWorkerRepository {
   readMinVetoMinutes(): Promise<number>;
   listDrafted(limit: number): Promise<JournalWorkerRow[]>;
   listDue(now: Date, limit: number): Promise<JournalWorkerRow[]>;
-  schedule(id: string, preview: JournalHeroAsset, publishAt: Date): Promise<string | null>;
+  schedule(id: string, preview: JournalImageAsset, publishAt: Date): Promise<string | null>;
   annotate(id: string, detail: Record<string, unknown>): Promise<boolean>;
   block(id: string, code: string): Promise<string | null>;
   publish(id: string, manual: boolean, actor: string): Promise<JournalPublishResult>;
@@ -59,6 +69,14 @@ export interface JournalWorkerRepository {
   deliver(operator: EditorialOperator, delivery: JournalDelivery): Promise<boolean>;
   checkStall(operator: EditorialOperator, copy: JournalStallCopy, hours: number): Promise<boolean>;
   resolveStall(operator: EditorialOperator, hours: number): Promise<number>;
+  listImageRequests(limit: number): Promise<JournalWorkerRow[]>;
+  replaceImage(id: string, preview: JournalImageAsset): Promise<string | null>;
+  failImage(
+    id: string,
+    code: string,
+    operator: EditorialOperator | null,
+    copy: JournalImageFailedCopy
+  ): Promise<"retry" | "dropped" | null>;
   newsletterEnabled(): Promise<boolean>;
   listNewsletterCandidates(since: Date): Promise<JournalWorkerRow[]>;
   claimNewsletter(id: string, token: string): Promise<boolean>;
@@ -69,10 +87,11 @@ export interface JournalTickDependencies {
   now: () => Date;
   operator: EditorialOperator | null;
   repository: JournalWorkerRepository;
-  renderHero: (heroLine: string) => Promise<RenderedJournalHero>;
-  storeHero: (identity: string, hero: RenderedJournalHero) => Promise<JournalHeroAsset>;
-  /** The public URL answers 200 with an image before a preview is promised. */
-  heroReadable: (url: string) => Promise<boolean>;
+  /** One photograph from the writer's art direction; OPS adds the house style. */
+  generateImage: (artDirection: string) => Promise<GeneratedJournalImage>;
+  storeImage: (identity: string, image: GeneratedJournalImage) => Promise<JournalImageAsset>;
+  /** The public URL answers 200 with an image before anyone is shown it. */
+  imageReadable: (url: string) => Promise<boolean>;
   sendNewsletter: (blogId: string) => Promise<{ sent: number; failed: number }>;
   newToken: () => string;
 }
@@ -84,7 +103,8 @@ const LIVE_WINDOW_OPEN_HOUR = 6;
 const LIVE_WINDOW_CLOSE_HOUR = 20;
 const NEWSLETTER_WEEKDAY = 2; // Tuesday
 const NEWSLETTER_HOUR = 10;
-const PROMOTION_LIMIT = 2;
+// One photograph per tick: a generation can take two minutes, and the tick has five.
+const IMAGE_WORK_LIMIT = 1;
 const PUBLISH_LIMIT = 2;
 const MAX_PROMOTION_FAILURES = 3;
 export const JOURNAL_STALL_HOURS = 12;
@@ -146,8 +166,12 @@ const BLOCKED_COPY: Record<string, string> = {
   SLUG_TAKEN: "Another post took this address first. Write another from the Blog hub.",
   WEEKLY_ALREADY_LIVE:
     "Another weekly post already went live this week. Publish anyway from the Blog hub, or let it go.",
-  HERO_FAILED: "The header image failed three times. Nothing went live.",
-  HERO_UNREADABLE: "The header image never became public. Nothing went live.",
+  IMAGE_FAILED: "The header photo failed three times. Nothing went live.",
+  IMAGE_REFUSED: "OpenAI refused the photo brief three times. Write another from the Blog hub.",
+  IMAGE_NOT_AUTHORIZED: "OpenAI blocked image generation for the OPS account. Nothing went live.",
+  IMAGE_NOT_CONFIGURED: "Image generation has no OpenAI key. Nothing went live.",
+  IMAGE_INVALID: "The header photo came back unreadable three times. Nothing went live.",
+  IMAGE_UNREADABLE: "The header photo never became public. Nothing went live.",
   PACKAGE_MISSING: "The draft was incomplete. Nothing went live.",
 };
 const BLOCKED_FALLBACK = "The post stopped before going live. Open the Blog hub for the reason.";
@@ -157,6 +181,11 @@ export const JOURNAL_STALL_COPY: JournalStallCopy = {
   body: "Monday's post has no draft yet. Check the OPS Journal routine at claude.ai.",
   actionUrl: "/admin/blog",
   actionLabel: "OPEN BLOG",
+};
+
+export const JOURNAL_IMAGE_FAILED_COPY: JournalImageFailedCopy = {
+  title: "JOURNAL PHOTO FAILED",
+  body: "The new header photo failed three times. The current photo stays.",
 };
 
 function postTitle(row: JournalWorkerRow): string {
@@ -233,22 +262,55 @@ function promotionFailures(row: JournalWorkerRow): number {
   ).length;
 }
 
+async function makeImage(
+  d: Pick<JournalTickDependencies, "generateImage" | "storeImage" | "imageReadable">,
+  row: JournalWorkerRow,
+  artDirection: string
+) {
+  const image = await d.generateImage(artDirection);
+  const asset = await d.storeImage(row.identity, image);
+  if (!(await d.imageReadable(asset.url))) throw new Error("IMAGE_UNREADABLE");
+  return asset;
+}
+
 async function promote(d: JournalTickDependencies, row: JournalWorkerRow, minVeto: number, now: Date) {
-  if (!row.package?.article?.hero_line) {
+  const artDirection = row.package?.article?.image_prompt;
+  if (!artDirection) {
     await d.repository.block(row.id, "PACKAGE_MISSING");
     return false;
   }
   try {
-    const hero = await d.renderHero(row.package.article.hero_line);
-    const asset = await d.storeHero(row.identity, hero);
-    if (!(await d.heroReadable(asset.url))) throw new Error("HERO_UNREADABLE");
+    const asset = await makeImage(d, row, artDirection);
     const publishAt = computeJournalPublishAt(new Date(row.slot_at), now, minVeto);
     return (await d.repository.schedule(row.id, asset, publishAt)) === "scheduled";
   } catch (error) {
-    const code = codeOf(error, "HERO_FAILED");
+    const code = codeOf(error, "IMAGE_FAILED");
     await d.repository.annotate(row.id, { event: "promotion_failed", code, at: now.toISOString() });
     if (promotionFailures(row) + 1 >= MAX_PROMOTION_FAILURES) await d.repository.block(row.id, code);
     return false;
+  }
+}
+
+/**
+ * Fulfils one open photograph request: a new preview, or a new photograph on a
+ * post that is already live. A failure keeps the request for the next tick; the
+ * ledger closes it after the third and the current photograph stays.
+ */
+export async function fulfilJournalImageRequest(
+  d: Pick<JournalTickDependencies, "repository" | "generateImage" | "storeImage" | "imageReadable" | "operator">,
+  row: JournalWorkerRow
+): Promise<JournalImageResult> {
+  const artDirection = row.package?.article?.image_prompt;
+  try {
+    if (!artDirection) throw new Error("NO_IMAGE_PROMPT");
+    const asset = await makeImage(d, row, artDirection);
+    const state = await d.repository.replaceImage(row.id, asset);
+    if (state === "scheduled" || state === "published") return { state, url: asset.url };
+    return { code: "NOT_ELIGIBLE", retry: false };
+  } catch (error) {
+    const code = codeOf(error, "IMAGE_FAILED");
+    const outcome = await d.repository.failImage(row.id, code, d.operator, JOURNAL_IMAGE_FAILED_COPY);
+    return { code, retry: outcome === "retry" };
   }
 }
 
@@ -292,11 +354,24 @@ export async function runJournalTick(d: JournalTickDependencies) {
   const discovery = await d.repository.discover(now);
   const mode = await d.repository.readMode();
 
+  // A new draft's first photograph comes before a replacement for one that exists.
   let promoted = 0;
-  const drafted = await d.repository.listDrafted(PROMOTION_LIMIT);
+  let imageWork = 0;
+  const drafted = await d.repository.listDrafted(IMAGE_WORK_LIMIT);
   if (drafted.length) {
     const minVeto = await d.repository.readMinVetoMinutes();
-    for (const row of drafted) if (await promote(d, row, minVeto, now)) promoted += 1;
+    for (const row of drafted) {
+      imageWork += 1;
+      if (await promote(d, row, minVeto, now)) promoted += 1;
+    }
+  }
+  const images = { replaced: 0, failed: 0 };
+  if (imageWork < IMAGE_WORK_LIMIT) {
+    for (const row of await d.repository.listImageRequests(IMAGE_WORK_LIMIT - imageWork)) {
+      const result = await fulfilJournalImageRequest(d, row);
+      if ("state" in result) images.replaced += 1;
+      else images.failed += 1;
+    }
   }
 
   const published: string[] = [];
@@ -325,6 +400,7 @@ export async function runJournalTick(d: JournalTickDependencies) {
     created: discovery.created,
     missed: discovery.missed,
     promoted,
+    images,
     published,
     held,
     newsletter,

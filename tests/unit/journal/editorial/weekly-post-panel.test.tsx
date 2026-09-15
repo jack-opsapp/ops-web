@@ -30,9 +30,9 @@ function assignment(overrides: Partial<WeeklyAssignment> = {}): WeeklyAssignment
     slug: "the-first-call-decides-the-week",
     last_code: null,
     preview: {
-      url: "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/journal/2026-09-14-0123456789abcdef.jpg",
-      width: 1200,
-      height: 630,
+      url: "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/weekly/2026-09-14-0123456789abcdef.jpg",
+      width: 1600,
+      height: 900,
     },
     package: {
       article: {
@@ -49,6 +49,8 @@ function assignment(overrides: Partial<WeeklyAssignment> = {}): WeeklyAssignment
       editor_notes: "Grounded and on voice.",
     },
     newsletter_state: null,
+    image_generations: 1,
+    image_requested_at: null,
     ...overrides,
   };
 }
@@ -145,6 +147,44 @@ describe("weekly post panel", () => {
     );
     expect(screen.queryByRole("button", { name: "PUBLISH NOW" })).toBeNull();
     expect(screen.queryByRole("button", { name: "STOP" })).toBeNull();
+  });
+
+  it("makes a new photo from the preview and says whether it is live", async () => {
+    params.value = new URLSearchParams("journal=11111111-1111-4111-8111-111111111111");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ state: "published", url: "https://h/new.jpg" }), { status: 200 })
+    );
+    show(data([assignment({ state: "published", published_at: new Date(Date.now() - 86400000).toISOString() })]));
+    fireEvent.click(screen.getByRole("button", { name: "NEW PHOTO" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("NEW PHOTO LIVE ON THE JOURNAL."));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/admin/journal/editorial/11111111-1111-4111-8111-111111111111",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ action: "new_image" }) })
+    );
+  });
+
+  it("explains a failed or refused photo, and locks the button at the limit or after eight days", async () => {
+    params.value = new URLSearchParams("journal=11111111-1111-4111-8111-111111111111");
+    // The panel refetches itself after every action, so only POSTs take the queued answers.
+    const answers = [{ code: "IMAGE_FAILED", retry: true }, { code: "IMAGE_REFUSED", retry: true }];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "POST"
+        ? new Response(JSON.stringify(answers.shift()), { status: 502 })
+        : new Response(JSON.stringify(data([assignment()])), { status: 200 })
+    );
+    const view = show(data([assignment()]));
+    fireEvent.click(screen.getByRole("button", { name: "NEW PHOTO" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("PHOTO FAILED. OPS TRIES AGAIN WITHIN THE HOUR."));
+    fireEvent.click(screen.getByRole("button", { name: "NEW PHOTO" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("OPENAI REFUSED THE PHOTO BRIEF."));
+    view.unmount();
+
+    const limited = show(data([assignment({ image_generations: 8 })]));
+    expect(screen.getByRole("button", { name: "PHOTO LIMIT REACHED" })).toBeDisabled();
+    limited.unmount();
+
+    show(data([assignment({ state: "published", published_at: "2026-09-01T13:00:00.000Z" })]));
+    expect(screen.queryByRole("button", { name: /PHOTO/ })).toBeNull();
   });
 
   it("says when the writer is off and nothing is in progress", () => {

@@ -8,7 +8,7 @@ import type {
 } from "./worker";
 
 const rowFields =
-  "id,identity,state,mode,slot_at,publish_at,drafted_at,published_at,title,last_code,package,attempt_log,notified_state,blog_id,newsletter_state";
+  "id,identity,state,mode,slot_at,publish_at,drafted_at,published_at,title,last_code,package,attempt_log,notified_state,blog_id,newsletter_state,image_requested_at";
 const DELIVERABLE_STATES = ["scheduled", "published", "blocked", "cancelled"];
 
 export function createJournalWorkerRepository(): JournalWorkerRepository {
@@ -155,6 +155,35 @@ export function createJournalWorkerRepository(): JournalWorkerRepository {
           p_hours: hours,
         })) ?? 0
       );
+    },
+
+    async listImageRequests(limit) {
+      const { data, error } = await db
+        .from("journal_editorial_assignments")
+        .select(rowFields)
+        .not("image_requested_at", "is", null)
+        .in("state", ["scheduled", "published"])
+        .order("image_requested_at", { ascending: true })
+        .limit(limit);
+      if (error) throw error;
+      return (data ?? []) as unknown as JournalWorkerRow[];
+    },
+
+    async replaceImage(id, preview) {
+      const state = await rpc<string | null>("replace_journal_editorial_image", { p_id: id, p_preview: preview });
+      return typeof state === "string" ? state : null;
+    },
+
+    async failImage(id, code, operator, copy) {
+      const outcome = await rpc<string | null>("fail_journal_editorial_image", {
+        p_id: id,
+        p_code: code,
+        p_user_id: operator?.userId ?? null,
+        p_company_id: operator?.companyId ?? null,
+        p_title: copy.title,
+        p_body: copy.body,
+      });
+      return outcome === "retry" || outcome === "dropped" ? outcome : null;
     },
 
     async newsletterEnabled() {

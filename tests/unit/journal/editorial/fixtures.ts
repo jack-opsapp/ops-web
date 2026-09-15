@@ -104,7 +104,8 @@ export function validCandidate(overrides: Record<string, unknown> = {}) {
     teaser: "The call you miss before coffee is the job your competitor books by lunch.",
     category: "operations",
     topic: { backlog_topic_id: TOPIC, angle: "Response time as the real sales edge for small crews." },
-    hero_line: "The job starts when the phone rings",
+    image_prompt:
+      "An owner-operator in a work truck cab at dawn answers a ringing phone, a clipboard of job tickets on the dash and a crew loading ladders in the soft background.",
     body,
     faqs: Array.from({ length: 6 }, (_, index) => ({
       question: `What should a crew do about missed calls, part ${["one", "two", "three", "four", "five", "six"][index]}?`,

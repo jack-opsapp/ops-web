@@ -48,6 +48,8 @@ export interface WeeklyAssignment {
   preview: { url: string; width: number; height: number } | null;
   package: WeeklyArticle | null;
   newsletter_state: string | null;
+  image_generations: number;
+  image_requested_at: string | null;
 }
 
 export interface WeeklyData {
@@ -56,10 +58,14 @@ export interface WeeklyData {
   assignments: WeeklyAssignment[];
 }
 
-type Action = "stop" | "publish_now" | "write_another" | "send_test";
+type Action = "stop" | "publish_now" | "write_another" | "new_image" | "send_test";
 
 export const WEEKLY_QUERY_KEY = ["journal-weekly-editorial"] as const;
 const CONFIRM_MS = 5000;
+// Mirrors the ledger: eight photos per slot, and a live post's photo stays
+// replaceable for eight days.
+const PHOTO_LIMIT = 8;
+const PHOTO_WINDOW_MS = 8 * 86400000;
 
 const launchFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "Etc/GMT+7",
@@ -86,9 +92,23 @@ const CODE_FALLBACK: Record<string, string> = {
   STALE_DRAFT: "The draft sat more than a week. It will not publish.",
   SLUG_TAKEN: "Another post took this address first.",
   WEEKLY_ALREADY_LIVE: "Another weekly post already went live this week. Publish anyway, or let it go.",
-  HERO_FAILED: "The header image failed three times.",
-  HERO_UNREADABLE: "The header image never became public.",
+  IMAGE_FAILED: "The header photo failed three times.",
+  IMAGE_REFUSED: "OpenAI refused the photo brief three times. Write another.",
+  IMAGE_NOT_AUTHORIZED: "OpenAI blocked image generation for the OPS account.",
+  IMAGE_NOT_CONFIGURED: "Image generation has no OpenAI key.",
+  IMAGE_INVALID: "The header photo came back unreadable three times.",
+  IMAGE_UNREADABLE: "The header photo never became public.",
   PACKAGE_MISSING: "The draft was incomplete.",
+};
+
+// What NEW PHOTO says back. Anything retryable stays queued on the hourly tick.
+const PHOTO_NOTICE: Record<string, string> = {
+  IMAGE_LIMIT: "EIGHT PHOTOS MADE FOR THIS POST. THAT IS THE LIMIT.",
+  NOT_ELIGIBLE: "THIS POST'S PHOTO IS LOCKED.",
+  NO_IMAGE_PROMPT: "THIS DRAFT HAS NO PHOTO BRIEF. WRITE ANOTHER.",
+  IMAGE_REFUSED: "OPENAI REFUSED THE PHOTO BRIEF.",
+  IMAGE_NOT_AUTHORIZED: "OPENAI BLOCKED IMAGE GENERATION FOR THE OPS ACCOUNT.",
+  IMAGE_NOT_CONFIGURED: "IMAGE GENERATION HAS NO OPENAI KEY.",
 };
 
 const DONE_KEY: Record<string, [string, string]> = {
@@ -192,7 +212,31 @@ export function WeeklyPostPanel() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      const body = (await response.json().catch(() => ({}))) as { state?: string; sent?: number; code?: string };
+      const body = (await response.json().catch(() => ({}))) as {
+        state?: string;
+        sent?: number;
+        code?: string;
+        retry?: boolean;
+      };
+      if (action === "new_image") {
+        if (response.ok) {
+          setNotice(
+            body.state === "published"
+              ? t("weekly.photo.replacedLive", "NEW PHOTO LIVE ON THE JOURNAL.")
+              : t("weekly.photo.replaced", "NEW PHOTO IN PLACE.")
+          );
+        } else if (body.code && PHOTO_NOTICE[body.code]) {
+          setNotice(t(`weekly.photo.${body.code}`, PHOTO_NOTICE[body.code]));
+        } else {
+          setNotice(
+            body.retry
+              ? t("weekly.photo.retry", "PHOTO FAILED. OPS TRIES AGAIN WITHIN THE HOUR.")
+              : t("weekly.photo.failed", "PHOTO FAILED. THE CURRENT PHOTO STAYS.")
+          );
+        }
+        await client.invalidateQueries({ queryKey: WEEKLY_QUERY_KEY });
+        return;
+      }
       if (!response.ok) {
         setNotice(
           body.code && CODE_FALLBACK[body.code]
@@ -219,6 +263,14 @@ export function WeeklyPostPanel() {
   const canStop = assignment ? ["queued", "authoring", "drafted", "scheduled"].includes(assignment.state) : false;
   const canWriteAnother = assignment ? ["blocked", "cancelled"].includes(assignment.state) : false;
   const liveUrl = assignment?.state === "published" && assignment.slug ? `https://opsapp.co/journal/${assignment.slug}` : null;
+  const canReplacePhoto = Boolean(
+    assignment?.preview &&
+      pack &&
+      (assignment.state === "scheduled" ||
+        (assignment.state === "published" &&
+          Date.now() - Date.parse(assignment.published_at ?? assignment.slot_at) < PHOTO_WINDOW_MS))
+  );
+  const photoLimitReached = (assignment?.image_generations ?? 0) >= PHOTO_LIMIT;
 
   return (
     <section
@@ -269,14 +321,31 @@ export function WeeklyPostPanel() {
           )}
 
           {assignment?.preview && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={assignment.preview.url}
-              alt={title ?? ""}
-              width={assignment.preview.width}
-              height={assignment.preview.height}
-              className="h-auto w-full max-w-[720px] rounded-panel border border-line"
-            />
+            <div className="flex max-w-[720px] flex-col items-start gap-[12px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={assignment.preview.url}
+                alt={title ?? ""}
+                width={assignment.preview.width}
+                height={assignment.preview.height}
+                className="h-auto w-full rounded-panel border border-line"
+              />
+              {canReplacePhoto && (
+                <button
+                  type="button"
+                  disabled={busy !== null || photoLimitReached}
+                  aria-busy={busy === "new_image"}
+                  onClick={() => void act("new_image")}
+                  className={SECONDARY}
+                >
+                  {busy === "new_image"
+                    ? t("weekly.action.generatingPhoto", "GENERATING PHOTO")
+                    : photoLimitReached
+                      ? t("weekly.action.photoLimit", "PHOTO LIMIT REACHED")
+                      : t("weekly.action.newPhoto", "NEW PHOTO")}
+                </button>
+              )}
+            </div>
           )}
 
           {pack && (

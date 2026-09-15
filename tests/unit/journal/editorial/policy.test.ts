@@ -50,6 +50,18 @@ describe("prepareJournalDraft", () => {
     expect(codeOf({ ...candidate(), faqs: candidate().faqs.map((faq, index) => (index === 0 ? { ...faq, answer: `[a link](https://x.com) ${faq.answer}` } : faq)) })).toBe("MARKUP_INVALID");
   });
 
+  it("requires plain art direction for the header photograph", () => {
+    const direction = `  ${candidate().image_prompt}\n\n   with the ridge line soft behind.  `;
+    expect(prepareJournalDraft(candidate({ image_prompt: direction }), context).article.image_prompt).toBe(
+      `${candidate().image_prompt} with the ridge line soft behind.`
+    );
+    expect(codeOf(candidate({ image_prompt: "A roofer on a roof." }))).toBe("SCHEMA_INVALID");
+    expect(codeOf(candidate({ image_prompt: "x".repeat(1501) }))).toBe("SCHEMA_INVALID");
+    expect(codeOf({ ...candidate(), image_prompt: undefined })).toBe("SCHEMA_INVALID");
+    expect(codeOf(candidate({ image_prompt: `${candidate().image_prompt} Match https://example.com/look.jpg` }))).toBe("MARKUP_INVALID");
+    expect(codeOf(candidate({ image_prompt: `${candidate().image_prompt} <b>bold</b>` }))).toBe("MARKUP_INVALID");
+  });
+
   it("enforces the title, meta title, category and topic rules", () => {
     expect(codeOf(candidate({ title: "The first call decides the whole week" }))).toBe("TITLE_FORMAT");
     expect(codeOf(candidate({ title: "FIRST CALL WINS" }))).toBe("TITLE_FORMAT");

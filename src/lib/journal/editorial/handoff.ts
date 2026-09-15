@@ -86,6 +86,8 @@ export interface JournalClaimContext {
     category: string | null;
   }>;
   backlogTopics: Array<{ id: string; topic: string }>;
+  /** Art direction behind the newest journal photographs, so a new one looks different. */
+  recentImages: Array<{ title: string; image_prompt: string }>;
   categories: Array<{ id: string; slug: string; name: string }>;
   fetchedSources: Array<{ id: string; url: string; title: string | null }>;
   maxSources: number;
@@ -284,6 +286,7 @@ export function createJournalHandoffHandlers(d: JournalHandoffDependencies) {
         industry_pages: JOURNAL_INDUSTRY_SLUGS.map((slug) => `/industries/${slug}`),
         recent_posts: context.recentPosts.slice(0, RECENT_POSTS),
         backlog_topics: context.backlogTopics,
+        recent_images: context.recentImages.slice(0, JOURNAL_LIMITS.recent_images),
         fetched_sources: context.fetchedSources,
         brief,
         guide,

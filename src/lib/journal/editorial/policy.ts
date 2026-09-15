@@ -109,7 +109,7 @@ export const journalCandidateSchema = z
         angle: field(L.topic_angle),
       })
       .strict(),
-    hero_line: field(L.hero_line),
+    image_prompt: z.string().min(L.image_prompt[0]).max(L.image_prompt[1]),
     body: z.array(z.union([textBlock, listBlock])).min(8).max(90),
     faqs: z
       .array(
@@ -179,7 +179,7 @@ export interface PreparedJournalDraft {
     teaser: string;
     category: string;
     topic: { backlog_topic_id: string | null; angle: string };
-    hero_line: string;
+    image_prompt: string;
     faqs: Array<{ question: string; answer: string }>;
     email_content: string;
   };
@@ -301,7 +301,7 @@ export function prepareJournalDraft(
     ["meta_title", c.meta_title],
     ["summary", c.summary],
     ["teaser", c.teaser],
-    ["hero_line", c.hero_line],
+    ["image_prompt", c.image_prompt],
     ["email_content", c.email_content],
     ...c.faqs.flatMap((faq, index): Array<[string, string]> => [
       [`faqs.${index}.question`, faq.question],
@@ -318,6 +318,8 @@ export function prepareJournalDraft(
       else throw error;
     }
   }
+  if (/https?:\/\//i.test(c.image_prompt))
+    markupIssues.push({ path: "image_prompt", message: "Art direction describes the photograph; it carries no links" });
   if (markupIssues.length) fail("MARKUP_INVALID", markupIssues);
 
   // --- title and metadata ---------------------------------------------------
@@ -575,7 +577,7 @@ export function prepareJournalDraft(
       teaser: c.teaser,
       category: c.category,
       topic: c.topic,
-      hero_line: c.hero_line,
+      image_prompt: c.image_prompt.replace(/\s+/g, " ").trim(),
       faqs: c.faqs,
       email_content: renderEmailContent(c.email_content),
     },

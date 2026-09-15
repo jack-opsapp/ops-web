@@ -1,17 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  JOURNAL_IMAGE_FAILED_COPY,
   JOURNAL_STALL_COPY,
   clampToLiveWindow,
   computeJournalPublishAt,
   journalDelivery,
   launchLabel,
   newsletterSendAt,
+  fulfilJournalImageRequest,
   runJournalTick,
   type JournalTickDependencies,
   type JournalWorkerRepository,
   type JournalWorkerRow,
 } from "@/lib/journal/editorial/worker";
 
+const DIRECTION = "An owner-operator in a work truck cab at dawn answers a ringing phone, a clipboard of job tickets on the dash.";
 const operator = { userId: "user-1", companyId: "0f6f0a8e-2d3b-4c4d-9e5f-6a7b8c9d0e1f" };
 const SLOT = "2026-09-14T13:00:00.000Z"; // Monday 06:00 Vancouver
 const at = (iso: string) => new Date(iso);
@@ -29,12 +32,13 @@ function row(overrides: Partial<JournalWorkerRow> = {}): JournalWorkerRow {
     title: "THE FIRST CALL DECIDES THE WHOLE WEEK",
     last_code: null,
     package: {
-      article: { title: "THE FIRST CALL DECIDES THE WHOLE WEEK", hero_line: "The job starts when the phone rings" },
+      article: { title: "THE FIRST CALL DECIDES THE WHOLE WEEK", image_prompt: DIRECTION },
     } as never,
     attempt_log: [],
     notified_state: null,
     blog_id: null,
     newsletter_state: null,
+    image_requested_at: null,
     ...overrides,
   };
 }
@@ -59,20 +63,33 @@ function repository(overrides: Partial<JournalWorkerRepository> = {}): JournalWo
     listNewsletterCandidates: vi.fn(async () => []),
     claimNewsletter: vi.fn(async () => true),
     finishNewsletter: vi.fn(async () => true),
+    listImageRequests: vi.fn(async () => []),
+    replaceImage: vi.fn(async () => "published"),
+    failImage: vi.fn(async () => "retry" as const),
     ...overrides,
   };
 }
 
 const asset = {
-  url: "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/journal/2026-09-14-0123456789abcdef.jpg",
-  storage_key: "blog/journal/2026-09-14-0123456789abcdef.jpg",
+  url: "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/weekly/2026-09-14-0123456789abcdef.jpg",
+  storage_key: "blog/weekly/2026-09-14-0123456789abcdef.jpg",
   backend: "s3" as const,
   sha256: "0".repeat(64),
-  width: 1200,
-  height: 630,
-  bytes: 40000,
+  width: 1600,
+  height: 900,
+  bytes: 240000,
   content_type: "image/jpeg" as const,
-  render_version: "journal-hero-2026-09-10-v1",
+  render_version: "journal-photo-2026-09-15-v1",
+  model: "gpt-image-2.5-flare",
+  prompt_sha256: "1".repeat(64),
+};
+const photo = {
+  buffer: Buffer.from("x"),
+  width: 1600,
+  height: 900,
+  contentType: "image/jpeg" as const,
+  model: "gpt-image-2.5-flare",
+  prompt_sha256: "1".repeat(64),
 };
 
 function deps(repo: JournalWorkerRepository, now: string, overrides: Partial<JournalTickDependencies> = {}): JournalTickDependencies {
@@ -80,9 +97,9 @@ function deps(repo: JournalWorkerRepository, now: string, overrides: Partial<Jou
     now: () => at(now),
     operator,
     repository: repo,
-    renderHero: vi.fn(async () => ({ buffer: Buffer.from("x"), width: 1200, height: 630, contentType: "image/jpeg" as const })),
-    storeHero: vi.fn(async () => asset),
-    heroReadable: vi.fn(async () => true),
+    generateImage: vi.fn(async () => photo),
+    storeImage: vi.fn(async () => asset),
+    imageReadable: vi.fn(async () => true),
     sendNewsletter: vi.fn(async () => ({ sent: 13, failed: 0 })),
     newToken: () => "33333333-3333-4333-8333-333333333333",
     ...overrides,
@@ -145,10 +162,10 @@ describe("journal rail items", () => {
   });
 
   it("never uses an exclamation point or the banned audience word", () => {
-    const copies = ["SLOT_MISSED", "ATTEMPTS_EXHAUSTED", "WEEKLY_ALREADY_LIVE", "HERO_FAILED", "UNKNOWN"].map(
+    const copies = ["SLOT_MISSED", "ATTEMPTS_EXHAUSTED", "WEEKLY_ALREADY_LIVE", "IMAGE_REFUSED", "UNKNOWN"].map(
       (code) => journalDelivery(row({ state: "blocked", last_code: code }), "publish")!.body!
     );
-    for (const text of [...copies, JOURNAL_STALL_COPY.body]) {
+    for (const text of [...copies, JOURNAL_STALL_COPY.body, JOURNAL_IMAGE_FAILED_COPY.body]) {
       expect(text).not.toMatch(/!|contractor/i);
     }
   });
@@ -162,40 +179,85 @@ describe("runJournalTick", () => {
       recover: track("recover", 0),
       discover: track("discover", { created: 1, missed: 0 }),
       listDrafted: track("drafted", []),
+      listImageRequests: track("image requests", []),
       listDue: track("due", []),
       listUndelivered: track("undelivered", []),
       checkStall: track("stall", false),
       resolveStall: track("resolve", 0),
     });
     const result = await runJournalTick(deps(repo, "2026-09-11T13:09:00Z"));
-    expect(order).toEqual(["recover", "discover", "drafted", "due", "undelivered", "stall", "resolve"]);
+    expect(order).toEqual(["recover", "discover", "drafted", "image requests", "due", "undelivered", "stall", "resolve"]);
     expect(result.state).toBe("discovered");
     expect(repo.checkStall).toHaveBeenCalledWith(operator, JOURNAL_STALL_COPY, 12);
   });
 
-  it("renders, stores, verifies and schedules a draft for its slot", async () => {
+  it("generates, stores, verifies and schedules a draft's photo for its slot", async () => {
     const repo = repository({ listDrafted: vi.fn(async () => [row()]) });
     const d = deps(repo, "2026-09-13T14:09:00Z");
     const result = await runJournalTick(d);
-    expect(d.renderHero).toHaveBeenCalledWith("The job starts when the phone rings");
-    expect(d.storeHero).toHaveBeenCalledWith("weekly:2026-09-14", expect.anything());
-    expect(d.heroReadable).toHaveBeenCalledWith(asset.url);
+    expect(d.generateImage).toHaveBeenCalledWith(DIRECTION);
+    expect(d.storeImage).toHaveBeenCalledWith("weekly:2026-09-14", photo);
+    expect(d.imageReadable).toHaveBeenCalledWith(asset.url);
     expect(repo.schedule).toHaveBeenCalledWith("a1", asset, at(SLOT));
     expect(result.promoted).toBe(1);
   });
 
-  it("never promises a preview whose image is not public, and stops after three failures", async () => {
+  it("makes one photo per tick: a new draft goes before a replacement request", async () => {
+    const repo = repository({
+      listDrafted: vi.fn(async () => [row()]),
+      listImageRequests: vi.fn(async () => [row({ id: "live", state: "published" })]),
+    });
+    const d = deps(repo, "2026-09-13T14:09:00Z");
+    await runJournalTick(d);
+    expect(repo.listDrafted).toHaveBeenCalledWith(1);
+    expect(repo.listImageRequests).not.toHaveBeenCalled();
+    expect(d.generateImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("never promises a preview whose photo is not public, and stops after three failures", async () => {
     const repo = repository({ listDrafted: vi.fn(async () => [row()]) });
-    await runJournalTick(deps(repo, "2026-09-13T14:09:00Z", { heroReadable: vi.fn(async () => false) }));
+    await runJournalTick(deps(repo, "2026-09-13T14:09:00Z", { imageReadable: vi.fn(async () => false) }));
     expect(repo.schedule).not.toHaveBeenCalled();
-    expect(repo.annotate).toHaveBeenCalledWith("a1", expect.objectContaining({ event: "promotion_failed", code: "HERO_UNREADABLE" }));
+    expect(repo.annotate).toHaveBeenCalledWith("a1", expect.objectContaining({ event: "promotion_failed", code: "IMAGE_UNREADABLE" }));
     expect(repo.block).not.toHaveBeenCalled();
 
     const failing = repository({
       listDrafted: vi.fn(async () => [row({ attempt_log: [{ event: "promotion_failed" }, { event: "promotion_failed" }] })]),
     });
-    await runJournalTick(deps(failing, "2026-09-13T14:09:00Z", { renderHero: vi.fn(async () => { throw new Error("boom"); }) }));
-    expect(failing.block).toHaveBeenCalledWith("a1", "HERO_FAILED");
+    await runJournalTick(deps(failing, "2026-09-13T14:09:00Z", { generateImage: vi.fn(async () => { throw new Error("IMAGE_REFUSED"); }) }));
+    expect(failing.block).toHaveBeenCalledWith("a1", "IMAGE_REFUSED");
+
+    const unexplained = repository({
+      listDrafted: vi.fn(async () => [row({ attempt_log: [{ event: "promotion_failed" }, { event: "promotion_failed" }] })]),
+    });
+    await runJournalTick(deps(unexplained, "2026-09-13T14:09:00Z", { storeImage: vi.fn(async () => { throw new Error("socket hang up"); }) }));
+    expect(unexplained.block).toHaveBeenCalledWith("a1", "IMAGE_FAILED");
+  });
+
+  it("replaces a live post's photo when one was requested", async () => {
+    const live = row({ id: "live", state: "published", image_requested_at: "2026-09-15T04:00:00Z" });
+    const repo = repository({ listImageRequests: vi.fn(async () => [live]) });
+    const d = deps(repo, "2026-09-15T04:09:00Z");
+    const result = await runJournalTick(d);
+    expect(d.generateImage).toHaveBeenCalledWith(DIRECTION);
+    expect(repo.replaceImage).toHaveBeenCalledWith("live", asset);
+    expect(result.images).toEqual({ replaced: 1, failed: 0 });
+    expect(repo.failImage).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed request for the next tick and lets the ledger close it", async () => {
+    const live = row({ id: "live", state: "published", image_requested_at: "2026-09-15T04:00:00Z" });
+    const repo = repository({ failImage: vi.fn(async () => "dropped" as const) });
+    const result = await fulfilJournalImageRequest(
+      { ...deps(repo, "2026-09-15T04:09:00Z"), generateImage: vi.fn(async () => { throw new Error("IMAGE_NOT_AUTHORIZED"); }) },
+      live
+    );
+    expect(result).toEqual({ code: "IMAGE_NOT_AUTHORIZED", retry: false });
+    expect(repo.failImage).toHaveBeenCalledWith("live", "IMAGE_NOT_AUTHORIZED", operator, JOURNAL_IMAGE_FAILED_COPY);
+    expect(repo.replaceImage).not.toHaveBeenCalled();
+
+    const noDirection = await fulfilJournalImageRequest(deps(repository(), "2026-09-15T04:09:00Z"), row({ package: null }));
+    expect(noDirection).toEqual({ code: "NO_IMAGE_PROMPT", retry: true });
   });
 
   it("blocks a draft that lost its package", async () => {

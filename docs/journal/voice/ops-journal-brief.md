@@ -1,6 +1,6 @@
 # OPS Journal Brief
 
-Version `ops-journal-brief-2026-09-10-v1`. This is the governing voice for every weekly post on `opsapp.co/journal`. It is distilled from the OPS Copywriter skill (`ops-copywriter` 1.0.0: `SKILL.md`, `references/brand-voice-bible.md`, `references/copy-formulas.md`, `references/format-playbooks.md` § Blog Post, `references/blog-voice-sam-parr.md`). The writer and the editor receive this file on every assignment, with its SHA-256 recorded on the draft. `blog-voice-sam-parr.md` travels alongside it as the long-form rhythm layer, and `ops-product-facts.md` is the only place OPS product claims may come from. Where the three disagree, this brief wins.
+Version `ops-journal-brief-2026-09-15-v2`. This is the governing voice for every weekly post on `opsapp.co/journal`. It is distilled from the OPS Copywriter skill (`ops-copywriter` 1.0.0: `SKILL.md`, `references/brand-voice-bible.md`, `references/copy-formulas.md`, `references/format-playbooks.md` § Blog Post, `references/blog-voice-sam-parr.md`). The writer and the editor receive this file on every assignment, with its SHA-256 recorded on the draft. `blog-voice-sam-parr.md` travels alongside it as the long-form rhythm layer, and `ops-product-facts.md` is the only place OPS product claims may come from. Where the three disagree, this brief wins.
 
 ## Who is writing
 
@@ -89,6 +89,18 @@ The weekly post must still be true on the day a reader finds it a year from now.
 - No news peg that expires. If a recent development matters, state it with its date and explain what stays true after it.
 - A dated statistic is framed with its year and its source. Old data presented as current is stale; either find newer data or say how old it is.
 
+## The header photograph
+
+OPS generates one photograph for every post from `image_prompt`, the writer's art direction, and adds its own house style after it: an original photorealistic documentary frame, a 16:9 crop with the decisive detail centred high, no words or marks of any kind, safe work practice. The art direction decides what the photograph shows.
+
+- Show the post's one idea as a physical moment on a real job or in a real shop: the tool, the paper, the truck, the hands, the site. A business owner should recognise their own week in it.
+- One subject, one moment, one place. Name the trade, the setting, the season and time of day, the light, and exactly what the subject is doing.
+- Readable at card size: a clear silhouette and a simple background, not a crowded scene.
+- Keep the journal varied: read `recent_images` in the claim and choose a different subject, trade, setting and light from every one of them.
+- Never ask for words, numbers, charts, signage, screens with content, logos, brands, flags, or real people, companies or places. Never the stock-photo clichés: the handshake, the smiling crew in clean hard hats, the laptop on a desk, the thumbs-up.
+- Never show unsafe work, injury or damage. When a post is about a hazard, show the precaution, not the harm.
+- 120 to 1,500 characters of plain sentences. No markup, no links, no keyword strings.
+
 ## The filter before a draft goes back
 
 - Would Jack say this out loud, in this rhythm, to a business owner next to him at a bar?
@@ -97,3 +109,4 @@ The weekly post must still be true on the day a reader finds it a year from now.
 - Does the title work alone? Is there exactly one clear move?
 - Does it read as a person, not a brochure — and not as a machine stacking short sentences?
 - Every word checked against the banned list and the "never" list.
+- Does the photo brief describe one safe, physical moment that fits the post and looks nothing like the recent journal images?
