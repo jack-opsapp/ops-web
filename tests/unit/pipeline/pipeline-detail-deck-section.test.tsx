@@ -6,7 +6,9 @@
  *   - A row shows the title, the mono `V{n} · {date}` stamp, and prefers the
  *     wireframe glyph (SVG) when geometry is valid; falls back to the raster
  *     thumbnail, then the icon.
- *   - Clicking a row opens the view-only viewer dialog; close returns.
+ *   - The thumbnail fallback is CONTAINED, never cropped — a deck cropped to
+ *     a square is a different deck (`b130d23f`).
+ *   - Clicking a row opens the fullscreen viewer; close returns.
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -23,6 +25,39 @@ vi.mock("@/i18n/client", () => ({
 const useDeckDesignsMock = vi.fn();
 vi.mock("@/lib/hooks/use-opportunity-deck-designs", () => ({
   useOpportunityDeckDesigns: (id: unknown) => useDeckDesignsMock(id),
+}));
+
+// The fullscreen viewer fetches the full drawing itself; the section's job is
+// only to hand it an id, so the drawing read is stubbed to a real square deck.
+vi.mock("@/lib/hooks/use-deck-design-drawing", () => ({
+  useDeckDesignDrawing: () => ({
+    data: {
+      id: "deck-1",
+      title: "Back deck — cedar",
+      thumbnailUrl: null,
+      version: 3,
+      projectId: null,
+      createdAt: new Date("2026-07-01T12:00:00.000Z"),
+      updatedAt: new Date("2026-07-13T12:00:00.000Z"),
+      drawingData: {
+        scaleFactor: 2,
+        vertices: [
+          { id: "v1", position: [0, 0] },
+          { id: "v2", position: [288, 0] },
+          { id: "v3", position: [288, 240] },
+          { id: "v4", position: [0, 240] },
+        ],
+        edges: [
+          { id: "e1", startVertexId: "v1", endVertexId: "v2" },
+          { id: "e2", startVertexId: "v2", endVertexId: "v3" },
+          { id: "e3", startVertexId: "v3", endVertexId: "v4" },
+          { id: "e4", startVertexId: "v4", endVertexId: "v1" },
+        ],
+      },
+    },
+    isLoading: false,
+    isError: false,
+  }),
 }));
 
 import { PipelineDetailDeckSection } from "@/app/(dashboard)/pipeline/_components/pipeline-detail-deck-section";
@@ -111,12 +146,16 @@ describe("PipelineDetailDeckSection", () => {
       <PipelineDetailDeckSection opportunityId="opp-1" />,
     );
     expect(screen.queryByTestId("deck-wireframe")).not.toBeInTheDocument();
-    expect(
-      container.querySelector('img[src="https://example.com/thumb.png"]'),
-    ).toBeInTheDocument();
+    const thumbnail = container.querySelector<HTMLImageElement>(
+      'img[src="https://example.com/thumb.png"]',
+    );
+    expect(thumbnail).toBeInTheDocument();
+    // The whole deck, letterboxed — never a centre crop.
+    expect(thumbnail!.className).toContain("object-contain");
+    expect(thumbnail!.className).not.toContain("object-cover");
   });
 
-  it("opens the view-only viewer on row click and closes it again", () => {
+  it("opens the fullscreen viewer on row click and closes it again", () => {
     useDeckDesignsMock.mockReturnValue({ data: [makeDesign()] });
     render(<PipelineDetailDeckSection opportunityId="opp-1" />);
 
@@ -125,10 +164,12 @@ describe("PipelineDetailDeckSection", () => {
         name: /View deck design — Back deck — cedar/,
       }),
     );
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // The live drawing, not a picture of it.
+    expect(screen.getByTestId("deck-viewer")).toBeInTheDocument();
+    expect(screen.getByTestId("deck-plan-svg")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("deck-viewer")).not.toBeInTheDocument();
   });
 
   it("renders one row per attached deck", () => {
