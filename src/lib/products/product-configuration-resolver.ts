@@ -1,3 +1,12 @@
+/**
+ * One configured option on a signed line snapshot (`line_items.configured_options`).
+ * select → the chosen `product_option_values.id`; integer → a JSON number;
+ * boolean → a JSON boolean. Matches the iOS writer and the demand resolver.
+ */
+export type ConfiguredOptionValue = string | number | boolean;
+
+export type ConfiguredOptions = Record<string, ConfiguredOptionValue>;
+
 export interface ConfigurableProduct {
   id: string;
   name: string;
@@ -38,7 +47,11 @@ export interface ResolveProductConfigurationInput {
   options: ProductConfigurationOption[];
   values: ProductConfigurationValue[];
   modifiers: ProductConfigurationModifier[];
-  configuredOptions: Record<string, string>;
+  /**
+   * Requested values keyed by option id. Accepts a stored snapshot as-is, so
+   * legacy string forms ("3", "true") resolve to their typed values.
+   */
+  configuredOptions: Readonly<Record<string, unknown>>;
   quantity: number;
   discountPercent?: number;
 }
@@ -47,13 +60,38 @@ export interface ResolvedProductConfiguration {
   unitPrice: number;
   extendedBeforeMinimum: number;
   lineTotalBeforeTax: number;
-  configuredOptions: Record<string, string>;
+  configuredOptions: ConfiguredOptions;
   resolvedOptionsLabel: string;
   missingRequiredOptions: string[];
 }
 
 function normalize(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-CA");
+}
+
+const INTEGER_TEXT = /^\s*-?\d+\s*$/;
+const BOOLEAN_TEXT = /^\s*(true|false)\s*$/i;
+
+/** A whole count from a JSON number or an integer string; anything else is unset. */
+export function parseIntegerOptionValue(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) ? value : null;
+  }
+  if (typeof value === "string" && INTEGER_TEXT.test(value)) {
+    const count = Number(value.trim());
+    return Number.isSafeInteger(count) ? count : null;
+  }
+  return null;
+}
+
+/** A flag from a JSON boolean or "true" / "false" (any case); anything else is unset. */
+export function parseBooleanOptionValue(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const match = BOOLEAN_TEXT.exec(value);
+    if (match) return match[1].toLowerCase() === "true";
+  }
+  return null;
 }
 
 function money(value: number): number {
@@ -75,7 +113,7 @@ export function resolveProductConfiguration(
     );
   }
 
-  const configuredOptions: Record<string, string> = {};
+  const configuredOptions: ConfiguredOptions = {};
   const selectedValues = new Map<string, ProductConfigurationValue>();
   const missingRequiredOptions: string[] = [];
   const labels: string[] = [];
@@ -84,25 +122,51 @@ export function resolveProductConfiguration(
   );
 
   for (const option of sortedOptions) {
-    const available = valuesByOption.get(option.id) ?? [];
-    const requested = input.configuredOptions[option.id] ?? option.defaultValue;
-    const selected =
-      requested == null
-        ? undefined
-        : available.find(
-            (value) =>
-              value.id === requested ||
-              normalize(value.value) === normalize(requested),
-          );
+    // An explicit value always wins; the catalog default applies only when the
+    // line carries nothing for this option. An explicit invalid value never
+    // falls back to the default.
+    const explicit = Object.prototype.hasOwnProperty.call(
+      input.configuredOptions,
+      option.id,
+    )
+      ? input.configuredOptions[option.id]
+      : undefined;
+    const requested: unknown = explicit ?? option.defaultValue;
 
-    if (!selected) {
-      if (option.required) missingRequiredOptions.push(option.id);
-      continue;
+    switch (option.kind) {
+      case "select": {
+        const available = valuesByOption.get(option.id) ?? [];
+        const selected =
+          typeof requested === "string"
+            ? available.find(
+                (value) =>
+                  value.id === requested ||
+                  normalize(value.value) === normalize(requested),
+              )
+            : undefined;
+        if (!selected) break;
+        configuredOptions[option.id] = selected.id;
+        selectedValues.set(option.id, selected);
+        labels.push(`${option.name}: ${selected.value}`);
+        continue;
+      }
+      case "integer": {
+        const count = parseIntegerOptionValue(requested);
+        if (count === null) break;
+        configuredOptions[option.id] = count;
+        labels.push(`${option.name}: ${count}`);
+        continue;
+      }
+      case "boolean": {
+        const flag = parseBooleanOptionValue(requested);
+        if (flag === null) break;
+        configuredOptions[option.id] = flag;
+        labels.push(`${option.name}: ${flag ? "Yes" : "No"}`);
+        continue;
+      }
     }
 
-    configuredOptions[option.id] = selected.id;
-    selectedValues.set(option.id, selected);
-    labels.push(`${option.name}: ${selected.value}`);
+    if (option.required) missingRequiredOptions.push(option.id);
   }
 
   let unitPrice = input.product.basePrice;

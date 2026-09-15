@@ -27,7 +27,11 @@ import { useStockIndicator } from "@/lib/hooks/use-stock-indicator";
 import type { LineItemStockStatus } from "@/lib/types/product-materials";
 import { LineItemMaterialsSection } from "./line-item-materials-section";
 import { ProductConfigurationFields } from "./product-configuration-fields";
-import type { ResolvedProductConfiguration } from "@/lib/products/product-configuration-resolver";
+import type {
+  ConfiguredOptionValue,
+  ConfiguredOptions,
+  ResolvedProductConfiguration,
+} from "@/lib/products/product-configuration-resolver";
 
 export interface LineItemRow {
   id: string;
@@ -48,7 +52,7 @@ export interface LineItemRow {
   minimumChargeSnapshot: number | null;
   unitCost: number | null;
   estimatedHours: number | null;
-  configuredOptions: Record<string, string>;
+  configuredOptions: ConfiguredOptions;
   resolvedOptionsLabel: string | null;
   missingRequiredOptions: string[];
   category: string | null;
@@ -102,9 +106,12 @@ export function createEmptyLineItem(): LineItemRow {
 }
 
 export function createLineItemRowFromLineItem(lineItem: LineItem): LineItemRow {
-  const configuredOptions = Object.fromEntries(
+  const configuredOptions: ConfiguredOptions = Object.fromEntries(
     Object.entries(lineItem.configuredOptions ?? {}).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
+      (entry): entry is [string, ConfiguredOptionValue] =>
+        typeof entry[1] === "string" ||
+        typeof entry[1] === "number" ||
+        typeof entry[1] === "boolean",
     ),
   );
   return {

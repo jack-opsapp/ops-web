@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useProductConfiguration } from "@/lib/hooks/use-product-configuration";
 import {
   resolveProductConfiguration,
@@ -11,7 +11,7 @@ import { useDictionary } from "@/i18n/client";
 
 interface ProductConfigurationFieldsProps {
   product: Product;
-  configuredOptions: Record<string, string>;
+  configuredOptions: Readonly<Record<string, unknown>>;
   quantity: number;
   discountPercent: number;
   onResolved: (resolved: ResolvedProductConfiguration) => void;
@@ -28,6 +28,17 @@ export function ProductConfigurationFields({
   const { data, isLoading, isError } = useProductConfiguration(product.id);
   const onResolvedRef = useRef(onResolved);
   onResolvedRef.current = onResolved;
+  // What the estimator has typed but not yet committed, per option. A count
+  // field can sit empty mid-edit without the line losing its committed value.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const clearDraft = useCallback((optionId: string) => {
+    setDrafts((current) => {
+      if (!(optionId in current)) return current;
+      const next = { ...current };
+      delete next[optionId];
+      return next;
+    });
+  }, []);
   const configuredKey = JSON.stringify(configuredOptions);
 
   const resolved = useMemo(() => {
@@ -79,9 +90,9 @@ export function ProductConfigurationFields({
   if (!data || data.options.length === 0) return null;
 
   const applyOption = (optionId: string, value: string) => {
-    const next = { ...configuredOptions };
-    if (value) next[optionId] = value;
-    else delete next[optionId];
+    // An empty value is an explicit "unanswered" — the resolver must not fall
+    // back to the catalog default, or clearing a field would silently re-arm it.
+    const next: Record<string, unknown> = { ...configuredOptions, [optionId]: value };
 
     const nextResolved = resolveProductConfiguration({
       product: {
@@ -111,7 +122,12 @@ export function ProductConfigurationFields({
         const values = data.values.filter(
           (value) => value.optionId === option.id,
         );
-        const value = configuredOptions[option.id] ?? "";
+        // Controls are text/select inputs; a stored number or boolean renders
+        // as its string form and the resolver types it again on the way out.
+        const stored = configuredOptions[option.id];
+        const committed =
+          stored === undefined || stored === null ? "" : String(stored);
+        const value = drafts[option.id] ?? committed;
         const fieldClass =
           "w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text";
 
@@ -167,9 +183,15 @@ export function ProductConfigurationFields({
                 type={option.kind === "integer" ? "number" : "text"}
                 step={option.kind === "integer" ? 1 : undefined}
                 value={value}
-                onChange={(event) =>
-                  applyOption(option.id, event.target.value)
-                }
+                onChange={(event) => {
+                  const typed = event.target.value;
+                  setDrafts((current) => ({
+                    ...current,
+                    [option.id]: typed,
+                  }));
+                  if (typed !== "") applyOption(option.id, typed);
+                }}
+                onBlur={() => clearDraft(option.id)}
                 className={fieldClass}
               />
             )}

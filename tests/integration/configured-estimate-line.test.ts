@@ -91,4 +91,45 @@ describe("configured estimate-line persistence", () => {
     );
     expect(row.unit_id).toBe("unit-sqft");
   });
+  it("round-trips typed option values: select ids, integer counts and booleans stay typed", () => {
+    const configuredOptions = {
+      "opt-color": "val-black",
+      "opt-left": 1,
+      "opt-corners": 0,
+      "opt-lights": true,
+      "opt-caps": false,
+    };
+    const row = mapLineItemToDb({
+      companyId: "company-1",
+      estimateId: "estimate-1",
+      productId: "product-1",
+      name: "Aluminum railing",
+      quantity: 20,
+      unitPrice: 95,
+      configuredOptions,
+      resolvedOptionsLabel: "Color: Black · Left ends: 1 · Corners: 0 · Post lights: Yes · Post caps: No",
+    });
+
+    expect(row.configured_options).toStrictEqual(configuredOptions);
+    const wire = JSON.parse(JSON.stringify(row.configured_options));
+    expect(wire).toStrictEqual(configuredOptions);
+    expect(typeof wire["opt-left"]).toBe("number");
+    expect(typeof wire["opt-lights"]).toBe("boolean");
+
+    const line = mapLineItemFromDb({
+      id: "line-2",
+      company_id: "company-1",
+      estimate_id: "estimate-1",
+      invoice_id: null,
+      product_id: "product-1",
+      name: "Aluminum railing",
+      quantity: 20,
+      unit_price: 95,
+      line_total: 1900,
+      configured_options: wire,
+      resolved_options_label: row.resolved_options_label,
+      created_at: "2026-09-15T00:00:00.000Z",
+    });
+    expect(line.configuredOptions).toStrictEqual(configuredOptions);
+  });
 });

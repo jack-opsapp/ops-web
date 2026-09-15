@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Product } from "@/lib/types/pipeline";
@@ -19,6 +20,10 @@ vi.mock("@/i18n/client", () => ({
 }));
 
 import { ProductConfigurationFields } from "../product-configuration-fields";
+import type {
+  ConfiguredOptions,
+  ResolvedProductConfiguration,
+} from "@/lib/products/product-configuration-resolver";
 
 const product: Product = {
   id: "vinyl-68",
@@ -120,5 +125,112 @@ describe("ProductConfigurationFields", () => {
 
     const resolved = onResolved.mock.calls.at(-1)?.[0];
     expect(resolved.missingRequiredOptions).toEqual(["color"]);
+  });
+});
+
+const railingConfiguration = {
+  options: [
+    { id: "opt-color", name: "Color", kind: "select", required: true, defaultValue: "Black", sortOrder: 0 },
+    { id: "opt-left", name: "Left ends", kind: "integer", required: true, defaultValue: "1", sortOrder: 1 },
+    { id: "opt-lights", name: "Post lights", kind: "boolean", required: false, defaultValue: "false", sortOrder: 2 },
+  ],
+  values: [
+    { id: "val-black", optionId: "opt-color", value: "Black", sortOrder: 0 },
+    { id: "val-white", optionId: "opt-color", value: "White", sortOrder: 1 },
+  ],
+  modifiers: [],
+};
+
+/** Feeds each resolution back in, the way the line-item editor does. */
+function FieldsHarness({
+  onResolved,
+}: {
+  onResolved: (resolved: ResolvedProductConfiguration) => void;
+}) {
+  const [configured, setConfigured] = useState<ConfiguredOptions>({});
+  return (
+    <ProductConfigurationFields
+      product={product}
+      configuredOptions={configured}
+      quantity={20}
+      discountPercent={0}
+      onResolved={(resolved) => {
+        setConfigured(resolved.configuredOptions);
+        onResolved(resolved);
+      }}
+    />
+  );
+}
+
+describe("ProductConfigurationFields — integer and boolean options", () => {
+  beforeEach(() => {
+    useProductConfigurationMock.mockReturnValue({
+      data: railingConfiguration,
+      isLoading: false,
+      isError: false,
+    });
+  });
+
+  it("shows every materialized default without an edit", async () => {
+    const onResolved = vi.fn();
+    render(<FieldsHarness onResolved={onResolved} />);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Left ends")).toHaveValue(1),
+    );
+    expect(screen.getByLabelText("Color")).toHaveValue("val-black");
+    expect(screen.getByLabelText("Post lights")).toHaveValue("false");
+    expect(onResolved.mock.calls.at(-1)?.[0].configuredOptions).toStrictEqual({
+      "opt-color": "val-black",
+      "opt-left": 1,
+      "opt-lights": false,
+    });
+  });
+
+  it("writes a typed count as a JSON number, even through a cleared field", async () => {
+    const user = userEvent.setup();
+    const onResolved = vi.fn();
+    render(<FieldsHarness onResolved={onResolved} />);
+    const field = await screen.findByLabelText("Left ends");
+    await waitFor(() => expect(field).toHaveValue(1));
+
+    await user.clear(field);
+    // A cleared field is a draft, not an instruction to snap back to the default.
+    expect(field).toHaveValue(null);
+    await user.type(field, "3");
+
+    expect(field).toHaveValue(3);
+    const resolved = onResolved.mock.calls.at(-1)?.[0];
+    expect(resolved.configuredOptions["opt-left"]).toBe(3);
+    expect(resolved.resolvedOptionsLabel).toContain("Left ends: 3");
+    expect(resolved.missingRequiredOptions).toEqual([]);
+
+    await user.tab();
+    expect(field).toHaveValue(3);
+  });
+
+  it("restores the committed count when the field is left empty", async () => {
+    const user = userEvent.setup();
+    render(<FieldsHarness onResolved={vi.fn()} />);
+    const field = await screen.findByLabelText("Left ends");
+    await waitFor(() => expect(field).toHaveValue(1));
+
+    await user.clear(field);
+    await user.tab();
+    expect(field).toHaveValue(1);
+  });
+
+  it("writes a boolean choice as a JSON boolean", async () => {
+    const user = userEvent.setup();
+    const onResolved = vi.fn();
+    render(<FieldsHarness onResolved={onResolved} />);
+    const field = await screen.findByLabelText("Post lights");
+
+    await user.selectOptions(field, "true");
+
+    const resolved = onResolved.mock.calls.at(-1)?.[0];
+    expect(resolved.configuredOptions["opt-lights"]).toBe(true);
+    expect(resolved.resolvedOptionsLabel).toContain("Post lights: Yes");
+    expect(field).toHaveValue("true");
   });
 });

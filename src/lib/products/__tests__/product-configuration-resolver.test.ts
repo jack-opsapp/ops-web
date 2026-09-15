@@ -138,3 +138,269 @@ describe("resolveProductConfiguration", () => {
     expect(result.resolvedOptionsLabel).toBe("");
   });
 });
+
+const railingProduct = {
+  id: "canpro-railing",
+  name: "Aluminum railing",
+  basePrice: 95,
+  minimumCharge: null,
+  isTaxable: true,
+  showInStorefront: true,
+  taskTypeId: null,
+  unitCost: null,
+  pricingUnit: "linear_foot",
+};
+
+/** Canpro railing: four selects and five integer counts, defaults as configured in the catalog. */
+function canproOptions() {
+  const select = (id: string, name: string, defaultValue: string, sortOrder: number) => ({
+    id,
+    name,
+    kind: "select",
+    required: true,
+    defaultValue,
+    sortOrder,
+  });
+  const integer = (id: string, name: string, defaultValue: string | null, sortOrder: number) => ({
+    id,
+    name,
+    kind: "integer",
+    required: true,
+    defaultValue,
+    sortOrder,
+  });
+  return [
+    select("opt-color", "Color", "Black", 0),
+    select("opt-mount", "Mount Type", "Side mount", 1),
+    select("opt-height", "Height", '42"', 2),
+    select("opt-lag", "Lag length", '3"', 3),
+    integer("opt-left", "Left ends", "1", 4),
+    integer("opt-right", "Right ends", "1", 5),
+    integer("opt-corners", "Corners", "0", 6),
+    integer("opt-45", "45° corners", "0", 7),
+    integer("opt-wall", "Wall returns", "0", 8),
+  ];
+}
+
+const canproValues = [
+  { id: "val-black", optionId: "opt-color", value: "Black", sortOrder: 0 },
+  { id: "val-white", optionId: "opt-color", value: "White", sortOrder: 1 },
+  { id: "val-side", optionId: "opt-mount", value: "Side mount", sortOrder: 0 },
+  { id: "val-top", optionId: "opt-mount", value: "Top mount", sortOrder: 1 },
+  { id: "val-36", optionId: "opt-height", value: '36"', sortOrder: 0 },
+  { id: "val-42", optionId: "opt-height", value: '42"', sortOrder: 1 },
+  { id: "val-lag-3", optionId: "opt-lag", value: '3"', sortOrder: 0 },
+  { id: "val-lag-4", optionId: "opt-lag", value: '4"', sortOrder: 1 },
+];
+
+describe("resolveProductConfiguration — every option kind", () => {
+  it("materializes all nine Canpro defaults: select value ids and integer counts as numbers", () => {
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options: canproOptions(),
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: {},
+      quantity: 20,
+    });
+
+    expect(result.configuredOptions).toStrictEqual({
+      "opt-color": "val-black",
+      "opt-mount": "val-side",
+      "opt-height": "val-42",
+      "opt-lag": "val-lag-3",
+      "opt-left": 1,
+      "opt-right": 1,
+      "opt-corners": 0,
+      "opt-45": 0,
+      "opt-wall": 0,
+    });
+    expect(Object.keys(result.configuredOptions)).toHaveLength(9);
+    expect(result.missingRequiredOptions).toEqual([]);
+    expect(result.resolvedOptionsLabel).toBe(
+      'Color: Black · Mount Type: Side mount · Height: 42" · Lag length: 3" · Left ends: 1 · Right ends: 1 · Corners: 0 · 45° corners: 0 · Wall returns: 0',
+    );
+  });
+
+  it("lets an explicit value win over the default for selects and integers", () => {
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options: canproOptions(),
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: {
+        "opt-color": "val-white",
+        "opt-mount": "top mount",
+        "opt-left": 2,
+        "opt-corners": "3",
+      },
+      quantity: 20,
+    });
+
+    expect(result.configuredOptions["opt-color"]).toBe("val-white");
+    expect(result.configuredOptions["opt-mount"]).toBe("val-top");
+    expect(result.configuredOptions["opt-left"]).toBe(2);
+    expect(result.configuredOptions["opt-corners"]).toBe(3);
+    expect(result.configuredOptions["opt-right"]).toBe(1);
+  });
+
+  it("is idempotent when its own output is fed back in", () => {
+    const first = resolveProductConfiguration({
+      product: railingProduct,
+      options: canproOptions(),
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: { "opt-left": 4 },
+      quantity: 20,
+    });
+    const second = resolveProductConfiguration({
+      product: railingProduct,
+      options: canproOptions(),
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: first.configuredOptions,
+      quantity: 20,
+    });
+    expect(second).toStrictEqual(first);
+  });
+
+  it("treats a bad integer default on a required option as missing, never as zero", () => {
+    const options = canproOptions().map((option) =>
+      option.id === "opt-wall" ? { ...option, defaultValue: "abc" } : option,
+    );
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options,
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: {},
+      quantity: 20,
+    });
+
+    expect(result.configuredOptions).not.toHaveProperty("opt-wall");
+    expect(result.missingRequiredOptions).toEqual(["opt-wall"]);
+  });
+
+  it.each([
+    ["1.5", "a decimal string"],
+    ["", "an empty string"],
+    ["2 posts", "trailing text"],
+  ])("rejects integer default %j (%s)", (defaultValue) => {
+    const options = canproOptions().map((option) =>
+      option.id === "opt-left" ? { ...option, defaultValue } : option,
+    );
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options,
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: {},
+      quantity: 20,
+    });
+    expect(result.configuredOptions).not.toHaveProperty("opt-left");
+    expect(result.missingRequiredOptions).toEqual(["opt-left"]);
+  });
+
+  it("accepts integer strings with surrounding whitespace and negative counts", () => {
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options: canproOptions(),
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: { "opt-left": " 3 ", "opt-right": "-1" },
+      quantity: 20,
+    });
+    expect(result.configuredOptions["opt-left"]).toBe(3);
+    expect(result.configuredOptions["opt-right"]).toBe(-1);
+  });
+
+  it("does not fall back to the default when an explicit integer is invalid", () => {
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options: canproOptions(),
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: { "opt-left": 2.5, "opt-right": true },
+      quantity: 20,
+    });
+    expect(result.configuredOptions).not.toHaveProperty("opt-left");
+    expect(result.configuredOptions).not.toHaveProperty("opt-right");
+    expect(result.missingRequiredOptions).toEqual(["opt-left", "opt-right"]);
+  });
+
+  it("leaves an optional integer with no default unset and not missing", () => {
+    const options = canproOptions().map((option) =>
+      option.id === "opt-wall"
+        ? { ...option, required: false, defaultValue: null }
+        : option,
+    );
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options,
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: {},
+      quantity: 20,
+    });
+    expect(result.configuredOptions).not.toHaveProperty("opt-wall");
+    expect(result.missingRequiredOptions).toEqual([]);
+  });
+
+  it("parses boolean defaults and values, emits JSON booleans and labels Yes / No", () => {
+    const options = [
+      { id: "opt-lights", name: "Post lights", kind: "boolean", required: true, defaultValue: "TRUE", sortOrder: 0 },
+      { id: "opt-caps", name: "Post caps", kind: "boolean", required: true, defaultValue: " false ", sortOrder: 1 },
+      { id: "opt-gate", name: "Gate", kind: "boolean", required: true, defaultValue: "true", sortOrder: 2 },
+      { id: "opt-bad", name: "Kick plate", kind: "boolean", required: true, defaultValue: "yes", sortOrder: 3 },
+      { id: "opt-free", name: "Toe rail", kind: "boolean", required: false, defaultValue: "1", sortOrder: 4 },
+    ];
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options,
+      values: [],
+      modifiers: [],
+      configuredOptions: { "opt-gate": false },
+      quantity: 1,
+    });
+
+    expect(result.configuredOptions).toStrictEqual({
+      "opt-lights": true,
+      "opt-caps": false,
+      "opt-gate": false,
+    });
+    expect(result.missingRequiredOptions).toEqual(["opt-bad"]);
+    expect(result.resolvedOptionsLabel).toBe(
+      "Post lights: Yes · Post caps: No · Gate: No",
+    );
+  });
+
+  it("accepts boolean strings from a stored snapshot", () => {
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options: [
+        { id: "opt-lights", name: "Post lights", kind: "boolean", required: false, defaultValue: null, sortOrder: 0 },
+      ],
+      values: [],
+      modifiers: [],
+      configuredOptions: { "opt-lights": "False" },
+      quantity: 1,
+    });
+    expect(result.configuredOptions).toStrictEqual({ "opt-lights": false });
+  });
+
+  it("keeps pricing modifiers keyed on select value ids alongside integer options", () => {
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options: canproOptions(),
+      values: canproValues,
+      modifiers: [
+        { optionId: "opt-color", optionValueId: "val-white", kind: "add_flat", amount: 5 },
+        { optionId: "opt-color", optionValueId: "val-black", kind: "add_flat", amount: 10 },
+      ],
+      configuredOptions: {},
+      quantity: 20,
+    });
+    expect(result.unitPrice).toBe(105);
+    expect(result.lineTotalBeforeTax).toBe(2100);
+  });
+});
