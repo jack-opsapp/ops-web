@@ -130,7 +130,7 @@ describe("verified DekSmart desired catalog", () => {
     expect(membrane?.quantityRule).toEqual(
       expect.objectContaining({
         calculationKind: "cut_plan",
-        measureSource: "deck_geometry/v1",
+        measureSource: "deck-geometry/v1",
         fallbackRule: { mode: "manual_dimensions" },
       }),
     );
