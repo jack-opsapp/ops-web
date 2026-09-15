@@ -24,7 +24,13 @@ begin
     and company.deleted_at is null
   for share of actor, company;
 
-  if not found or not public.has_permission(v_actor_id, 'expenses.approve', 'all') then
+  -- The row lock may have waited behind a login-identity or membership edit.
+  -- Re-resolve this request's JWT after the wait before trusting the captured
+  -- actor. The held actor/company locks keep this verified binding stable.
+  if not found
+     or v_actor_id is distinct from private.get_current_user_id()
+     or v_company_id is distinct from private.get_user_company_id()
+     or not public.has_permission(v_actor_id, 'expenses.approve', 'all') then
     raise exception 'You do not have permission to approve expenses.' using errcode = '42501';
   end if;
   return query select v_actor_id, v_company_id;
