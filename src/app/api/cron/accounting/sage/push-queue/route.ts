@@ -22,6 +22,11 @@ import {
   type SupplierBillQueueResult,
 } from "@/lib/api/services/supplier-bill-queue-processor";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import {
+  processExpenseAccountingQueueRow,
+  type ExpenseQueueResult,
+} from "@/lib/api/services/expense-accounting-queue-processor";
+import type { ExpenseQueueRow } from "@/lib/api/services/expense-accounting-provider-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,7 +47,10 @@ function message(error: unknown): string {
     : "Sage push queue failed.";
 }
 
-type SagePushQueueResult = SageQueueResult | SupplierBillQueueResult;
+type SagePushQueueResult =
+  | SageQueueResult
+  | SupplierBillQueueResult
+  | ExpenseQueueResult;
 
 function summary(workerId: string, results: SagePushQueueResult[]) {
   return {
@@ -95,7 +103,17 @@ export async function POST(request: Request) {
         // claimed together, then every provider mutation runs sequentially.
         for (const row of rows) {
           try {
-            if (isSupplierBillQueueEntity(row.entityType)) {
+            if ((row.entityType as string) === "expense") {
+              results.push(
+                await processExpenseAccountingQueueRow({
+                  supabase,
+                  queue,
+                  audit,
+                  row: row as unknown as ExpenseQueueRow,
+                  workerId,
+                })
+              );
+            } else if (isSupplierBillQueueEntity(row.entityType)) {
               results.push(
                 await processSupplierBillQueueRow({
                   supabase,

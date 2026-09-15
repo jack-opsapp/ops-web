@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
       .eq("company_id", companyId)
       .eq("provider", "quickbooks")
       .eq("connection_id", connection.id)
+      .neq("entity_type", "expense")
       .in("status", ["blocked", "needs_review"])
       .order("updated_at", { ascending: false })
       .limit(10);

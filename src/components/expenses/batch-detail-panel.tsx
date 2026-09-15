@@ -233,7 +233,7 @@ export function BatchDetailPanel({
       label: t("expenses.detail.returnedOn", { date: fmtStampDate(batch.reviewedAt) }),
     });
   }
-  if (batch.paidAt) {
+  if (paid && batch.paidAt) {
     stamps.push({
       key: "paid",
       label: t("expenses.detail.paid", { date: fmtStampDate(batch.paidAt) }),

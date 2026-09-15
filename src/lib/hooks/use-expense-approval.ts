@@ -99,7 +99,6 @@ export function useApproveBatch() {
   return useMutation({
     mutationFn: async ({
       batchId,
-      expenseIds,
     }: {
       batchId: string;
       /**
@@ -116,11 +115,9 @@ export function useApproveBatch() {
       companyId?: string;
       batchNumber?: string;
     }) => {
-      // Single atomic, permission-enforced approval (batch + lines + recalc).
+      // The transaction saves the decision and durably queues accounting work.
+      // Provider delivery must never extend this client mutation.
       await ExpenseApprovalService.approveBatch(batchId);
-
-      // Best-effort accounting sync — must never fail/roll back the approval.
-      await ExpenseApprovalService.syncExpensesToAccounting(expenseIds);
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });

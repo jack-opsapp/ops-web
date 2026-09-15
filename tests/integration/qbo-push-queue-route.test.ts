@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AccountingSyncQueueRow } from "@/lib/api/services/accounting-sync-queue-types";
+import type {
+  AccountingSyncQueueEntityType,
+  AccountingSyncQueueRow,
+} from "@/lib/api/services/accounting-sync-queue-types";
 
 const claimDue = vi.fn();
 const markSucceeded = vi.fn();
@@ -275,8 +278,8 @@ const CUSTOMER_ID = "2873266e-8d86-47e4-819b-7e570084f06f";
 const INVOICE_ID = "d9f024cf-f8b0-4e0c-9930-459e3b49660b";
 
 function queueRow(
-  overrides: Partial<AccountingSyncQueueRow> = {}
-): AccountingSyncQueueRow {
+  overrides: Partial<AccountingSyncQueueRow<AccountingSyncQueueEntityType>> = {}
+): AccountingSyncQueueRow<AccountingSyncQueueEntityType> {
   return {
     id: "q-1",
     companyId: COMPANY_ID,
@@ -413,6 +416,25 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("holds expenses while continuing existing customer delivery in the same batch", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", undefined);
+    claimDue.mockImplementation(async ({ workerId }: { workerId: string }) => [
+      queueRow({ id: "q-expense", entityType: "expense", sourceTable: "expense_accounting_events", lockedBy: workerId }),
+      queueRow({ id: "q-customer", entityType: "customer", sourceTable: "clients", entityId: CUSTOMER_ID, lockedBy: workerId }),
+    ]);
+    state.clients.push({ id: CUSTOMER_ID, company_id: COMPANY_ID, name: "Maverick Projects", email: "ops@example.com", phone_number: "555-0100", qb_id: null, updated_at: "2026-06-05T10:00:00.000Z" });
+    const POST = await loadPost();
+    const result = await POST(authorizedRequest());
+    expect(result.status).toBe(200);
+    expect(await result.json()).toMatchObject({ processed: 2, blocked: 1, succeeded: 1 });
+    expect(markBlocked).toHaveBeenCalledWith("q-expense", "Expense accounting sync is paused.", { workerId: expect.stringMatching(/^qbo-push-/) });
+    expect(getValidToken).toHaveBeenCalledTimes(1);
+    expect(writeCreate).toHaveBeenCalledTimes(1);
+    expect(writeCreate.mock.calls[0][0]).toBe("Customer");
+    expect(markSucceeded).toHaveBeenCalledWith("q-customer", expect.objectContaining({ externalId: "123" }));
   });
 
   it("returns 401 for unauthorized requests and does not claim", async () => {

@@ -24,6 +24,8 @@ import {
   formatPeriodDisplay,
   getBatchDisplayName,
   batchOwedAmount,
+  batchHistoryAmount,
+  isBatchApprovedWithoutPayout,
   type ExpenseBatch,
   type ExpenseBatchUser,
 } from "@/lib/types/expense-approval";
@@ -587,12 +589,16 @@ export function BatchList({
                 isSelected={selectedId === batch.id}
                 showPerson
                 personName={personNameOf(batch)}
-                amount={batchOwedAmount(batch)}
+                amount={batchHistoryAmount(batch)}
                 onSelect={() => onSelect(batch.id)}
                 locale={numLocale}
                 t={t}
                 meta={
-                  batch.paidAt ? (
+                  isBatchApprovedWithoutPayout(batch) ? (
+                    <span className="shrink-0 font-mono text-micro uppercase tracking-wider text-text-3">
+                      {t("expenses.line.approved")}
+                    </span>
+                  ) : batch.paidAt ? (
                     <span className="shrink-0 font-mono text-micro uppercase tracking-wider text-olive">
                       {t("expenses.row.paidOn", {
                         date: formatShortDate(batch.paidAt, numLocale),

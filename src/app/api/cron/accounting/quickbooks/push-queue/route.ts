@@ -46,6 +46,9 @@ import {
   processSupplierBillQueueRow,
   type SupplierBillQueueRow,
 } from "@/lib/api/services/supplier-bill-queue-processor";
+import { processExpenseAccountingQueueRow } from "@/lib/api/services/expense-accounting-queue-processor";
+import type { ExpenseQueueRow } from "@/lib/api/services/expense-accounting-provider-service";
+import { AcceptedWriteDurabilityError } from "@/lib/api/services/sage-queue-processor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1077,6 +1080,16 @@ async function processQueueRow(input: {
 }): Promise<RowResult> {
   const { supabase, queue, audit, row, workerId } = input;
 
+  if ((row.entityType as string) === "expense") {
+    return processExpenseAccountingQueueRow({
+      supabase,
+      queue,
+      audit,
+      row: row as unknown as ExpenseQueueRow,
+      workerId,
+    });
+  }
+
   if (isSupplierBillQueueEntity(row.entityType as string)) {
     return processSupplierBillQueueRow({
       supabase,
@@ -1289,7 +1302,11 @@ export async function POST(request: Request) {
               })
             );
           } catch (error) {
-            if (isDatabasePressureError(error)) throw error;
+            if (
+              isDatabasePressureError(error) ||
+              error instanceof AcceptedWriteDurabilityError
+            )
+              throw error;
             results.push({
               queueId: row.id,
               entityType: row.entityType,

@@ -24,8 +24,11 @@ const BATCH_LIMIT = 25;
 
 type DbRow = Record<string, unknown>;
 
+/** Expense rows are held or delivered by the expense worker and are never reconciled here. */
+type SageReconcileEntityType = Exclude<AccountingSyncQueueEntityType, "expense">;
+
 const ENTITY_CONFIG: Record<
-  AccountingSyncQueueEntityType,
+  SageReconcileEntityType,
   { sourceTable: string; resources: readonly string[] }
 > = {
   customer: { sourceTable: "clients", resources: ["contacts"] },
@@ -65,10 +68,10 @@ function required(value: unknown, label: string): string {
   return normalized;
 }
 
-function entityType(value: unknown): AccountingSyncQueueEntityType {
+function entityType(value: unknown): SageReconcileEntityType {
   const normalized = required(value, "entity type");
   if (normalized in ENTITY_CONFIG) {
-    return normalized as AccountingSyncQueueEntityType;
+    return normalized as SageReconcileEntityType;
   }
   throw new Error(`Unsupported Sage reconcile entity type: ${normalized}`);
 }
@@ -210,7 +213,7 @@ async function enqueue(
     entity_id: candidate.entityId,
     external_id: candidate.externalId,
     operation: "update",
-    source_table: ENTITY_CONFIG[candidate.entityType].sourceTable,
+    source_table: ENTITY_CONFIG[entityType(candidate.entityType)].sourceTable,
     source_action: "update",
     source_updated_at: candidate.opsUpdatedAt,
     idempotency_key: idempotencyKey,

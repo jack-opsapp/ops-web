@@ -35,6 +35,7 @@ function mapBatchFromDb(row: Record<string, unknown>): ExpenseBatch {
     reviewedAt: (row.reviewed_at as string) ?? null,
     totalAmount: row.total_amount != null ? Number(row.total_amount) : null,
     approvedAmount: row.approved_amount != null ? Number(row.approved_amount) : null,
+    reimbursementAmount: row.reimbursement_amount != null ? Number(row.reimbursement_amount) : null,
     parentBatchId: (row.parent_batch_id as string) ?? null,
     amendmentNumber: row.amendment_number != null ? Number(row.amendment_number) : 0,
     reviewNotes: (row.review_notes as string) ?? null,
@@ -354,8 +355,8 @@ export const ExpenseApprovalService = {
   /**
    * Early-clear a single line via the `early_clear_expense_line` SECURITY
    * DEFINER RPC: approves just this line, leaves the envelope where it is,
-   * recalculates the total, and notifies the submitter server-side. After the
-   * clear we kick off a best-effort accounting sync for the line.
+   * recalculates the total, notifies the submitter and durably queues accounting
+   * work server-side. Provider delivery does not extend the client operation.
    */
   async earlyClearLine(expenseId: string): Promise<void> {
     const supabase = requireSupabase();
@@ -365,8 +366,6 @@ export const ExpenseApprovalService = {
     });
 
     if (error) throw new Error(`Failed to clear expense: ${error.message}`);
-
-    await this.syncExpensesToAccounting([expenseId]);
   },
 
   /**
@@ -397,43 +396,6 @@ export const ExpenseApprovalService = {
     });
 
     if (error) throw new Error(`Failed to undo paid: ${error.message}`);
-  },
-
-  /**
-   * Best-effort accounting sync for a set of approved expenses.
-   *
-   * Mirrors the iOS contract (`ExpenseRepository.triggerAccountingSync`):
-   * invokes the `accounting-sync-expense` Edge Function once per expense with
-   * `{ expense_id }`. Fire-and-forget — a missing accounting connection or any
-   * sync error must NEVER fail or roll back the approval, so every invocation
-   * is individually guarded and only warns on failure.
-   */
-  async syncExpensesToAccounting(expenseIds: string[]): Promise<void> {
-    if (expenseIds.length === 0) return;
-
-    const supabase = requireSupabase();
-
-    await Promise.all(
-      expenseIds.map(async (expenseId) => {
-        try {
-          const { error } = await supabase.functions.invoke(
-            "accounting-sync-expense",
-            { body: { expense_id: expenseId } }
-          );
-          if (error) {
-            console.warn(
-              `[ExpenseApproval] Accounting sync failed for expense ${expenseId}:`,
-              error.message
-            );
-          }
-        } catch (err) {
-          console.warn(
-            `[ExpenseApproval] Accounting sync threw for expense ${expenseId}:`,
-            err
-          );
-        }
-      })
-    );
   },
 
   /**
