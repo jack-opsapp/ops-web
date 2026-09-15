@@ -27,13 +27,13 @@ export const JOURNAL_IMAGE_WIDTH = 1600;
 export const JOURNAL_IMAGE_HEIGHT = 900;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
-// Jackson's direction (2026-09-15): composed, never posed. Every photograph
-// reads as a candid frame from a seasoned editorial photographer on
-// assignment: deliberate composition, subdued grade, nothing staged, nobody
-// performing for the lens. ops-site shows the image full-bleed at half the
-// viewport height with a white fade over its lower half, phones keep only the
-// centre of the frame, and the index card is 16:10, so the decisive detail
-// lives in the central two-thirds and above the lower third.
+// Jackson's direction (2026-09-15): composed, never posed; realistic, never
+// the stock trades picture; a faded film-print grade, never saturated. Every
+// photograph reads as a candid frame from a seasoned editorial photographer on
+// assignment at a real residential job. ops-site shows the image full-bleed at
+// half the viewport height with a white fade over its lower half, phones keep
+// only the centre of the frame, and the index card is 16:10, so the decisive
+// detail lives in the central two-thirds and above the lower third.
 export const JOURNAL_IMAGE_STYLE = [
   "House style for the OPS Journal, a publication for owners of small trades businesses in North America.",
   "This is a candid editorial photograph made on assignment by a seasoned documentary photographer: composed, never posed,",
@@ -42,16 +42,23 @@ export const JOURNAL_IMAGE_STYLE = [
   "never smiling at or looking into the camera, never arranged, lined up or gesturing for the shot.",
   "The frame is deliberately composed: purposeful negative space, natural elements framing the subject, leading lines,",
   "layered foreground and background, the subject placed on a strong third, or a landscape built on sound compositional rules.",
-  "Natural or available light. A subdued, filmic grade: restrained contrast, muted saturation, soft highlights, detailed shadows,",
-  "fine natural grain; never HDR, never punchy saturation, never teal-and-orange, never golden-hour glow, never glossy commercial polish.",
-  "If the direction asks for black and white, make a true monochrome with the same restraint.",
+  "Realism above all. This is a real residential job on an ordinary street: a house mid-renovation, a backyard deck,",
+  "a driveway, a garage, a bungalow interior, a work truck at the curb. Crews dress the way real residential crews dress:",
+  "jeans or work pants, a t-shirt or hoodie, a ball cap, sneakers or plain worn boots. No hard hats, no high-visibility vests,",
+  "no safety glasses, no harnesses, no pristine new gear; clothes and tools are used, dusty and unbranded.",
+  "Never the stock trades picture: no hard-hat crew, no blueprint spread on a table, no tool-belt hero shot, no tidy staged",
+  "workbench, no sunset silhouette, no handshake. Prefer the frame a photographer would find rather than illustrate:",
+  "weather, off-hours, the quiet in-between moment, an unexpected vantage.",
+  "The look of 35 mm or medium-format film printed on matte paper: lifted, soft blacks; faded, gentle highlights; low contrast;",
+  "a muted, desaturated palette leaning to slate, sand, olive, faded blue and warm grey; visible fine grain; a little atmospheric haze.",
+  "Overcast, fog, rain, dawn or dusk light is welcome. Never HDR, never vivid or punchy colour, never teal-and-orange,",
+  "never golden-hour glow, never digital-clean sharpness, never glossy commercial polish.",
+  "If the direction asks for black and white, make a true monochrome with the same faded, matte restraint.",
   "Wide landscape frame; keep the decisive detail inside the central two-thirds of the width and above the lower third,",
   "because the photograph is cropped to 16:9, shown behind a fade over its lower half, and trimmed to its centre on phones.",
   "No text, letters, numbers, signage, labels, logos, brand marks, watermarks, flags, screens with readable content,",
   "or recognisable real people, companies, places or products; any paper, board or screen in the frame is blank,",
-  "turned away or out of focus, never showing legible marks, and tools carry no brand colours or badges.",
-  "Any work shown follows safe practice: correct protective equipment, fall protection wherever height demands it,",
-  "secured ladders, no unguarded edges.",
+  "turned away or out of focus, never showing legible marks. Nobody is shown in real danger.",
 ].join(" ");
 
 export type JournalImageCode =
