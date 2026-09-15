@@ -8,14 +8,14 @@ const actor = "11111111-1111-4111-8111-111111111111";
 const company = "22222222-2222-4222-8222-222222222222";
 const token = "a".repeat(43);
 const snapshot = { channel: "organic_search", basis: "utm_referrer", version: 1 };
-function fakeDb(options: { existing?: boolean; raced?: boolean; stageError?: boolean; company?: boolean } = {}) {
+function fakeDb(options: { existing?: boolean; raced?: boolean; stageError?: boolean; company?: boolean; demo?: boolean } = {}) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const row = { id: actor, auth_id: "verified-firebase", firebase_uid: "verified-firebase", company_id: options.company ? company : null, setup_progress: { steps: {}, signup_attribution: snapshot } };
   let inserted = false;
   return {
     calls,
     client: {
-      rpc(name: string, args: Record<string, unknown>) { calls.push({ name, args }); return { abortSignal: async () => options.stageError ? { error: { code: "PGRST202", message: token } } : { data: name.startsWith("stage") ? { status: "staged" } : { status: "rejected", reason: "trial_before_exposure" }, error: null } }; },
+      rpc(name: string, args: Record<string, unknown>) { if (name === "retry_tryops_demo_trial" && !options.demo) return { abortSignal: async () => ({ data: { status: "absent" }, error: null }) }; calls.push({ name, args }); return { abortSignal: async () => options.stageError ? { error: { code: "PGRST202", message: token } } : { data: name.startsWith("stage") ? { status: "staged" } : { status: "rejected", reason: "trial_before_exposure" }, error: null } }; },
       from(table: string) {
         let payload: Record<string, unknown> = {};
         let inserting = false;
@@ -80,4 +80,16 @@ it("a failed provider token cannot reach staging", async () => {
   const { calls, client } = fakeDb(); mocks.service.mockReturnValue(client);
   expect((await POST(req())).status).toBe(401);
   expect(calls).toHaveLength(0);
+});
+
+// External token verification is injected; the real route and demo helper execute.
+describe.each(["google.com", "apple.com", "password"])("demo continuity after verified %s return", provider => {
+  it("uses the saved actor and request cookie while rejecting body identity claims", async () => {
+    mocks.verify.mockResolvedValue({ uid: "verified-firebase", email: "person@example.test", claims: { firebase: { sign_in_provider: provider } } });
+    const { calls, client } = fakeDb({ demo: true }); mocks.service.mockReturnValue(client);
+    const response = await POST(req(`__ops_demo=${token}`));
+    expect(response.status).toBe(200);
+    expect(calls).toEqual([{ name: "stage_tryops_demo_signup", args: { p_token_hash: expect.stringMatching(/^[a-f0-9]{64}$/), p_actor_id: actor } }]);
+    expect(JSON.stringify(await response.json())).not.toContain(token);
+  });
 });

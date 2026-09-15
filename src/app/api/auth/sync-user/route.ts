@@ -38,6 +38,7 @@ import type {
 } from "@/lib/types/models";
 import { UserRole as UserRoleEnum } from "@/lib/types/models";
 import { buildSignupAttribution } from "@/lib/analytics/signup-attribution";
+import { stageSignupDemo, retrySignupDemo } from "@/lib/pmf/demo-attribution";
 import { stageSignupExperiment, retrySignupExperiment } from "@/lib/pmf/experiment-attribution";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
@@ -328,7 +329,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // read — never to a merge of the updates we failed to write.
       const user = mapUserFromDb(updatedRow ?? existingRow);
       await stageSignupExperiment(db, req, user.id);
+      await stageSignupDemo(db, req, user.id);
       await retrySignupExperiment(db, req, user.id, user.companyId);
+      await retrySignupDemo(db, req, user.id, user.companyId);
       const company = user.companyId ? await fetchCompanyById(user.companyId) : null;
 
       return NextResponse.json({ user, company });
@@ -411,7 +414,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (raced) {
           const user = mapUserFromDb(raced);
           await stageSignupExperiment(db, req, user.id);
+          await stageSignupDemo(db, req, user.id);
           await retrySignupExperiment(db, req, user.id, user.companyId);
+          await retrySignupDemo(db, req, user.id, user.companyId);
           const company = user.companyId ? await fetchCompanyById(user.companyId) : null;
           return NextResponse.json({ user, company });
         }
@@ -424,6 +429,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const user = mapUserFromDb(inserted);
     await stageSignupExperiment(db, req, user.id);
+    await stageSignupDemo(db, req, user.id);
     return NextResponse.json({ user, company: null });
   } catch (error) {
     console.error("[api/auth/sync-user] Error:", error);

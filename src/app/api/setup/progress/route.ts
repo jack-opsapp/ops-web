@@ -17,6 +17,7 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
 import { recordTrialAttribution } from "@/lib/pmf/trial-attribution";
 import { isReferralSourceSlug } from "@/lib/data/referral-sources";
+import { stageSignupDemo, retrySignupDemo } from "@/lib/pmf/demo-attribution";
 import { stageSignupExperiment, retrySignupExperiment, type ExperimentAttributionResult } from "@/lib/pmf/experiment-attribution";
 import { setupSaveContext, recordSetupSaveResult, type SetupSaveContext, type SetupSaveStage } from "@/lib/analytics/setup-save-server";
 
@@ -108,6 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       userRow.firebase_uid === verifiedUser.uid;
     const stagedExperiment: ExperimentAttributionResult = experimentActorVerified
       ? await stageSignupExperiment(db, req, userId) : { status: "excluded" };
+    if (experimentActorVerified) await stageSignupDemo(db, req, userId);
     let experimentCompanyId = userRow.company_id as string | null;
     // A checkpoint-only request is a skip, not a submitted company save.
     if (data && (step === "identity" || step === "company")) {
@@ -384,6 +386,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const attachedExperiment: ExperimentAttributionResult = experimentActorVerified
       ? await retrySignupExperiment(db, req, userId, experimentCompanyId) : { status: "excluded" };
+    if (experimentActorVerified) await retrySignupDemo(db, req, userId, experimentCompanyId);
     const experimentAttribution = attachedExperiment.status === "absent"
       ? stagedExperiment : attachedExperiment;
 

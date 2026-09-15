@@ -21,7 +21,8 @@ function setup(options: { stageFailure?: boolean; stageFailures?: number; attach
   let stages = 0;
   let durableBinding = false;
   const rpc = (name: string, args: Record<string, unknown>) => {
-    calls.push({ name, args });
+    if (!name.includes("demo")) calls.push({ name, args });
+    if (name === "retry_tryops_demo_trial") return { abortSignal: async () => ({ data: { status: "absent" }, error: null }) };
     let result: { data: unknown; error: unknown } = { data: null, error: null };
     if (name === "stage_tryops_experiment_signup") {
       const failed = options.stageFailure || ++stages <= (options.stageFailures ?? 0);
