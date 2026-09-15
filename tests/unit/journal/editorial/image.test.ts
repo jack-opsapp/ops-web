@@ -40,7 +40,9 @@ describe("journal photograph generation", () => {
     // Jackson's standard: composed, never posed; candid; subdued grade.
     expect(JOURNAL_IMAGE_STYLE).toMatch(/composed, never posed/);
     expect(JOURNAL_IMAGE_STYLE).toMatch(/never smiling at or looking into the camera/);
-    expect(JOURNAL_IMAGE_STYLE).toMatch(/lifted, soft blacks/);
+    expect(JOURNAL_IMAGE_STYLE).toMatch(/warm, refined and curated/);
+    expect(JOURNAL_IMAGE_STYLE).toMatch(/saturation and vibrance pulled down/);
+    expect(JOURNAL_IMAGE_STYLE).toMatch(/Never cold, gloomy, foggy, dim or ominous/);
     expect(JOURNAL_IMAGE_STYLE).toMatch(/never golden-hour glow/);
     expect(JOURNAL_IMAGE_STYLE).toMatch(/No hard hats, no high-visibility vests/);
     expect(JOURNAL_IMAGE_STYLE).toMatch(/jeans or work pants, a t-shirt or hoodie, a ball cap/);

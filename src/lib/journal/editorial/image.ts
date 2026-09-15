@@ -28,7 +28,7 @@ export const JOURNAL_IMAGE_HEIGHT = 900;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 // Jackson's direction (2026-09-15): composed, never posed; realistic, never
-// the stock trades picture; a faded film-print grade, never saturated. Every
+// the stock trades picture; warm, refined and curated, never gloomy. Every
 // photograph reads as a candid frame from a seasoned editorial photographer on
 // assignment at a real residential job. ops-site shows the image full-bleed at
 // half the viewport height with a white fade over its lower half, phones keep
@@ -48,12 +48,13 @@ export const JOURNAL_IMAGE_STYLE = [
   "no safety glasses, no harnesses, no pristine new gear; clothes and tools are used, dusty and unbranded.",
   "Never the stock trades picture: no hard-hat crew, no blueprint spread on a table, no tool-belt hero shot, no tidy staged",
   "workbench, no sunset silhouette, no handshake. Prefer the frame a photographer would find rather than illustrate:",
-  "weather, off-hours, the quiet in-between moment, an unexpected vantage.",
-  "The look of 35 mm or medium-format film printed on matte paper: lifted, soft blacks; faded, gentle highlights; low contrast;",
-  "a muted, desaturated palette leaning to slate, sand, olive, faded blue and warm grey; visible fine grain; a little atmospheric haze.",
-  "Overcast, fog, rain, dawn or dusk light is welcome. Never HDR, never vivid or punchy colour, never teal-and-orange,",
-  "never golden-hour glow, never digital-clean sharpness, never glossy commercial polish.",
-  "If the direction asks for black and white, make a true monochrome with the same faded, matte restraint.",
+  "the quiet in-between moment, the off-hours, an unexpected vantage, on a pleasant ordinary day.",
+  "The atmosphere is warm, refined and curated: calm daylight, open shade or soft afternoon sun, a slightly warm colour temperature,",
+  "the feel of a gallery print in a well-kept home. The grade is gentle: saturation and vibrance pulled down by roughly a fifth,",
+  "soft contrast, clean matte highlights, shadows that keep their detail, a fine film grain. Never cold, gloomy, foggy, dim or ominous;",
+  "never a storm, dusk-after-rain, a derelict interior or anything that reads as a horror film. Never HDR, never vivid or punchy colour,",
+  "never teal-and-orange, never golden-hour glow, never glossy commercial polish.",
+  "If the direction asks for black and white, make a clean, warm-toned monochrome with the same refinement.",
   "Wide landscape frame; keep the decisive detail inside the central two-thirds of the width and above the lower third,",
   "because the photograph is cropped to 16:9, shown behind a fade over its lower half, and trimmed to its centre on phones.",
   "No text, letters, numbers, signage, labels, logos, brand marks, watermarks, flags, screens with readable content,",
