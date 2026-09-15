@@ -33,7 +33,9 @@ export async function imageIsPublic(url: string): Promise<boolean> {
 // so the request gets 150 s and one retry inside the five-minute function.
 export function openAIJournalImageGenerator(env: NodeJS.ProcessEnv = process.env): JournalImageGenerator {
   return async (prompt) => {
-    const apiKey = env.OPENAI_API_KEY?.trim();
+    // A pasted key sometimes carries a literal "\n" at its end (seen in a
+    // local env file); OpenAI rejects it as an incorrect key.
+    const apiKey = env.OPENAI_API_KEY?.trim().replace(/\\n$/, "");
     if (!apiKey) throw new JournalImageError("IMAGE_NOT_CONFIGURED");
     const client = new OpenAI({ apiKey, timeout: 150_000, maxRetries: 1 });
     try {

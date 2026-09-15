@@ -91,14 +91,15 @@ The weekly post must still be true on the day a reader finds it a year from now.
 
 ## The header photograph
 
-OPS generates one photograph for every post from `image_prompt`, the writer's art direction, and adds its own house style after it: an original photorealistic documentary frame, a 16:9 crop with the decisive detail centred high, no words or marks of any kind, safe work practice. The art direction decides what the photograph shows.
+OPS generates one photograph for every post from `image_prompt`, the writer's art direction, and adds its own house style after it. The standard is composed, never posed: every image reads as a candid frame made on assignment by a seasoned editorial documentary photographer. Nothing staged, nobody performing for the lens, a subdued grade. The art direction decides what the photograph shows and how it is composed.
 
-- Show the post's one idea as a physical moment on a real job or in a real shop: the tool, the paper, the truck, the hands, the site. A business owner should recognise their own week in it.
-- One subject, one moment, one place. Name the trade, the setting, the season and time of day, the light, and exactly what the subject is doing.
-- Readable at card size: a clear silhouette and a simple background, not a crowded scene.
-- Keep the journal varied: read `recent_images` in the claim and choose a different subject, trade, setting and light from every one of them.
-- Never ask for words, numbers, charts, signage, screens with content, logos, brands, flags, or real people, companies or places. Never the stock-photo clichés: the handshake, the smiling crew in clean hard hats, the laptop on a desk, the thumbs-up.
-- Never show unsafe work, injury or damage. When a post is about a hazard, show the precaution, not the harm.
+- **Composed, never posed.** People, when they appear, are caught mid-task and absorbed in the work. Never smiling at the camera, never looking into it, never arranged, lined up or gesturing for the shot. If a moment could only exist because someone asked for it, it is wrong.
+- **An interesting photograph, not the obvious one.** The image does not have to show the literal subject of the title. Often the stronger frame is adjacent to it: the detail, the place, the moment before or after, the landscape the work lives in, an object that carries the idea. It must still belong to the trades and fit the post.
+- **Name the composition.** Say how a seasoned photographer builds this frame: where the negative space sits, what natural element frames the subject (a doorway, a truck window, branches, stacked material), the leading lines, the foreground and background layers, which third holds the subject, or the compositional rule a landscape is built on. Name the vantage point and lens feel.
+- **Name the light and grade.** Natural or available light, the time of day and season, a subdued grade with restrained contrast and muted colour. Every now and then (about one post in six, when texture and light carry the frame) ask for black and white.
+- **One subject, readable small.** A clear silhouette that still reads at card size; the decisive detail sits in the central two-thirds of the frame and above the lower third, because the site crops to 16:9, fades the lower half and trims phones to the centre.
+- **Keep the journal varied.** Read `recent_images` in the claim and choose a different subject, setting, vantage, light and treatment from every one of them.
+- **Never:** words, numbers, charts, signage, screens with content, logos, brands, flags, or real people, companies or places; the stock-photo clichés (the handshake, the smiling crew in clean hard hats, the laptop on a desk, the thumbs-up, the crossed arms); unsafe work, injury or damage. When a post is about a hazard, show the precaution, not the harm.
 - 120 to 1,500 characters of plain sentences. No markup, no links, no keyword strings.
 
 ## The filter before a draft goes back
@@ -109,4 +110,4 @@ OPS generates one photograph for every post from `image_prompt`, the writer's ar
 - Does the title work alone? Is there exactly one clear move?
 - Does it read as a person, not a brochure — and not as a machine stacking short sentences?
 - Every word checked against the banned list and the "never" list.
-- Does the photo brief describe one safe, physical moment that fits the post and looks nothing like the recent journal images?
+- Does the photo brief describe a composed, candid, unposed frame that fits the post, names its composition and light, and looks nothing like the recent journal images?

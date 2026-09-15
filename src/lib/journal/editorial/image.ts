@@ -27,19 +27,31 @@ export const JOURNAL_IMAGE_WIDTH = 1600;
 export const JOURNAL_IMAGE_HEIGHT = 900;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
-// Matched to the photographs already on the journal: restrained, documentary,
-// trades infrastructure, no words. ops-site shows the image full-bleed at half
-// the viewport height with a white fade over its lower half, and the index card
-// is 16:10, so the decisive detail has to live in the upper-middle band.
+// Jackson's direction (2026-09-15): composed, never posed. Every photograph
+// reads as a candid frame from a seasoned editorial photographer on
+// assignment: deliberate composition, subdued grade, nothing staged, nobody
+// performing for the lens. ops-site shows the image full-bleed at half the
+// viewport height with a white fade over its lower half, phones keep only the
+// centre of the frame, and the index card is 16:10, so the decisive detail
+// lives in the central two-thirds and above the lower third.
 export const JOURNAL_IMAGE_STYLE = [
-  "House style for the OPS Journal, a publication for owners of small trades businesses in North America:",
-  "an original photorealistic editorial photograph, shot like documentary work on a real job site or in a real shop,",
-  "natural light, true colour, restrained realism, generous negative space, no staged gloss and no illustration.",
-  "Landscape frame with the decisive subject centred in the upper-middle of the frame and clear room above and below it,",
-  "because the photograph is cropped to 16:9 and shown behind a fade over its lower half.",
+  "House style for the OPS Journal, a publication for owners of small trades businesses in North America.",
+  "This is a candid editorial photograph made on assignment by a seasoned documentary photographer: composed, never posed,",
+  "the kind of quiet, considered frame a contemporary fine-art photography gallery would print.",
+  "Nothing is staged and nobody performs for the lens. People, when present, are caught mid-task and absorbed in the work,",
+  "never smiling at or looking into the camera, never arranged, lined up or gesturing for the shot.",
+  "The frame is deliberately composed: purposeful negative space, natural elements framing the subject, leading lines,",
+  "layered foreground and background, the subject placed on a strong third, or a landscape built on sound compositional rules.",
+  "Natural or available light. A subdued, filmic grade: restrained contrast, muted saturation, soft highlights, detailed shadows,",
+  "fine natural grain; never HDR, never punchy saturation, never teal-and-orange, never golden-hour glow, never glossy commercial polish.",
+  "If the direction asks for black and white, make a true monochrome with the same restraint.",
+  "Wide landscape frame; keep the decisive detail inside the central two-thirds of the width and above the lower third,",
+  "because the photograph is cropped to 16:9, shown behind a fade over its lower half, and trimmed to its centre on phones.",
   "No text, letters, numbers, signage, labels, logos, brand marks, watermarks, flags, screens with readable content,",
-  "or recognisable real people, companies, places or products.",
-  "Any work shown follows safe practice: correct protective equipment, secured ladders, no unguarded edges.",
+  "or recognisable real people, companies, places or products; any paper, board or screen in the frame is blank,",
+  "turned away or out of focus, never showing legible marks, and tools carry no brand colours or badges.",
+  "Any work shown follows safe practice: correct protective equipment, fall protection wherever height demands it,",
+  "secured ladders, no unguarded edges.",
 ].join(" ");
 
 export type JournalImageCode =

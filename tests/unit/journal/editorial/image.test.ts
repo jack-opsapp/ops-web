@@ -37,6 +37,11 @@ describe("journal photograph generation", () => {
     expect(prompt.endsWith(JOURNAL_IMAGE_STYLE)).toBe(true);
     expect(JOURNAL_IMAGE_STYLE).toMatch(/No text, letters, numbers, signage/);
     expect(JOURNAL_IMAGE_STYLE).toMatch(/16:9/);
+    // Jackson's standard: composed, never posed; candid; subdued grade.
+    expect(JOURNAL_IMAGE_STYLE).toMatch(/composed, never posed/);
+    expect(JOURNAL_IMAGE_STYLE).toMatch(/never smiling at or looking into the camera/);
+    expect(JOURNAL_IMAGE_STYLE).toMatch(/subdued, filmic grade/);
+    expect(JOURNAL_IMAGE_STYLE).toMatch(/negative space/);
     expect(() => buildJournalImagePrompt("   ")).toThrow(JournalImageError);
   });
 
