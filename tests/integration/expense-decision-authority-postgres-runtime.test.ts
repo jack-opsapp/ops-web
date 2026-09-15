@@ -172,6 +172,116 @@ async function checkConcurrentSaveLockOrder(
   }
 }
 
+async function checkConcurrentExpenseCancellation(database: string, frozen: boolean): Promise<void> {
+  const company=randomUUID(), actor=randomUUID(), connection=randomUUID(), expense=randomUUID();
+  const subject=`expense-cancellation-${actor}`;
+  await query(database, `
+    insert into public.companies(id) values ('${company}');
+    insert into public.users(id,company_id,firebase_uid,is_active,is_company_admin)
+      values ('${actor}','${company}','${subject}',true,true);
+    insert into public.accounting_connections(id,company_id,provider,is_connected,sync_enabled,sync_direction,provider_environment,realm_id_lookup)
+      values ('${connection}','${company}','quickbooks',true,true,'push_only','sandbox',repeat('d',64));
+    insert into public.expense_accounting_settings(connection_id,company_id,configuration)
+      values ('${connection}','${company}','{"currency":"CAD"}');
+    insert into public.expenses(id,company_id,submitted_by,status,amount,tax_amount,currency,expense_date,payment_method)
+      values ('${expense}','${company}','${actor}','approved',125,${frozen ? "0" : "null"},'CAD',current_date,'personal_card');
+    update public.accounting_sync_queue set status='claimed',locked_by='concurrent-worker',locked_at=now()
+      where entity_id='${expense}' and entity_type='expense';
+  `);
+  const queueId=await query(database,`select id from public.accounting_sync_queue where entity_id='${expense}' and entity_type='expense'`);
+  const writer=spawn(PSQL,databaseArgs(database).concat("-X","-Atq","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose"),{env:ENV,stdio:["pipe","pipe","pipe"]});
+  let output="", error="";
+  writer.stdout.on("data",(chunk:Buffer)=>{output+=chunk.toString();});
+  writer.stderr.on("data",(chunk:Buffer)=>{error+=chunk.toString();});
+  const done=new Promise<number|null>(resolveExit=>{
+    writer.once("exit",resolveExit);
+    writer.once("error",cause=>{error+=cause.message;resolveExit(-1);});
+  });
+  try {
+    writer.stdin.write(`begin;
+      ${frozen
+        ? `select public.prepare_expense_accounting_write('${queueId}','concurrent-worker','{"request":"frozen"}','{}');`
+        : `select id from public.accounting_sync_queue where id='${queueId}' for update;`}
+      select 'expense_queue_locked';
+    `);
+    const deadline=Date.now()+5_000;
+    while(!output.includes("expense_queue_locked") && Date.now()<deadline) await delay(10);
+    expect(output,error).toContain("expense_queue_locked");
+    // With the worker lock still held, source correction must commit without
+    // waiting for the queue row or cancelling evidence it cannot inspect.
+    await query(database,`set statement_timeout='2s'; update public.expenses set amount=130,tax_amount=0 where id='${expense}'`);
+    expect(await query(database,`select count(*) from public.accounting_sync_queue where entity_id='${expense}' and status='cancelled'`)).toBe("0");
+    writer.stdin.end("commit;\n");
+    expect(await done,error).toBe(0);
+    expect(error).not.toContain("40P01");
+    const retry=`select public.retry_expense_accounting_before_write('${actor}','${queueId}')->>'status'`;
+    if(frozen){
+      await expect(query(database,retry)).rejects.toThrow(/23514/);
+      expect(await query(database,`select count(*) from public.accounting_sync_queue where entity_id='${expense}' and status='cancelled'`)).toBe("0");
+      expect(await query(database,`select payload->>'request' from public.expense_accounting_postings where queue_id='${queueId}'`)).toBe("frozen");
+    } else {
+      expect(await query(database,retry)).toBe("cancelled");
+      expect(await query(database,`select count(*) from public.accounting_sync_queue where entity_id='${expense}' and private.expense_queue_cancelled_before_write(id)`)).toBe("2");
+      await expect(query(database,`select public.prepare_expense_accounting_write('${queueId}','concurrent-worker','{}','{}')`)).rejects.toThrow(/40001/);
+      expect(await query(database,`select count(*) from public.expense_accounting_postings where expense_id='${expense}'`)).toBe("0");
+    }
+    console.info(frozen
+      ? "PASS: concurrent preparation preserves frozen work and forbids cancellation"
+      : "PASS: contended correction commits; explicit retry cancels unwritten pair and fences stale worker");
+  } finally {
+    if(writer.exitCode===null) writer.kill("SIGTERM");
+    await done;
+  }
+}
+
+async function checkConcurrentSettingsRelink(database: string): Promise<void> {
+  const company=randomUUID(), actor=randomUUID(), connection=randomUUID();
+  await query(database, `
+    insert into public.companies(id) values ('${company}');
+    insert into public.users(id,company_id,firebase_uid,is_active,is_company_admin)
+      values ('${actor}','${company}','settings-relink-${actor}',true,true);
+    insert into public.accounting_connections(id,company_id,provider,is_connected,sync_enabled,sync_direction,provider_environment,realm_id_lookup)
+      values ('${connection}','${company}','quickbooks',true,true,'push_only','sandbox',repeat('a',64));
+    insert into public.expense_accounting_settings(connection_id,company_id,configuration)
+      values ('${connection}','${company}','{"currency":"CAD"}');
+  `);
+  // The API validated its catalogue against this identity before relink began.
+  const validatedIdentity=await query(database,`select realm_id_lookup from public.accounting_connections where id='${connection}'`);
+  const writer=spawn(PSQL,databaseArgs(database).concat("-X","-Atq","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose"),{env:ENV,stdio:["pipe","pipe","pipe"]});
+  let output="", error="";
+  writer.stdout.on("data",(chunk:Buffer)=>{output+=chunk.toString();});
+  writer.stderr.on("data",(chunk:Buffer)=>{error+=chunk.toString();});
+  const done=new Promise<number|null>(resolveExit=>{
+    writer.once("exit",resolveExit);
+    writer.once("error",cause=>{error+=cause.message;resolveExit(-1);});
+  });
+  let save:Promise<{ok:true}|{ok:false;error:unknown}>|undefined;
+  try {
+    writer.stdin.write(`begin; update public.accounting_connections set realm_id_lookup=repeat('e',64) where id='${connection}'; select 'relink_locked';\n`);
+    const deadline=Date.now()+5_000;
+    while(!output.includes("relink_locked") && Date.now()<deadline) await delay(10);
+    expect(output,error).toContain("relink_locked");
+    const appName=`settings_save_${randomBytes(5).toString("hex")}`;
+    save=query(database,`select public.save_expense_accounting_settings('${actor}','${connection}','{"currency":"USD"}','[]','[]','[]','quickbooks','sandbox','${validatedIdentity}')`,appName)
+      .then(()=>({ok:true as const}),(cause:unknown)=>({ok:false as const,error:cause}));
+    const observerDeadline=Date.now()+5_000;let waiting="";
+    while(!waiting && Date.now()<observerDeadline){
+      waiting=await query(database,`select coalesce(wait_event,'') from pg_stat_activity where application_name='${appName}' and wait_event_type='Lock'`);
+      if(!waiting) await delay(10);
+    }
+    expect(waiting).not.toBe("");
+    writer.stdin.end("commit;\n");expect(await done,error).toBe(0);
+    const outcome=await save;expect(outcome.ok).toBe(false);
+    if(!outcome.ok) expect(String(outcome.error)).toContain("40001");
+    expect(await query(database,`select count(*) from public.expense_accounting_settings where connection_id='${connection}'`)).toBe("0");
+    expect(error).not.toContain("40P01");
+    console.info("PASS: in-flight settings save waits for relink then rejects its stale provider identity");
+  } finally {
+    if(writer.exitCode===null) writer.kill("SIGTERM");
+    await done;if(save) await save;
+  }
+}
+
 describe.runIf(RUN_POSTGRES)("Expense decision company authority PostgreSQL 17 runtime", () => {
   it("reproduces current foreign writes, then rejects them while preserving authorized effects", async () => {
     assertSafeTarget();
@@ -196,10 +306,19 @@ describe.runIf(RUN_POSTGRES)("Expense decision company authority PostgreSQL 17 r
       await runFile(database, migration);
       await runFile(database, migration);
       await runFile(database, runtime, true);
+      if (process.env.OPS_RUN_EXPENSE_ACCOUNTING_POSTGRES === "1") {
+        await runFile(database, "tests/sql/expense-accounting-fixture.sql");
+        await runFile(database, "supabase/migrations/20260912203328_expense_accounting_lifecycle.sql");
+      }
       await checkConcurrentSaveLockOrder(database, "canonical_save");
       await checkConcurrentSaveLockOrder(database, "direct_same_child");
       await checkConcurrentSaveLockOrder(database, "direct_refile");
       await checkConcurrentSaveLockOrder(database, "direct_refile", true);
+      if (process.env.OPS_RUN_EXPENSE_ACCOUNTING_POSTGRES === "1") {
+        await checkConcurrentExpenseCancellation(database, false);
+        await checkConcurrentExpenseCancellation(database, true);
+        await checkConcurrentSettingsRelink(database);
+      }
     } finally {
       if (created) {
         if (!/^expense_auth_runtime_[0-9]+_[0-9a-f]{8}$/.test(database)) {

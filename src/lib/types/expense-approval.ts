@@ -115,10 +115,12 @@ export interface ExpenseBatch {
   reviewedAt: string | null;
   totalAmount: number | null;
   approvedAmount: number | null;
+  /** Approved gross crew reimbursement, retained after payout. Null uses the legacy total rule. */
+  reimbursementAmount?: number | null;
   parentBatchId: string | null;
   amendmentNumber: number;
   reviewNotes: string | null;
-  /** When the operator recorded this envelope as paid out. NULL = approved money not yet settled. */
+  /** When the operator recorded a crew payout. Company-funded envelopes need no payout. */
   paidAt: string | null;
   /** Who recorded the payout (expenses.approve holder). */
   paidBy: string | null;
@@ -242,19 +244,29 @@ export function isBatchFilling(status: ExpenseBatchStatus): boolean {
 
 /** Approved money waiting to be settled up — the TO PAY working set. */
 export function isBatchAwaitingPayout(
-  batch: Pick<ExpenseBatch, "status" | "paidAt">
+  batch: Pick<ExpenseBatch, "status" | "paidAt" | "reimbursementAmount">
 ): boolean {
-  return isBatchApproved(batch.status) && batch.paidAt == null;
+  return isBatchApproved(batch.status) && batch.paidAt == null &&
+    (batch.reimbursementAmount == null || batch.reimbursementAmount > 0);
 }
 
 /** Recorded as paid out to the submitter — terminal. */
-export function isBatchPaid(batch: Pick<ExpenseBatch, "paidAt">): boolean {
-  return batch.paidAt != null;
+export function isBatchPaid(batch: Pick<ExpenseBatch, "paidAt" | "reimbursementAmount">): boolean {
+  return batch.paidAt != null && batch.reimbursementAmount !== 0;
+}
+
+/** Approved company-funded spending belongs in history without a crew payout. */
+export function isBatchApprovedWithoutPayout(
+  batch: Pick<ExpenseBatch, "status" | "reimbursementAmount">
+): boolean {
+  return isBatchApproved(batch.status) && batch.reimbursementAmount === 0;
 }
 
 /**
  * The amount actually owed for a batch.
  *
+ * The server reimbursement principal includes tax and excludes company-funded
+ * lines. Zero is authoritative; absent/null values retain the legacy rule.
  * `approved_amount` is only authoritative for partial approvals (the reject-
  * with-revisions flow sets it to the clean-line total). The atomic
  * `approve_expense_batch` RPC approves every line but leaves approved_amount
@@ -262,8 +274,9 @@ export function isBatchPaid(batch: Pick<ExpenseBatch, "paidAt">): boolean {
  * means "the whole envelope" — fall back to the recalculated total.
  */
 export function batchOwedAmount(
-  batch: Pick<ExpenseBatch, "status" | "approvedAmount" | "totalAmount">
+  batch: Pick<ExpenseBatch, "status" | "approvedAmount" | "totalAmount" | "reimbursementAmount">
 ): number {
+  if (batch.reimbursementAmount != null) return batch.reimbursementAmount;
   if (batch.status === ExpenseBatchStatus.PartiallyApproved) {
     return batch.approvedAmount ?? batch.totalAmount ?? 0;
   }
@@ -271,6 +284,15 @@ export function batchOwedAmount(
     return batch.approvedAmount;
   }
   return batch.totalAmount ?? 0;
+}
+
+/** History shows purchase totals for company-funded batches and actual crew payouts otherwise. */
+export function batchHistoryAmount(batch: ExpenseBatch): number {
+  return isBatchApprovedWithoutPayout(batch) ? batch.totalAmount ?? 0 : batchOwedAmount(batch);
+}
+
+export function batchHistoryDate(batch: ExpenseBatch): string | null {
+  return isBatchApprovedWithoutPayout(batch) ? batch.reviewedAt ?? batch.createdAt : batch.paidAt;
 }
 
 /**

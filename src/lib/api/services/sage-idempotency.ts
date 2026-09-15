@@ -9,6 +9,8 @@ export const SAGE_IDEMPOTENT_RESOURCES = [
   "sales_estimates",
   "sales_invoices",
   "sales_quotes",
+  "journals",
+  "other_payments",
 ] as const;
 
 export type SageIdempotentResource = (typeof SAGE_IDEMPOTENT_RESOURCES)[number];

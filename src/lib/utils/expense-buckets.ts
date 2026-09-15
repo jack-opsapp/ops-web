@@ -6,7 +6,7 @@
  *
  *   review — submitted envelopes waiting on the office (pending_review + legacy submitted)
  *   pay    — approved money not yet settled up (approved / partially / auto, paid_at IS NULL)
- *   paid   — payout recorded (paid_at set), terminal reference
+ *   paid   — payout recorded or approved with no crew reimbursement; history
  *   crew   — on the crew's side: filling envelopes + returned (rejected) batches
  *            that still hold lines to fix; a drained returned batch disappears
  *
@@ -18,6 +18,9 @@ import {
   isBatchNeedsReview,
   isBatchAwaitingPayout,
   isBatchPaid,
+  isBatchApprovedWithoutPayout,
+  batchHistoryAmount,
+  batchHistoryDate,
   isBatchFilling,
   batchOwedAmount,
   getBatchDisplayName,
@@ -65,7 +68,7 @@ export function bucketForBatch(
   batch: ExpenseBatch,
   lineCount?: number
 ): ExpenseBucket | null {
-  if (isBatchPaid(batch)) return "paid";
+  if (isBatchPaid(batch) || isBatchApprovedWithoutPayout(batch)) return "paid";
   if (isBatchNeedsReview(batch.status)) return "review";
   if (isBatchAwaitingPayout(batch)) return "pay";
   if (isBatchFilling(batch.status)) return "crew";
@@ -177,19 +180,20 @@ export function monthKey(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/** PAID — newest month first; within a month, newest payout first. */
+/** History — payout dates or approval dates for company-funded batches, newest first. */
 export function groupPaidByMonth(batches: ExpenseBatch[]): MonthGroup[] {
   const groups = new Map<string, MonthGroup>();
   const sorted = [...batches].sort(
     (a, b) =>
-      (b.paidAt ? Date.parse(b.paidAt) : 0) - (a.paidAt ? Date.parse(a.paidAt) : 0)
+      Date.parse(batchHistoryDate(b) ?? "1970-01-01") - Date.parse(batchHistoryDate(a) ?? "1970-01-01")
   );
   for (const batch of sorted) {
-    if (!batch.paidAt) continue;
-    const key = monthKey(batch.paidAt);
+    const historyDate = batchHistoryDate(batch);
+    if (!historyDate) continue;
+    const key = monthKey(historyDate);
     const group = groups.get(key) ?? { key, batches: [], total: 0 };
     group.batches.push(batch);
-    group.total += batchOwedAmount(batch);
+    group.total += batchHistoryAmount(batch);
     groups.set(key, group);
   }
   return [...groups.values()];

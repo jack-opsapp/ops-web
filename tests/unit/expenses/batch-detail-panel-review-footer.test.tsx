@@ -323,6 +323,22 @@ describe("BatchDetailPanel — reviewable footer (flags present)", () => {
 // ─── Non-reviewable buckets never render the cluster ──────────────────────────
 
 describe("BatchDetailPanel — non-reviewable buckets", () => {
+  it.each([null, "2026-07-09T12:00:00Z"])("keeps a zero reimbursement approved without payout controls (%s)", (paidAt) => {
+    batchExpenses = [makeLine({ paymentMethod: "company_card", amount: 145, taxAmount: 5 })];
+    render(
+      <BatchDetailPanel
+        batch={makeBatch({ status: ExpenseBatchStatus.Approved, totalAmount: 145, reimbursementAmount: 0, paidAt })}
+        canReview onApprove={noop} onMarkPaid={noop} onUndoPaid={noop}
+        busy={false} autoSendsOn={null}
+      />,
+    );
+    expect(screen.getByText("$145.00")).toBeInTheDocument();
+    expect(screen.getByText("APPROVED")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "expenses.detail.markPaid" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "expenses.detail.undoPaid" })).toBeNull();
+    expect(screen.queryByText("expenses.detail.paid")).toBeNull();
+  });
+
   it("does not render the review cluster for an awaiting-payout (TO PAY) batch", () => {
     batchExpenses = [makeLine()];
     render(

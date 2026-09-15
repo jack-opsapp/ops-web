@@ -11,7 +11,8 @@
  * badge (a modal). Sync history + issues sit below, only when they have content.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2,
   RefreshCw,
@@ -48,6 +49,8 @@ import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { AccountingProvider } from "@/lib/types/pipeline";
+import { ExpenseAccountingSettings } from "./expense-accounting-settings";
+import { ExpenseAccountingIssues } from "./expense-accounting-issues";
 
 const PROVIDER_LABEL: Record<AccountingProvider, string> = {
   [AccountingProvider.QuickBooks]: "QuickBooks",
@@ -116,6 +119,7 @@ function ConnectPanel() {
 // ── Live badge + settings modal (a provider is connected) ───────────────────
 
 interface AccountingConnection {
+  id: string;
   provider: AccountingProvider;
   isConnected: boolean;
   lastSyncAt: Date | string | null;
@@ -126,6 +130,7 @@ interface AccountingConnection {
 }
 
 function ConnectedAccounting({ connection }: { connection: AccountingConnection }) {
+  const searchParams = useSearchParams();
   const { t } = useDictionary("settings");
   const can = usePermissionStore((s) => s.can);
   const { company } = useAuthStore();
@@ -137,6 +142,9 @@ function ConnectedAccounting({ connection }: { connection: AccountingConnection 
   const triggerSync = useTriggerSync();
   const [manageOpen, setManageOpen] = useState(false);
   const [confirmFullCrud, setConfirmFullCrud] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("expenseConnection") === connection.id) setManageOpen(true);
+  }, [searchParams, connection.id]);
 
   const isFullCrud = connection.syncDirection === "bidirectional";
   const propagateDeletes = connection.propagateDeletes;
@@ -285,6 +293,9 @@ function ConnectedAccounting({ connection }: { connection: AccountingConnection 
               )}
             </div>
 
+            <ExpenseAccountingSettings companyId={companyId} connectionId={connection.id} />
+            <ExpenseAccountingIssues companyId={companyId} connectionId={connection.id} />
+
             {/* Disconnect / switch */}
             <div className="border-t border-border pt-3">
               <Button
@@ -410,11 +421,17 @@ function SyncHistory() {
 // ── Tab ──────────────────────────────────────────────────────────────────────
 
 export function AccountingTab() {
+  const searchParams = useSearchParams();
+  const { company } = useAuthStore();
+  const { t } = useDictionary("settings");
   const { data: connections, isLoading } = useAccountingConnections();
+  const requestedId = searchParams.get("expenseConnection");
+  const requested = connections?.find((connection) => connection.id === requestedId);
+  const [dismissedId, setDismissedId] = useState<string | null>(null);
 
   const connected = useMemo(
-    () => connections?.find((c) => c.isConnected) ?? null,
-    [connections],
+    () => (requested?.isConnected ? requested : connections?.find((c) => c.isConnected)) ?? null,
+    [connections, requested],
   );
 
   return (
@@ -430,6 +447,12 @@ export function AccountingTab() {
       )}
       <SyncIssues />
       <SyncHistory />
+      {requested && !requested.isConnected && <Dialog open={dismissedId !== requested.id} onOpenChange={(open) => { if (!open) setDismissedId(requested.id); }}>
+        <DialogContent className="max-w-[440px]">
+          <DialogHeader><DialogTitle>{PROVIDER_LABEL[requested.provider]} · {t("accounting.expenseIssues.title")}</DialogTitle></DialogHeader>
+          <ExpenseAccountingIssues companyId={company?.id ?? ""} connectionId={requested.id} />
+        </DialogContent>
+      </Dialog>}
     </div>
   );
 }

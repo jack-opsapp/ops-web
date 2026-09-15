@@ -7,13 +7,19 @@ export type QboWriteEntity =
   | "Payment"
   | "Vendor"
   | "Bill"
-  | "BillPayment";
+  | "BillPayment"
+  | "JournalEntry"
+  | "Purchase";
 
 export interface QuickBooksWriteServiceInput {
   realmId: string;
   accessToken: string;
   environment: QuickBooksEnvironment;
   fetchImpl?: typeof fetch;
+  onAccepted?: (evidence: {
+    acceptedAt: string;
+    requestId: string | null;
+  }) => Promise<void>;
 }
 
 export interface QuickBooksWriteResult {
@@ -31,6 +37,8 @@ const ENTITY_PATH: Record<QboWriteEntity, string> = {
   Vendor: "vendor",
   Bill: "bill",
   BillPayment: "billpayment",
+  JournalEntry: "journalentry",
+  Purchase: "purchase",
 };
 
 function hostFor(environment: QuickBooksEnvironment): string {
@@ -243,6 +251,39 @@ export class QuickBooksWriteService {
     return (await response.json()) as Record<string, unknown>;
   }
 
+  /** Reference reads cannot create staff, accounts, or tax configuration. */
+  async fetchReference(
+    entity:
+      | "Account"
+      | "Employee"
+      | "Customer"
+      | "TaxCode"
+      | "TaxRate"
+      | "Preferences"
+      | "CompanyInfo",
+    id?: string
+  ): Promise<Record<string, unknown>> {
+    if (entity !== "Preferences") assertQboId(id ?? "");
+    const suffix = entity === "Preferences" ? "" : `/${id}`;
+    const url = `${hostFor(this.input.environment)}/v3/company/${this.input.realmId}/${entity.toLowerCase()}${suffix}?minorversion=75`;
+    const response = await (this.input.fetchImpl ?? fetch)(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.input.accessToken}`,
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(
+        `QuickBooks reference read failed: ${response.status}${structuredProviderErrorSuffix(await response.text())}`
+      );
+    }
+    return entityBody(
+      (await response.json()) as Record<string, unknown>,
+      entity as QboWriteEntity
+    );
+  }
+
   private async post(
     entity: QboWriteEntity,
     payload: Record<string, unknown>,
@@ -270,6 +311,15 @@ export class QuickBooksWriteService {
         `QuickBooks write failed: ${response.status}${structuredProviderErrorSuffix(bodyText)}`
       );
     }
+
+    await this.input.onAccepted?.({
+      acceptedAt: new Date().toISOString(),
+      requestId:
+        response.headers
+          .get("intuit_tid")
+          ?.replace(/[^A-Za-z0-9._:-]/g, "")
+          .slice(0, 128) || null,
+    });
 
     const raw = (await response.json()) as Record<string, unknown>;
     return normalizeWriteResult(raw, entity);

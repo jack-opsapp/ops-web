@@ -19,6 +19,7 @@ export interface SageApiClientOptions {
   fetchFn?: FetchFn;
   now?: () => Date;
   baseUrl?: string;
+  onAccepted?: (evidence: SageAcceptedWrite["evidence"]) => Promise<void>;
 }
 
 export interface SageListOptions {
@@ -36,7 +37,11 @@ export interface SageAcceptedWrite<T = unknown> {
 }
 
 export interface SageReadClient {
-  get<T = unknown>(resource: string, id: string): Promise<T | undefined>;
+  get<T = unknown>(
+    resource: string,
+    id: string,
+    options?: { attributes?: string }
+  ): Promise<T | undefined>;
   list<T extends Record<string, unknown> = Record<string, unknown>>(
     resource: string,
     options?: SageListOptions
@@ -82,6 +87,8 @@ const ENVELOPE_BY_RESOURCE: Record<SageIdempotentResource, string> = {
   sales_estimates: "sales_estimate",
   sales_invoices: "sales_invoice",
   sales_quotes: "sales_quote",
+  journals: "journal",
+  other_payments: "other_payment",
 };
 
 function assertResource(resource: string): string {
@@ -121,15 +128,19 @@ class SageApiClient implements SageWriteClient {
     );
   }
 
-  async get<T = unknown>(resource: string, id: string): Promise<T | undefined> {
+  async get<T = unknown>(
+    resource: string,
+    id: string,
+    options: { attributes?: string } = {}
+  ): Promise<T | undefined> {
+    const url = new URL(
+      `${assertResource(resource)}/${encodeURIComponent(assertId(id))}`,
+      this.baseUrl
+    );
+    if (options.attributes)
+      url.searchParams.set("attributes", options.attributes);
     try {
-      return await this.requestJson<T>(
-        new URL(
-          `${assertResource(resource)}/${encodeURIComponent(assertId(id))}`,
-          this.baseUrl
-        ),
-        { method: "GET" }
-      );
+      return await this.requestJson<T>(url, { method: "GET" });
     } catch (error) {
       if (error instanceof SageApiError && error.status === 404) {
         return undefined;
@@ -290,10 +301,9 @@ class SageApiClient implements SageWriteClient {
         }),
       }
     );
-    return {
-      data: (await this.parseSuccess<T>(response)) as T,
-      evidence: this.acceptedEvidence(response),
-    };
+    const evidence = this.acceptedEvidence(response);
+    await this.options.onAccepted?.(evidence);
+    return { data: (await this.parseSuccess<T>(response)) as T, evidence };
   }
 
   private acceptedEvidence(response: Response) {

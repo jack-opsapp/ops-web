@@ -21,7 +21,8 @@ export type SupplierBillSyncEntityType =
 
 export type AccountingSyncQueueEntityType =
   | AccountingSyncEntityType
-  | SupplierBillSyncEntityType;
+  | SupplierBillSyncEntityType
+  | "expense";
 
 export type AccountingSyncOperation =
   | "create"

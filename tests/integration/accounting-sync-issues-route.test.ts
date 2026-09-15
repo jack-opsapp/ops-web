@@ -45,6 +45,7 @@ vi.mock("@/lib/supabase/server-client", () => ({
           tableCalls.push({ table, method: "eq", args });
           return builder;
         },
+        neq: (...args: unknown[]) => { tableCalls.push({ table, method: "neq", args }); return builder; },
         in: (...args: unknown[]) => {
           tableCalls.push({ table, method: "in", args });
           return builder;
@@ -129,6 +130,7 @@ describe("GET /api/integrations/accounting/sync-issues", () => {
       expect.arrayContaining([
         { table: "accounting_connections", method: "eq", args: ["provider_environment", "sandbox"] },
         { table: "accounting_sync_queue", method: "eq", args: ["connection_id", "conn-1"] },
+        { table: "accounting_sync_queue", method: "neq", args: ["entity_type", "expense"] },
         { table: "accounting_sync_queue", method: "in", args: ["status", ["blocked", "needs_review"]] },
       ])
     );
