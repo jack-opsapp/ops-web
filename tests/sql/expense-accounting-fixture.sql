@@ -1,5 +1,8 @@
 \set ON_ERROR_STOP on
 -- Disposable fixture only; columns/checks below are from read-only Supabase metadata 2026-09-12.
+-- Live postgres defaults verified 2026-09-15: identity sequences inherit these
+-- grants independently of their parent table. The migration must remove them.
+alter default privileges in schema public grant all on sequences to anon,authenticated,service_role;
 create table public.projects (id uuid primary key,company_id uuid not null,title text not null,status text not null,deleted_at timestamptz);
 create table public.expense_categories (id uuid primary key, company_id uuid);
 create table public.accounting_connections (

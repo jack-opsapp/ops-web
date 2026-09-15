@@ -67,6 +67,17 @@ create table if not exists public.expense_accounting_events (
   unique (id, company_id, expense_id),
   check ((kind in ('reversal','settlement')) = (original_event_id is not null))
 );
+-- Sequence grants are independent of table grants. Live public-schema defaults
+-- grant clients USAGE/SELECT/UPDATE, including setval, so keep event ordering
+-- owner-only even when these tables are first created under those defaults.
+do $$
+declare v_sequence regclass:=pg_get_serial_sequence('public.expense_accounting_events','sequence')::regclass;
+begin
+  if v_sequence is null then
+    raise exception 'Expense accounting event sequence unavailable' using errcode='55000';
+  end if;
+  execute format('revoke all on sequence %s from public,anon,authenticated,service_role',v_sequence);
+end; $$;
 create index if not exists expense_accounting_events_expense_sequence_idx
   on public.expense_accounting_events(company_id,expense_id,sequence);
 create table if not exists private.expense_accounting_state (
