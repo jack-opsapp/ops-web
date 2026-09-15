@@ -42,6 +42,12 @@ export interface DeckVertex {
 export interface DeckStair {
   readonly width: number;
   readonly runPerTread: number;
+  readonly risePerStep: number;
+  /**
+   * Authored count, else derived from the stair's total rise. `null` when
+   * neither is knowable — the viewer then draws the run without treads rather
+   * than inventing a number of steps.
+   */
   readonly treadCount: number | null;
   readonly alignment: "left" | "center" | "right";
   readonly offset: number;
@@ -341,20 +347,43 @@ interface ParsedPlane {
   readonly surfaces: readonly ParsedSurfacePayload[];
 }
 
+/** A real stair is tens of treads; the clamp matches iOS's `maximumTreadCount`. */
+const MAXIMUM_TREAD_COUNT = 500;
+
+/**
+ * Steps needed to climb `totalRise` at `risePerStep`, rounded up — the iOS
+ * `StairConfig.calculateTreadCount`. Every level-connection stair authored in
+ * the app leaves `treadCount` nil so the count re-derives when a level's
+ * height changes, so this is the common path, not the fallback.
+ */
+function derivedTreadCount(
+  totalRise: number | null,
+  risePerStep: number,
+): number | null {
+  if (totalRise === null || totalRise <= 0 || risePerStep <= 0) return null;
+  const steps = Math.ceil(totalRise / risePerStep);
+  if (!Number.isFinite(steps)) return null;
+  return Math.min(steps, MAXIMUM_TREAD_COUNT);
+}
+
 function parseStair(value: unknown): DeckStair | null {
   if (!isRecord(value)) return null;
   const width = finite(value.width);
   if (width === null || width <= 0) return null;
   const alignment = value.alignment;
-  const treadCount = finite(value.treadCount);
+  const authoredCount = finite(value.treadCount);
+  // Matches the calculator's DeckKit defaults (IRC R311.7 rise and run).
+  const risePerStep = finite(value.risePerStep) ?? 7.5;
   return {
     width,
-    // Matches the calculator's DeckKit defaults (IRC R311.7 minimum run).
     runPerTread: finite(value.runPerTread) ?? 10,
+    risePerStep,
     treadCount:
-      treadCount !== null && Number.isSafeInteger(treadCount) && treadCount > 0
-        ? treadCount
-        : null,
+      authoredCount !== null &&
+      Number.isSafeInteger(authoredCount) &&
+      authoredCount > 0
+        ? authoredCount
+        : derivedTreadCount(finite(value.totalRiseInches), risePerStep),
     alignment:
       alignment === "left" || alignment === "right" ? alignment : "center",
     offset: finite(value.offset) ?? 0,

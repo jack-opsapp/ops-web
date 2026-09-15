@@ -223,6 +223,7 @@ describe("parseDeckDrawing — legacy tolerance", () => {
     expect(byId.get("e2")!.stair).toEqual({
       width: 48,
       runPerTread: 10,
+      risePerStep: 7.5,
       treadCount: 3,
       alignment: "center",
       offset: 0,
@@ -230,6 +231,39 @@ describe("parseDeckDrawing — legacy tolerance", () => {
     });
     expect(byId.get("e4")!.boundaryRole).toBe("wall");
     expect(byId.get("e4")!.dimensionInches).toBeNull();
+  });
+
+  it("derives a missing tread count from the stair's total rise", () => {
+    const withStair = (stairConfig: Record<string, unknown>) =>
+      parseDeckDrawing({
+        scaleFactor: 1,
+        vertices: [
+          { id: "v1", position: [0, 0] },
+          { id: "v2", position: [144, 0] },
+          { id: "v3", position: [144, 120] },
+        ],
+        edges: [
+          { id: "e1", startVertexId: "v1", endVertexId: "v2", stairConfig },
+          { id: "e2", startVertexId: "v2", endVertexId: "v3" },
+        ],
+      })!.levels[0]!.edges[0]!.stair;
+
+    // 36" of rise at the 7.5" default riser is five steps (rounded up).
+    expect(withStair({ width: 48, totalRiseInches: 36 })?.treadCount).toBe(5);
+    expect(
+      withStair({ width: 48, totalRiseInches: 36, risePerStep: 6 })?.treadCount,
+    ).toBe(6);
+    // An explicit count always wins over the derivation.
+    expect(
+      withStair({ width: 48, totalRiseInches: 36, treadCount: 2 })?.treadCount,
+    ).toBe(2);
+    // Nothing to derive from, and nothing invented.
+    expect(withStair({ width: 48 })?.treadCount).toBeNull();
+    // Hostile input can neither invent a stair nor ask for a million treads.
+    expect(withStair({ width: 48, totalRiseInches: 1e9 })?.treadCount).toBe(500);
+    expect(
+      withStair({ width: 48, totalRiseInches: 36, risePerStep: 0 })?.treadCount,
+    ).toBeNull();
   });
 
   it("names levels, keeps their order, and exposes the display colour", () => {
