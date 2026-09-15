@@ -13,7 +13,13 @@ const PG_PORT = process.env.OPS_PGPORT ?? "55433";
 const PG_USER = process.env.OPS_PGUSER ?? process.env.USER ?? "postgres";
 const TIMEOUT_MS = 30_000;
 // Do not inherit PGOPTIONS, PGSERVICE, passwords, or application credentials.
-const ENV = { PATH: process.env.PATH, LANG: "C", LC_ALL: "C" };
+// NODE_ENV is carried only because the project's ProcessEnv augmentation requires it.
+const ENV: NodeJS.ProcessEnv = {
+  NODE_ENV: process.env.NODE_ENV,
+  PATH: process.env.PATH,
+  LANG: "C",
+  LC_ALL: "C",
+};
 
 function assertSafeTarget(): void {
   const localSocket = isAbsolute(PG_HOST) &&
