@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AccountingSyncQueueRow } from "@/lib/api/services/accounting-sync-queue-types";
+import type {
+  AccountingSyncQueueEntityType,
+  AccountingSyncQueueRow,
+} from "@/lib/api/services/accounting-sync-queue-types";
 
 const claimDue = vi.fn();
 const markSucceeded = vi.fn();
@@ -275,8 +278,8 @@ const CUSTOMER_ID = "2873266e-8d86-47e4-819b-7e570084f06f";
 const INVOICE_ID = "d9f024cf-f8b0-4e0c-9930-459e3b49660b";
 
 function queueRow(
-  overrides: Partial<AccountingSyncQueueRow> = {}
-): AccountingSyncQueueRow {
+  overrides: Partial<AccountingSyncQueueRow<AccountingSyncQueueEntityType>> = {}
+): AccountingSyncQueueRow<AccountingSyncQueueEntityType> {
   return {
     id: "q-1",
     companyId: COMPANY_ID,
