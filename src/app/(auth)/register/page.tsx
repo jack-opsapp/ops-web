@@ -214,7 +214,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-0 flex-col">
       {/* Mobile logo — hidden on desktop (hero has branding) */}
       <div className="lg:hidden mb-6 text-text">
         <OpsLockup orientation="horizontal" className="h-6 w-auto" title={t("ops")} />
@@ -291,6 +291,7 @@ export default function RegisterPage() {
         <form onSubmit={handleEmailSignUp} className="space-y-1.5">
           <Input
             type="text"
+            className="w-0"
             label={t("register.fullName")}
             placeholder={t("register.namePlaceholder")}
             value={fullName}
@@ -301,6 +302,7 @@ export default function RegisterPage() {
           />
           <Input
             type="email"
+            className="w-0"
             label={t("register.email")}
             placeholder={t("register.emailPlaceholder")}
             value={email}
@@ -311,6 +313,7 @@ export default function RegisterPage() {
           />
           <Input
             type={showPassword ? "text" : "password"}
+            className="w-0"
             label={t("register.password")}
             placeholder={t("register.passwordPlaceholder")}
             value={password}
@@ -348,7 +351,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Join existing team */}
-      <div className="mt-4 pt-4 border-t border-border [&_button]:min-h-11 [&_button]:min-w-11">
+      <div className="min-w-0 mt-4 pt-4 border-t border-border">
         <JoinTeamPrompt />
       </div>
 

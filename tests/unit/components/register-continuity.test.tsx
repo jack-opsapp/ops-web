@@ -11,7 +11,6 @@ vi.mock("@/lib/api/services/user-service", () => ({ UserService: { syncUser: m.s
 vi.mock("@/lib/store/auth-store", () => ({ useAuthStore: (selector: (s: typeof m.state) => unknown) => selector(m.state) }));
 vi.mock("@/lib/analytics/analytics", () => ({ trackSignUp: m.track }));
 vi.mock("@/components/brand", () => ({ OpsLockup: () => <span>OPS</span> }));
-vi.mock("@/components/auth/join-team-prompt", () => ({ JoinTeamPrompt: () => <a href="/join">Enter invite code</a> }));
 vi.mock("@/i18n/client", () => ({ useDictionary: () => ({ t: (key: string) => (m.locale === "es" ? es : en)[key as keyof typeof en] ?? key }) }));
 import RegisterPage from "@/app/(auth)/register/page";
 beforeEach(() => { vi.clearAllMocks(); m.state = { currentUser: null, isLoading: false, isAuthenticated: false }; m.locale = "en"; m.peek.mockReturnValue(null); m.consume.mockReturnValue(null); });
@@ -40,6 +39,22 @@ it("provides an accessible password visibility control", () => {
   fireEvent.click(screen.getByRole("button", { name: "Show password" }));
   expect(screen.getByLabelText("Password")).toHaveAttribute("type", "text");
   expect(screen.getByRole("button", { name: "Hide password" })).toHaveAttribute("aria-pressed", "true");
+});
+it.each(["en", "es"])("labels the invite controls and supports keyboard-form recovery in %s", locale => {
+  m.locale = locale;
+  const copy = locale === "es" ? es : en;
+  render(<RegisterPage />);
+  fireEvent.click(screen.getByRole("button", { name: `${copy["joinTeam.prompt"]} ${copy["joinTeam.cta"]}` }));
+  const code = screen.getByRole("textbox", { name: copy["joinTeam.cta"] });
+  expect(code).toHaveFocus();
+  fireEvent.change(code, { target: { value: " LOCAL-CODE " } });
+  fireEvent.click(screen.getByRole("button", { name: copy["joinTeam.cancel"] }));
+  expect(screen.queryByRole("textbox", { name: copy["joinTeam.cta"] })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: `${copy["joinTeam.prompt"]} ${copy["joinTeam.cta"]}` }));
+  expect(screen.getByRole("textbox", { name: copy["joinTeam.cta"] })).toHaveValue("");
+  expect(screen.getByRole("button", { name: copy["joinTeam.join"], exact: true })).toBeDisabled();
+  expect(m.push).not.toHaveBeenCalled();
+  expect(m.signup).not.toHaveBeenCalled();
 });
 describe.each(["google", "apple"] as const)("%s signup continuity", provider => {
   it("preserves the provider return context and waits for authenticated sync", async () => {
