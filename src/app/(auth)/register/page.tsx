@@ -248,7 +248,7 @@ export default function RegisterPage() {
           <button
             onClick={handleGoogleSignIn}
             disabled={anyLoading}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
+            className="w-full min-h-11 flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
           >
             <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -268,7 +268,7 @@ export default function RegisterPage() {
           <button
             onClick={handleAppleSignIn}
             disabled={anyLoading}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
+            className="w-full min-h-11 flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
           >
             <svg className="w-[18px] h-[18px] shrink-0 text-white" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
@@ -323,7 +323,7 @@ export default function RegisterPage() {
                 aria-label={t(showPassword ? "register.hidePassword" : "register.showPassword")}
                 aria-pressed={showPassword}
                 disabled={anyLoading}
-                className="text-text-3 hover:text-text-2 transition-colors"
+                className="-mr-2 flex min-h-11 min-w-11 items-center justify-center text-text-3 hover:text-text-2 transition-colors"
               >
                 {showPassword ? (
                   <EyeOff className="w-[16px] h-[16px]" />
@@ -338,7 +338,7 @@ export default function RegisterPage() {
           <Button
             type="submit"
             size="lg"
-            className="w-full"
+            className="w-full min-h-[calc(theme(spacing.6)+theme(spacing.1)/2)]"
             loading={isLoadingEmail}
             disabled={isLoadingGoogle || isLoadingApple}
           >
@@ -348,7 +348,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Join existing team */}
-      <div className="mt-4 pt-4 border-t border-border">
+      <div className="mt-4 pt-4 border-t border-border [&_button]:min-h-11 [&_button]:min-w-11">
         <JoinTeamPrompt />
       </div>
 
@@ -357,7 +357,7 @@ export default function RegisterPage() {
         {t("register.hasAccount")}{" "}
         <Link
           href="/login"
-          className="text-text-2 hover:text-text underline underline-offset-4 transition-colors"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center align-middle text-text-2 hover:text-text underline underline-offset-4 transition-colors"
         >
           {t("register.signIn")}
         </Link>
