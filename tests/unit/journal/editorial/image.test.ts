@@ -47,6 +47,7 @@ describe("journal photograph generation", () => {
     expect(JOURNAL_IMAGE_STYLE).toMatch(/No hard hats, no high-visibility vests/);
     expect(JOURNAL_IMAGE_STYLE).toMatch(/jeans or work pants, a t-shirt or hoodie, a ball cap/);
     expect(JOURNAL_IMAGE_STYLE).toMatch(/negative space/);
+    expect(JOURNAL_IMAGE_STYLE).toMatch(/Default to distance and scale/);
     expect(() => buildJournalImagePrompt("   ")).toThrow(JournalImageError);
   });
 
