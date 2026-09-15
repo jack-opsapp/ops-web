@@ -3,7 +3,7 @@
 // LC_ALL=C, see docs/journal/cloud-editorial-operations.md) and proves slot
 // timing, claims, leases, source custody, drafting, exactly-once publication,
 // every publication guard, the notification outbox, the stall alarm and the
-// grants.
+// grants, and the generated-photograph lifecycle.
 import { execFileSync, execFile } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { promisify } from "node:util";
@@ -21,10 +21,10 @@ const sqlAs = (role, q) => sql(`set role ${role}; ${q}`);
 const fails = (q, pattern, message) =>
   assert.throws(() => sql(q), (error) => pattern.test(String(error.stderr ?? error.message)), message);
 const run = promisify(execFile);
-const migration = readFileSync(
-  "supabase/migrations/" + readdirSync("supabase/migrations").find((x) => x.endsWith("_create_journal_editorial.sql")),
-  "utf8"
-);
+const migrationFile = (suffix) =>
+  readFileSync("supabase/migrations/" + readdirSync("supabase/migrations").find((x) => x.endsWith(suffix)), "utf8");
+const migration = migrationFile("_create_journal_editorial.sql");
+const imagesMigration = migrationFile("_journal_generated_images.sql");
 
 const t1 = "11111111-1111-4111-8111-111111111111";
 const t2 = "22222222-2222-4222-8222-222222222222";
@@ -35,7 +35,7 @@ const company = "0f6f0a8e-2d3b-4c4d-9e5f-6a7b8c9d0e1f";
 
 const topicId = "44444444-4444-4444-8444-444444444444";
 const pkg = (slug) =>
-  `jsonb_build_object('article', jsonb_build_object('title','THE WEEKLY TITLE GOES HERE NOW','subtitle','Sub','summary','Sum','teaser','Tease','meta_title','Meta','topic', jsonb_build_object('backlog_topic_id','${topicId}','angle','A'),'faqs', jsonb_build_array(jsonb_build_object('question','Q?','answer','A.')),'email_content','Email body'),'html','<p>Body</p>','word_count',1100,'category_id','${"c".repeat(8)}-cccc-4ccc-8ccc-cccccccccccc','slug','${slug}')`;
+  `jsonb_build_object('article', jsonb_build_object('title','THE WEEKLY TITLE GOES HERE NOW','subtitle','Sub','summary','Sum','teaser','Tease','meta_title','Meta','topic', jsonb_build_object('backlog_topic_id','${topicId}','angle','A'),'faqs', jsonb_build_array(jsonb_build_object('question','Q?','answer','A.')),'email_content','Email body','image_prompt','A deck builder checks a tape measure against a bid sheet at dawn.'),'html','<p>Body</p>','word_count',1100,'category_id','${"c".repeat(8)}-cccc-4ccc-8ccc-cccccccccccc','slug','${slug}')`;
 
 function source(url) {
   return `jsonb_build_object('url','${url}','final_url','${url}','http_status',200,'content_type','text/html','bytes',1200,'sha256','${sha}','title','Title','site_name','Site','published_hint','2026-08-01T00:00:00Z','modified_hint',null,'text','Source text with 91% of numbers.','truncated',false)`;
@@ -64,6 +64,7 @@ try {
       "GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;"
   );
   sql(migration);
+  sql(imagesMigration);
 
   // --- settings --------------------------------------------------------------
   assert.equal(
@@ -212,6 +213,7 @@ try {
     "scheduled"
   );
   assert.equal(sql(`select coalesce(schedule_journal_editorial_assignment('${id1}','{}'::jsonb, now()),'none')`), "none", "only a drafted row can be scheduled");
+  assert.equal(row(w1, "image_generations||'|'||image_failures"), "1|0", "promotion counts the first photograph");
 
   // --- publication guards ----------------------------------------------------
   const publish = (id, manual = false) => JSON.parse(sql(`select publish_journal_editorial_assignment('${id}',${manual},'op')`));
@@ -247,6 +249,11 @@ try {
     "the live row carries the package, the hero, the byline and the weekly source"
   );
   assert.equal(row(w1, "state||'|'||(blog_id is not null)"), "published|true");
+  assert.equal(
+    sql("select image_prompt from blog_posts where slug='fresh-slug'"),
+    "A deck builder checks a tape measure against a bid sheet at dawn.",
+    "the live row keeps the art direction behind its photograph"
+  );
   assert.equal(sql(`select used from blog_topics where id='${topicId}'`), "t", "publication spends the backlog topic");
   assert.equal(sql(`select coalesce(cancel_journal_editorial_assignment('${id1}','op'),'none')`), "none", "a published post cannot be stopped");
 
@@ -315,12 +322,60 @@ try {
   assert.equal(sql(`select finish_journal_editorial_newsletter('${id1}','${t1}','sent')`), "t");
   assert.equal(sql(`select claim_journal_editorial_newsletter('${id5}','${t1}')`), "f", "only a published post can be mailed");
 
+  // --- generated photographs -------------------------------------------------
+  const request = (id) => sql(`select request_journal_editorial_image('${id}','admin:jackson')`);
+  const replace = (id, url) =>
+    sql(`select coalesce(replace_journal_editorial_image('${id}', jsonb_build_object('url','${url}','sha256','${"b".repeat(64)}')),'none')`);
+  const failImage = (id) =>
+    sql(`select coalesce(fail_journal_editorial_image('${id}','IMAGE_FAILED','${user}','${company}','JOURNAL IMAGE FAILED','Body'),'none')`);
+  const newPhoto = "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/weekly/2026-09-14-bbbbbbbbbbbbbbbb.jpg";
+  assert.equal(replace(id1, newPhoto), "none", "nothing replaces a photograph nobody asked for");
+  assert.equal(request(id1), "requested", "a post live for under eight days can ask for a new photograph");
+  assert.equal(request(id1), "requested", "asking twice keeps one open request");
+  assert.equal(
+    row(w1, "(select count(*) from jsonb_array_elements(attempt_log) e where e->>'event'='image_requested')"),
+    "1",
+    "and logs it once"
+  );
+  assert.equal(replace(id1, newPhoto), "published");
+  assert.equal(sql("select thumbnail_url from blog_posts where slug='fresh-slug'"), newPhoto, "the live post changes photograph in the same transaction");
+  assert.equal(row(w1, "image_generations||'|'||(image_requested_at is null)||'|'||(preview->>'url')"), `2|true|${newPhoto}`);
+  fails(`select replace_journal_editorial_image('${id1}','{"url":"http://insecure/x.jpg"}'::jsonb)`, /public image/, "only a public https image can replace one");
+
+  assert.equal(request(id1), "requested");
+  assert.equal(failImage(id1), "retry", "a failed generation keeps the request");
+  assert.equal(failImage(id1), "retry");
+  assert.equal(failImage(id1), "dropped", "the third failure closes it");
+  assert.equal(failImage(id1), "none", "a closed request records nothing more");
+  assert.equal(row(w1, "(image_requested_at is null)||'|'||image_failures"), "true|3");
+  assert.equal(
+    sql(`select count(*)||'|'||bool_and(persistent = false) from notifications where dedupe_key like 'journal:${w1}:image-failed:%'`),
+    "1|true",
+    "the operator hears about it once, and the current photograph stays"
+  );
+  assert.equal(sql("select thumbnail_url from blog_posts where slug='fresh-slug'"), newPhoto);
+
+  assert.equal(request(idOf(w4)), "NOT_ELIGIBLE", "a stopped slot cannot ask for a photograph");
+  setRow(w1, "image_generations = 8");
+  assert.equal(request(id1), "IMAGE_LIMIT", "eight photographs per slot is the ceiling");
+  setRow(w1, "image_generations = 2, published_at = now() - interval '9 days'");
+  assert.equal(request(id1), "NOT_ELIGIBLE", "a post live for more than eight days keeps its photograph");
+  setRow(w1, "published_at = now()");
+  const w7 = "weekly:2026-10-19";
+  sql(`insert into journal_editorial_assignments(identity,slot_date,slot_at,state,mode,slug,package,preview,publish_at,drafted_at) values('${w7}','2026-10-19',now()+interval '3 days','scheduled','prepare','seventh-slug',${pkg("seventh-slug")} #- '{article,image_prompt}','{"url":"https://h/x.jpg"}',now()+interval '3 days',now())`);
+  assert.equal(request(idOf(w7)), "NO_IMAGE_PROMPT", "no art direction, no new photograph");
+  setRow(w7, `package = ${pkg("seventh-slug")}`);
+  assert.equal(request(idOf(w7)), "requested", "a preview can ask for a new photograph");
+  assert.equal(replace(idOf(w7), newPhoto), "scheduled", "a preview changes photograph without touching any live row");
+
   // --- grants -----------------------------------------------------------------
   for (const role of ["anon", "authenticated"]) {
     fails(`set role ${role}; select count(*) from journal_editorial_assignments`, /permission denied/, `${role} cannot read the ledger`);
     fails(`set role ${role}; select count(*) from journal_editorial_sources`, /permission denied/, `${role} cannot read sources`);
     fails(`set role ${role}; select publish_journal_editorial_assignment('${id1}',true,'x')`, /permission denied/, `${role} cannot publish`);
     fails(`set role ${role}; select claim_journal_editorial_assignment('${t1}','x')`, /permission denied/, `${role} cannot claim`);
+    fails(`set role ${role}; select request_journal_editorial_image('${id1}','x')`, /permission denied/, `${role} cannot ask for a photograph`);
+    fails(`set role ${role}; select replace_journal_editorial_image('${id1}','{"url":"https://h/x.jpg"}'::jsonb)`, /permission denied/, `${role} cannot replace a photograph`);
   }
   assert.equal(sqlAs("service_role", "select count(*) from journal_editorial_assignments") !== "", true, "service role reads the ledger");
   assert.equal(
