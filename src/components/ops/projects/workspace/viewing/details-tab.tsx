@@ -13,6 +13,7 @@ import { Inline } from "@/components/ops/projects/workspace/atoms/inline";
 import { Body } from "@/components/ops/projects/workspace/atoms/body";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { Section } from "@/components/ops/projects/workspace/atoms/section";
+import { ProjectDeckSection } from "./project-deck-section";
 import { Hairline } from "@/components/ops/projects/workspace/atoms/hairline";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { formatDate } from "@/lib/utils/date";
@@ -221,6 +222,9 @@ export function DetailsTab({ projectId }: DetailsTabProps) {
   return (
     <Stack gap={4} className="px-4 py-3">
       <ScopeSection description={project?.projectDescription ?? null} />
+      {/* The deck IS the job — it reads directly under the scope, before who
+          is on it and when. Renders nothing when the job has no deck. */}
+      <ProjectDeckSection projectId={projectId} />
       <TeamSection projectId={projectId} />
       <TasksSection projectId={projectId} />
     </Stack>
