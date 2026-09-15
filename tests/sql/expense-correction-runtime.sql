@@ -93,7 +93,10 @@ select pg_temp.fail(pg_temp.cmd(201,501)||jsonb_build_object('allocations',jsonb
  'project_id',pg_temp.fx(33),'percentage',100,'amount',null))),'23503','foreign allocation denied');
 select pg_temp.fail(pg_temp.cmd(201,501)||jsonb_build_object('amount',105.001),'22023','money precision denied');
 select pg_temp.fail(pg_temp.cmd(201,501)||jsonb_build_object('tax_amount',99),'22023','invalid tax denied');
-select pg_temp.fail(pg_temp.cmd(201,501)||jsonb_build_object('expense_date',(current_date+1)::text),'22023','future date denied');
+-- Use the expense company's business day; session tomorrow can be today in UTC.
+select pg_temp.fail(pg_temp.cmd(201,501)||jsonb_build_object('expense_date',
+ ((clock_timestamp() at time zone (select coalesce(timezone,'UTC') from companies where id=pg_temp.fx(1)))::date+1)::text),
+ '22023','future date denied');
 select pg_temp.fail(pg_temp.cmd(201,501)||jsonb_build_object('correction_note',repeat('a',2001)),'22023','oversized explanation denied');
 select pg_temp.fail(pg_temp.cmd(201,501)||jsonb_build_object('allocations',jsonb_build_array(jsonb_build_object(
  'project_id',pg_temp.fx(32),'percentage',99,'amount',null))),'22023','allocation total denied');
