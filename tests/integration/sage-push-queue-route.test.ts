@@ -7,12 +7,16 @@ import type {
 
 const {
   claimDue,
+  markBlocked,
+  markNeedsReview,
   processSage,
   processSupplier,
   getServiceRoleClient,
   MockAcceptedWriteDurabilityError,
 } = vi.hoisted(() => ({
   claimDue: vi.fn(),
+  markBlocked: vi.fn(),
+  markNeedsReview: vi.fn(),
   processSage: vi.fn(),
   processSupplier: vi.fn(),
   getServiceRoleClient: vi.fn(() => ({ kind: "service-role" })),
@@ -21,7 +25,7 @@ const {
 
 vi.mock("@/lib/supabase/server-client", () => ({ getServiceRoleClient }));
 vi.mock("@/lib/api/services/accounting-sync-queue-service", () => ({
-  AccountingSyncQueueService: vi.fn(() => ({ claimDue })),
+  AccountingSyncQueueService: vi.fn(() => ({ claimDue, markBlocked, markNeedsReview })),
 }));
 vi.mock("@/lib/api/services/accounting-sync-audit-service", () => ({
   AccountingSyncAuditService: vi.fn(() => ({ record: vi.fn() })),
@@ -216,4 +220,21 @@ describe("Sage push queue route", () => {
     expect(response.status).toBe(200);
     expect(claimDue).toHaveBeenCalledOnce();
   });
+});
+
+
+it("holds expenses without pausing the existing Sage invoice and supplier lanes", async () => {
+  vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+  claimDue.mockImplementation(async ({ workerId }: { workerId: string }) => [
+    { ...queueRow("expense-row", "expense"), sourceTable: "expense_accounting_events", lockedBy: workerId },
+    queueRow("invoice-row", "invoice"),
+    queueRow("supplier-row", "supplier"),
+  ]);
+  const response = await POST(request());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ processed: 3, blocked: 1, succeeded: 2 });
+  expect(markBlocked).toHaveBeenCalledWith("expense-row", "Expense accounting sync is paused.", { workerId: expect.stringMatching(/^sage-push-/) });
+  expect(processSage).toHaveBeenCalledTimes(1);
+  expect(processSupplier).toHaveBeenCalledTimes(1);
+  expect(markNeedsReview).not.toHaveBeenCalled();
 });

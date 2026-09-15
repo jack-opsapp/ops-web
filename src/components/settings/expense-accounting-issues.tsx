@@ -100,6 +100,11 @@ function IssueList({
         }
       );
       const data = await response.json();
+      if (response.status === 409 && data.code === "EXPENSE_ACCOUNTING_PAUSED") {
+        // A stale Retry button must adopt the server's current hold, not claim queueing.
+        await client.resetQueries({ queryKey });
+        return;
+      }
       if (
         !response.ok ||
         data.queueId !== queueId ||
@@ -191,16 +196,28 @@ function IssueList({
                 : "—"}
             </span>
           </div>
-          <Tag variant={issue.recovery === "reconcile" ? "tan" : "rose"}>
+          <Tag
+            variant={
+              issue.recovery === "paused"
+                ? "neutral"
+                : issue.recovery === "reconcile"
+                  ? "tan"
+                  : "rose"
+            }
+          >
             {t(
-              issue.recovery === "reconcile"
-                ? "accounting.expenseIssues.reconcile"
-                : "accounting.issueNeedsReview"
+              issue.recovery === "paused"
+                ? "accounting.expenseIssues.paused"
+                : issue.recovery === "reconcile"
+                  ? "accounting.expenseIssues.reconcile"
+                  : "accounting.issueNeedsReview"
             )}
           </Tag>
-          <p className="font-mohave text-body-sm text-text-2">
-            {t(`accounting.expenseIssues.reason.${issue.reason}`)}
-          </p>
+          {issue.recovery !== "paused" && (
+            <p className="font-mohave text-body-sm text-text-2">
+              {t(`accounting.expenseIssues.reason.${issue.reason}`)}
+            </p>
+          )}
           <p className="font-mohave text-body-sm text-text-3">
             {t(`accounting.expenseIssues.help.${issue.recovery}`)}
           </p>

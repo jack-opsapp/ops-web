@@ -1337,5 +1337,7 @@
   "accounting.expenses.reload": "Volver a cargar cuentas",
   "accounting.expenses.projects": "Asignaciones a proyectos",
   "accounting.expenses.projectIntro.quickbooks": "Vincula cada proyecto usado en gastos con su trabajo de QuickBooks.",
-  "accounting.expenses.projectIntro.sage": "Vincula cada proyecto usado en gastos con su categoría de análisis de Sage."
+  "accounting.expenses.projectIntro.sage": "Vincula cada proyecto usado en gastos con su categoría de análisis de Sage.",
+  "accounting.expenseIssues.paused": "EN PAUSA",
+  "accounting.expenseIssues.help.paused": "La sincronización contable de gastos está en pausa. Podrás reintentar cuando se reanude."
 }

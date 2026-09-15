@@ -1337,5 +1337,7 @@
   "accounting.expenses.reload": "Reload accounts",
   "accounting.expenses.projects": "Project allocations",
   "accounting.expenses.projectIntro.quickbooks": "Match each project used on expenses to its QuickBooks job.",
-  "accounting.expenses.projectIntro.sage": "Match each project used on expenses to its Sage analysis category."
+  "accounting.expenses.projectIntro.sage": "Match each project used on expenses to its Sage analysis category.",
+  "accounting.expenseIssues.paused": "PAUSED",
+  "accounting.expenseIssues.help.paused": "Expense accounting sync is paused. Retry will be available when sync resumes."
 }

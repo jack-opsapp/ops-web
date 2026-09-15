@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 const mocks = vi.hoisted(() => ({
   actor: vi.fn(),
@@ -27,6 +27,7 @@ const post = (body: unknown = { queueId: id }) =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "true");
   mocks.actor.mockResolvedValue({
     actorUserId: "verified-actor",
     companyId: "verified-company",
@@ -111,5 +112,30 @@ describe("expense issue recovery API", () => {
       .mockRejectedValueOnce(new Error("timeout"));
     expect((await POST(post())).status).toBe(503);
     expect((await POST(post())).status).toBe(503);
+  });
+});
+
+
+afterEach(() => vi.unstubAllEnvs());
+describe("expense retry activation", () => {
+  it.each([undefined, "false", "TRUE"])("denies retry before RPC when gate is %s", async (value) => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", value);
+    const result = await POST(post());
+    expect(result.status).toBe(409);
+    expect(await result.json()).toEqual({ code: "EXPENSE_ACCOUNTING_PAUSED", error: "Expense accounting sync is paused." });
+    expect(mocks.db.rpc).not.toHaveBeenCalled();
+  });
+  it.each([401, 403])("preserves %s authentication denial while paused", async (status) => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+    mocks.actor.mockResolvedValue(NextResponse.json({}, { status }));
+    expect((await POST(post())).status).toBe(status);
+    expect(mocks.db.rpc).not.toHaveBeenCalled();
+  });
+  it("allows explicit guarded recovery only after activation", async () => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+    expect((await POST(post())).status).toBe(409);
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "true");
+    expect((await POST(post())).status).toBe(200);
+    expect(mocks.db.rpc).toHaveBeenCalledTimes(1);
   });
 });

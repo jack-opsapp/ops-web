@@ -212,3 +212,28 @@ describe("expense issue recovery UI", () => {
     expect(screen.queryByText("Hardware")).toBeNull();
   });
 });
+
+
+it.each(["en", "es"])("shows paused sync without a retry action in %s", async (locale) => {
+  state.locale = locale;
+  vi.mocked(fetch).mockResolvedValueOnce(respond(page([{ ...issue, recovery: "paused" }])));
+  mount();
+  await screen.findByText("Hardware");
+  expect(screen.getByText(locale === "en" ? "PAUSED" : "EN PAUSA")).toBeInTheDocument();
+  expect(screen.getByText(locale === "en" ? "Expense accounting sync is paused. Retry will be available when sync resumes." : "La sincronización contable de gastos está en pausa. Podrás reintentar cuando se reanude.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Retry with current settings|Reintentar con configuración actual/ })).toBeNull();
+  expect(screen.queryByText(/accounting\.expenseIssues/)).toBeNull();
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("shows paused status after a stale retry is rejected and refreshes its canonical status", async () => {
+  vi.mocked(fetch)
+    .mockResolvedValueOnce(respond(page()))
+    .mockResolvedValueOnce(respond({ code: "EXPENSE_ACCOUNTING_PAUSED", error: "Expense accounting sync is paused." }, 409))
+    .mockResolvedValueOnce(respond(page([{ ...issue, recovery: "paused" }])));
+  mount();
+  fireEvent.click(await screen.findByRole("button", { name: "Retry with current settings" }));
+  await screen.findByText("PAUSED");
+  expect(screen.queryByRole("button", { name: "Retry with current settings" })).toBeNull();
+  expect(toast.success).not.toHaveBeenCalled();
+});

@@ -144,6 +144,7 @@ function fixture(
 }
 beforeEach(() => {
   vi.stubEnv("ACCOUNTING_WRITE_ENABLED", "true");
+  vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "true");
 });
 afterEach(() => vi.unstubAllEnvs());
 describe("expense queue custody", () => {
@@ -450,5 +451,110 @@ describe("Sage expense posting safeguards", () => {
     ).toBe("needs_review");
     expect(actions).toEqual(["freeze", "write", "accepted"]);
     expect(dependencies.queue.scheduleRetry).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("expense-only activation hold", () => {
+  it.each([
+    { lockedBy: "another-worker" },
+    { status: "blocked" as const },
+    { sourceTable: "expenses" },
+    { operation: "update" as const },
+  ])("preserves claim and source ownership while paused: %s", async (invalid) => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+    const { dependencies, fetchImpl } = fixture();
+    await expect(
+      processExpenseQueueRow({
+        row: { ...row, ...invalid },
+        workerId: "worker",
+        dependencies,
+      })
+    ).rejects.toThrow(/ownership/i);
+    expect(dependencies.queue.markBlocked).not.toHaveBeenCalled();
+    expect(dependencies.queue.markNeedsReview).not.toHaveBeenCalled();
+    expect(dependencies.loadConnection).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+  it.each([undefined, "", "false", "TRUE", "1"])(
+    "holds before any connection, token, preparation or provider access when %s",
+    async (value) => {
+      vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", value);
+      for (const provider of ["quickbooks", "sage"] as const) {
+        const { dependencies, fetchImpl } = fixture();
+        dependencies.loadConnection = vi.fn(dependencies.loadConnection);
+        dependencies.createSession = vi.fn(dependencies.createSession);
+        const held = { ...row, provider };
+        const before = structuredClone(held);
+        const result = await processExpenseQueueRow({ row: held, workerId: "worker", dependencies });
+        expect(result).toMatchObject({ status: "blocked", error: "Expense accounting sync is paused." });
+        expect(dependencies.queue.markBlocked).toHaveBeenCalledWith(row.id, result.error, { workerId: "worker" });
+        expect(dependencies.loadConnection).not.toHaveBeenCalled();
+        expect(dependencies.getToken).not.toHaveBeenCalled();
+        expect(dependencies.createSession).not.toHaveBeenCalled();
+        expect(dependencies.prepare).not.toHaveBeenCalled();
+        expect(fetchImpl).not.toHaveBeenCalled();
+        expect(dependencies.finalize).not.toHaveBeenCalled();
+        expect(dependencies.queue.scheduleRetry).not.toHaveBeenCalled();
+        expect(dependencies.queue.recordProviderAcceptance).not.toHaveBeenCalled();
+        expect(held).toEqual(before);
+      }
+    }
+  );
+  it("propagates a failed hold save without retrying or accessing the provider", async () => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+    const { dependencies, fetchImpl } = fixture();
+    dependencies.queue.markBlocked = vi.fn().mockRejectedValue(new Error("hold ownership lost"));
+    await expect(processExpenseQueueRow({ row, workerId: "worker", dependencies })).rejects.toThrow("hold ownership lost");
+    expect(dependencies.queue.scheduleRetry).not.toHaveBeenCalled();
+    expect(dependencies.getToken).not.toHaveBeenCalled();
+    expect(dependencies.prepare).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(dependencies.audit).not.toHaveBeenCalled();
+  });
+  it.each(["providerAcceptedAt", "providerRequestId", "externalId", "idempotencyExpiresAt"] as const)(
+    "keeps %s evidence in reconciliation while disabled",
+    async (field) => {
+      vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+      const { dependencies, fetchImpl } = fixture();
+      const accepted = { ...row, [field]: "provider-evidence" };
+      const before = structuredClone(accepted);
+      expect((await processExpenseQueueRow({ row: accepted, workerId: "worker", dependencies })).status).toBe("needs_review");
+      expect(dependencies.queue.markBlocked).not.toHaveBeenCalled();
+      expect(dependencies.queue.markNeedsReview).toHaveBeenCalledWith(row.id, expect.stringMatching(/reconcile/i), { workerId: "worker" });
+      expect(dependencies.getToken).not.toHaveBeenCalled();
+      expect(dependencies.prepare).not.toHaveBeenCalled();
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(accepted).toEqual(before);
+    }
+  );
+  it("does not release a blocked row on enable; only a newly owned claim can proceed", async () => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+    const { dependencies, fetchImpl } = fixture();
+    await processExpenseQueueRow({ row, workerId: "worker", dependencies });
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "true");
+    await expect(processExpenseQueueRow({ row: { ...row, status: "blocked", lockedBy: null }, workerId: "worker", dependencies })).rejects.toThrow(/ownership/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect((await processExpenseQueueRow({ row, workerId: "worker", dependencies })).status).toBe("succeeded");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+  it("does not acknowledge reconciliation if its guarded save fails while paused", async () => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+    const { dependencies, fetchImpl } = fixture();
+    dependencies.queue.markNeedsReview = vi.fn().mockRejectedValue(
+      new Error("review ownership lost")
+    );
+    await expect(
+      processExpenseQueueRow({
+        row: { ...row, providerAcceptedAt: "2026-09-12T10:00:01Z" },
+        workerId: "worker",
+        dependencies,
+      })
+    ).rejects.toThrow("review ownership lost");
+    expect(dependencies.queue.markBlocked).not.toHaveBeenCalled();
+    expect(dependencies.queue.scheduleRetry).not.toHaveBeenCalled();
+    expect(dependencies.getToken).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(dependencies.audit).not.toHaveBeenCalled();
   });
 });

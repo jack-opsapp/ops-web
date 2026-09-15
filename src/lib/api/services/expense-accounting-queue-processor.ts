@@ -1,6 +1,10 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ProviderMappingError } from "@/lib/accounting/supplier-bills/provider-mappers";
+import {
+  expenseAccountingWritesEnabled,
+  EXPENSE_ACCOUNTING_PAUSED_MESSAGE,
+} from "@/lib/accounting/expenses/write-gate";
 import { expenseMappingError } from "@/lib/accounting/expenses/provider-mappers";
 import { AccountingSyncAuditService } from "./accounting-sync-audit-service";
 import { AccountingSyncQueueService } from "./accounting-sync-queue-service";
@@ -102,6 +106,30 @@ export async function processExpenseQueueRow(input: {
     await deps.audit(result).catch(() => undefined);
     return result;
   };
+  // Hold before connection/token reads or payload preparation. Keep this outside
+  // the delivery catch: a failed guarded hold must propagate, never schedule a retry.
+  if (!expenseAccountingWritesEnabled()) {
+    const hasProviderEvidence = [
+      row.providerAcceptedAt,
+      row.providerRequestId,
+      row.externalId,
+      row.idempotencyExpiresAt,
+    ].some((value) => value != null);
+    if (hasProviderEvidence) {
+      const error =
+        "This expense has provider evidence. Reconcile its accounting result before retrying.";
+      await deps.queue.markNeedsReview(row.id, error, { workerId });
+      return finish({ ...base, status: "needs_review", error });
+    }
+    await deps.queue.markBlocked(row.id, EXPENSE_ACCOUNTING_PAUSED_MESSAGE, {
+      workerId,
+    });
+    return finish({
+      ...base,
+      status: "blocked",
+      error: EXPENSE_ACCOUNTING_PAUSED_MESSAGE,
+    });
+  }
   const acceptedEvidence = async (evidence: Acceptance) => {
     accepted = true;
     const acceptedMs = Date.parse(evidence.acceptedAt);

@@ -14,7 +14,7 @@ export interface ExpenseAccountingIssue {
     | "currency"
     | "details"
     | "unknown";
-  recovery: "retry" | "connection" | "reconcile";
+  recovery: "retry" | "connection" | "reconcile" | "paused";
 }
 
 export interface ExpenseAccountingIssuePage {

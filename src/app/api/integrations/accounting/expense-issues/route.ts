@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveSupplierBillActor } from "@/lib/accounting/supplier-bills/route-auth";
 import { loadExpenseAccountingIssues } from "@/lib/accounting/expenses/review-service";
+import {
+  expenseAccountingWritesEnabled,
+  EXPENSE_ACCOUNTING_PAUSED_MESSAGE,
+} from "@/lib/accounting/expenses/write-gate";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 const permissions = ["accounting.manage_connections", "expenses.approve"];
@@ -47,6 +51,14 @@ export async function POST(request: NextRequest) {
     .safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return response({ error: "Choose an expense to retry." }, 400);
+  if (!expenseAccountingWritesEnabled())
+    return response(
+      {
+        code: "EXPENSE_ACCOUNTING_PAUSED",
+        error: EXPENSE_ACCOUNTING_PAUSED_MESSAGE,
+      },
+      409
+    );
   try {
     const { data, error } = await getServiceRoleClient().rpc(
       "retry_expense_accounting_before_write",

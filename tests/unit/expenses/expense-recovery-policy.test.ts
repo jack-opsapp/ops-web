@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   expenseRecoveryAction,
   expenseIssueReason,
@@ -123,5 +123,28 @@ describe("safe expense issue reasons", () => {
     ],
   ])("maps diagnostics to a bounded reason: %s", (message, expected) => {
     expect(expenseIssueReason(message)).toBe(expected);
+  });
+});
+
+
+beforeEach(() => vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "true"));
+afterEach(() => vi.unstubAllEnvs());
+
+
+describe("paused recovery precedence", () => {
+  it("holds otherwise safe retry by default and restores it only after enable", () => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", undefined);
+    expect(expenseRecoveryAction(row, { kind: "accrual" }, false, connection)).toBe("paused");
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "true");
+    expect(expenseRecoveryAction(row, { kind: "accrual" }, false, connection)).toBe("retry");
+  });
+  it("retains frozen, accepted and changed-identity reconciliation while paused", () => {
+    vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "false");
+    expect(expenseRecoveryAction(row, { kind: "accrual" }, true, connection)).toBe("reconcile");
+    for (const field of ["external_id", "provider_accepted_at", "provider_request_id", "idempotency_expires_at"]) {
+      expect(expenseRecoveryAction({ ...row, [field]: "evidence" }, { kind: "accrual" }, false, connection)).toBe("reconcile");
+    }
+    expect(expenseRecoveryAction(row, { kind: "accrual" }, false, { ...connection, realm_id_lookup: "changed" })).toBe("reconcile");
+    expect(expenseRecoveryAction(row, { kind: "review" }, false, connection)).toBe("reconcile");
   });
 });

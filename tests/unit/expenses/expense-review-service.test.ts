@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadExpenseAccountingIssues } from "@/lib/accounting/expenses/review-service";
 
@@ -240,4 +240,16 @@ describe("expense issue inventory", () => {
       false
     );
   });
+});
+
+
+beforeEach(() => vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", "true"));
+afterEach(() => vi.unstubAllEnvs());
+
+
+it("returns paused recovery from canonical GET data when export is not enabled", async () => {
+  vi.stubEnv("EXPENSE_ACCOUNTING_WRITE_ENABLED", undefined);
+  const { db } = database();
+  const result = await loadExpenseAccountingIssues(db as unknown as SupabaseClient, companyId, connectionId, 0);
+  expect(result.issues[0].recovery).toBe("paused");
 });

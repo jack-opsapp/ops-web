@@ -124,6 +124,23 @@ describe("expense sync compatibility edge", () => {
     expect(response.status).toBe(503);
     expect(await response.text()).not.toContain("secret");
   });
+  it("keeps a missing cutover RPC unavailable without falling back to a provider", async () => {
+    const { handler, fetcher } = setup(
+      Response.json(
+        { code: "PGRST202", message: "request RPC missing from schema cache" },
+        { status: 404 }
+      )
+    );
+    const response = await handler(request({ expense_id: expenseId }));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: "Accounting sync is unavailable. Try again.",
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0][0]).toBe(
+      "https://example.supabase.co/rest/v1/rpc/request_expense_accounting_sync"
+    );
+  });
   it("does not trust malformed success responses", async () => {
     const { handler } = setup(Response.json({ unrelated: "ok" }));
     expect((await handler(request({ expense_id: expenseId }))).status).toBe(

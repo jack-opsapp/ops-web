@@ -1,4 +1,5 @@
 import "server-only";
+import { expenseAccountingWritesEnabled } from "./write-gate";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   ExpenseAccountingIssue,
@@ -68,7 +69,7 @@ export function expenseRecoveryAction(
     !["push_only", "bidirectional"].includes(String(connection.sync_direction))
   )
     return "connection";
-  return "retry";
+  return expenseAccountingWritesEnabled() ? "retry" : "paused";
 }
 
 /** Classify stored diagnostics without returning provider payloads or internal IDs. */
