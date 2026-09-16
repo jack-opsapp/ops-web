@@ -408,48 +408,57 @@ export function DeckViewer({
         />
       </div>
 
-      {/* ── The drawing ── */}
-      <div
-        ref={surfaceRef}
-        data-testid="deck-viewer-surface"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endPointer}
-        onPointerCancel={endPointer}
-        onWheel={onWheel}
-        onDoubleClick={fit}
-        className={cn(
-          "relative min-h-0 flex-1 touch-none overflow-hidden bg-background",
-          measuring ? "cursor-crosshair" : dragging ? "cursor-grabbing" : "cursor-grab",
-        )}
-      >
-        {isLoading && !drawing ? (
-          <EmptyPane testId="deck-viewer-loading">
-            {t("deck.viewer.loading", "Loading drawing")}
-          </EmptyPane>
-        ) : !hasGeometry ? (
-          <EmptyPane
-            testId="deck-viewer-empty"
-            detail={t(
-              "deck.viewer.emptyDetail",
-              "This design has no finished shape yet. Close the outline on the phone and it will draw here.",
-            )}
-          >
-            {t("deck.viewer.empty", "[ no closed outline ]")}
-          </EmptyPane>
-        ) : mode === "3d" ? (
-          <DeckScene3DSlot drawing={drawing!} isolatedLevelId={isolatedLevel?.id ?? null} />
-        ) : (
-          <DeckPlanSvg
-            drawing={drawing!}
-            viewport={viewport}
-            width={size.width}
-            height={size.height}
-            showLabels={showLabels}
-            isolatedLevelId={isolatedLevel?.id ?? null}
-            measure={measuring ? measure : undefined}
-          />
-        )}
+      {/* ── The drawing, and the chrome that floats over it ──
+          The rail, the level chip and the readout are SIBLINGS of the gesture
+          surface, never children of it. The surface takes pointer capture on
+          `pointerdown` so a drag that leaves the window still pans — and capture
+          RETARGETS the matching `pointerup`, and the click the browser makes from
+          the pair, to the capturing element. A press that bubbled out of a rail
+          button into the surface would therefore never reach the button's own
+          `onClick`. The surface owns the drawing; it owns nothing else. */}
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={surfaceRef}
+          data-testid="deck-viewer-surface"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endPointer}
+          onPointerCancel={endPointer}
+          onWheel={onWheel}
+          onDoubleClick={fit}
+          className={cn(
+            "absolute inset-0 touch-none overflow-hidden bg-background",
+            measuring ? "cursor-crosshair" : dragging ? "cursor-grabbing" : "cursor-grab",
+          )}
+        >
+          {isLoading && !drawing ? (
+            <EmptyPane testId="deck-viewer-loading">
+              {t("deck.viewer.loading", "Loading drawing")}
+            </EmptyPane>
+          ) : !hasGeometry ? (
+            <EmptyPane
+              testId="deck-viewer-empty"
+              detail={t(
+                "deck.viewer.emptyDetail",
+                "This design has no finished shape yet. Close the outline on the phone and it will draw here.",
+              )}
+            >
+              {t("deck.viewer.empty", "[ no closed outline ]")}
+            </EmptyPane>
+          ) : mode === "3d" ? (
+            <DeckScene3DSlot drawing={drawing!} isolatedLevelId={isolatedLevel?.id ?? null} />
+          ) : (
+            <DeckPlanSvg
+              drawing={drawing!}
+              viewport={viewport}
+              width={size.width}
+              height={size.height}
+              showLabels={showLabels}
+              isolatedLevelId={isolatedLevel?.id ?? null}
+              measure={measuring ? measure : undefined}
+            />
+          )}
+        </div>
 
         {/* ── Tool rail: only what a pointer cannot already do ── */}
         {hasGeometry && (

@@ -230,6 +230,60 @@ describe("DeckViewer — the tool rail", () => {
   });
 });
 
+/**
+ * The rail is CHROME. It sits over the drawing, but it is not part of it.
+ *
+ * The gesture surface captures the pointer on `pointerdown` so a drag that
+ * leaves the window still pans. Capture RETARGETS the later `pointerup` — and
+ * the `click` the browser synthesises from the pair — to the capturing element.
+ * So the moment a rail button's press bubbles into the surface, the surface
+ * takes the pointer and the button's own `onClick` never runs: MEASURE stays
+ * off, no crosshair, and taps place nothing. Clicking the buttons directly
+ * hides that entirely, which is why these press a real pointer sequence.
+ */
+describe("DeckViewer — the rail is chrome, not the drawing", () => {
+  it("never captures a pointer that starts on a rail button, so the press lands", () => {
+    const capture = vi
+      .spyOn(Element.prototype, "setPointerCapture")
+      .mockImplementation(() => {});
+    try {
+      open();
+      const measure = screen.getByRole("button", { name: /measure/i });
+      expect(measure).toHaveAttribute("aria-pressed", "false");
+
+      fireEvent.pointerDown(measure, { pointerId: 1, clientX: 5, clientY: 5 });
+      fireEvent.pointerUp(measure, { pointerId: 1, clientX: 5, clientY: 5 });
+      fireEvent.click(measure, { clientX: 5, clientY: 5 });
+
+      expect(capture).not.toHaveBeenCalled();
+
+      expect(measure).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByTestId("deck-viewer-surface").className).toContain(
+        "cursor-crosshair",
+      );
+    } finally {
+      capture.mockRestore();
+    }
+  });
+
+  it("still captures a pointer that starts on the drawing itself", () => {
+    const capture = vi
+      .spyOn(Element.prototype, "setPointerCapture")
+      .mockImplementation(() => {});
+    try {
+      open();
+      fireEvent.pointerDown(screen.getByTestId("deck-viewer-surface"), {
+        pointerId: 1,
+        clientX: 300,
+        clientY: 300,
+      });
+      expect(capture).toHaveBeenCalledWith(1);
+    } finally {
+      capture.mockRestore();
+    }
+  });
+});
+
 describe("DeckViewer — measuring", () => {
   it("reports a running length once two points are placed", () => {
     open();
