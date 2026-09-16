@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { OPS_CAPABILITY_REFS } from "@/lib/ops-capabilities/registry";
 import type { CatalogAction } from "./types";
 
 const ReferenceSchema = z.string().trim().min(1).max(240);
@@ -64,6 +65,63 @@ const ProductMaterialPayloadSchema = z
     }
   });
 
+/** A capability ref the OPS registry actually publishes. */
+const CapabilityRefSchema = z.enum(OPS_CAPABILITY_REFS);
+
+/**
+ * `cut_plan` hands the quantity to a capability runtime, so its measure source
+ * IS a capability ref. Every other kind measures something the estimate itself
+ * carries (`finished_area_sqft`, `exposed_edge_lf`), which stays free text.
+ */
+const MaterialQuantityRulePayloadSchema = z
+  .object({
+    productMaterialRef: ReferenceSchema,
+    calculationKind: z.enum([
+      "product_quantity",
+      "coverage",
+      "edge_length",
+      "cut_plan",
+    ]),
+    measureSource: z.string().trim().min(1).max(120),
+    requiredInputs: z.array(z.string().trim().min(1).max(120)).max(32),
+    coverageQuantity: z.number().finite().positive().optional(),
+    wasteFactor: z.number().finite().min(1),
+    purchaseRounding: z.enum([
+      "none",
+      "increment",
+      "whole_package",
+      "whole_length",
+    ]),
+    roundingIncrement: z.number().finite().positive().optional(),
+    packageQuantity: z.number().finite().positive().optional(),
+    fallbackRule: z.record(z.unknown()),
+    config: z.record(z.unknown()),
+  })
+  .strict()
+  .superRefine((payload, context) => {
+    if (
+      payload.calculationKind === "cut_plan" &&
+      !CapabilityRefSchema.safeParse(payload.measureSource).success
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["measureSource"],
+        message:
+          "A cut_plan rule must measure a registered OPS capability ref",
+      });
+    }
+  });
+
+const CapabilityBindingPayloadSchema = z
+  .object({
+    productRef: ReferenceSchema,
+    capabilityKey: CapabilityRefSchema,
+    requiredInputs: z.array(z.string().trim().min(1).max(120)).max(32),
+    fallbackBehavior: z.record(z.unknown()),
+    enabled: z.boolean().optional(),
+  })
+  .strict();
+
 const ACTION_PAYLOAD_CONTRACTS: Partial<
   Record<CatalogAction["actionType"], z.ZodTypeAny>
 > = {
@@ -127,6 +185,8 @@ const ACTION_PAYLOAD_CONTRACTS: Partial<
     })
     .strict(),
   upsert_product_material: ProductMaterialPayloadSchema,
+  upsert_material_quantity_rule: MaterialQuantityRulePayloadSchema,
+  upsert_capability_binding: CapabilityBindingPayloadSchema,
   reuse_task_type: z
     .object({ clientId: ReferenceSchema, display: LabelSchema })
     .strict(),
