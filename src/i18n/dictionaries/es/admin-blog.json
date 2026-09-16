@@ -63,5 +63,18 @@
   "weekly.code.IMAGE_INVALID": "La foto de cabecera llegó ilegible tres veces.",
   "weekly.code.IMAGE_UNREADABLE": "La foto de cabecera nunca quedó pública.",
   "weekly.code.PACKAGE_MISSING": "El borrador estaba incompleto.",
-  "weekly.code.fallback": "El artículo se detuvo antes de publicarse."
+  "weekly.code.fallback": "El artículo se detuvo antes de publicarse.",
+  "weekly.why.label": "// POR QUÉ ESTE ARTÍCULO",
+  "weekly.why.angle": "ÁNGULO",
+  "weekly.why.hook": "GANCHO",
+  "weekly.why.signals": "// SEÑALES",
+  "weekly.why.typicalViews": "LAS VISTAS HABITUALES",
+  "weekly.why.views": "VISTAS",
+  "weekly.why.replies": "RESPUESTAS",
+  "weekly.why.search": "BÚSQUEDA",
+  "weekly.why.hooksWeighed": "TITULARES EVALUADOS",
+  "weekly.why.runnersUp": "TEMAS DESCARTADOS",
+  "weekly.radar.label": "RADAR",
+  "weekly.radar.of": "DE",
+  "weekly.radar.degraded": "FUENTES RESPONDIERON. EL REDACTOR RECURRE A LA BÚSQUEDA."
 }

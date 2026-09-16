@@ -3,10 +3,12 @@ import { z } from "zod";
 import { sendBlogNewsletter } from "@/lib/email/sendgrid";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { JournalPackage } from "./handoff";
+import type { JournalPitch } from "./pitch";
+import { isJournalRadarDegraded, type JournalRadarSourceStatus } from "./radar/scan";
 import { fulfilJournalImageRequestNow } from "./runtime";
 
 const assignmentFields =
-  "id,identity,state,mode,slot_at,publish_at,drafted_at,published_at,cancelled_at,title,slug,last_code,preview,package,blog_id,newsletter_state,attempt_log,image_generations,image_requested_at,image_failures";
+  "id,identity,state,mode,slot_at,publish_at,drafted_at,published_at,cancelled_at,title,slug,last_code,preview,package,blog_id,newsletter_state,attempt_log,image_generations,image_requested_at,image_failures,pitch,pitch_claim_token,claim_token";
 
 export const journalAdminActionSchema = z
   .object({ action: z.enum(["stop", "publish_now", "write_another", "new_image", "send_test"]) })
@@ -36,13 +38,25 @@ function article(pack: JournalPackage | null) {
   };
 }
 
+/**
+ * Why this topic and this hook: the accepted draft's pitch, or, while the
+ * writer is still at work, the pitch its live claim handed back.
+ */
+function pitchOf(row: Record<string, unknown>): JournalPitch | null {
+  const pack = row.package as JournalPackage | null;
+  if (pack?.pitch) return pack.pitch;
+  if (row.state === "authoring" && row.pitch && row.pitch_claim_token && row.pitch_claim_token === row.claim_token)
+    return row.pitch as JournalPitch;
+  return null;
+}
+
 /** The Blog hub's weekly strip: the newest slots, their previews and the switches. */
 export async function readJournalEditorial() {
   const db = getServiceRoleClient();
   const [settings, assignments, newsletter] = await Promise.all([
     db
       .from("journal_editorial_settings")
-      .select("mode,authoring_heartbeat_at,publish_weekday,publish_hour")
+      .select("mode,authoring_heartbeat_at,publish_weekday,publish_hour,radar_scanned_at,radar_sources")
       .eq("id", true)
       .single(),
     db
@@ -53,14 +67,28 @@ export async function readJournalEditorial() {
     db.from("app_settings").select("value").eq("key", "blog_newsletter_enabled").maybeSingle(),
   ]);
   for (const result of [settings, assignments, newsletter]) if (result.error) throw result.error;
+  const { radar_scanned_at: radarScannedAt, radar_sources: radarSources, ...settingsRow } = settings.data;
+  const feeds = (Array.isArray(radarSources) ? radarSources : []) as JournalRadarSourceStatus[];
   return {
-    settings: settings.data,
+    settings: settingsRow,
+    radar: {
+      scanned_at: radarScannedAt ?? null,
+      ok: feeds.filter((feed) => feed.ok).length,
+      total: feeds.length,
+      // Only a scan that happened can be degraded; a radar never scanned is simply empty.
+      degraded: Boolean(radarScannedAt) && isJournalRadarDegraded(feeds),
+    },
     newsletter_enabled: newsletter.data?.value === true,
-    assignments: (assignments.data ?? []).map((row) => ({
-      ...row,
-      package: article(row.package as JournalPackage | null),
-      attempt_log: Array.isArray(row.attempt_log) ? row.attempt_log.slice(-6) : [],
-    })),
+    assignments: (assignments.data ?? []).map((row) => {
+      // The claim tokens identify the writer's live claim; they never leave the server.
+      const { claim_token: _claim, pitch_claim_token: _pitchClaim, pitch: _pitch, ...rest } = row;
+      return {
+        ...rest,
+        package: article(row.package as JournalPackage | null),
+        pitch: pitchOf(row),
+        attempt_log: Array.isArray(row.attempt_log) ? row.attempt_log.slice(-6) : [],
+      };
+    }),
   };
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
+import { WeeklyPostWhy, type WeeklyPitch } from "./weekly-post-why";
 
 type WeeklyState =
   | "queued"
@@ -50,10 +51,13 @@ export interface WeeklyAssignment {
   newsletter_state: string | null;
   image_generations: number;
   image_requested_at: string | null;
+  /** Why this topic and this hook; null on posts written before the topic funnel. */
+  pitch: WeeklyPitch | null;
 }
 
 export interface WeeklyData {
   settings: { mode: "off" | "prepare" | "publish" } | null;
+  radar?: { scanned_at: string | null; ok: number; total: number; degraded: boolean };
   newsletter_enabled: boolean;
   assignments: WeeklyAssignment[];
 }
@@ -299,6 +303,12 @@ export function WeeklyPostPanel() {
           id="weekly-post-preview"
           className="flex flex-col gap-[24px] border-t border-line px-[30px] pb-[34px] pt-[16px]"
         >
+          {data?.radar?.degraded && (
+            <p className="font-mono text-micro uppercase tracking-[0.12em] text-tan">
+              {`${t("weekly.radar.label", "RADAR")} · ${data.radar.ok} ${t("weekly.radar.of", "OF")} ${data.radar.total} ${t("weekly.radar.degraded", "FEEDS ANSWERED. THE WRITER FALLS BACK TO SEARCH.")}`}
+            </p>
+          )}
+
           {query.isError && (
             <button type="button" onClick={() => void query.refetch()} className={`${SECONDARY} self-start`}>
               {t("weekly.retry", "RETRY")}
@@ -363,6 +373,8 @@ export function WeeklyPostPanel() {
               </p>
             </div>
           )}
+
+          {assignment?.pitch && <WeeklyPostWhy pitch={assignment.pitch} />}
 
           {assignment && (canPublish || canStop || canWriteAnother || liveUrl || pack) && (
             <div className="flex flex-wrap items-center gap-[12px]">

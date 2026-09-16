@@ -51,9 +51,32 @@ function assignment(overrides: Partial<WeeklyAssignment> = {}): WeeklyAssignment
     newsletter_state: null,
     image_generations: 1,
     image_requested_at: null,
+    pitch: null,
     ...overrides,
   };
 }
+
+const pitch: NonNullable<WeeklyAssignment["pitch"]> = {
+  topic: "Why new hires quit in the first ninety days",
+  reader: "An owner with four trucks.",
+  why_now: "A Tommy Mello video on first-year turnover is running five times his typical views.",
+  ethos: "Ownership.",
+  angle: "Turnover is decided in the first week, by the owner.",
+  hook: "He showed up at 6:40, carried lumber until noon, and never came back from lunch.",
+  headline: "YOUR NEW GUY QUIT BEFORE LUNCH",
+  signals: [
+    { id: "s1", sphere: "trades", source: "Tommy Mello", kind: "video", title: "Why your best tech quits", url: "https://www.youtube.com/watch?v=abc", views: 48210, typical_views: 9400, momentum: 5.13, replies: null },
+    { id: "s2", sphere: "trades", source: "Build Show Network", kind: "video", title: "Framing a wall", url: "https://www.youtube.com/watch?v=def", views: 12040, typical_views: 11000, momentum: 1.09, replies: null },
+    { id: "s3", sphere: "forum", source: "ContractorTalk", kind: "thread", title: "New guy walked off the job at lunch", url: "https://www.contractortalk.com/threads/x.1/", views: null, typical_views: null, momentum: null, replies: 1041 },
+    { id: "s4", sphere: "industry", source: "Construction Dive", kind: "article", title: "Builders report longer hiring times", url: "https://www.constructiondive.com/news/x/", views: null, typical_views: null, momentum: null, replies: null },
+  ],
+  chatter: [{ url: "https://www.reddit.com/r/Construction/comments/abc/", shows: "Owners trading stories about helpers who never came back." }],
+  hooks_considered: [
+    { headline: "YOUR NEW GUY QUIT BEFORE LUNCH", hook: "h", verdict: "Chosen." },
+    { headline: "THE FIRST WEEK DECIDES WHO STAYS", hook: "h", verdict: "Tells the ending." },
+  ],
+  runners_up: [{ topic: "Pricing small repair jobs", why_not: "Covered in July." }],
+};
 
 function show(data: WeeklyData) {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
@@ -185,6 +208,50 @@ describe("weekly post panel", () => {
 
     show(data([assignment({ state: "published", published_at: "2026-09-01T13:00:00.000Z" })]));
     expect(screen.queryByRole("button", { name: /PHOTO/ })).toBeNull();
+  });
+
+  it("shows why this topic and this hook before the controls, with the signals that made it hot", () => {
+    params.value = new URLSearchParams("journal=11111111-1111-4111-8111-111111111111");
+    show(data([assignment({ pitch })]));
+    const why = screen.getByRole("region", { name: "// WHY THIS POST" });
+    expect(why).toHaveTextContent("Why new hires quit in the first ninety days");
+    expect(why).toHaveTextContent("ANGLE");
+    expect(why).toHaveTextContent("He showed up at 6:40, carried lumber until noon, and never came back from lunch.");
+    expect(screen.getByText("Tommy Mello · 5.1× TYPICAL VIEWS")).toBeInTheDocument();
+    expect(screen.getByText("Build Show Network · 12,040 VIEWS")).toBeInTheDocument();
+    expect(screen.getByText("ContractorTalk · 1,041 REPLIES")).toBeInTheDocument();
+    expect(screen.getByText("Construction Dive")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Why your best tech quits" })).toHaveAttribute("href", "https://www.youtube.com/watch?v=abc");
+    expect(screen.getByRole("link", { name: "Owners trading stories about helpers who never came back." })).toHaveAttribute(
+      "href",
+      "https://www.reddit.com/r/Construction/comments/abc/"
+    );
+    expect(screen.getByText("HEADLINES WEIGHED · 2 · TOPICS PASSED OVER · 1")).toBeInTheDocument();
+    // The alternatives name only the headlines that lost.
+    expect(screen.getByText("THE FIRST WEEK DECIDES WHO STAYS")).toBeInTheDocument();
+    expect(screen.queryAllByText("YOUR NEW GUY QUIT BEFORE LUNCH")).toHaveLength(0);
+    expect(screen.getByText("Pricing small repair jobs")).toBeInTheDocument();
+    const order = [why, screen.getByRole("button", { name: "PUBLISH NOW" })];
+    expect(order[0].compareDocumentPosition(order[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows the pitch while the post is still being written, and nothing for posts from before the funnel", () => {
+    params.value = new URLSearchParams("journal=11111111-1111-4111-8111-111111111111");
+    const view = show(data([assignment({ state: "authoring", preview: null, package: null, pitch })]));
+    expect(screen.getByText("BEING WRITTEN", { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "// WHY THIS POST" })).toHaveTextContent("Why new hires quit");
+    view.unmount();
+    show(data([assignment()]));
+    expect(screen.queryByRole("region", { name: "// WHY THIS POST" })).toBeNull();
+  });
+
+  it("warns only when the radar is degraded", () => {
+    params.value = new URLSearchParams("journal=11111111-1111-4111-8111-111111111111");
+    const healthy = show({ ...data([assignment()]), radar: { scanned_at: SLOT, ok: 25, total: 26, degraded: false } });
+    expect(screen.queryByText(/FEEDS ANSWERED/)).toBeNull();
+    healthy.unmount();
+    show({ ...data([assignment()]), radar: { scanned_at: SLOT, ok: 9, total: 26, degraded: true } });
+    expect(screen.getByText("RADAR · 9 OF 26 FEEDS ANSWERED. THE WRITER FALLS BACK TO SEARCH.")).toBeInTheDocument();
   });
 
   it("says when the writer is off and nothing is in progress", () => {
