@@ -3,7 +3,7 @@
 // LC_ALL=C, see docs/journal/cloud-editorial-operations.md) and proves slot
 // timing, claims, leases, source custody, drafting, exactly-once publication,
 // every publication guard, the notification outbox, the stall alarm and the
-// grants, and the generated-photograph lifecycle.
+// grants, the generated-photograph lifecycle, the trend radar and the pitch.
 import { execFileSync, execFile } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { promisify } from "node:util";
@@ -25,6 +25,7 @@ const migrationFile = (suffix) =>
   readFileSync("supabase/migrations/" + readdirSync("supabase/migrations").find((x) => x.endsWith(suffix)), "utf8");
 const migration = migrationFile("_create_journal_editorial.sql");
 const imagesMigration = migrationFile("_journal_generated_images.sql");
+const funnelMigration = migrationFile("_journal_topic_funnel.sql");
 
 const t1 = "11111111-1111-4111-8111-111111111111";
 const t2 = "22222222-2222-4222-8222-222222222222";
@@ -65,6 +66,7 @@ try {
   );
   sql(migration);
   sql(imagesMigration);
+  sql(funnelMigration);
 
   // --- settings --------------------------------------------------------------
   assert.equal(
@@ -368,6 +370,110 @@ try {
   assert.equal(request(idOf(w7)), "requested", "a preview can ask for a new photograph");
   assert.equal(replace(idOf(w7), newPhoto), "scheduled", "a preview changes photograph without touching any live row");
 
+  // --- trend radar ------------------------------------------------------------
+  const radarSignal = (itemKey, fields = {}) => ({
+    source_key: "tommy-mello",
+    sphere: "trades",
+    kind: "video",
+    item_key: itemKey,
+    url: `https://www.youtube.com/watch?v=${itemKey}`,
+    title: `Video ${itemKey}`,
+    summary: "",
+    published_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    views: 900,
+    baseline_views: 300,
+    momentum: 3,
+    comments: null,
+    ...fields,
+  });
+  const feedStatus = (key, ok) => ({ key, name: key, sphere: "trades", ok, items: ok ? 1 : 0, code: ok ? null : "FEED_BLOCKED" });
+  const record = (signals, sources) =>
+    sql(`select record_journal_radar_scan('${JSON.stringify(signals).replace(/'/g, "''")}'::jsonb, '${JSON.stringify(sources)}'::jsonb)`);
+  const beginScan = (minutes = 360) => sql(`select begin_journal_radar_scan(${minutes})`);
+
+  sql("update journal_editorial_settings set mode='off', radar_scanned_at=null, radar_scan_started_at=null");
+  assert.equal(beginScan(), "f", "a switched-off pipeline never scans");
+  sql("update journal_editorial_settings set mode='publish'");
+  fails("select begin_journal_radar_scan(5)", /at least 30 minutes/, "the radar never scans more often than every half hour");
+  assert.equal(beginScan(), "t", "a radar never scanned is due");
+  assert.equal(beginScan(), "f", "a scan in flight holds off a second one");
+  assert.equal(
+    record(
+      [radarSignal("a1"), radarSignal("a1", { title: "Repeated in the same feed" }), radarSignal("b2", { views: null, baseline_views: null, momentum: null }), radarSignal("old", { published_at: new Date(Date.now() - 50 * 86400000).toISOString() })],
+      [feedStatus("tommy-mello", true), feedStatus("mike-rowe", true), feedStatus("hbr", false)]
+    ),
+    '{"ok": 2, "total": 3, "pruned": 1, "stored": 3}',
+    "one copy per item, and nothing older than 45 days is kept"
+  );
+  assert.equal(sql("select title from journal_trend_signals where item_key='a1'"), "Video a1", "a feed that repeats an item keeps its first copy");
+  assert.equal(sql("select count(*) from journal_trend_signals"), "2");
+  assert.equal(sql("select summary is null from journal_trend_signals where item_key='a1'"), "t", "an empty summary is stored as none");
+  assert.equal(
+    sql("select (radar_scanned_at > now() - interval '1 minute')::text||'|'||jsonb_array_length(radar_sources)||'|'||(radar_sources->2->>'code') from journal_editorial_settings"),
+    "true|3|FEED_BLOCKED",
+    "each feed's outcome is kept for the Blog hub and the writer"
+  );
+  assert.equal(beginScan(), "f", "a fresh radar is current for six hours");
+  const firstSeen = sql("select first_seen_at from journal_trend_signals where item_key='a1'");
+  sql("select pg_sleep(0.01)");
+  record([radarSignal("a1", { views: 4500, momentum: 15 })], [feedStatus("tommy-mello", true)]);
+  assert.equal(
+    sql(`select views||'|'||momentum||'|'||(first_seen_at = '${firstSeen}')::text||'|'||(last_seen_at > first_seen_at)::text from journal_trend_signals where item_key='a1'`),
+    "4500|15.00|true|true",
+    "a signal seen again refreshes its numbers and keeps when it was first seen"
+  );
+  sql("update journal_editorial_settings set radar_scanned_at = now() - interval '7 hours', radar_scan_started_at = now() - interval '7 hours'");
+  assert.equal(beginScan(), "t", "a stale radar is due again");
+  sql("update journal_editorial_settings set radar_scanned_at = now() - interval '7 hours', radar_scan_started_at = now() - interval '11 minutes'");
+  assert.equal(beginScan(), "t", "a scan that died ten minutes ago no longer holds the radar");
+  fails(`select record_journal_radar_scan('${JSON.stringify([radarSignal("insecure", { url: "http://www.youtube.com/watch?v=x" })])}'::jsonb, '[]'::jsonb)`, /check|violates/, "only https signals");
+  fails(`select record_journal_radar_scan('{}'::jsonb, '[]'::jsonb)`, /array/, "signals arrive as an array");
+
+  const notifyRadar = (degraded, userId = user) =>
+    sql(`select notify_journal_radar('${userId}','${company}',${degraded},'JOURNAL RADAR DEGRADED','Fewer than half the trend feeds answered.','/admin/blog','OPEN BLOG')`);
+  assert.equal(notifyRadar(true), "raised");
+  assert.equal(notifyRadar(true), "open", "a degraded radar is one rail item, not one per scan");
+  assert.equal(sql("select count(*) from notifications where dedupe_key='journal:radar-degraded' and resolved_at is null"), "1");
+  assert.equal(notifyRadar(false), "resolved", "a healthy scan clears it");
+  assert.equal(notifyRadar(false), "clear");
+  assert.equal(notifyRadar(true, ""), "skipped", "no recipient, no item");
+
+  // --- the pitch -----------------------------------------------------------------
+  const w8 = "weekly:2026-10-26";
+  sql(`insert into journal_editorial_assignments(identity,slot_date,slot_at,state,mode,attempts,claim_token,lease_until) values('${w8}','2026-10-26',now()+interval '2 days','authoring','publish',1,'${t1}',now()+interval '10 minutes')`);
+  const id8 = idOf(w8);
+  const pitchJson = (topic) => JSON.stringify({ topic, headline: "YOUR NEW GUY QUIT BEFORE LUNCH" }).replace(/'/g, "''");
+  const pitch = (token, topic = "Why new hires quit") => sql(`select pitch_journal_editorial_assignment('${id8}','${token}','${pitchJson(topic)}'::jsonb)`);
+  assert.equal(pitch(t2), '{"code": "CLAIM_NOT_OWNED"}', "only the claim holder pitches");
+  const lease0 = row(w8, "lease_until");
+  assert.match(pitch(t1), /"state": "pitched"/);
+  assert.equal(
+    row(w8, `pitches||'|'||pitch_claim_token||'|'||(pitch->>'topic')||'|'||(lease_until > '${lease0}'::timestamptz + interval '45 minutes')::text||'|'||(pitched_at is not null)::text`),
+    `1|${t1}|Why new hires quit|true|true`,
+    "the first pitch of a claim renews the lease, because the writing starts now"
+  );
+  const lease1 = row(w8, "lease_until");
+  pitch(t1, "A sharper topic");
+  assert.equal(row(w8, `pitches||'|'||(pitch->>'topic')||'|'||(lease_until = '${lease1}'::timestamptz)::text`), "2|A sharper topic|true", "a revised pitch replaces the last and does not renew the lease again");
+  pitch(t1, "The third try");
+  assert.equal(pitch(t1, "A fourth try"), '{"code": "PITCH_LIMIT"}', "three pitches per claim");
+  assert.equal(row(w8, "pitch->>'topic'"), "The third try");
+  assert.equal(
+    row(w8, "(select count(*) from jsonb_array_elements(attempt_log) e where e->>'event'='pitched')"),
+    "3",
+    "every accepted pitch is in the attempt log"
+  );
+  setRow(w8, `claim_token='${t3}', attempts=2, lease_until=now()+interval '5 minutes'`);
+  assert.match(pitch(t3, "A new claim's topic"), /"state": "pitched"/, "a new claim starts its own pitch count");
+  assert.equal(row(w8, `pitches||'|'||pitch_claim_token||'|'||(lease_until > now() + interval '55 minutes')::text`), `1|${t3}|true`);
+  setRow(w8, "lease_until=now()-interval '1 minute'");
+  assert.equal(pitch(t3), '{"code": "CLAIM_NOT_OWNED"}', "an expired lease cannot pitch");
+  setRow(w8, "lease_until=now()+interval '5 minutes'");
+  fails(`select pitch_journal_editorial_assignment('${id8}','${t3}','[]'::jsonb)`, /object/, "a pitch is an object");
+  fails(`select pitch_journal_editorial_assignment('${id8}','${t3}',jsonb_build_object('topic', repeat('x', 70000)))`, /too large/, "a pitch has a size ceiling");
+  setRow(w8, "state='queued', claim_token=null, lease_until=null");
+  assert.equal(pitch(t3), '{"code": "CLAIM_NOT_OWNED"}', "a queued slot has no pitch holder");
+
   // --- grants -----------------------------------------------------------------
   for (const role of ["anon", "authenticated"]) {
     fails(`set role ${role}; select count(*) from journal_editorial_assignments`, /permission denied/, `${role} cannot read the ledger`);
@@ -376,15 +482,21 @@ try {
     fails(`set role ${role}; select claim_journal_editorial_assignment('${t1}','x')`, /permission denied/, `${role} cannot claim`);
     fails(`set role ${role}; select request_journal_editorial_image('${id1}','x')`, /permission denied/, `${role} cannot ask for a photograph`);
     fails(`set role ${role}; select replace_journal_editorial_image('${id1}','{"url":"https://h/x.jpg"}'::jsonb)`, /permission denied/, `${role} cannot replace a photograph`);
+    fails(`set role ${role}; select count(*) from journal_trend_signals`, /permission denied/, `${role} cannot read the radar`);
+    fails(`set role ${role}; select begin_journal_radar_scan(360)`, /permission denied/, `${role} cannot start a scan`);
+    fails(`set role ${role}; select record_journal_radar_scan('[]'::jsonb,'[]'::jsonb)`, /permission denied/, `${role} cannot write the radar`);
+    fails(`set role ${role}; select notify_journal_radar('u','c',true,'t','b','/','x')`, /permission denied/, `${role} cannot raise the radar item`);
+    fails(`set role ${role}; select pitch_journal_editorial_assignment('${id1}','${t1}','{}'::jsonb)`, /permission denied/, `${role} cannot pitch`);
   }
+  assert.equal(sqlAs("service_role", "select count(*) from journal_trend_signals"), "2", "service role reads the radar");
   assert.equal(sqlAs("service_role", "select count(*) from journal_editorial_assignments") !== "", true, "service role reads the ledger");
   assert.equal(
-    sql("select bool_and(relrowsecurity) from pg_class where relname in ('journal_editorial_settings','journal_editorial_assignments','journal_editorial_sources')"),
+    sql("select bool_and(relrowsecurity) from pg_class where relname in ('journal_editorial_settings','journal_editorial_assignments','journal_editorial_sources','journal_trend_signals')"),
     "t",
-    "row level security is on for all three tables"
+    "row level security is on for all four tables"
   );
   assert.equal(
-    sql("select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname like '%journal_editorial%' and p.prosecdef"),
+    sql("select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and (p.proname like '%journal_editorial%' or p.proname like '%journal_radar%') and p.prosecdef"),
     "0",
     "every function runs as its caller"
   );

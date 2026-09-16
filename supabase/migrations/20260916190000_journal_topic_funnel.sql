@@ -91,9 +91,11 @@ begin
  select distinct on (x.source_key, x.item_key)
   x.source_key, x.sphere, x.kind, x.item_key, x.url, x.title, nullif(x.summary, ''), x.published_at,
   x.views, x.baseline_views, x.momentum, x.comments
- from jsonb_to_recordset(p_signals) with ordinality as x(
+ from rows from (jsonb_to_recordset(p_signals) as (
   source_key text, sphere text, kind text, item_key text, url text, title text, summary text,
-  published_at timestamptz, views bigint, baseline_views bigint, momentum numeric, comments integer, ord bigint)
+  published_at timestamptz, views bigint, baseline_views bigint, momentum numeric, comments integer))
+  with ordinality as x(source_key, sphere, kind, item_key, url, title, summary, published_at,
+  views, baseline_views, momentum, comments, ord)
  order by x.source_key, x.item_key, x.ord
  on conflict (source_key, item_key) do update set
   sphere = excluded.sphere, kind = excluded.kind, url = excluded.url, title = excluded.title,
