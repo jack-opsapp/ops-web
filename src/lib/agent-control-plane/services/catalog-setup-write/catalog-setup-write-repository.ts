@@ -8,6 +8,7 @@ import {
   type CatalogSetupWriteKind,
   type CatalogSetupWriteResult,
   type PrepareCreateCatalogVariantInput,
+  type PrepareSetVariantThresholdsInput,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import { CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
 
@@ -80,7 +81,8 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_WRITE_AUTHORITY_") ||
     message.startsWith("CATALOG_SETUP_WRITE_GRANT_") ||
     message.startsWith("CATALOG_SETUP_WRITE_CONFIRMATION_STALE") ||
-    message.startsWith("CATALOG_SETUP_FAMILY_NOT_FOUND")
+    message.startsWith("CATALOG_SETUP_FAMILY_NOT_FOUND") ||
+    message.startsWith("CATALOG_SETUP_VARIANT_NOT_FOUND")
   )
     return new CatalogSetupWriteRepositoryError("STALE", error);
   if (
@@ -88,6 +90,8 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_PRICE_REQUIRED") ||
     message.startsWith("CATALOG_SETUP_OPTION_") ||
     message.startsWith("CATALOG_SETUP_THRESHOLDS_INVALID") ||
+    message.startsWith("CATALOG_SETUP_THRESHOLDS_NOT_WHOLE") ||
+    message.startsWith("CATALOG_SETUP_NO_CHANGE") ||
     message.startsWith("CATALOG_SETUP_CURRENCY_") ||
     message.startsWith("CATALOG_SETUP_EVIDENCE_") ||
     message.startsWith("CATALOG_SETUP_FAMILY_HAS_NO_OPTIONS") ||
@@ -133,6 +137,12 @@ export interface CatalogSetupWriteRepository {
   prepareCreateVariant(input: {
     actorContext: ActorContext;
     request: PrepareCreateCatalogVariantInput;
+    observedAt: string;
+    signal?: AbortSignal;
+  }): Promise<CatalogSetupWriteResult>;
+  prepareSetThresholds(input: {
+    actorContext: ActorContext;
+    request: PrepareSetVariantThresholdsInput;
     observedAt: string;
     signal?: AbortSignal;
   }): Promise<CatalogSetupWriteResult>;
@@ -218,6 +228,65 @@ export function matchesCreateVariantRequest(
   );
 }
 
+/**
+ * A thresholds preview must describe this variant and exactly the levels the
+ * request asked for: a number sets the variant's own level, a null leaves the
+ * variant carrying none of its own, and an omitted key leaves that level
+ * untouched. Anything else is a preview of a different change.
+ */
+export function matchesSetThresholdsRequest(
+  result: CatalogSetupWriteResult,
+  request: PrepareSetVariantThresholdsInput
+): boolean {
+  if (result.kind !== "set_thresholds") return false;
+  const proposal = result.proposal;
+  if (proposal.kind !== "set_thresholds") return false;
+  if (
+    proposal.before.variant.variant_ref.id !== request.variant_ref.id ||
+    proposal.after.variant.variant_ref.id !== request.variant_ref.id
+  ) {
+    return false;
+  }
+
+  let changed = 0;
+  for (const [field, side] of [
+    ["warning_threshold", "warning"],
+    ["critical_threshold", "critical"],
+  ] as const) {
+    const before = proposal.before[side];
+    const after = proposal.after[side];
+    if (!Object.prototype.hasOwnProperty.call(request, field)) {
+      if (after.value !== before.value || after.origin !== before.origin)
+        return false;
+      continue;
+    }
+    const requested = request[field];
+    if (requested === null || requested === undefined) {
+      // Cleared: the variant may no longer be the origin of this level.
+      if (after.origin === "variant") return false;
+    } else if (after.origin !== "variant" || after.value !== String(requested)) {
+      return false;
+    }
+    if (after.value !== before.value || after.origin !== before.origin) {
+      changed += 1;
+    }
+  }
+  if (changed < 1) return false;
+  if (
+    proposal.effects.thresholds_changed !== changed ||
+    proposal.effects.variants_updated !== 1 ||
+    proposal.effects.stock_events_recorded !== 0 ||
+    proposal.effects.prices_changed !== 0
+  ) {
+    return false;
+  }
+
+  if (proposal.evidence.length !== request.evidence.length) return false;
+  return request.evidence.every(
+    (item, index) => proposal.evidence[index]?.text === item.text
+  );
+}
+
 /** "45.0000" and "45" are the same price; string equality alone is not. */
 function sameDecimal(left: string | null, right: string | null): boolean {
   if (left === null || right === null) return left === right;
@@ -248,6 +317,28 @@ export function createCatalogSetupWriteRepository(input: {
         !parsed.success ||
         parsed.data.request_id !== read.actorContext.requestId ||
         !matchesCreateVariantRequest(parsed.data, read.request)
+      ) {
+        throw new CatalogSetupWriteRepositoryError("UNAVAILABLE");
+      }
+      return Object.freeze(parsed.data);
+    },
+    async prepareSetThresholds(read) {
+      const response = await execute(
+        input.rpc("prepare_catalog_setup_write_as_system", {
+          ...binding(read.actorContext, "set_thresholds"),
+          p_kind: "set_thresholds",
+          p_request_id: read.actorContext.requestId,
+          p_request: read.request,
+          p_observed_at: read.observedAt,
+        }),
+        read.signal
+      );
+      if (response.error) throw normalizedError(response.error);
+      const parsed = CatalogSetupWriteResultSchema.safeParse(response.data);
+      if (
+        !parsed.success ||
+        parsed.data.request_id !== read.actorContext.requestId ||
+        !matchesSetThresholdsRequest(parsed.data, read.request)
       ) {
         throw new CatalogSetupWriteRepositoryError("UNAVAILABLE");
       }

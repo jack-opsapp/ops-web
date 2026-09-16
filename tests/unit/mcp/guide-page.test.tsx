@@ -68,7 +68,7 @@ describe("public MCP developer guide", () => {
     ).toBeInTheDocument();
 
     const overview = sectionNamed(/^OPS MCP server$/i);
-    expect(overview).toHaveTextContent(/available tools\s*36/i);
+    expect(overview).toHaveTextContent(/available tools\s*37/i);
     expect(overview).toHaveTextContent(/permission scopes\s*22/i);
     const pageText = document.body.textContent ?? "";
     expect(pageText).toMatch(/latest site visit.*still needs follow-up/i);

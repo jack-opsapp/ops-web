@@ -8,6 +8,27 @@ import {
 import { matchesCreateVariantRequest } from "@/lib/agent-control-plane/services/catalog-setup-write/catalog-setup-write-repository";
 
 /**
+ * The published result and receipt are unions over the write kind. The fixture
+ * is a create_variant round trip, so narrow once here and let every assertion
+ * below read that kind's own fields.
+ */
+function createVariantPrepare() {
+  const parsed = CatalogSetupWriteResultSchema.parse(live.prepare);
+  if (parsed.proposal.kind !== "create_variant") {
+    throw new Error("The live fixture is a create_variant prepare");
+  }
+  return { ...parsed, proposal: parsed.proposal };
+}
+
+function createVariantReceipt() {
+  const parsed = CatalogSetupWriteReceiptSchema.parse(live.receipt);
+  if (parsed.kind !== "create_variant") {
+    throw new Error("The live fixture is a create_variant receipt");
+  }
+  return parsed;
+}
+
+/**
  * The fixture is the literal jsonb `public.prepare_catalog_setup_write_as_system`
  * and `public.commit_catalog_setup_write_as_actor` returned against a local copy
  * of production structure and Canpro's real catalogue, captured by
@@ -30,8 +51,7 @@ describe("catalogue setup write live database shape", () => {
   });
 
   it("carries the decisions the tool is supposed to enforce", () => {
-    const result = CatalogSetupWriteResultSchema.parse(live.prepare);
-    const receipt = CatalogSetupWriteReceiptSchema.parse(live.receipt);
+    const result = createVariantPrepare();
     expect(result.status).toBe("approval_required");
     expect(result.proposal.kind).toBe("create_variant");
     // Opening stock is an event, and the scalar the rest of OPS reads agrees.
@@ -57,8 +77,8 @@ describe("catalogue setup write live database shape", () => {
   });
 
   it("reads back exactly what the approved preview predicted", () => {
-    const result = CatalogSetupWriteResultSchema.parse(live.prepare);
-    const receipt = CatalogSetupWriteReceiptSchema.parse(live.receipt);
+    const result = createVariantPrepare();
+    const receipt = createVariantReceipt();
     expect(receipt.readback).toEqual(result.proposal.after.variant);
     expect(receipt.preview_sha256).toBe(result.preview_sha256);
     expect(receipt.change_set_id).toBe(result.change_set_id);
@@ -68,7 +88,7 @@ describe("catalogue setup write live database shape", () => {
   });
 
   it("satisfies the repository's own request/preview matcher", () => {
-    const result = CatalogSetupWriteResultSchema.parse(live.prepare);
+    const result = createVariantPrepare();
     const request = {
       family_ref: result.proposal.family.family_ref,
       option_values: result.proposal.after.variant.option_values.map(

@@ -147,6 +147,7 @@ const PUBLIC_MCP_TOOL_GROUPS = Object.freeze([
       "search_catalog_items",
       "get_catalog_item",
       "prepare_create_catalog_variant",
+      "prepare_set_variant_thresholds",
       "list_purchase_orders",
       "get_purchase_order",
     ]),
@@ -246,6 +247,12 @@ const DOCUMENTED_PREPARE_SCOPES: ReadonlySet<string> = new Set([
 const DOCUMENTED_PREPARE_TOOLS: ReadonlySet<string> = new Set([
   "prepare_customer_update",
   "prepare_create_catalog_variant",
+  "prepare_set_variant_thresholds",
+]);
+/** The catalogue-setup writes mint under v28, not the base manifest. */
+const CATALOG_SETUP_WRITE_TOOLS: ReadonlySet<string> = new Set([
+  "prepare_create_catalog_variant",
+  "prepare_set_variant_thresholds",
 ]);
 
 function publicScope(scopeId: string): PublicMcpScope {
@@ -280,12 +287,11 @@ function publicTool(
   activeScopeOrder: readonly string[],
   readsRecipeShapeV2: boolean
 ): PublicMcpTool {
-  const entry =
-    toolId === "prepare_create_catalog_variant"
-      ? getCatalogSetupWriteCapabilityManifestEntry(toolId)
-      : toolId === "prepare_customer_update"
-        ? getCustomerUpdateCapabilityManifestEntry(toolId)
-        : getCapabilityManifestEntry(toolId);
+  const entry = CATALOG_SETUP_WRITE_TOOLS.has(toolId)
+    ? getCatalogSetupWriteCapabilityManifestEntry(toolId)
+    : toolId === "prepare_customer_update"
+      ? getCustomerUpdateCapabilityManifestEntry(toolId)
+      : getCapabilityManifestEntry(toolId);
   if (
     (entry.operation !== "read" &&
       !(

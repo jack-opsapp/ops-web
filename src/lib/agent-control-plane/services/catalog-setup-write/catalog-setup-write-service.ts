@@ -18,8 +18,10 @@ import {
 } from "@/lib/agent-control-plane/contracts";
 import {
   PrepareCreateCatalogVariantInputSchema,
+  PrepareSetVariantThresholdsInputSchema,
   type CatalogSetupWriteResult,
   type PrepareCreateCatalogVariantInput,
+  type PrepareSetVariantThresholdsInput,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import { reauthorizeResolvedMcpActor } from "@/lib/agent-control-plane/mcp/actor-reauthorization";
 import {
@@ -116,6 +118,11 @@ export interface CatalogSetupWriteService {
     input: PrepareCreateCatalogVariantInput,
     options?: { signal?: AbortSignal }
   ): Promise<CatalogSetupWriteResult>;
+  prepareSetVariantThresholds(
+    actorContext: ActorContext,
+    input: PrepareSetVariantThresholdsInput,
+    options?: { signal?: AbortSignal }
+  ): Promise<CatalogSetupWriteResult>;
 }
 
 function authorize(
@@ -154,77 +161,119 @@ export function createCatalogSetupWriteService(input: {
     throw new TypeError("A valid clock is required");
   }
 
-  const service: CatalogSetupWriteService = {
-    async prepareCreateCatalogVariant(actorContext, rawInput, options) {
-      if (!isActorContext(actorContext)) {
-        throw authorizationInternal(
-          "unknown-request",
-          "catalog_setup_write_actor_untrusted"
-        );
-      }
-      let request: PrepareCreateCatalogVariantInput;
-      try {
-        request = PrepareCreateCatalogVariantInputSchema.parse(rawInput);
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          throw new CatalogSetupWritePrepareError({
-            code: "INVALID_ARGUMENT",
-            requestId: actorContext.requestId,
-            cause: error,
-          });
-        }
-        throw error;
-      }
-      authorize(actorContext, "prepare_create_catalog_variant", request);
-      try {
-        const current = await reauthorizeResolvedMcpActor({
-          actorContext,
-          authorityRepository: input.authorityRepository,
-          capabilityManifestRevision:
-            CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION,
-          signal: options?.signal,
-        });
-        authorize(current, "prepare_create_catalog_variant", request);
-        const observedAt = now();
-        if (Number.isNaN(observedAt.getTime())) {
-          throw new Error("Invalid clock");
-        }
-        return await input.repository.prepareCreateVariant({
-          actorContext: current,
-          request,
-          observedAt: observedAt.toISOString(),
-          signal: options?.signal,
-        });
-      } catch (error) {
-        if (
-          error instanceof ActorAccessError ||
-          error instanceof CatalogSetupWritePrepareError
-        ) {
-          throw error;
-        }
-        if (error instanceof CatalogSetupWriteRepositoryError) {
-          const code =
-            error.code === "CONFLICT" || error.code === "DUPLICATE"
-              ? error.code
-              : error.code === "INVALID"
-                ? "INVALID_ARGUMENT"
-                : error.code === "POLICY"
-                  ? "POLICY_UNAVAILABLE"
-                  : error.code === "STALE"
-                    ? "STALE_CONTEXT"
-                    : "TEMPORARILY_UNAVAILABLE";
-          throw new CatalogSetupWritePrepareError({
-            code,
-            requestId: actorContext.requestId,
-            cause: error,
-          });
-        }
+  /**
+   * Every kind runs the same gate: trusted actor, its own zod parse,
+   * capability authorization, a fresh authority re-read, capability
+   * authorization again against that fresh authority, then the repository. The
+   * per-kind part is the schema, the capability id and the repository call.
+   */
+  async function prepare<Input>(args: {
+    actorContext: ActorContext;
+    rawInput: unknown;
+    options?: { signal?: AbortSignal };
+    capabilityId: string;
+    schema: { parse(value: unknown): Input };
+    send(current: ActorContext, request: Input, observedAt: string): Promise<CatalogSetupWriteResult>;
+  }): Promise<CatalogSetupWriteResult> {
+    const { actorContext, rawInput, options, capabilityId, schema } = args;
+    if (!isActorContext(actorContext)) {
+      throw authorizationInternal(
+        "unknown-request",
+        "catalog_setup_write_actor_untrusted"
+      );
+    }
+    let request: Input;
+    try {
+      request = schema.parse(rawInput);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
         throw new CatalogSetupWritePrepareError({
-          code: "TEMPORARILY_UNAVAILABLE",
+          code: "INVALID_ARGUMENT",
           requestId: actorContext.requestId,
           cause: error,
         });
       }
+      throw error;
+    }
+    authorize(actorContext, capabilityId, request);
+    try {
+      const current = await reauthorizeResolvedMcpActor({
+        actorContext,
+        authorityRepository: input.authorityRepository,
+        capabilityManifestRevision:
+          CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION,
+        signal: options?.signal,
+      });
+      authorize(current, capabilityId, request);
+      const observedAt = now();
+      if (Number.isNaN(observedAt.getTime())) {
+        throw new Error("Invalid clock");
+      }
+      return await args.send(current, request, observedAt.toISOString());
+    } catch (error) {
+      if (
+        error instanceof ActorAccessError ||
+        error instanceof CatalogSetupWritePrepareError
+      ) {
+        throw error;
+      }
+      if (error instanceof CatalogSetupWriteRepositoryError) {
+        const code =
+          error.code === "CONFLICT" || error.code === "DUPLICATE"
+            ? error.code
+            : error.code === "INVALID"
+              ? "INVALID_ARGUMENT"
+              : error.code === "POLICY"
+                ? "POLICY_UNAVAILABLE"
+                : error.code === "STALE"
+                  ? "STALE_CONTEXT"
+                  : "TEMPORARILY_UNAVAILABLE";
+        throw new CatalogSetupWritePrepareError({
+          code,
+          requestId: actorContext.requestId,
+          cause: error,
+        });
+      }
+      throw new CatalogSetupWritePrepareError({
+        code: "TEMPORARILY_UNAVAILABLE",
+        requestId: actorContext.requestId,
+        cause: error,
+      });
+    }
+  }
+
+  const service: CatalogSetupWriteService = {
+    async prepareCreateCatalogVariant(actorContext, rawInput, options) {
+      return await prepare<PrepareCreateCatalogVariantInput>({
+        actorContext,
+        rawInput,
+        options,
+        capabilityId: "prepare_create_catalog_variant",
+        schema: PrepareCreateCatalogVariantInputSchema,
+        send: (current, request, observedAt) =>
+          input.repository.prepareCreateVariant({
+            actorContext: current,
+            request,
+            observedAt,
+            signal: options?.signal,
+          }),
+      });
+    },
+    async prepareSetVariantThresholds(actorContext, rawInput, options) {
+      return await prepare<PrepareSetVariantThresholdsInput>({
+        actorContext,
+        rawInput,
+        options,
+        capabilityId: "prepare_set_variant_thresholds",
+        schema: PrepareSetVariantThresholdsInputSchema,
+        send: (current, request, observedAt) =>
+          input.repository.prepareSetThresholds({
+            actorContext: current,
+            request,
+            observedAt,
+            signal: options?.signal,
+          }),
+      });
     },
   };
   TRUSTED_SERVICES.add(service);

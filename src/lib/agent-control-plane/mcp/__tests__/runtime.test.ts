@@ -120,6 +120,7 @@ describe("MCP production runtime", () => {
       "prepareDispatchConfirmationTask",
       "prepareCustomerUpdate",
       "prepareCreateCatalogVariant",
+      "prepareSetVariantThresholds",
       "prepareScheduleChange",
       "inspectFinancialDocument",
       "prepareFinancialDocument",

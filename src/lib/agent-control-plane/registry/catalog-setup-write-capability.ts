@@ -3,6 +3,7 @@ import {
   CATALOG_SETUP_WRITE_SCHEMA_REVISION,
   CommitCatalogSetupWriteInputSchema,
   PrepareCreateCatalogVariantInputSchema,
+  PrepareSetVariantThresholdsInputSchema,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import type {
   CapabilityAuthorizationSelector,
@@ -81,6 +82,52 @@ const AUTHORIZATION = Object.freeze({
     }),
   ]),
 });
+
+export const PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_DEFINITION =
+  Object.freeze({
+    name: "prepare_set_variant_thresholds",
+    schemaRevision: CATALOG_SETUP_WRITE_SCHEMA_REVISION,
+    operation: "prepare",
+    writeFamily: "catalog_setup_write",
+    description:
+      "Prepare the low-stock warning and critical levels on one existing catalogue variant for exact operator approval inside OPS. Thresholds are whole units, in and out, as OPS stores and shows them. Name at least one of the two: a whole number sets the variant's own level, and an explicit null clears it so the variant falls back to the family default, then the category default, then nothing tracked at all. The preview reports the resulting effective level with the origin it comes from — variant, family, category or none. Where both levels resolve, the critical level must be at or below the warning level. A request that resolves to the levels already in force is refused rather than staged. Nothing else on the variant moves: no stock event, no price, no message and no accounting sync.",
+    inputSchema: PrepareSetVariantThresholdsInputSchema,
+    authorization: AUTHORIZATION,
+    riskTier: "high",
+    bounds: {
+      maxInputBytes: 32_768,
+      maxOutputCharacters: 48_000,
+      maxResultItems: 1,
+    },
+    evidencePolicy: {
+      input: "required",
+      output: "required",
+      maxEvidenceRefs: 3,
+      promptSafeOutput: true,
+      untrustedExternalContent: "structured_and_marked",
+    },
+    auditClass: "mutation_prepare",
+    rateLimitBucket: "prepare",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    confirmationPolicy: {
+      kind: "change_set_preview",
+      exactPreviewRequired: true,
+      expires: true,
+    },
+    idempotencyPolicy: {
+      kind: "required",
+      keyField: "idempotency_key",
+      conflictOnArgumentsHashMismatch: true,
+    },
+    availability: { implementation: "available" },
+    rolloutFlag:
+      "agent_control_plane.capability.prepare_set_variant_thresholds",
+  } as const satisfies ImplementationOnlyCapabilityDefinition);
 
 /** The commit confirms whichever prepare produced the approved change set. */
 const COMMIT_AUTHORIZATION = Object.freeze({
@@ -191,6 +238,7 @@ export const COMMIT_CATALOG_SETUP_WRITE_CAPABILITY_DEFINITION = Object.freeze({
 /** Prepare definitions in exposure order; a later kind appends here. */
 export const CATALOG_SETUP_WRITE_PREPARE_DEFINITIONS = Object.freeze([
   PREPARE_CREATE_CATALOG_VARIANT_CAPABILITY_DEFINITION,
+  PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_DEFINITION,
 ]);
 
 export const CATALOG_SETUP_WRITE_DEFINITIONS = Object.freeze([

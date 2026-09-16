@@ -4,8 +4,19 @@ import { validatedMcpPrincipalFixture } from "@/lib/agent-control-plane/actor/__
 import { resolveActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import type {
   CatalogSetupWriteResult,
+  CreateCatalogVariantPreview,
   PrepareCreateCatalogVariantInput,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
+
+/**
+ * The shared result type carries a preview union. Every assertion in the
+ * create-variant suite reads that kind's own fields, so the fixture pins the
+ * member rather than making each test narrow it again.
+ */
+export type CreateVariantResultFixture = Omit<
+  CatalogSetupWriteResult,
+  "proposal"
+> & { proposal: CreateCatalogVariantPreview };
 
 export const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
 export const ACTOR_ID = "22222222-2222-4222-8222-222222222222";
@@ -63,7 +74,7 @@ export function requestFixture(
 
 export function resultFixture(
   request: PrepareCreateCatalogVariantInput = requestFixture()
-): CatalogSetupWriteResult {
+): CreateVariantResultFixture {
   const opening = request.opening_quantity;
   const variant = {
     option_values: request.option_values.map((entry, index) => ({

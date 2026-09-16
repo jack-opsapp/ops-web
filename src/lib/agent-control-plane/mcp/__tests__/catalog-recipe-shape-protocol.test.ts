@@ -230,10 +230,11 @@ describe("catalogue recipe shape is chosen by the exposure", () => {
     expect(describe24?.description).toContain("recipe");
     expect(describe24?.description).not.toBe(describe23?.description);
     expect(describe23?.description).not.toContain("scaled");
-    // V24 carries V23's ordered read set plus the one catalogue prepare tool.
+    // V24 carries V23's ordered read set plus the catalogue prepare tools.
     expect(v24.map((tool) => tool.name)).toEqual([
       ...v23.map((tool) => tool.name),
       "prepare_create_catalog_variant",
+      "prepare_set_variant_thresholds",
     ]);
   });
 });

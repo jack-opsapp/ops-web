@@ -52,14 +52,15 @@ const subject = {
 };
 
 describe("catalogue recipe read successor exposure", () => {
-  it("is V23's authority plus the one catalogue prepare, published as the new active revision", () => {
+  it("is V23's authority plus the catalogue prepares, published as the new active revision", () => {
     expect(MCP_EXPOSURE_V24.revision).toBe("2026-09-15.mcp-exposure.v24");
-    // V24 carries the richer recipe read AND the first catalogue setup write.
+    // V24 carries the richer recipe read AND the catalogue setup writes.
     expect(MCP_EXPOSURE_V24.toolIds).toEqual([
       ...MCP_EXPOSURE_V23.toolIds,
       "prepare_create_catalog_variant",
+      "prepare_set_variant_thresholds",
     ]);
-    expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(36);
+    expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(37);
     expect(MCP_EXPOSURE_V24.grantableScopes).toEqual(
       [...MCP_EXPOSURE_V23.grantableScopes, "ops.catalog.prepare"].sort()
     );

@@ -36,4 +36,4 @@ exports[`MCP display metadata > publishes readable titles without changing '2026
 
 exports[`MCP display metadata > publishes readable titles without changing '2026-09-10.mcp-exposure.v23' tool IDs 1`] = `"83de507c862ed3e4980d05ba54dd37710f2b239371858adbd615a3db1ed2d2c0"`;
 
-exports[`MCP display metadata > publishes readable titles without changing '2026-09-15.mcp-exposure.v24' tool IDs 1`] = `"98d9976baa4746f41710a1704e53250fc162feebd02e1757ca0b88632fbb8297"`;
+exports[`MCP display metadata > publishes readable titles without changing '2026-09-15.mcp-exposure.v24' tool IDs 1`] = `"f7a882076a2d0a4a4106887904e38a0fe663b35eae4431c319a95c3cc08df2e2"`;

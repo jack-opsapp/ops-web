@@ -249,7 +249,137 @@ describe("catalogue setup write exact approval", () => {
       "catalogSetupWrite.invalid"
     );
   });
+
+  it("reads a threshold change as now/after with the level each value comes from", () => {
+    const proposal = thresholdsProposal();
+    const approve = vi.fn();
+    render(
+      <ActionDetail
+        action={make({
+          actionType: "approve_catalog_setup_write",
+          actionData: {
+            proposal,
+            preview_sha256: `sha256:${"e".repeat(64)}`,
+            change_set_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          },
+        })}
+        onApprove={approve}
+        onReject={() => {}}
+        t={(k) => k}
+      />
+    );
+    expect(screen.getAllByText(/Line/).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Black \/ Topmount \/ 72"/)
+    ).toBeInTheDocument();
+    // Both levels are shown, including the one the request left alone.
+    expect(
+      screen.getByText("catalogSetupWrite.warning")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("catalogSetupWrite.critical")
+    ).toBeInTheDocument();
+    // An untracked level reads as an em dash, not as a missing row.
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("24")).toBeInTheDocument();
+    expect(screen.getByText("6")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/catalogSetupWrite.origin.none/).length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/catalogSetupWrite.origin.variant/).length
+    ).toBeGreaterThan(0);
+    // This kind never claims the create kind's stock sentence.
+    expect(
+      screen.queryByText(/catalogSetupWrite.openingStockNote/)
+    ).toBeNull();
+    expect(
+      screen.getByText(/catalogSetupWrite.thresholdEffects/)
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    );
+    expect(approve).toHaveBeenCalledWith("action-1", {
+      preview_sha256: `sha256:${"e".repeat(64)}`,
+      change_set_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    });
+  });
+
+  it("refuses a threshold preview whose origin and value disagree", () => {
+    const proposal = thresholdsProposal();
+    (
+      proposal as unknown as {
+        after: { warning: { value: string | null; origin: string } };
+      }
+    ).after.warning = { value: null, origin: "variant" };
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal },
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "catalogSetupWrite.invalid"
+    );
+    expect(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    ).toBeDisabled();
+  });
 });
+
+function thresholdsProposal() {
+  const variant = {
+    variant_ref: {
+      kind: "catalog_variant",
+      id: "411f89c9-d2a1-44a8-8377-6c11a098f0f7",
+    },
+    value_labels: ["Black", "Topmount", '72"'],
+    sku: null,
+  };
+  return {
+    operation: "set_variant_thresholds",
+    kind: "set_thresholds",
+    policy_revision: "2026-09-15.catalog-setup-write.v1",
+    family: {
+      family_ref: {
+        kind: "catalog_family",
+        id: "393c5c83-d9df-2a48-9837-2e04501b34c6",
+      },
+      name: "Line",
+    },
+    before: {
+      variant,
+      warning: { value: null, origin: "none" },
+      critical: { value: null, origin: "none" },
+    },
+    after: {
+      variant,
+      warning: { value: "24", origin: "variant" },
+      critical: { value: "6", origin: "variant" },
+    },
+    effects: {
+      variants_created: 0,
+      stock_units_created: 0,
+      stock_events_recorded: 0,
+      prices_changed: 0,
+      options_created: 0,
+      variants_backfilled: 0,
+      supplier_cost_profiles_written: 0,
+      messages_sent: 0,
+      accounting_sync_enqueued: 0,
+      variants_updated: 1,
+      thresholds_changed: 2,
+    },
+    evidence: [
+      {
+        kind: "operator_statement",
+        text: "Jackson wants this line warning at 24 and critical at 6.",
+        source_sha256: `sha256:${"f".repeat(64)}`,
+        content_kind: "untrusted_business_data",
+      },
+    ],
+    expires_at: "2099-09-15T21:30:00.000Z",
+    reversal: "A correction requires a fresh preview and approval.",
+  };
+}
 import { resultFixture } from "@/lib/agent-control-plane/services/customer-update/__tests__/fixtures";
 describe("customer update exact approval", () => {
   it("renders literal evidence and submits the displayed seal without proposed edits", () => {
