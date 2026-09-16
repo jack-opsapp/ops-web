@@ -50,6 +50,7 @@
     "prepare_set_variant_thresholds": "Prepare variant stock levels",
     "prepare_set_catalog_pricing": "Prepare catalog price",
     "prepare_set_supplier_cost": "Prepare supplier cost",
+    "prepare_create_catalog_option": "Prepare catalog option",
     "prepare_customer_message": "Prepare customer message",
     "prepare_schedule_change": "Prepare schedule change",
     "prepare_financial_document": "Prepare financial document",

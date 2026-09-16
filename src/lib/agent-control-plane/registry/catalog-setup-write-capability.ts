@@ -2,6 +2,7 @@ import type { CapabilityPermissionRequirement } from "@/lib/agent-control-plane/
 import {
   CATALOG_SETUP_WRITE_SCHEMA_REVISION,
   CommitCatalogSetupWriteInputSchema,
+  PrepareCreateCatalogOptionInputSchema,
   PrepareCreateCatalogVariantInputSchema,
   PrepareSetCatalogPricingInputSchema,
   PrepareSetSupplierCostInputSchema,
@@ -101,6 +102,26 @@ const SETUP_AUTHORITY_VARIANT = Object.freeze({
   requiredOAuthScopes: Object.freeze(["ops.catalog.prepare"]),
   permissionRequirementGroups: Object.freeze([
     Object.freeze([permission("catalog.run_setup")]),
+  ]),
+});
+
+/**
+ * The shared base and nothing else. `AUTHORIZATION` also carries the
+ * opening-stock variant, which is right for a kind whose input can record
+ * stock; this one's input cannot, so declaring a stock permission it could
+ * never use would overstate what the tool asks for at discovery time.
+ */
+const BASE_ONLY_AUTHORIZATION = Object.freeze({
+  variants: Object.freeze([
+    Object.freeze({
+      key: "catalog_setup_write_base",
+      selector: Object.freeze({ kind: "always" as const }),
+      requiredOAuthScopes: Object.freeze([
+        "ops.catalog.read",
+        "ops.catalog.prepare",
+      ]),
+      permissionRequirementGroups: BASE_PERMISSIONS,
+    }),
   ]),
 });
 
@@ -348,6 +369,62 @@ export const PREPARE_CREATE_CATALOG_VARIANT_CAPABILITY_DEFINITION =
       "agent_control_plane.capability.prepare_create_catalog_variant",
   } as const satisfies ImplementationOnlyCapabilityDefinition);
 
+/**
+ * Adding a dimension writes catalog_options, catalog_option_values and the
+ * variant joins — and it writes them through `catalog_setup_save` as the
+ * approving operator, so the row policies on those three tables apply. Those
+ * policies ask for company isolation and nothing else, unlike the supplier-cost
+ * table's, which names `catalog.run_setup`. So this kind asks for exactly what
+ * `prepare_create_catalog_variant` asks for: the shared catalogue base and no
+ * setup key. The two money kinds ask for more because the fields THEY write are
+ * reached by a SECURITY DEFINER writer that would otherwise step past a policy;
+ * nothing here does.
+ */
+export const PREPARE_CREATE_CATALOG_OPTION_CAPABILITY_DEFINITION =
+  Object.freeze({
+    name: "prepare_create_catalog_option",
+    schemaRevision: CATALOG_SETUP_WRITE_SCHEMA_REVISION,
+    operation: "prepare",
+    writeFamily: "catalog_setup_write",
+    description:
+      "Prepare one new option — a dimension such as Height or Mount Type — on an existing catalogue family, with its values, for exact operator approval inside OPS. A name that already exists on the family, however it is cased, is refused, and so is a value list that names the same value twice. Adding a dimension to a family that already has variants leaves every one of them without a value for it, and a grid with a hole in it resolves ambiguously forever, so value_for_existing_variants is required whenever the family has any variant: every existing variant is backfilled with that one value in the same write, and the proposal lists every variant it will backfill. A family with no variants must not name it, because there is nothing to backfill. Value sets for the other new values are created afterwards, one at a time, with prepare_create_catalog_variant. sort_order defaults to the family's highest option order plus ten. Nothing else moves: no price, no cost, no stock, no message and no accounting sync.",
+    inputSchema: PrepareCreateCatalogOptionInputSchema,
+    authorization: BASE_ONLY_AUTHORIZATION,
+    riskTier: "high",
+    bounds: {
+      maxInputBytes: 32_768,
+      maxOutputCharacters: 48_000,
+      maxResultItems: 1,
+    },
+    evidencePolicy: {
+      input: "required",
+      output: "required",
+      maxEvidenceRefs: 3,
+      promptSafeOutput: true,
+      untrustedExternalContent: "structured_and_marked",
+    },
+    auditClass: "mutation_prepare",
+    rateLimitBucket: "prepare",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    confirmationPolicy: {
+      kind: "change_set_preview",
+      exactPreviewRequired: true,
+      expires: true,
+    },
+    idempotencyPolicy: {
+      kind: "required",
+      keyField: "idempotency_key",
+      conflictOnArgumentsHashMismatch: true,
+    },
+    availability: { implementation: "available" },
+    rolloutFlag: "agent_control_plane.capability.prepare_create_catalog_option",
+  } as const satisfies ImplementationOnlyCapabilityDefinition);
+
 export const COMMIT_CATALOG_SETUP_WRITE_CAPABILITY_DEFINITION = Object.freeze({
   name: "commit_catalog_setup_write",
   schemaRevision: CATALOG_SETUP_WRITE_SCHEMA_REVISION,
@@ -399,6 +476,7 @@ export const CATALOG_SETUP_WRITE_PREPARE_DEFINITIONS = Object.freeze([
   PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_DEFINITION,
   PREPARE_SET_CATALOG_PRICING_CAPABILITY_DEFINITION,
   PREPARE_SET_SUPPLIER_COST_CAPABILITY_DEFINITION,
+  PREPARE_CREATE_CATALOG_OPTION_CAPABILITY_DEFINITION,
 ]);
 
 export const CATALOG_SETUP_WRITE_DEFINITIONS = Object.freeze([

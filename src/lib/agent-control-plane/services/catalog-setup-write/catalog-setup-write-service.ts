@@ -17,11 +17,13 @@ import {
   CONTRACT_VERSION,
 } from "@/lib/agent-control-plane/contracts";
 import {
+  PrepareCreateCatalogOptionInputSchema,
   PrepareCreateCatalogVariantInputSchema,
   PrepareSetCatalogPricingInputSchema,
   PrepareSetSupplierCostInputSchema,
   PrepareSetVariantThresholdsInputSchema,
   type CatalogSetupWriteResult,
+  type PrepareCreateCatalogOptionInput,
   type PrepareCreateCatalogVariantInput,
   type PrepareSetCatalogPricingInput,
   type PrepareSetSupplierCostInput,
@@ -135,6 +137,11 @@ export interface CatalogSetupWriteService {
   prepareSetSupplierCost(
     actorContext: ActorContext,
     input: PrepareSetSupplierCostInput,
+    options?: { signal?: AbortSignal }
+  ): Promise<CatalogSetupWriteResult>;
+  prepareCreateCatalogOption(
+    actorContext: ActorContext,
+    input: PrepareCreateCatalogOptionInput,
     options?: { signal?: AbortSignal }
   ): Promise<CatalogSetupWriteResult>;
 }
@@ -314,6 +321,22 @@ export function createCatalogSetupWriteService(input: {
         schema: PrepareSetSupplierCostInputSchema,
         send: (current, request, observedAt) =>
           input.repository.prepareSetSupplierCost({
+            actorContext: current,
+            request,
+            observedAt,
+            signal: options?.signal,
+          }),
+      });
+    },
+    async prepareCreateCatalogOption(actorContext, rawInput, options) {
+      return await prepare<PrepareCreateCatalogOptionInput>({
+        actorContext,
+        rawInput,
+        options,
+        capabilityId: "prepare_create_catalog_option",
+        schema: PrepareCreateCatalogOptionInputSchema,
+        send: (current, request, observedAt) =>
+          input.repository.prepareCreateOption({
             actorContext: current,
             request,
             observedAt,

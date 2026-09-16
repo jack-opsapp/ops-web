@@ -47,7 +47,7 @@ function input(over: Record<string, unknown> = {}) {
 }
 
 describe("catalogue setup write kinds", () => {
-  it("reserves all five kinds and implements all but the last today", () => {
+  it("reserves all five kinds and implements every one of them", () => {
     expect(Object.keys(CATALOG_SETUP_WRITE_KINDS)).toEqual([
       "create_variant",
       "set_thresholds",
@@ -60,6 +60,7 @@ describe("catalogue setup write kinds", () => {
       "set_thresholds",
       "set_pricing",
       "set_supplier_cost",
+      "create_option",
     ]);
     expect(CATALOG_SETUP_WRITE_KINDS.create_variant.capabilityId).toBe(
       "prepare_create_catalog_variant"

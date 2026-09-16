@@ -237,6 +237,7 @@ describe("catalogue recipe shape is chosen by the exposure", () => {
       "prepare_set_variant_thresholds",
       "prepare_set_catalog_pricing",
       "prepare_set_supplier_cost",
+      "prepare_create_catalog_option",
     ]);
   });
 });

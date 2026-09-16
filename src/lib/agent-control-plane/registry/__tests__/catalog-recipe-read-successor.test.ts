@@ -61,8 +61,9 @@ describe("catalogue recipe read successor exposure", () => {
       "prepare_set_variant_thresholds",
       "prepare_set_catalog_pricing",
       "prepare_set_supplier_cost",
+      "prepare_create_catalog_option",
     ]);
-    expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(39);
+    expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(40);
     expect(MCP_EXPOSURE_V24.grantableScopes).toEqual(
       [...MCP_EXPOSURE_V23.grantableScopes, "ops.catalog.prepare"].sort()
     );

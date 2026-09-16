@@ -9,24 +9,27 @@ import {
 import { MCP_EXPOSURE_V23, MCP_EXPOSURE_V24 } from "../mcp-exposure-catalog";
 import { CATALOG_SETUP_WRITE_PREPARE_DEFINITIONS } from "../catalog-setup-write-capability";
 
-const VARIANT = "18234bac-442f-41e8-98e7-956c051fbf21";
+const FAMILY = "948ac4a0-882f-efe9-3bc4-b6f7c53fb12f";
 
 function input(over: Record<string, unknown> = {}) {
   return {
-    variant_ref: { kind: "catalog_variant", id: VARIANT },
-    profile_key: "rails-direct-2026",
-    label: "Rails Direct 2026 rate card",
-    unit_cost: { amount: "18.25", currency: "CAD" },
+    family_ref: { kind: "catalog_family", id: FAMILY },
+    name: "Height",
+    values: [{ value: '42"' }, { value: '72"' }],
+    value_for_existing_variants: '42"',
     evidence: [
-      { kind: "operator_statement", text: "Rails Direct quoted 18.25 per LF." },
+      {
+        kind: "operator_statement",
+        text: 'Jackson: every endcap rail on the shelf today is the 42" one.',
+      },
     ],
-    idempotency_key: "catalog-setup:vinyl-rails-direct",
+    idempotency_key: "catalog-setup:endcap-rail-height",
     ...over,
   };
 }
 
-describe("prepare_set_supplier_cost on the shared manifest", () => {
-  it("is the fourth catalogue prepare, minted under v28 beside the first three", () => {
+describe("prepare_create_catalog_option on the shared manifest", () => {
+  it("is the fifth catalogue prepare, minted under v28 beside the first four", () => {
     expect(
       CATALOG_SETUP_WRITE_PREPARE_DEFINITIONS.map(
         (definition) => definition.name
@@ -54,7 +57,7 @@ describe("prepare_set_supplier_cost on the shared manifest", () => {
     ]);
   });
 
-  it("is exposed in V24 in the plan's order and never in V23", () => {
+  it("is exposed last in V24 and never in V23", () => {
     expect(MCP_EXPOSURE_V24.toolIds).toEqual([
       ...MCP_EXPOSURE_V23.toolIds,
       "prepare_create_catalog_variant",
@@ -64,29 +67,33 @@ describe("prepare_set_supplier_cost on the shared manifest", () => {
       "prepare_create_catalog_option",
     ]);
     expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(40);
-    expect(MCP_EXPOSURE_V23.toolIds).not.toContain("prepare_set_supplier_cost");
-    // Cost visibility is an existing read scope, already grantable in V23.
-    expect(MCP_EXPOSURE_V24.grantableScopes).toContain("ops.catalog_costs.read");
+    expect(MCP_EXPOSURE_V23.toolIds).not.toContain(
+      "prepare_create_catalog_option"
+    );
+    // The last kind widens no grant: it adds no scope of its own.
     expect(MCP_EXPOSURE_V24.grantableScopes).toHaveLength(22);
   });
 
-  it("asks for cost-read scope and cost-visibility permission on top of the base", () => {
-    const cost = getCatalogSetupWriteCapabilityManifestEntry(
-      "prepare_set_supplier_cost"
+  it("asks for the shared catalogue authority and nothing beyond it", () => {
+    const option = getCatalogSetupWriteCapabilityManifestEntry(
+      "prepare_create_catalog_option"
     );
-    expect(cost.operation).toBe("prepare");
-    expect(cost.riskTier).toBe("high");
-    expect(cost.annotations.readOnlyHint).toBe(false);
-    expect(cost.auditClass).toBe("mutation_prepare");
-    const scopes = cost.authorization.variants
+    expect(option.operation).toBe("prepare");
+    expect(option.riskTier).toBe("high");
+    expect(option.annotations.readOnlyHint).toBe(false);
+    expect(option.auditClass).toBe("mutation_prepare");
+    const scopes = option.authorization.variants
       .flatMap((entry) => entry.policy.requiredOAuthScopes)
       .sort();
     expect([...new Set(scopes)]).toEqual([
       "ops.catalog.prepare",
       "ops.catalog.read",
-      "ops.catalog_costs.read",
     ]);
-    const declared = cost.authorization.variants
+    // Options, their values and the variant joins are written through
+    // catalog_setup_save as the approving operator, against tables whose row
+    // policies ask for company isolation and no setup key — so this kind asks
+    // for what create_variant asks for, and not for catalog.run_setup.
+    const declared = option.authorization.variants
       .flatMap((entry) => entry.policy.permissionRequirementGroups)
       .flat()
       .map((requirement) => requirement.permission)
@@ -95,59 +102,52 @@ describe("prepare_set_supplier_cost on the shared manifest", () => {
       "agent.review",
       "catalog.manage",
       "catalog.products.view",
-      "catalog.run_setup",
       "catalog.view",
-      "finances.view",
     ]);
+    expect(declared).not.toContain("catalog.run_setup");
   });
 
-  it("carries the cost authority unconditionally, never behind an input selector", () => {
+  it("carries no opening-stock variant, because it never records stock", () => {
     const resolved = resolveCatalogSetupWriteCapabilityAuthorization(
-      "prepare_set_supplier_cost",
+      "prepare_create_catalog_option",
       input()
     );
-    // Every request to this tool reads and writes cost, so the authority is not
-    // conditional on a field the caller could omit.
     expect(resolved.variants.map((entry) => entry.key)).toEqual([
       "catalog_setup_write_base",
-      "catalog_setup_write_setup_authority",
-      "catalog_setup_write_cost_authority",
     ]);
     expect(() =>
       resolveCatalogSetupWriteCapabilityAuthorization(
-        "prepare_set_supplier_cost",
+        "prepare_create_catalog_option",
         input({ opening_quantity: { quantity: "12" } })
       )
     ).toThrow();
   });
 
-  it("says in the description how the one default and the mirror behave", () => {
+  it("says in the description that the grid is backfilled and listed", () => {
     const description = getCatalogSetupWriteCapabilityManifestEntry(
-      "prepare_set_supplier_cost"
+      "prepare_create_catalog_option"
     ).description;
-    expect(description).toContain("exactly one default");
-    expect(description).toContain("demotes");
-    expect(description).toContain("revived");
-    expect(description).toContain("company's own currency");
-    // Gap #17: the two cost models must not drift for anything written here.
-    expect(description).toContain("mirror");
+    expect(description).toContain("backfill");
+    expect(description).toContain("value_for_existing_variants");
+    expect(description).toContain("prepare_create_catalog_variant");
+    expect(description).toContain("lists every variant");
   });
 
   it("is staged behind the same exact-preview approval as every other kind", () => {
-    const cost = getCatalogSetupWriteCapabilityManifestEntry(
-      "prepare_set_supplier_cost"
+    const option = getCatalogSetupWriteCapabilityManifestEntry(
+      "prepare_create_catalog_option"
     );
-    expect(cost.confirmationPolicy).toMatchObject({
+    expect(option.confirmationPolicy).toMatchObject({
       kind: "change_set_preview",
       exactPreviewRequired: true,
       expires: true,
     });
-    expect(cost.idempotencyPolicy).toMatchObject({
+    expect(option.idempotencyPolicy).toMatchObject({
       kind: "required",
       keyField: "idempotency_key",
       conflictOnArgumentsHashMismatch: true,
     });
-    expect(cost.evidencePolicy.input).toBe("required");
-    expect(cost.availability.implementation).toBe("available");
+    expect(option.evidencePolicy.input).toBe("required");
+    expect(option.availability.implementation).toBe("available");
   });
 });

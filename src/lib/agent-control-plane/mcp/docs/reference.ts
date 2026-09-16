@@ -150,6 +150,7 @@ const PUBLIC_MCP_TOOL_GROUPS = Object.freeze([
       "prepare_set_variant_thresholds",
       "prepare_set_catalog_pricing",
       "prepare_set_supplier_cost",
+      "prepare_create_catalog_option",
       "list_purchase_orders",
       "get_purchase_order",
     ]),
@@ -252,6 +253,7 @@ const DOCUMENTED_PREPARE_TOOLS: ReadonlySet<string> = new Set([
   "prepare_set_variant_thresholds",
   "prepare_set_catalog_pricing",
   "prepare_set_supplier_cost",
+  "prepare_create_catalog_option",
 ]);
 /** The catalogue-setup writes mint under v28, not the base manifest. */
 const CATALOG_SETUP_WRITE_TOOLS: ReadonlySet<string> = new Set([
@@ -259,6 +261,7 @@ const CATALOG_SETUP_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "prepare_set_variant_thresholds",
   "prepare_set_catalog_pricing",
   "prepare_set_supplier_cost",
+  "prepare_create_catalog_option",
 ]);
 
 function publicScope(scopeId: string): PublicMcpScope {

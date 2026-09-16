@@ -43,7 +43,7 @@ describe("public MCP guide reference", () => {
     expect(reference.activeExposureRevision).toBe(
       "2026-09-15.mcp-exposure.v24"
     );
-    expect(reference.tools).toHaveLength(39);
+    expect(reference.tools).toHaveLength(40);
     expect(reference.scopes).toHaveLength(22);
 
     expect(
@@ -54,7 +54,8 @@ describe("public MCP guide reference", () => {
               tool.id === "prepare_create_catalog_variant" ||
               tool.id === "prepare_set_variant_thresholds" ||
               tool.id === "prepare_set_catalog_pricing" ||
-              tool.id === "prepare_set_supplier_cost") &&
+              tool.id === "prepare_set_supplier_cost" ||
+              tool.id === "prepare_create_catalog_option") &&
               tool.operation === "prepare" &&
               !tool.annotations.readOnlyHint)) &&
           tool.availability === "available"

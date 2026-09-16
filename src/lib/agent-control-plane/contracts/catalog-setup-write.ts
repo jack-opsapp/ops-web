@@ -19,8 +19,7 @@ export const CATALOG_SETUP_WRITE_PROMPT_SAFETY_DIRECTIVE =
  *
  * `extraScopes` is the OAuth scope a kind needs beyond the shared
  * `ops.catalog.read` + `ops.catalog.prepare`; the database authority reads the
- * same table. Everything but `create_option` is implemented today; that one is
- * reserved so a later vertical cannot quietly widen the grant.
+ * same table. All five are implemented.
  */
 export const CATALOG_SETUP_WRITE_KINDS = Object.freeze({
   create_variant: Object.freeze({
@@ -51,7 +50,7 @@ export const CATALOG_SETUP_WRITE_KINDS = Object.freeze({
     capabilityId: "prepare_create_catalog_option",
     operation: "create_catalog_option",
     extraScopes: Object.freeze([] as readonly string[]),
-    implemented: false,
+    implemented: true,
   }),
 } as const);
 
@@ -73,6 +72,8 @@ export const PREPARE_SET_CATALOG_PRICING_CAPABILITY_REVISION =
   `prepare_set_catalog_pricing${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 export const PREPARE_SET_SUPPLIER_COST_CAPABILITY_REVISION =
   `prepare_set_supplier_cost${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
+export const PREPARE_CREATE_CATALOG_OPTION_CAPABILITY_REVISION =
+  `prepare_create_catalog_option${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 export const COMMIT_CATALOG_SETUP_WRITE_CAPABILITY_REVISION =
   `commit_catalog_setup_write${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 
@@ -366,6 +367,74 @@ export const PrepareSetSupplierCostInputSchema = z
   })
   .strict();
 
+/**
+ * A catalogue sort order. The catalogue's own convention is 10 / 20 / 30, and
+ * an omitted order takes the family's next step rather than 0 — a new axis
+ * silently landing first would reorder every variant label OPS shows.
+ */
+const CatalogSortOrderSchema = z.number().int().min(0).max(9_999);
+
+/**
+ * Adding a dimension to a family that already has variants leaves every one of
+ * them without a value for it, and a variant grid with a hole in it resolves
+ * ambiguously for the rest of its life (design note 3). So the value the
+ * existing variants get is part of the request, not an afterthought: it is
+ * required whenever the family has any non-deleted variant, and refused when it
+ * has none, because there would be nothing to backfill.
+ *
+ * Neither of those two rules is checkable here — both need the family's live
+ * variant count — so the database owns them, and owns the named refusal
+ * CATALOG_SETUP_BACKFILL_VALUE_INVALID for a value the caller never listed.
+ */
+export const PrepareCreateCatalogOptionInputSchema = z
+  .object({
+    family_ref: CatalogFamilyRefSchema,
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .describe(
+        "The dimension's name, unique on this family however it is cased."
+      ),
+    values: z
+      .array(
+        z
+          .object({
+            value: z.string().trim().min(1).max(80),
+            sort_order: CatalogSortOrderSchema.optional(),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(32),
+    sort_order: CatalogSortOrderSchema.optional().describe(
+      "Defaults to the family's highest option order plus ten."
+    ),
+    value_for_existing_variants: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .optional()
+      .describe(
+        "One of the values above. Required when the family has any variant; refused when it has none."
+      ),
+    evidence: CatalogSetupWriteEvidenceInputSchema,
+    idempotency_key: Key,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const seen = value.values.map((entry) => entry.value.toLowerCase());
+    if (new Set(seen).size !== seen.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Each value may be named only once, however it is cased.",
+        path: ["values"],
+      });
+    }
+  });
+
 export const CommitCatalogSetupWriteInputSchema = z
   .object({
     action_id: Id,
@@ -482,6 +551,35 @@ export const CatalogSetupWriteSupplierCostEffectsSchema = z
     {
       message:
         "One profile row is written, plus the current default when promoting demotes it.",
+    }
+  );
+
+/**
+ * Adding a dimension creates one option and its values, and touches every
+ * existing variant once. `variants_backfilled` and `variants_updated` are
+ * deliberately both carried and deliberately equal: the first is what happened
+ * to the grid, the second is how many rows moved, and a write where those two
+ * disagreed would have touched a variant for a reason the preview never named.
+ */
+export const CatalogSetupWriteCreateOptionEffectsSchema = z
+  .object({
+    ...CATALOG_SETUP_WRITE_EFFECT_SHAPE,
+    variants_created: z.literal(0),
+    stock_units_created: z.literal(0),
+    stock_events_recorded: z.literal(0),
+    prices_changed: z.literal(0),
+    supplier_cost_profiles_written: z.literal(0),
+    options_created: z.literal(1),
+    option_values_created: z.number().int().min(1).max(32),
+    variants_backfilled: z.number().int().min(0).max(128),
+    variants_updated: z.number().int().min(0).max(128),
+  })
+  .strict()
+  .refine(
+    (effects) => effects.variants_updated === effects.variants_backfilled,
+    {
+      message:
+        "Adding a dimension touches exactly the variants it backfills, and no others.",
     }
   );
 
@@ -719,6 +817,147 @@ export const CatalogSupplierCostPlanSchema = z
   })
   .strict();
 
+/**
+ * The grid, read as a grid: the family's dimensions with their values, and
+ * every variant with the values that name it.
+ *
+ * Two shapes rather than one, for the same reason the supplier cost sheet has
+ * two. The PLAN is what the approval predicts, so each row carries what the
+ * write does to it and a row that does not exist yet carries no id — the
+ * database assigns option and value ids inside the save, and a preview that
+ * named one would be inventing it. The PROJECTION is what the commit reads
+ * back, so every row has the id it landed under and no row carries a state: a
+ * state is a prediction about a write, and a read-back is a read.
+ */
+const CatalogOptionValueRowShape = {
+  value: z.string().min(1).max(160),
+  sort_order: z.number().int(),
+} as const;
+
+const CatalogOptionRowShape = {
+  name: z.string().min(1).max(160),
+  sort_order: z.number().int(),
+} as const;
+
+export const CatalogOptionRowStateSchema = z.enum(["unchanged", "created"]);
+export const CatalogOptionVariantStateSchema = z.enum([
+  "unchanged",
+  "backfilled",
+]);
+
+const CatalogOptionPlanRowSchema = z
+  .object({
+    ...CatalogOptionRowShape,
+    option_ref: CatalogOptionRefSchema.nullable(),
+    values: z
+      .array(
+        z
+          .object({
+            ...CatalogOptionValueRowShape,
+            value_ref: CatalogOptionValueRefSchema.nullable(),
+          })
+          .strict()
+      )
+      .max(64),
+    state: CatalogOptionRowStateSchema,
+  })
+  .strict()
+  .refine(
+    (option) =>
+      (option.state === "created") === (option.option_ref === null) &&
+      option.values.every(
+        (value) => (option.state === "created") === (value.value_ref === null)
+      ),
+    {
+      message:
+        "A row that already exists names its id; a row this write creates cannot.",
+    }
+  );
+
+const CatalogOptionProjectionRowSchema = z
+  .object({
+    ...CatalogOptionRowShape,
+    option_ref: CatalogOptionRefSchema,
+    values: z
+      .array(
+        z
+          .object({
+            ...CatalogOptionValueRowShape,
+            value_ref: CatalogOptionValueRefSchema,
+          })
+          .strict()
+      )
+      .max(64),
+  })
+  .strict();
+
+const CatalogOptionBackfillSchema = z
+  .object({
+    option_name: z.string().min(1).max(160),
+    value: z.string().min(1).max(160).nullable(),
+    variant_count: z.number().int().min(0).max(128),
+  })
+  .strict();
+
+const CatalogOptionFamilySchema = z
+  .object({ family_ref: CatalogFamilyRefSchema, name: z.string().min(1) })
+  .strict();
+
+/**
+ * The variant list is bounded rather than truncated. Adding a dimension
+ * rewrites every variant's identity, and a shortened list is a preview nobody
+ * can approve honestly — so a family wider than the bound is refused.
+ */
+export const CatalogOptionPlanSchema = z
+  .object({
+    family: CatalogOptionFamilySchema,
+    options: z.array(CatalogOptionPlanRowSchema).max(33),
+    variants: z
+      .array(
+        z
+          .object({
+            variant_ref: CatalogVariantRefSchema,
+            value_labels: z.array(z.string().min(1)).max(33),
+            state: CatalogOptionVariantStateSchema,
+          })
+          .strict()
+      )
+      .max(128),
+    backfill: CatalogOptionBackfillSchema,
+  })
+  .strict()
+  .refine(
+    (plan) =>
+      plan.backfill.variant_count ===
+      plan.variants.filter((variant) => variant.state === "backfilled").length,
+    {
+      message:
+        "The backfill count is the variants it backfills, counted rather than asserted.",
+    }
+  )
+  .refine(
+    (plan) => plan.backfill.value !== null || plan.backfill.variant_count === 0,
+    { message: "A backfill with no value moves no variant." }
+  );
+
+export const CatalogOptionProjectionSchema = z
+  .object({
+    family: CatalogOptionFamilySchema,
+    options: z.array(CatalogOptionProjectionRowSchema).max(33),
+    variants: z
+      .array(
+        z
+          .object({
+            variant_ref: CatalogVariantRefSchema,
+            value_labels: z.array(z.string().min(1)).max(33),
+          })
+          .strict()
+      )
+      .max(128),
+    backfill: CatalogOptionBackfillSchema,
+  })
+  .strict();
+
 export const CatalogSetupWriteEvidenceProofSchema = z
   .object({
     kind: z.literal("operator_statement"),
@@ -820,14 +1059,33 @@ export const SetSupplierCostPreviewSchema = z
   .strict();
 
 /**
- * One review surface for all five kinds. A later kind adds a member here and a
- * branch in the preview component; the approval queue keeps one row shape.
+ * Adding a dimension is read as the grid before and the grid after, because
+ * that is the thing it changes. Both sides carry every option with its values
+ * and every variant with the values that name it, so the operator can see that
+ * the new axis is the only difference and that no variant was left without a
+ * value for it.
+ */
+export const CreateCatalogOptionPreviewSchema = z
+  .object({
+    ...PreviewBaseShape,
+    operation: z.literal("create_catalog_option"),
+    kind: z.literal("create_option"),
+    effects: CatalogSetupWriteCreateOptionEffectsSchema,
+    before: CatalogOptionPlanSchema,
+    after: CatalogOptionPlanSchema,
+  })
+  .strict();
+
+/**
+ * One review surface for all five kinds. The approval queue keeps one row
+ * shape; each kind adds a member here and a branch in the preview component.
  */
 export const CatalogSetupWritePreviewSchema = z.discriminatedUnion("kind", [
   CreateCatalogVariantPreviewSchema,
   SetVariantThresholdsPreviewSchema,
   SetCatalogPricingPreviewSchema,
   SetSupplierCostPreviewSchema,
+  CreateCatalogOptionPreviewSchema,
 ]);
 
 export const CatalogSetupWriteResultSchema = z
@@ -918,11 +1176,24 @@ export const SetSupplierCostReceiptSchema = z
   })
   .strict();
 
+/** Keyed by the option that landed: the one row the approval brought into
+ * existence, and the id the rest of OPS will know it by. */
+export const CreateCatalogOptionReceiptSchema = z
+  .object({
+    ...RECEIPT_BASE_SHAPE,
+    kind: z.literal("create_option"),
+    readback: CatalogOptionProjectionSchema,
+    option_ref: CatalogOptionRefSchema,
+    effects: CatalogSetupWriteCreateOptionEffectsSchema,
+  })
+  .strict();
+
 export const CatalogSetupWriteReceiptSchema = z.discriminatedUnion("kind", [
   CreateCatalogVariantReceiptSchema,
   SetVariantThresholdsReceiptSchema,
   SetCatalogPricingReceiptSchema,
   SetSupplierCostReceiptSchema,
+  CreateCatalogOptionReceiptSchema,
 ]);
 
 export const CatalogSetupWriteRejectionReceiptSchema = z
@@ -981,4 +1252,14 @@ export type SetSupplierCostPreview = z.infer<
 >;
 export type CatalogVariantProjection = z.infer<
   typeof CatalogVariantProjectionSchema
+>;
+export type PrepareCreateCatalogOptionInput = z.infer<
+  typeof PrepareCreateCatalogOptionInputSchema
+>;
+export type CatalogOptionPlan = z.infer<typeof CatalogOptionPlanSchema>;
+export type CatalogOptionProjection = z.infer<
+  typeof CatalogOptionProjectionSchema
+>;
+export type CreateCatalogOptionPreview = z.infer<
+  typeof CreateCatalogOptionPreviewSchema
 >;

@@ -7,6 +7,7 @@ import {
   CatalogSetupWriteResultSchema,
   type CatalogSetupWriteKind,
   type CatalogSetupWriteResult,
+  type PrepareCreateCatalogOptionInput,
   type PrepareCreateCatalogVariantInput,
   type PrepareSetCatalogPricingInput,
   type PrepareSetSupplierCostInput,
@@ -91,6 +92,8 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_WRITE_INPUT_INVALID") ||
     message.startsWith("CATALOG_SETUP_PRICE_REQUIRED") ||
     message.startsWith("CATALOG_SETUP_OPTION_") ||
+    message.startsWith("CATALOG_SETUP_BACKFILL_VALUE_INVALID") ||
+    message.startsWith("CATALOG_SETUP_VARIANT_SET_AMBIGUOUS") ||
     message.startsWith("CATALOG_SETUP_THRESHOLDS_INVALID") ||
     message.startsWith("CATALOG_SETUP_THRESHOLDS_NOT_WHOLE") ||
     message.startsWith("CATALOG_SETUP_NO_CHANGE") ||
@@ -162,6 +165,12 @@ export interface CatalogSetupWriteRepository {
   prepareSetSupplierCost(input: {
     actorContext: ActorContext;
     request: PrepareSetSupplierCostInput;
+    observedAt: string;
+    signal?: AbortSignal;
+  }): Promise<CatalogSetupWriteResult>;
+  prepareCreateOption(input: {
+    actorContext: ActorContext;
+    request: PrepareCreateCatalogOptionInput;
     observedAt: string;
     signal?: AbortSignal;
   }): Promise<CatalogSetupWriteResult>;
@@ -476,6 +485,120 @@ export function matchesSetSupplierCostRequest(
   );
 }
 
+/**
+ * An option preview must describe this family, this dimension, these values and
+ * this backfill — and it must be a coherent grid on its own terms. What is
+ * checked here rather than trusted is everything a plausible-looking wrong
+ * preview would get wrong:
+ *
+ *  - exactly one option is created, and it is the one that was asked for,
+ *  - no option the family already had disappears,
+ *  - the variant list is the same variants, in the same order, on both sides,
+ *  - every variant gains exactly one label when a backfill was asked for and
+ *    none when it was not, and
+ *  - the counters equal what the two sides actually show.
+ */
+export function matchesCreateCatalogOptionRequest(
+  result: CatalogSetupWriteResult,
+  request: PrepareCreateCatalogOptionInput
+): boolean {
+  if (result.kind !== "create_option") return false;
+  const proposal = result.proposal;
+  if (proposal.kind !== "create_option") return false;
+
+  const { before, after, effects } = proposal;
+  for (const side of [proposal.family, before.family, after.family]) {
+    if (side.family_ref.id !== request.family_ref.id) return false;
+  }
+
+  // Exactly one created option, and it is the dimension that was asked for.
+  const created = after.options.filter((entry) => entry.state === "created");
+  if (created.length !== 1) return false;
+  const dimension = created[0]!;
+  if (dimension.name !== request.name) return false;
+  if (
+    request.sort_order !== undefined &&
+    dimension.sort_order !== request.sort_order
+  ) {
+    return false;
+  }
+  const requestedValues = request.values.map((entry) => entry.value).sort();
+  const previewedValues = dimension.values.map((entry) => entry.value).sort();
+  if (
+    requestedValues.length !== previewedValues.length ||
+    requestedValues.some((value, index) => value !== previewedValues[index])
+  ) {
+    return false;
+  }
+
+  // Nothing the family already carried may vanish, and nothing else is created.
+  if (before.options.some((entry) => entry.state !== "unchanged")) return false;
+  if (after.options.length !== before.options.length + 1) return false;
+  const carried = new Set(
+    after.options
+      .filter((entry) => entry.state === "unchanged")
+      .map((entry) => entry.option_ref?.id)
+  );
+  if (before.options.some((entry) => !carried.has(entry.option_ref?.id))) {
+    return false;
+  }
+
+  // The same variants, in the same order, each gaining exactly the one value.
+  const backfillValue = request.value_for_existing_variants ?? null;
+  if (before.variants.length !== after.variants.length) return false;
+  let backfilled = 0;
+  for (let index = 0; index < after.variants.length; index += 1) {
+    const past = before.variants[index]!;
+    const next = after.variants[index]!;
+    if (past.variant_ref.id !== next.variant_ref.id) return false;
+    if (past.state !== "unchanged") return false;
+    if (backfillValue === null) {
+      if (
+        next.state !== "unchanged" ||
+        next.value_labels.length !== past.value_labels.length
+      ) {
+        return false;
+      }
+      continue;
+    }
+    if (
+      next.state !== "backfilled" ||
+      next.value_labels.length !== past.value_labels.length + 1 ||
+      !next.value_labels.includes(backfillValue)
+    ) {
+      return false;
+    }
+    backfilled += 1;
+  }
+
+  if (
+    after.backfill.option_name !== request.name ||
+    after.backfill.value !== backfillValue ||
+    after.backfill.variant_count !== backfilled ||
+    before.backfill.variant_count !== 0
+  ) {
+    return false;
+  }
+
+  if (
+    effects.options_created !== 1 ||
+    effects.option_values_created !== request.values.length ||
+    effects.variants_backfilled !== backfilled ||
+    effects.variants_updated !== backfilled ||
+    effects.variants_created !== 0 ||
+    effects.prices_changed !== 0 ||
+    effects.stock_events_recorded !== 0 ||
+    effects.supplier_cost_profiles_written !== 0
+  ) {
+    return false;
+  }
+
+  if (proposal.evidence.length !== request.evidence.length) return false;
+  return request.evidence.every(
+    (item, index) => proposal.evidence[index]?.text === item.text
+  );
+}
+
 /** "45.0000" and "45" are the same price; string equality alone is not. */
 function sameDecimal(left: string | null, right: string | null): boolean {
   if (left === null || right === null) return left === right;
@@ -550,6 +673,28 @@ export function createCatalogSetupWriteRepository(input: {
         !parsed.success ||
         parsed.data.request_id !== read.actorContext.requestId ||
         !matchesSetSupplierCostRequest(parsed.data, read.request)
+      ) {
+        throw new CatalogSetupWriteRepositoryError("UNAVAILABLE");
+      }
+      return Object.freeze(parsed.data);
+    },
+    async prepareCreateOption(read) {
+      const response = await execute(
+        input.rpc("prepare_catalog_setup_write_as_system", {
+          ...binding(read.actorContext, "create_option"),
+          p_kind: "create_option",
+          p_request_id: read.actorContext.requestId,
+          p_request: read.request,
+          p_observed_at: read.observedAt,
+        }),
+        read.signal
+      );
+      if (response.error) throw normalizedError(response.error);
+      const parsed = CatalogSetupWriteResultSchema.safeParse(response.data);
+      if (
+        !parsed.success ||
+        parsed.data.request_id !== read.actorContext.requestId ||
+        !matchesCreateCatalogOptionRequest(parsed.data, read.request)
       ) {
         throw new CatalogSetupWriteRepositoryError("UNAVAILABLE");
       }

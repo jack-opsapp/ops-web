@@ -481,6 +481,103 @@ describe("catalogue setup write exact approval", () => {
     ).toBeInTheDocument();
   });
 
+  it("reads a new dimension as a column added to every variant row", () => {
+    const approve = vi.fn();
+    render(
+      <ActionDetail
+        action={make({
+          actionType: "approve_catalog_setup_write",
+          actionData: {
+            proposal: createOptionProposal(),
+            preview_sha256: `sha256:${"2".repeat(64)}`,
+            change_set_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+          },
+        })}
+        onApprove={approve}
+        onReject={() => {}}
+        t={(k) => k}
+      />
+    );
+    // The dimension being added, and what each of its values is for.
+    expect(screen.getByText("catalogSetupWrite.dimension")).toBeInTheDocument();
+    expect(screen.getByText(/Height/)).toBeInTheDocument();
+    expect(screen.getAllByText(/72"/).length).toBeGreaterThan(0);
+    // The count is stated once, not once per row.
+    expect(
+      screen.getAllByText("catalogSetupWrite.backfills")
+    ).toHaveLength(1);
+    // Every variant's identity, before and after, one row each.
+    expect(screen.getByText("Black / Topmount")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        (_content, element) =>
+          element?.tagName === "P" &&
+          element.textContent === '\u2192 Black / Topmount / 42"'
+      )
+    ).toHaveLength(1);
+    expect(
+      screen.getByText(/catalogSetupWrite.optionEffects/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/catalogSetupWrite.optionNextStep/)
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    );
+    expect(approve).toHaveBeenCalledWith("action-1", {
+      preview_sha256: `sha256:${"2".repeat(64)}`,
+      change_set_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    });
+  });
+
+  it("says plainly when a family has no variants to backfill", () => {
+    const proposal = createOptionProposal();
+    const empty = proposal as unknown as {
+      before: { variants: unknown[]; backfill: Record<string, unknown> };
+      after: { variants: unknown[]; backfill: Record<string, unknown> };
+      effects: Record<string, unknown>;
+    };
+    empty.before.variants = [];
+    empty.after.variants = [];
+    empty.before.backfill = {
+      option_name: "Height",
+      value: null,
+      variant_count: 0,
+    };
+    empty.after.backfill = {
+      option_name: "Height",
+      value: null,
+      variant_count: 0,
+    };
+    empty.effects.variants_backfilled = 0;
+    empty.effects.variants_updated = 0;
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal },
+    });
+    expect(
+      screen.getByText("catalogSetupWrite.backfillNone")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("catalogSetupWrite.backfills")).toBeNull();
+  });
+
+  it("refuses an option preview whose backfill count disagrees with its rows", () => {
+    const proposal = createOptionProposal();
+    (
+      proposal as unknown as { after: { backfill: { variant_count: number } } }
+    ).after.backfill.variant_count = 9;
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal },
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "catalogSetupWrite.invalid"
+    );
+    expect(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    ).toBeDisabled();
+  });
+
   it("refuses a cost preview that leaves the variant with two defaults", () => {
     const proposal = supplierCostProposal();
     (
@@ -662,6 +759,118 @@ function pricingProposal() {
       },
     ],
     expires_at: "2099-09-15T21:30:00.000Z",
+    reversal: "A correction requires a fresh preview and approval.",
+  };
+}
+
+function createOptionProposal() {
+  const family = {
+    family_ref: {
+      kind: "catalog_family",
+      id: "393c5c83-d9df-2a48-9837-2e04501b34c6",
+    },
+    name: "Line",
+  };
+  const colour = {
+    option_ref: {
+      kind: "catalog_option",
+      id: "3e429d49-5741-2723-383b-b9ceeda65196",
+    },
+    name: "Color",
+    sort_order: 10,
+    values: [
+      {
+        value_ref: {
+          kind: "catalog_option_value",
+          id: "ecf50891-5c0c-073f-960a-f3d662190895",
+        },
+        value: "Black",
+        sort_order: 10,
+      },
+    ],
+    state: "unchanged",
+  };
+  const mount = {
+    option_ref: {
+      kind: "catalog_option",
+      id: "5e429d49-5741-2723-383b-b9ceeda65196",
+    },
+    name: "Mount Type",
+    sort_order: 20,
+    values: [
+      {
+        value_ref: {
+          kind: "catalog_option_value",
+          id: "acf50891-5c0c-073f-960a-f3d662190895",
+        },
+        value: "Topmount",
+        sort_order: 10,
+      },
+    ],
+    state: "unchanged",
+  };
+  const height = {
+    option_ref: null,
+    name: "Height",
+    sort_order: 30,
+    values: [
+      { value_ref: null, value: '42"', sort_order: 10 },
+      { value_ref: null, value: '72"', sort_order: 20 },
+    ],
+    state: "created",
+  };
+  const variant = (id: string, labels: string[], state: string) => ({
+    variant_ref: { kind: "catalog_variant", id },
+    value_labels: labels,
+    state,
+  });
+  return {
+    operation: "create_catalog_option",
+    kind: "create_option",
+    policy_revision: "2026-09-15.catalog-setup-write.v1",
+    family,
+    before: {
+      family,
+      options: [colour, mount],
+      variants: [
+        variant("411f89c9-d2a1-44a8-8377-6c11a098f0f7", ["Black", "Topmount"], "unchanged"),
+      ],
+      backfill: { option_name: "Height", value: '42"', variant_count: 0 },
+    },
+    after: {
+      family,
+      options: [colour, mount, height],
+      variants: [
+        variant(
+          "411f89c9-d2a1-44a8-8377-6c11a098f0f7",
+          ["Black", "Topmount", '42"'],
+          "backfilled"
+        ),
+      ],
+      backfill: { option_name: "Height", value: '42"', variant_count: 1 },
+    },
+    effects: {
+      variants_created: 0,
+      stock_units_created: 0,
+      stock_events_recorded: 0,
+      prices_changed: 0,
+      supplier_cost_profiles_written: 0,
+      messages_sent: 0,
+      accounting_sync_enqueued: 0,
+      options_created: 1,
+      option_values_created: 2,
+      variants_backfilled: 1,
+      variants_updated: 1,
+    },
+    evidence: [
+      {
+        kind: "operator_statement",
+        text: 'Jackson: every line post on the shelf today is the 42" one.',
+        source_sha256: `sha256:${"e".repeat(64)}`,
+        content_kind: "untrusted_business_data",
+      },
+    ],
+    expires_at: "2099-09-16T01:30:00.000Z",
     reversal: "A correction requires a fresh preview and approval.",
   };
 }

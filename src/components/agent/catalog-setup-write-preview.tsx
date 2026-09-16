@@ -2,6 +2,7 @@
 import {
   CatalogSetupWritePreviewSchema,
   type CatalogSetupWritePreview,
+  type CreateCatalogOptionPreview,
   type CreateCatalogVariantPreview,
   type SetCatalogPricingPreview,
   type SetSupplierCostPreview,
@@ -21,8 +22,7 @@ type Translate = (key: string) => string;
  * hurt. An edit of levels that already exist is a comparison, so it reads in
  * the same now/after idiom the lead-update row already taught the operator.
  *
- * A later kind (pricing, supplier cost, option) adds a branch on
- * `proposal.kind` beside these two.
+ * Each kind adds a branch on `proposal.kind` beside these.
  */
 export function CatalogSetupWritePreview({ proposal }: { proposal: unknown }) {
   const { t } = useDictionary("agent-queue");
@@ -69,8 +69,10 @@ export function CatalogSetupWritePreview({ proposal }: { proposal: unknown }) {
         <SetThresholdsBody preview={preview} t={t} />
       ) : preview.kind === "set_pricing" ? (
         <SetPricingBody preview={preview} locale={locale} t={t} />
-      ) : (
+      ) : preview.kind === "set_supplier_cost" ? (
         <SetSupplierCostBody preview={preview} locale={locale} t={t} />
+      ) : (
+        <CreateOptionBody preview={preview} t={t} />
       )}
 
       <div className="space-y-3 border-t border-border-subtle pt-3">
@@ -99,7 +101,9 @@ export function CatalogSetupWritePreview({ proposal }: { proposal: unknown }) {
             ? t("catalogSetupWrite.pricingEffects")
             : preview.kind === "set_supplier_cost"
               ? t("catalogSetupWrite.supplierCostEffects")
-              : t("catalogSetupWrite.effects")}
+              : preview.kind === "create_option"
+                ? t("catalogSetupWrite.optionEffects")
+                : t("catalogSetupWrite.effects")}
         {preview.kind === "create_variant" && effects.stock_events_recorded === 1
           ? ` ${t("catalogSetupWrite.stockEffects")}`
           : ""}
@@ -561,6 +565,118 @@ function SetSupplierCostBody({
           </p>
         )}
       </div>
+    </>
+  );
+}
+
+/**
+ * Adding a dimension is one decision with two halves, and the body answers them
+ * in that order.
+ *
+ * What is being added: the option, its values, and — because the operator has
+ * to be able to catch the wrong one — which single value every variant already
+ * on file is about to be given. That value is marked on the value it sits on
+ * rather than restated below, so there is one place to look.
+ *
+ * Then what it does to the grid. The variants are not counted, they are listed,
+ * each as the identity it has now and the identity it will have — the new axis
+ * read as a column arriving on every row. An operator scanning that list is
+ * looking for the row where the backfilled value is wrong, and a count cannot
+ * show them that. The count is stated once, above the list, so the scale of the
+ * change is legible before the rows are.
+ *
+ * A family with no variants says so, rather than showing an empty list: there is
+ * nothing to backfill, and that is the whole answer.
+ */
+function CreateOptionBody({
+  preview,
+  t,
+}: {
+  preview: CreateCatalogOptionPreview;
+  t: Translate;
+}) {
+  const { before, after } = preview;
+  const dimension = after.options.find((entry) => entry.state === "created");
+  const backfill = after.backfill.value;
+  const rows = after.variants.map((variant, index) => ({
+    variant,
+    past: before.variants[index],
+  }));
+
+  return (
+    <>
+      <dl className="divide-y divide-border-subtle border-t border-border-subtle">
+        <div className="flex gap-3 py-2">
+          <dt className="w-40 shrink-0 font-mono text-micro uppercase tracking-authority text-text-3">
+            {t("catalogSetupWrite.dimension")}
+          </dt>
+          <dd className="break-words font-mohave text-body-sm text-text">
+            {dimension?.name ?? "—"}
+          </dd>
+        </div>
+        <div className="flex gap-3 py-2">
+          <dt className="w-40 shrink-0 font-mono text-micro uppercase tracking-authority text-text-3">
+            {t("catalogSetupWrite.optionValues")}
+          </dt>
+          <dd className="min-w-0 space-y-1">
+            {(dimension?.values ?? []).map((value) => (
+              <p
+                key={value.value}
+                className="break-words font-mohave text-body-sm text-text"
+              >
+                {value.value}
+                {value.value === backfill && (
+                  <span className="ml-2 border border-border-subtle px-1 font-mono text-micro uppercase tracking-authority text-text-2">
+                    {t("catalogSetupWrite.everyVariant")}
+                  </span>
+                )}
+              </p>
+            ))}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="space-y-2">
+        <h4 className="font-mono text-micro uppercase tracking-authority text-text-3">
+          {t("catalogSetupWrite.grid")}
+          <span className="text-text-mute">{" :: "}</span>
+          <span className="tabular-nums">{rows.length}</span>
+        </h4>
+        {rows.length === 0 ? (
+          <p className="font-mohave text-body-sm text-text-3">
+            {t("catalogSetupWrite.backfillNone")}
+          </p>
+        ) : (
+          <>
+            {backfill !== null && (
+              <p className="font-mohave text-body-sm text-text-2">
+                {t("catalogSetupWrite.backfills")}
+                <span className="text-text-mute">{" :: "}</span>
+                <span className="font-mono tabular-nums text-text">
+                  {after.backfill.variant_count}
+                </span>
+              </p>
+            )}
+            <ul className="max-h-64 divide-y divide-border-subtle overflow-y-auto border-t border-border-subtle scrollbar-hide">
+              {rows.map(({ variant, past }) => (
+                <li key={variant.variant_ref.id} className="space-y-1 py-2">
+                  <p className="break-words font-mohave text-body-sm text-text-3">
+                    {past?.value_labels.join(" / ") || "—"}
+                  </p>
+                  <p className="break-words font-mohave text-body-sm text-text">
+                    <span className="text-text-mute">{"→ "}</span>
+                    {variant.value_labels.join(" / ") || "—"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <p className="font-mohave text-body-sm text-text-3">
+        {t("catalogSetupWrite.optionNextStep")}
+      </p>
     </>
   );
 }

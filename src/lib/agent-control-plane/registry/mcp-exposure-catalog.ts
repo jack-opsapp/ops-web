@@ -411,6 +411,7 @@ export const MCP_EXPOSURE_V24 = Object.freeze({
     "prepare_set_variant_thresholds",
     "prepare_set_catalog_pricing",
     "prepare_set_supplier_cost",
+    "prepare_create_catalog_option",
   ] as const satisfies readonly McpDomainCapabilityId[]),
   grantableScopes: Object.freeze(
     [...MCP_EXPOSURE_V23.grantableScopes, "ops.catalog.prepare"].sort()
