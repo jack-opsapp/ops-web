@@ -8,7 +8,10 @@ import {
   type CustomerUpdateResult,
   type PrepareCustomerUpdateInput,
 } from "@/lib/agent-control-plane/contracts/customer-update";
-import { CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
+import {
+  CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION,
+  CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
+} from "@/lib/agent-control-plane/registry/capability-manifest";
 
 interface RpcResponse {
   readonly data: unknown;
@@ -67,12 +70,16 @@ function normalizedError(error: unknown): CustomerUpdateRepositoryError {
 }
 
 function binding(actor: ActorContext) {
+  // V14 and V23 actors carry v20; V24 actors carry v28, which remints every v20
+  // entry. The database accepts whichever revision the actor's exposure binds.
   if (
     actor.auth.channel !== "mcp" ||
-    actor.capabilityManifestRevision !==
-      CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
+    (actor.capabilityManifestRevision !==
+      CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
+      actor.capabilityManifestRevision !==
+        CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION)
   ) {
-    throw new TypeError("Customer updates require a v20 MCP actor");
+    throw new TypeError("Customer updates require a v20 or v28 MCP actor");
   }
   return {
     p_actor_user_id: actor.actorUserId,
@@ -83,8 +90,7 @@ function binding(actor: ActorContext) {
     p_granted_scope_ceiling: [...actor.auth.scopeCeiling],
     p_permission_snapshot_revision: actor.permissionSnapshotRevision,
     p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
-    p_capability_manifest_revision:
-      CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
+    p_capability_manifest_revision: actor.capabilityManifestRevision,
     p_capability_id: "prepare_customer_update",
     p_capability_revision: CUSTOMER_UPDATE_CAPABILITY_REVISION,
   } as const;

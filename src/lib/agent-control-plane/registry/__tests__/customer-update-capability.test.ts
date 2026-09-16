@@ -9,7 +9,7 @@ import {
   ACTIVE_MCP_EXPOSURE_REVISION,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V14,
-  MCP_EXPOSURE_V23,
+  MCP_EXPOSURE_V24,
   capabilityManifestRevisionForExposure,
 } from "../mcp-exposure-catalog";
 import {
@@ -18,7 +18,7 @@ import {
 } from "../mcp-scope-catalog";
 describe("customer update active catalogue", () => {
   it("exposes only its prepare tool alongside immutable production reads", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V23.revision);
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V24.revision);
     expect(MCP_EXPOSURE_V14.toolIds).toEqual([
       ...MCP_EXPOSURE_V2.toolIds,
       "prepare_customer_update",

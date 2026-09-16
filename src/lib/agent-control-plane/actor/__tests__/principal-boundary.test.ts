@@ -179,9 +179,15 @@ describe("verified principal source boundary", () => {
 
   it("allows the MCP reauthorization adapter only at exact composition and domain seams", async () => {
     const files = await sourceFiles(path.join(process.cwd(), "src"));
+    // This list is currently short of five earlier write verticals
+    // (catalog-authoring, customer-message, financial-document, schedule-change,
+    // site-visit-workflow), which is why this assertion is red before any
+    // change here. Each addition is a security decision, so they are not being
+    // rubber-stamped in passing; only a vertical's own author adds its entry.
     const approvedConsumers = new Set([
       "src/app/api/cron/day-closeout-routines/route.ts",
       "src/lib/agent-control-plane/services/capability-service.ts",
+      "src/lib/agent-control-plane/services/catalog-setup-write/catalog-setup-write-service.ts",
       "src/lib/agent-control-plane/services/customer-update/customer-update-service.ts",
       "src/lib/agent-control-plane/services/collections/collections-service.ts",
       "src/lib/agent-control-plane/services/crew-callout-recovery/crew-callout-recovery-service.ts",

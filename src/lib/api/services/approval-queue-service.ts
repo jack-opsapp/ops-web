@@ -23,6 +23,10 @@ import { z } from "zod-v4";
 
 import { CollectionsApprovalReceiptSchema } from "@/lib/agent-control-plane/contracts/collections";
 import { CustomerMessageReceiptSchema } from "@/lib/agent-control-plane/contracts/customer-message";
+import {
+  CatalogSetupWriteReceiptSchema,
+  CatalogSetupWriteRejectionReceiptSchema,
+} from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import { CustomerUpdateReceiptSchema } from "@/lib/agent-control-plane/contracts/customer-update";
 import {
   DispatchConfirmationTaskCommitReceiptSchema,
@@ -118,6 +122,7 @@ const EXPIRY_DAYS: Record<string, number> = {
   approve_site_visit_changes: 1,
   approve_financial_document: 1,
   approve_customer_update: 1,
+  approve_catalog_setup_write: 1,
   send_customer_follow_up: 1,
 };
 
@@ -977,6 +982,7 @@ export const ApprovalQueueService = {
       params.actionType === "approve_site_visit_changes" ||
       params.actionType === "approve_financial_document" ||
       params.actionType === "approve_customer_update" ||
+      params.actionType === "approve_catalog_setup_write" ||
       params.actionType === "send_customer_follow_up"
     )
       throw new Error("This action requires a sealed domain proposal");
@@ -1236,11 +1242,15 @@ export const ApprovalQueueService = {
         row.action_type === "approve_site_visit_changes" ||
         row.action_type === "approve_financial_document" ||
         row.action_type === "approve_customer_update" ||
+        row.action_type === "approve_catalog_setup_write" ||
         row.action_type === "send_customer_follow_up";
       return !privateAction || (actorUserId && row.user_id === actorUserId);
     });
     const customerUpdates = rows.filter(
       (row) => row.action_type === "approve_customer_update"
+    );
+    const catalogSetupWrites = rows.filter(
+      (row) => row.action_type === "approve_catalog_setup_write"
     );
     const customerMessages = rows.filter(
       (row) => row.action_type === "send_customer_follow_up"
@@ -1258,6 +1268,21 @@ export const ApprovalQueueService = {
       if (!visibility.error) {
         const parsed = z.array(z.uuid()).max(200).safeParse(visibility.data);
         if (parsed.success) readableIds = new Set(parsed.data);
+      }
+    }
+    let readableCatalogSetupIds = new Set<string>();
+    if (catalogSetupWrites.length && actorUserId) {
+      const visibility = await supabase.rpc(
+        "filter_catalog_setup_write_actions_as_actor" as never,
+        {
+          p_actor: actorUserId,
+          p_company: companyId,
+          p_actions: catalogSetupWrites.map((row) => row.id),
+        } as never
+      );
+      if (!visibility.error) {
+        const parsed = z.array(z.uuid()).max(200).safeParse(visibility.data);
+        if (parsed.success) readableCatalogSetupIds = new Set(parsed.data);
       }
     }
     let readableFinancialIds = new Set<string>();
@@ -1359,6 +1384,8 @@ export const ApprovalQueueService = {
             !readableFinancialIds.has(String(row.id))) ||
           (row.action_type === "approve_customer_update" &&
             !readableIds.has(String(row.id))) ||
+          (row.action_type === "approve_catalog_setup_write" &&
+            !readableCatalogSetupIds.has(String(row.id))) ||
           (row.action_type === "send_customer_follow_up" &&
             !readableMessageIds.has(String(row.id)))
           ? {
@@ -1990,6 +2017,75 @@ export const ApprovalQueueService = {
       return mapFromDb(final);
     }
 
+    if (actionIdentity.action_type === "approve_catalog_setup_write") {
+      if (learningAuthority !== "operator_approved")
+        throw new Error("Catalog changes require operator approval");
+      const confirmation = z
+        .object({
+          preview_sha256: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+          change_set_id: z.uuid(),
+        })
+        .strict()
+        .safeParse(editedActionData);
+      const actionData = actionIdentity.action_data as Record<string, unknown>;
+      if (
+        !confirmation.success ||
+        confirmation.data.preview_sha256 !== actionData.preview_sha256 ||
+        confirmation.data.change_set_id !== actionData.change_set_id
+      )
+        throw new Error(
+          "Review the current catalog change preview before approving"
+        );
+      const args = {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: confirmation.data.change_set_id,
+        p_preview_sha256: confirmation.data.preview_sha256,
+        p_idempotency_key: "approve-catalog-setup-write:" + actionId,
+      };
+      let execution = await supabase.rpc(
+        "commit_catalog_setup_write_as_actor" as never,
+        args as never
+      );
+      // An ambiguous transport answer is replayed with the identical key: the
+      // database returns the stored receipt rather than writing twice.
+      if (execution.error || !execution.data)
+        execution = await supabase.rpc(
+          "commit_catalog_setup_write_as_actor" as never,
+          args as never
+        );
+      if (execution.error || !execution.data)
+        throw new Error(
+          "Catalog change could not be reconciled. Reload the preview before retrying."
+        );
+      const receipt = CatalogSetupWriteReceiptSchema.parse(execution.data);
+      if (
+        receipt.action_id !== actionId ||
+        receipt.change_set_id !== args.p_change_set_id ||
+        receipt.preview_sha256 !== args.p_preview_sha256
+      )
+        throw new Error("Catalog change receipt is invalid");
+      const { data: final, error } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .single();
+      if (error || !final || final.status !== "executed")
+        throw new Error("Catalog change readback is unavailable");
+      const persisted = CatalogSetupWriteReceiptSchema.parse(
+        final.execution_result
+      );
+      if (
+        persisted.receipt_sha256 !== receipt.receipt_sha256 ||
+        persisted.action_id !== actionId
+      )
+        throw new Error("Catalog change readback does not match the receipt");
+      return mapFromDb(final);
+    }
+
     if (actionIdentity.action_type === "send_customer_follow_up") {
       if (learningAuthority !== "operator_approved")
         throw new Error("Customer replies require operator approval");
@@ -2362,6 +2458,8 @@ export const ApprovalQueueService = {
       throw new Error("Schedule changes require operator approval");
     if (actionIdentity.action_type === "approve_customer_update")
       throw new Error("Customer updates require operator approval");
+    if (actionIdentity.action_type === "approve_catalog_setup_write")
+      throw new Error("Catalog changes require operator approval");
     if (actionIdentity.action_type === "send_customer_follow_up")
       throw new Error("Customer replies require operator approval");
     if (actionIdentity.action_type === "approve_dispatch_confirmation_task") {
@@ -2696,6 +2794,31 @@ export const ApprovalQueueService = {
         throw new Error("Customer update rejection readback failed");
       return mapFromDb(final);
     }
+
+    if (actionIdentity.action_type === "approve_catalog_setup_write") {
+      const { data, error } = await supabase.rpc(
+        "reject_catalog_setup_write_as_actor" as never,
+        {
+          p_actor_user_id: userId,
+          p_company_id: companyId,
+          p_action_id: actionId,
+          p_review_notes: notes ?? null,
+        } as never
+      );
+      const receipt = CatalogSetupWriteRejectionReceiptSchema.parse(data);
+      if (error || receipt.action_id !== actionId)
+        throw new Error("Catalog change rejection could not be verified");
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .single();
+      if (finalError || !final || final.status !== "rejected")
+        throw new Error("Catalog change rejection readback failed");
+      return mapFromDb(final);
+    }
     if (actionIdentity.action_type === "send_customer_follow_up") {
       const decision = await supabase.rpc(
         "reject_agent_customer_message_as_actor" as never,
@@ -2811,6 +2934,7 @@ export const ApprovalQueueService = {
         "approve_site_visit_changes",
         "approve_financial_document",
         "approve_customer_update",
+        "approve_catalog_setup_write",
         "send_customer_follow_up",
       ])
       .in("id", actionIds)
@@ -2837,6 +2961,8 @@ export const ApprovalQueueService = {
         );
       if (exactConfirmations[0]?.action_type === "approve_customer_update")
         throw new Error("Customer updates must be approved one at a time");
+      if (exactConfirmations[0]?.action_type === "approve_catalog_setup_write")
+        throw new Error("Catalog changes must be approved one at a time");
       if (exactConfirmations[0]?.action_type === "approve_collections_draft") {
         throw new Error("Collection drafts must be approved one at a time");
       }
@@ -2908,6 +3034,7 @@ export const ApprovalQueueService = {
       .neq("action_type", "approve_site_visit_changes")
       .neq("action_type", "approve_financial_document")
       .neq("action_type", "approve_customer_update")
+      .neq("action_type", "approve_catalog_setup_write")
       .neq("action_type", "send_customer_follow_up")
       .eq("id", actionId)
       .eq("company_id", companyId)

@@ -13,11 +13,13 @@ import {
   MCP_CONSENT_CATALOG_V12,
   MCP_CONSENT_CATALOG_V14,
   MCP_CONSENT_CATALOG_V17,
+  MCP_CONSENT_CATALOG_V18,
 } from "./scope-catalog";
 import {
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V23,
+  MCP_EXPOSURE_V24,
   MCP_EXPOSURE_V22,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
@@ -61,13 +63,22 @@ export async function resolveOAuthExposureForSubject(input: {
   readonly userId: string;
   readonly companyId: string;
 }): Promise<McpExposure | null> {
-  const ordinary = [MCP_EXPOSURE_V14, MCP_EXPOSURE_V23].find(
+  const ordinary = [
+    MCP_EXPOSURE_V14,
+    MCP_EXPOSURE_V23,
+    MCP_EXPOSURE_V24,
+  ].find(
     (exposure) => exposure.revision === input.client.exposure_revision
   );
+  // V24 is the only ordinary exposure on consent v18; V14 and V23 stay on v9.
+  const ordinaryConsent =
+    ordinary?.revision === MCP_EXPOSURE_V24.revision
+      ? MCP_CONSENT_CATALOG_V18.revision
+      : MCP_CONSENT_CATALOG_V9.revision;
   if (
     ordinary &&
     !input.client.disabled &&
-    input.client.consent_catalog_revision === MCP_CONSENT_CATALOG_V9.revision &&
+    input.client.consent_catalog_revision === ordinaryConsent &&
     input.client.scope_ceiling.length > 0 &&
     arraysEqual(
       input.client.scope_ceiling,

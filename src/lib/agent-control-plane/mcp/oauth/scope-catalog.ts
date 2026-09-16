@@ -1,10 +1,16 @@
-import { isCustomerUpdateMcpExposure } from "../../registry/mcp-exposure-catalog";
+import {
+  isCatalogSetupWriteMcpExposure,
+  isCustomerUpdateMcpExposure,
+} from "../../registry/mcp-exposure-catalog";
 import {
   MCP_EXPOSURE_V17,
   MCP_EXPOSURE_V19,
   MCP_EXPOSURE_V22,
 } from "../../registry/mcp-exposure-catalog";
-import { CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS } from "../../registry/mcp-scope-catalog";
+import {
+  CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS,
+  CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
+} from "../../registry/mcp-scope-catalog";
 import "server-only";
 
 import {
@@ -129,8 +135,21 @@ export const MCP_CONSENT_CATALOG_V12 = Object.freeze({
   allowedOperations: Object.freeze(["read", "prepare"] as const),
 } as const satisfies McpConsentCatalog);
 
+/**
+ * v18 is the v9 label set plus ops.catalog.prepare — the single consent change
+ * exposure V24 asks an external client to accept. Every earlier revision keeps
+ * its exact labels, so no existing grant is disturbed.
+ */
+export const MCP_CONSENT_CATALOG_V18 = Object.freeze({
+  revision: "2026-09-15.mcp-consent-catalog.v18",
+  registeredScopes: REGISTERED_MCP_SCOPES,
+  operations: MCP_SCOPE_OPERATION_BY_ID,
+  consentLabels: CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS,
+  allowedOperations: Object.freeze(["read", "prepare"] as const),
+} as const satisfies McpConsentCatalog);
+
 export const ACTIVE_MCP_CONSENT_CATALOG_REVISION =
-  MCP_CONSENT_CATALOG_V9.revision;
+  MCP_CONSENT_CATALOG_V18.revision;
 
 /** Consent recognized only for exact-bound catalog trials, not public DCR. */
 export const MCP_CONSENT_CATALOG_V14 = Object.freeze({
@@ -156,6 +175,7 @@ export const MCP_CONSENT_CATALOG_V17 = Object.freeze({
 
 export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
   Object.freeze({
+    [MCP_CONSENT_CATALOG_V18.revision]: MCP_CONSENT_CATALOG_V18,
     [MCP_CONSENT_CATALOG_V17.revision]: MCP_CONSENT_CATALOG_V17,
     [MCP_CONSENT_CATALOG_V14.revision]: MCP_CONSENT_CATALOG_V14,
     [MCP_CONSENT_CATALOG_V12.revision]: MCP_CONSENT_CATALOG_V12,
@@ -221,6 +241,7 @@ assertConsentCatalog(MCP_CONSENT_CATALOG_V8);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V9);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V12);
 assertConsentCatalog(MCP_CONSENT_CATALOG_V14);
+assertConsentCatalog(MCP_CONSENT_CATALOG_V18);
 
 export function resolveMcpConsentCatalogRevision(
   revision: string
@@ -250,6 +271,8 @@ export function consentSnapshotForExposure(
         ? MCP_CONSENT_CATALOG_V14.revision
         : exposure.revision === MCP_EXPOSURE_V17.revision
           ? MCP_CONSENT_CATALOG_V12.revision
+          : isCatalogSetupWriteMcpExposure(exposure.revision)
+            ? MCP_CONSENT_CATALOG_V18.revision
           : isCustomerUpdateMcpExposure(exposure.revision)
             ? MCP_CONSENT_CATALOG_V9.revision
             : exposure.revision === MCP_EXPOSURE_V13.revision

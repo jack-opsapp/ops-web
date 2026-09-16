@@ -1,10 +1,14 @@
-import { isCustomerUpdateMcpExposure } from "../../registry/mcp-exposure-catalog";
+import {
+  isCatalogSetupWriteMcpExposure,
+  isCustomerUpdateMcpExposure,
+} from "../../registry/mcp-exposure-catalog";
 import {
   MCP_EXPOSURE_V17,
   MCP_EXPOSURE_V19,
   MCP_EXPOSURE_V22,
 } from "../../registry/mcp-exposure-catalog";
 import {
+  CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS,
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
   FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS,
   CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS,
@@ -87,6 +91,8 @@ export function resolveRequestedScopes<const Exposure extends McpExposure>(
         ? CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS
         : exposure.revision === MCP_EXPOSURE_V17.revision
           ? FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
+          : isCatalogSetupWriteMcpExposure(exposure.revision)
+            ? CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS
           : isCustomerUpdateMcpExposure(exposure.revision)
             ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
             : exposure.revision === MCP_EXPOSURE_V13.revision

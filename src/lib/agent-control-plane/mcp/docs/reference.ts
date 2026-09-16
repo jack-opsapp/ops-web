@@ -5,12 +5,18 @@ import type { Locale } from "@/i18n/types";
 import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth/config";
 import {
   getCapabilityManifestEntry,
+  getCatalogSetupWriteCapabilityManifestEntry,
   getCustomerUpdateCapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  MCP_EXPOSURE_V24,
+  resolveActiveMcpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import { GET_CATALOG_ITEM_RECIPE_V2_DESCRIPTION } from "@/lib/agent-control-plane/registry/read-capabilities/p2/catalog";
 import {
   MCP_SCOPE_OPERATION_BY_ID,
   mcpScopeConsentLabel,
+  CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS,
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
   type McpScopeOperation,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
@@ -140,6 +146,11 @@ const PUBLIC_MCP_TOOL_GROUPS = Object.freeze([
       "get_expense_context",
       "search_catalog_items",
       "get_catalog_item",
+      "prepare_create_catalog_variant",
+      "prepare_set_variant_thresholds",
+      "prepare_set_catalog_pricing",
+      "prepare_set_supplier_cost",
+      "prepare_create_catalog_option",
       "list_purchase_orders",
       "get_purchase_order",
     ]),
@@ -231,6 +242,28 @@ export function assertPublicMcpToolGroupCoverage(
   }
 }
 
+/** Prepare scopes safe to document publicly: they stage, never commit. */
+const DOCUMENTED_PREPARE_SCOPES: ReadonlySet<string> = new Set([
+  "ops.customers.prepare",
+  "ops.catalog.prepare",
+]);
+const DOCUMENTED_PREPARE_TOOLS: ReadonlySet<string> = new Set([
+  "prepare_customer_update",
+  "prepare_create_catalog_variant",
+  "prepare_set_variant_thresholds",
+  "prepare_set_catalog_pricing",
+  "prepare_set_supplier_cost",
+  "prepare_create_catalog_option",
+]);
+/** The catalogue-setup writes mint under v28, not the base manifest. */
+const CATALOG_SETUP_WRITE_TOOLS: ReadonlySet<string> = new Set([
+  "prepare_create_catalog_variant",
+  "prepare_set_variant_thresholds",
+  "prepare_set_catalog_pricing",
+  "prepare_set_supplier_cost",
+  "prepare_create_catalog_option",
+]);
+
 function publicScope(scopeId: string): PublicMcpScope {
   const operation = MCP_SCOPE_OPERATION_BY_ID[
     scopeId as keyof typeof MCP_SCOPE_OPERATION_BY_ID
@@ -238,10 +271,15 @@ function publicScope(scopeId: string): PublicMcpScope {
   const consentLabel =
     scopeId === "ops.customers.prepare"
       ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS[scopeId]
-      : mcpScopeConsentLabel(scopeId);
+      : scopeId === "ops.catalog.prepare"
+        ? CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS[scopeId]
+        : mcpScopeConsentLabel(scopeId);
   if (
     (operation !== "read" &&
-      !(operation === "prepare" && scopeId === "ops.customers.prepare")) ||
+      !(
+        operation === "prepare" &&
+        DOCUMENTED_PREPARE_SCOPES.has(scopeId)
+      )) ||
     consentLabel === null
   ) {
     throw new TypeError("Active MCP scope is not safe for public docs");
@@ -255,16 +293,18 @@ function publicScope(scopeId: string): PublicMcpScope {
 
 function publicTool(
   toolId: string,
-  activeScopeOrder: readonly string[]
+  activeScopeOrder: readonly string[],
+  readsRecipeShapeV2: boolean
 ): PublicMcpTool {
-  const entry =
-    toolId === "prepare_customer_update"
+  const entry = CATALOG_SETUP_WRITE_TOOLS.has(toolId)
+    ? getCatalogSetupWriteCapabilityManifestEntry(toolId)
+    : toolId === "prepare_customer_update"
       ? getCustomerUpdateCapabilityManifestEntry(toolId)
       : getCapabilityManifestEntry(toolId);
   if (
     (entry.operation !== "read" &&
       !(
-        entry.operation === "prepare" && toolId === "prepare_customer_update"
+        entry.operation === "prepare" && DOCUMENTED_PREPARE_TOOLS.has(toolId)
       )) ||
     entry.availability.implementation !== "available" ||
     entry.annotations.readOnlyHint !== (entry.operation === "read") ||
@@ -297,7 +337,12 @@ function publicTool(
 
   return Object.freeze({
     id: entry.name,
-    description: requiredNonBlank(entry.description, "MCP tool description"),
+    description: requiredNonBlank(
+      readsRecipeShapeV2 && toolId === "get_catalog_item"
+        ? GET_CATALOG_ITEM_RECIPE_V2_DESCRIPTION
+        : entry.description,
+      "MCP tool description"
+    ),
     operation: entry.operation,
     availability: "available" as const,
     requiredScopes: Object.freeze(requiredScopes),
@@ -360,9 +405,11 @@ export function resolvePublicMcpReference(
   assertPublicMcpToolGroupCoverage(exposure.toolIds, PUBLIC_MCP_TOOL_GROUPS);
 
   const scopes = Object.freeze(exposure.grantableScopes.map(publicScope));
+  // The reference documents whatever the active exposure actually returns.
+  const readsRecipeShapeV2 = exposure.revision === MCP_EXPOSURE_V24.revision;
   const tools = Object.freeze(
     exposure.toolIds.map((toolId) =>
-      publicTool(toolId, exposure.grantableScopes)
+      publicTool(toolId, exposure.grantableScopes, readsRecipeShapeV2)
     )
   );
   const oauth = resolveMcpOAuthConfig();

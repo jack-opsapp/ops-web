@@ -99,6 +99,7 @@ const BULK_EXCLUDED: ReadonlySet<AgentActionType> = new Set<AgentActionType>([
   "approve_site_visit_changes",
   "approve_financial_document",
   "approve_customer_update",
+  "approve_catalog_setup_write",
   "send_customer_follow_up",
 ]);
 

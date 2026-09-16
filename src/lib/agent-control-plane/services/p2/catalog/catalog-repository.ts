@@ -20,13 +20,21 @@ import {
   CATALOG_MAX_OPTION_VALUES,
   CATALOG_MAX_PHYSICAL_STOCK_GROUPS,
   CATALOG_MAX_RECIPES,
+  CATALOG_MAX_RECIPE_PRODUCTS,
+  CATALOG_MAX_RECIPE_PRODUCT_OPTIONS,
+  CATALOG_MAX_RECIPE_PRODUCT_OPTION_VALUES,
+  CATALOG_MAX_RECIPE_SELECTOR_ENTRIES,
   CATALOG_MAX_SOURCE_ROWS,
   CATALOG_MAX_SUPPLIER_COSTS,
-  CatalogItemDetailResultSchema,
+  catalogItemDetailResultSchema,
   CatalogSearchItemSchema,
   CatalogStockStateSchema,
   assertNoCatalogForbiddenFields,
+  catalogDetailRecipeProducts,
+  catalogDetailSupplierCosts,
   type CatalogItemDetailResult,
+  type CatalogItemDetailV2Result,
+  type CatalogRecipeShape,
   type CatalogSearchItem,
 } from "@/lib/agent-control-plane/contracts/catalog-purchasing";
 import { canonicalOperationalProjection } from "@/lib/agent-control-plane/services/operational-read-projection";
@@ -168,6 +176,24 @@ const SourceInspectedSchema = z
     recipes: z.number().int().min(0).max(CATALOG_MAX_SOURCE_ROWS),
     stock_units: z.number().int().min(0).max(CATALOG_MAX_SOURCE_ROWS),
     supplier_costs: z.number().int().min(0).max(CATALOG_MAX_SOURCE_ROWS),
+    recipe_products: z
+      .number()
+      .int()
+      .min(0)
+      .max(CATALOG_MAX_SOURCE_ROWS)
+      .optional(),
+    recipe_product_options: z
+      .number()
+      .int()
+      .min(0)
+      .max(CATALOG_MAX_SOURCE_ROWS)
+      .optional(),
+    recipe_product_option_values: z
+      .number()
+      .int()
+      .min(0)
+      .max(CATALOG_MAX_SOURCE_ROWS)
+      .optional(),
   })
   .strict();
 const RawDetailSnapshotSchema = z
@@ -224,7 +250,10 @@ export type CatalogListRepositoryResult =
   | Readonly<{ state: "stale" }>;
 
 export type CatalogDetailRepositoryResult =
-  | Readonly<{ state: "found"; value: CatalogItemDetailResult }>
+  | Readonly<{
+      state: "found";
+      value: CatalogItemDetailResult | CatalogItemDetailV2Result;
+    }>
   | Readonly<{ state: "not_found" }>
   | Readonly<{ state: "source_bound" }>
   | Readonly<{ state: "stale" }>;
@@ -237,6 +266,8 @@ export interface CatalogReadRepository {
   }): Promise<CatalogListRepositoryResult>;
   get(input: {
     readonly authorization: AuthorizedGetCatalogItemRead;
+    /** Server-selected from the caller's exposure; never a tool argument. */
+    readonly recipeShape: CatalogRecipeShape;
     readonly signal?: AbortSignal;
   }): Promise<CatalogDetailRepositoryResult>;
 }
@@ -487,7 +518,11 @@ function predecessorComesBefore(
   );
 }
 
-function exactDetailSource(raw: unknown, costsSelected: boolean) {
+function exactDetailSource(
+  raw: unknown,
+  costsSelected: boolean,
+  recipeShape: CatalogRecipeShape
+) {
   if (
     typeof raw !== "object" ||
     raw === null ||
@@ -502,6 +537,7 @@ function exactDetailSource(raw: unknown, costsSelected: boolean) {
     "options",
     "physical_stock",
     "recipes",
+    ...(recipeShape === "v2" ? ["recipe_products"] : []),
     "requested_ref",
     ...(costsSelected ? ["supplier_costs"] : []),
     "variants",
@@ -682,6 +718,8 @@ export function createSupabaseCatalogReadRepository(
 
     async get(input) {
       if (!isAuthorizedGetCatalogItemRead(input.authorization)) invalid();
+      if (input.recipeShape !== "v1" && input.recipeShape !== "v2") invalid();
+      const recipeShape = input.recipeShape;
       const query = input.authorization.query;
       const costsSelected = query.sections.includes("supplier_costs");
       const response = await execute(
@@ -703,6 +741,16 @@ export function createSupabaseCatalogReadRepository(
           p_stock_group_fetch_limit: CATALOG_MAX_PHYSICAL_STOCK_GROUPS + 1,
           p_supplier_cost_limit: CATALOG_MAX_SUPPLIER_COSTS,
           p_supplier_cost_fetch_limit: CATALOG_MAX_SUPPLIER_COSTS + 1,
+          p_recipe_shape: recipeShape,
+          p_recipe_selector_key_limit: CATALOG_MAX_RECIPE_SELECTOR_ENTRIES,
+          p_recipe_product_limit: CATALOG_MAX_RECIPE_PRODUCTS,
+          p_recipe_product_fetch_limit: CATALOG_MAX_RECIPE_PRODUCTS + 1,
+          p_recipe_option_limit: CATALOG_MAX_RECIPE_PRODUCT_OPTIONS,
+          p_recipe_option_fetch_limit: CATALOG_MAX_RECIPE_PRODUCT_OPTIONS + 1,
+          p_recipe_option_value_limit:
+            CATALOG_MAX_RECIPE_PRODUCT_OPTION_VALUES,
+          p_recipe_option_value_fetch_limit:
+            CATALOG_MAX_RECIPE_PRODUCT_OPTION_VALUES + 1,
         }),
         input.signal
       );
@@ -713,8 +761,12 @@ export function createSupabaseCatalogReadRepository(
       }
       try {
         const snapshot = RawDetailSnapshotSchema.parse(response.data);
-        const source = exactDetailSource(snapshot.result, costsSelected);
-        const value = CatalogItemDetailResultSchema.parse({
+        const source = exactDetailSource(
+          snapshot.result,
+          costsSelected,
+          recipeShape
+        );
+        const value = catalogItemDetailResultSchema(recipeShape).parse({
           ...source,
           evidence: [
             {
@@ -740,7 +792,34 @@ export function createSupabaseCatalogReadRepository(
           (count, option) => count + option.values.length,
           0
         );
+        const recipeProducts = catalogDetailRecipeProducts(value);
+        const recipeProductsCounted =
+          recipeShape === "v2" && recipeProducts !== null
+            ? snapshot.source_inspected.recipe_products ===
+                recipeProducts.length &&
+              snapshot.source_inspected.recipe_product_options ===
+                recipeProducts.reduce(
+                  (count, product) => count + product.options.length,
+                  0
+                ) &&
+              snapshot.source_inspected.recipe_product_option_values ===
+                recipeProducts.reduce(
+                  (count, product) =>
+                    count +
+                    product.options.reduce(
+                      (values, option) => values + option.values.length,
+                      0
+                    ),
+                  0
+                )
+            : recipeShape === "v1" &&
+              recipeProducts === null &&
+              snapshot.source_inspected.recipe_products === undefined &&
+              snapshot.source_inspected.recipe_product_options === undefined &&
+              snapshot.source_inspected.recipe_product_option_values ===
+                undefined;
         if (
+          !recipeProductsCounted ||
           !exactBinding(snapshot, input.authorization) ||
           !sameJson(value.requested_ref, query.item_ref) ||
           !sameJson(
@@ -754,7 +833,7 @@ export function createSupabaseCatalogReadRepository(
           snapshot.source_inspected.recipes !== value.recipes.length ||
           snapshot.source_inspected.stock_units < value.physical_stock.length ||
           snapshot.source_inspected.supplier_costs !==
-            ("supplier_costs" in value ? value.supplier_costs.length : 0) ||
+            (catalogDetailSupplierCosts(value)?.length ?? 0) ||
           Object.values(snapshot.source_inspected).some(
             (count) => count >= CATALOG_MAX_SOURCE_ROWS
           ) ||

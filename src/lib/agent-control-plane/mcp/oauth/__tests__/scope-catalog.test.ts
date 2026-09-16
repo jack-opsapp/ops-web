@@ -12,6 +12,7 @@ import {
   MCP_CONSENT_CATALOG_V7,
   MCP_CONSENT_CATALOG_V8,
   MCP_CONSENT_CATALOG_V9,
+  MCP_CONSENT_CATALOG_V18,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,
   resolveMcpConsentCatalogRevision,
@@ -27,6 +28,7 @@ import {
   MCP_EXPOSURE_V13,
   MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V23,
+  MCP_EXPOSURE_V24,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
@@ -169,12 +171,17 @@ describe("registered MCP scope vocabulary", () => {
 });
 
 describe("versioned MCP consent catalogue", () => {
-  it.each([MCP_EXPOSURE_V14, MCP_EXPOSURE_V23])(
+  it.each([MCP_EXPOSURE_V14, MCP_EXPOSURE_V23, MCP_EXPOSURE_V24])(
     "rejects dormant site-visit scope requests on public exposure $revision",
     (exposure) => {
+      // V14 and V23 stay pinned to consent v9; only V24 moves to v18.
       const snapshot = consentSnapshotForExposure(
         exposure,
-        resolveActiveMcpConsentCatalog()
+        resolveMcpConsentCatalogRevision(
+          exposure === MCP_EXPOSURE_V24
+            ? "2026-09-15.mcp-consent-catalog.v18"
+            : "2026-09-04.mcp-consent-catalog.v9"
+        )
       );
       for (const scope of [
         "ops.site_visits.prepare",
@@ -197,12 +204,21 @@ describe("versioned MCP consent catalogue", () => {
 
   it("resolves one immutable active catalogue revision backed by the neutral vocabulary", () => {
     expect(ACTIVE_MCP_CONSENT_CATALOG_REVISION).toBe(
-      "2026-09-04.mcp-consent-catalog.v9"
+      "2026-09-15.mcp-consent-catalog.v18"
     );
-    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V9);
+    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V18);
     expect(
       resolveMcpConsentCatalogRevision(ACTIVE_MCP_CONSENT_CATALOG_REVISION)
+    ).toBe(MCP_CONSENT_CATALOG_V18);
+    expect(
+      resolveMcpConsentCatalogRevision("2026-09-04.mcp-consent-catalog.v9")
     ).toBe(MCP_CONSENT_CATALOG_V9);
+    // v18 is v9 plus exactly one label; nothing else moved.
+    expect(MCP_CONSENT_CATALOG_V18.consentLabels).toEqual({
+      ...MCP_CONSENT_CATALOG_V9.consentLabels,
+      "ops.catalog.prepare":
+        "Prepare exact catalog changes for named operator approval in OPS; never change stock or prices without that approval",
+    });
     expect(MCP_CONSENT_CATALOG_V1.registeredScopes).toBe(REGISTERED_MCP_SCOPES);
     expect(MCP_CONSENT_CATALOG_V1.operations).toBe(MCP_SCOPE_OPERATION_BY_ID);
     expect(MCP_CONSENT_CATALOG_V1.consentLabels).toBe(MCP_SCOPE_CONSENT_LABELS);
@@ -255,7 +271,7 @@ describe("versioned MCP consent catalogue", () => {
     expect(MCP_CONSENT_CATALOG_V8.consentLabels).toBe(
       DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
     );
-    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V9);
+    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V18);
   });
 
   it("binds dormant v11-v13 to distinct immutable consent catalogues", () => {
@@ -398,7 +414,7 @@ describe("versioned MCP consent catalogue", () => {
         resolveActiveMcpConsentCatalog()
       )
     ).toEqual({
-      consentCatalogRevision: "2026-09-04.mcp-consent-catalog.v9",
+      consentCatalogRevision: "2026-09-15.mcp-consent-catalog.v18",
       exposureRevision: "test.mcp-exposure.v2",
       scopeCeiling: ["ops.tasks.read", "ops.catalog.read"],
       acceptedLabels: [
