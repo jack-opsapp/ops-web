@@ -73,7 +73,17 @@ export const journalPitchSchema = z
     hook: text(P.hook),
     headline: text(P.headline),
     hooks_considered: z
-      .array(z.object({ headline: text(P.headline), hook: text(P.hook), verdict: text(P.hook_verdict) }).strict())
+      .array(
+        z
+          .object({
+            headline: text(P.headline),
+            hook: text(P.hook),
+            verdict: text(P.hook_verdict),
+            // How many of the three readers would click it.
+            clicks: z.number().int().min(0).max(P.readers),
+          })
+          .strict()
+      )
       .min(P.hooks_considered[0])
       .max(P.hooks_considered[1]),
     runners_up: z
@@ -95,7 +105,7 @@ export interface JournalPitch {
   headline: string;
   signals: JournalClaimSignal[];
   chatter: Array<{ url: string; shows: string }>;
-  hooks_considered: Array<{ headline: string; hook: string; verdict: string }>;
+  hooks_considered: Array<{ headline: string; hook: string; verdict: string; clicks: number }>;
   runners_up: Array<{ topic: string; why_not: string }>;
   radar_scanned_at: string | null;
 }
@@ -194,14 +204,19 @@ export function prepareJournalPitch(raw: unknown, ctx: JournalPitchContext): Jou
       },
     ]);
 
-  // --- the hook room weighed real alternatives ----------------------------------------
+  // --- Sam Parr's 25 headlines, and readers who picked ----------------------------------
   const distinctHooks = new Set(p.hooks_considered.map((entry) => normalizeForMatch(entry.headline)));
   if (distinctHooks.size < P.hooks_considered[0])
     fail("PITCH_HOOKS", [
       {
         path: "hooks_considered",
-        message: `at least ${P.hooks_considered[0]} different headlines were weighed (got ${distinctHooks.size})`,
+        message: `write at least ${P.hooks_considered[0]} different headlines (got ${distinctHooks.size})`,
       },
+    ]);
+  const totalClicks = p.hooks_considered.reduce((sum, entry) => sum + entry.clicks, 0);
+  if (totalClicks === 0)
+    fail("PITCH_HOOKS", [
+      { path: "hooks_considered", message: `record how many of the ${P.readers} readers would click each headline` },
     ]);
   const chosenTopic = normalizeForMatch(p.topic);
   const runnerTopics = p.runners_up.map((entry) => normalizeForMatch(entry.topic));

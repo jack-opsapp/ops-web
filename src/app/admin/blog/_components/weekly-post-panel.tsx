@@ -374,7 +374,7 @@ export function WeeklyPostPanel() {
             </div>
           )}
 
-          {assignment?.pitch && <WeeklyPostWhy pitch={assignment.pitch} />}
+          {assignment?.pitch && <WeeklyPostWhy pitch={assignment.pitch} title={pack?.article.title ?? null} />}
 
           {assignment && (canPublish || canStop || canWriteAnother || liveUrl || pack) && (
             <div className="flex flex-wrap items-center gap-[12px]">

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   WEEKLY_QUERY_KEY,
@@ -72,8 +72,9 @@ const pitch: NonNullable<WeeklyAssignment["pitch"]> = {
   ],
   chatter: [{ url: "https://www.reddit.com/r/Construction/comments/abc/", shows: "Owners trading stories about helpers who never came back." }],
   hooks_considered: [
-    { headline: "YOUR NEW GUY QUIT BEFORE LUNCH", hook: "h", verdict: "Chosen." },
-    { headline: "THE FIRST WEEK DECIDES WHO STAYS", hook: "h", verdict: "Tells the ending." },
+    { headline: "YOUR NEW GUY QUIT BEFORE LUNCH", hook: "h", verdict: "Chosen.", clicks: 3 },
+    { headline: "WHY NEW HIRES QUIT IN THE FIRST WEEK", hook: "h", verdict: "Clear, less gripping.", clicks: 0 },
+    { headline: "HOW TO KEEP A NEW HELPER PAST DAY ONE", hook: "h", verdict: "Close second.", clicks: 2 },
   ],
   runners_up: [{ topic: "Pricing small repair jobs", why_not: "Covered in July." }],
 };
@@ -212,10 +213,14 @@ describe("weekly post panel", () => {
 
   it("shows why this topic and this hook before the controls, with the signals that made it hot", () => {
     params.value = new URLSearchParams("journal=11111111-1111-4111-8111-111111111111");
-    show(data([assignment({ pitch })]));
+    const base = assignment();
+    show(data([assignment({ pitch, package: { ...base.package!, article: { ...base.package!.article, title: pitch.headline } } })]));
     const why = screen.getByRole("region", { name: "// WHY THIS POST" });
     expect(why).toHaveTextContent("Why new hires quit in the first ninety days");
     expect(why).toHaveTextContent("ANGLE");
+    expect(why).toHaveTextContent("FIRST LINE");
+    // The draft's title already names the post, so the pitch headline stays out of the way.
+    expect(within(why).queryByText("HEADLINE")).toBeNull();
     expect(why).toHaveTextContent("He showed up at 6:40, carried lumber until noon, and never came back from lunch.");
     expect(screen.getByText("Tommy Mello · 5.1× TYPICAL VIEWS")).toBeInTheDocument();
     expect(screen.getByText("Build Show Network · 12,040 VIEWS")).toBeInTheDocument();
@@ -228,7 +233,11 @@ describe("weekly post panel", () => {
     );
     expect(screen.getByText("SIGNALS · 4 · SEARCH · 1")).toBeInTheDocument();
     expect(screen.getByText("SEARCH · reddit.com")).toBeInTheDocument();
-    expect(screen.getByText("HEADLINES WEIGHED · 2 · TOPICS PASSED OVER · 1")).toBeInTheDocument();
+    expect(screen.getByText("HEADLINES WEIGHED · 3 · TOPICS PASSED OVER · 1")).toBeInTheDocument();
+    // Losing headlines, most-clicked first, each with its reader count.
+    const losing = within(why).getAllByText(/^(WHY NEW HIRES|HOW TO KEEP A NEW HELPER)/).map((node) => node.textContent);
+    expect(losing).toEqual(["HOW TO KEEP A NEW HELPER PAST DAY ONE", "WHY NEW HIRES QUIT IN THE FIRST WEEK"]);
+    expect(within(why).getByText("2 OF 3 READERS WOULD CLICK")).toBeInTheDocument();
     // The evidence and the alternatives wait one click deeper; the take and the hook do not.
     const [evidence, alternativesBox] = Array.from(why.querySelectorAll("details"));
     expect(evidence).not.toHaveAttribute("open");
@@ -236,18 +245,30 @@ describe("weekly post panel", () => {
     expect(evidence.contains(screen.getByRole("link", { name: "Why your best tech quits" }))).toBe(true);
     expect(why.querySelector("details")?.compareDocumentPosition(screen.getByText(pitch.hook)) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     // The alternatives name only the headlines that lost.
-    expect(screen.getByText("THE FIRST WEEK DECIDES WHO STAYS")).toBeInTheDocument();
-    expect(screen.queryAllByText("YOUR NEW GUY QUIT BEFORE LUNCH")).toHaveLength(0);
+
+    expect(within(why).queryAllByText("YOUR NEW GUY QUIT BEFORE LUNCH")).toHaveLength(0);
     expect(screen.getByText("Pricing small repair jobs")).toBeInTheDocument();
     const order = [why, screen.getByRole("button", { name: "PUBLISH NOW" })];
     expect(order[0].compareDocumentPosition(order[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("names the pitch headline beside a draft whose title research changed", () => {
+    params.value = new URLSearchParams("journal=11111111-1111-4111-8111-111111111111");
+    show(data([assignment({ pitch })]));
+    const why = screen.getByRole("region", { name: "// WHY THIS POST" });
+    expect(within(why).getByText("HEADLINE")).toBeInTheDocument();
+    expect(within(why).getByText("YOUR NEW GUY QUIT BEFORE LUNCH")).toBeInTheDocument();
   });
 
   it("shows the pitch while the post is still being written, and nothing for posts from before the funnel", () => {
     params.value = new URLSearchParams("journal=11111111-1111-4111-8111-111111111111");
     const view = show(data([assignment({ state: "authoring", preview: null, package: null, pitch })]));
     expect(screen.getByText("BEING WRITTEN", { exact: false })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "// WHY THIS POST" })).toHaveTextContent("Why new hires quit");
+    const writing = screen.getByRole("region", { name: "// WHY THIS POST" });
+    expect(writing).toHaveTextContent("Why new hires quit");
+    // Nothing else names the post yet, so the chosen headline shows with its readers.
+    expect(within(writing).getByText("YOUR NEW GUY QUIT BEFORE LUNCH")).toBeInTheDocument();
+    expect(within(writing).getByText("3 OF 3 READERS WOULD CLICK")).toBeInTheDocument();
     view.unmount();
     show(data([assignment()]));
     expect(screen.queryByRole("region", { name: "// WHY THIS POST" })).toBeNull();

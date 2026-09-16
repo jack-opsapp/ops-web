@@ -66,7 +66,7 @@
   "weekly.code.fallback": "The post stopped before going live.",
   "weekly.why.label": "// WHY THIS POST",
   "weekly.why.angle": "ANGLE",
-  "weekly.why.hook": "HOOK",
+  "weekly.why.hook": "FIRST LINE",
   "weekly.why.signals": "SIGNALS",
   "weekly.why.typicalViews": "TYPICAL VIEWS",
   "weekly.why.views": "VIEWS",
@@ -76,5 +76,8 @@
   "weekly.why.runnersUp": "TOPICS PASSED OVER",
   "weekly.radar.label": "RADAR",
   "weekly.radar.of": "OF",
-  "weekly.radar.degraded": "FEEDS ANSWERED. THE WRITER FALLS BACK TO SEARCH."
+  "weekly.radar.degraded": "FEEDS ANSWERED. THE WRITER FALLS BACK TO SEARCH.",
+  "weekly.why.headline": "HEADLINE",
+  "weekly.why.of": "OF",
+  "weekly.why.readers": "READERS WOULD CLICK"
 }

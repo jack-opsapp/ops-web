@@ -262,7 +262,7 @@ export function journalStaleIssues(entries: ReadonlyArray<readonly [string, stri
   });
 }
 
-/** The journal title rule: ALL CAPS, 5–10 words, no closing period or exclamation point. */
+/** The journal title rule: set in capitals, 3–10 words (Sam Parr's guide), no closing period or exclamation point. */
 export function journalTitleIssue(path: string, title: string): JournalDraftIssue | null {
   const words = wordsOf(title).length;
   if (title === title.toUpperCase() && words >= L.title_words[0] && words <= L.title_words[1] && !/[.!]$/.test(title))

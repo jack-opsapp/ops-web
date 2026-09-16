@@ -236,7 +236,7 @@ describe("journal handoff", () => {
         momentum: 5.13,
         age_days: 2.9,
       });
-      expect(body.assignment.pitch_limits).toMatchObject({ evidence_min: 3, hooks_considered: [6, 14], runners_up: [2, 4] });
+      expect(body.assignment.pitch_limits).toMatchObject({ evidence_min: 3, hooks_considered: [25, 30], readers: 3, runners_up: [2, 4] });
     });
   });
 

@@ -66,7 +66,7 @@
   "weekly.code.fallback": "El artículo se detuvo antes de publicarse.",
   "weekly.why.label": "// POR QUÉ ESTE ARTÍCULO",
   "weekly.why.angle": "ÁNGULO",
-  "weekly.why.hook": "GANCHO",
+  "weekly.why.hook": "PRIMERA LÍNEA",
   "weekly.why.signals": "SEÑALES",
   "weekly.why.typicalViews": "LAS VISTAS HABITUALES",
   "weekly.why.views": "VISTAS",
@@ -76,5 +76,8 @@
   "weekly.why.runnersUp": "TEMAS DESCARTADOS",
   "weekly.radar.label": "RADAR",
   "weekly.radar.of": "DE",
-  "weekly.radar.degraded": "FUENTES RESPONDIERON. EL REDACTOR RECURRE A LA BÚSQUEDA."
+  "weekly.radar.degraded": "FUENTES RESPONDIERON. EL REDACTOR RECURRE A LA BÚSQUEDA.",
+  "weekly.why.headline": "TITULAR",
+  "weekly.why.of": "DE",
+  "weekly.why.readers": "LECTORES HARÍAN CLIC"
 }

@@ -64,7 +64,8 @@ describe("prepareJournalDraft", () => {
 
   it("enforces the title, meta title, category and topic rules", () => {
     expect(codeOf(candidate({ title: "The first call decides the whole week" }))).toBe("TITLE_FORMAT");
-    expect(codeOf(candidate({ title: "FIRST CALL WINS" }))).toBe("TITLE_FORMAT");
+    expect(codeOf(candidate({ title: "CALL FIRST" }))).toBe("TITLE_FORMAT");
+    expect(codeOf(candidate({ title: "ANSWER EVERY CALL FIRST IN THE MORNING BEFORE THE CREW LEAVES" }))).toBe("TITLE_FORMAT");
     expect(codeOf(candidate({ meta_title: "Too short" }))).toBe("META_TITLE_LENGTH");
     expect(codeOf(candidate({ category: "gossip" }))).toBe("CATEGORY_INVALID");
     expect(codeOf(candidate({ topic: { backlog_topic_id: SOURCE_C, angle: "x" } }))).toBe("TOPIC_INVALID");

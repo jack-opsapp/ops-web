@@ -8,7 +8,8 @@ export const JOURNAL_BRIEF_VERSION = "ops-journal-2026-09-16-v3";
 // Mirrors the candidate schema in policy.ts. The routine has no access to this
 // codebase, so the accepted shape travels with every claim.
 export const JOURNAL_LIMITS = {
-  title_words: [5, 10],
+  // Sam Parr's guide: a plain-English headline of three to ten words.
+  title_words: [3, 10],
   title_chars: 80,
   subtitle: 160,
   slug: 80,
@@ -52,8 +53,10 @@ export const JOURNAL_PITCH_LIMITS = {
   chatter_shows: 240,
   // Radar signals plus search results that show the topic is hot.
   evidence_min: 3,
-  // Ten to twelve candidates, plus the critic's sharpened winner when it reads differently.
-  hooks_considered: [6, 14],
+  // Sam Parr's guide: write 25 headlines; the editor's tightened winner may add one more.
+  hooks_considered: [25, 30],
+  // Three independent readers each name the three headlines they would click.
+  readers: 3,
   hook_verdict: 240,
   runners_up: [2, 4],
   runner_why_not: 300,

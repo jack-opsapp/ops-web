@@ -35,7 +35,8 @@ describe("journal pitch", () => {
       replies: null,
     });
     expect(pitch.radar_scanned_at).toBe("2026-09-13T12:09:00.000Z");
-    expect(pitch.hooks_considered).toHaveLength(6);
+    expect(pitch.hooks_considered).toHaveLength(25);
+    expect(pitch.hooks_considered[0]).toMatchObject({ headline: "YOUR NEW GUY QUIT BEFORE LUNCH", clicks: 3 });
     expect(pitch.runners_up).toHaveLength(2);
   });
 
@@ -70,7 +71,9 @@ describe("journal pitch", () => {
 
   it("holds the headline to the journal title rule and the hook to the brand voice", () => {
     expect(rejection(validPitch({ headline: "Your new guy quit before lunch" })).code).toBe("TITLE_FORMAT");
-    expect(rejection(validPitch({ headline: "QUIT BEFORE LUNCH" })).code).toBe("TITLE_FORMAT");
+    // Sam Parr's guide allows three words; two is not a headline.
+    expect(rejection(validPitch({ headline: "QUIT EARLY" })).code).toBe("TITLE_FORMAT");
+    expect(prepareJournalPitch(validPitch({ headline: "HELPERS QUIT EARLY" }), { ...pitchContext(), now: NOW }).headline).toBe("HELPERS QUIT EARLY");
     const voice = rejection(validPitch({ hook: "Every contractor has lost a helper by noon!" }));
     expect(voice.code).toBe("VOICE_REJECTED");
     expect(voice.issues.map((issue) => issue.message)).toEqual([
@@ -109,9 +112,17 @@ describe("journal pitch", () => {
     expect(pitch.chatter).toHaveLength(3);
   });
 
-  it("requires real alternatives in the hook room and real runners-up", () => {
-    const sameHooks = validPitch().hooks_considered.map((entry) => ({ ...entry, headline: "YOUR NEW GUY QUIT BEFORE LUNCH" }));
-    expect(rejection(validPitch({ hooks_considered: sameHooks })).code).toBe("PITCH_HOOKS");
+  it("requires Sam Parr's 25 headlines, the readers' clicks, and real runners-up", () => {
+    const hooks = validPitch().hooks_considered;
+    const sameHooks = hooks.map((entry, index) => ({ ...entry, headline: index < 2 ? "YOUR NEW GUY QUIT BEFORE LUNCH" : entry.headline }));
+    expect(rejection(validPitch({ hooks_considered: sameHooks })).issues).toEqual([
+      { path: "hooks_considered", message: "write at least 25 different headlines (got 24)" },
+    ]);
+    expect(rejection(validPitch({ hooks_considered: hooks.slice(0, 24) })).code).toBe("SCHEMA_INVALID");
+    expect(rejection(validPitch({ hooks_considered: hooks.map((entry) => ({ ...entry, clicks: 0 })) })).issues).toEqual([
+      { path: "hooks_considered", message: "record how many of the 3 readers would click each headline" },
+    ]);
+    expect(rejection(validPitch({ hooks_considered: hooks.map((entry) => ({ ...entry, clicks: 4 })) })).code).toBe("SCHEMA_INVALID");
     expect(
       rejection(
         validPitch({

@@ -25,7 +25,7 @@ export interface WeeklyPitch {
   headline: string;
   signals: WeeklySignal[];
   chatter: Array<{ url: string; shows: string }>;
-  hooks_considered: Array<{ headline: string; hook: string; verdict: string }>;
+  hooks_considered: Array<{ headline: string; hook: string; verdict: string; clicks: number }>;
   runners_up: Array<{ topic: string; why_not: string }>;
 }
 
@@ -78,14 +78,23 @@ export function signalMetric(signal: WeeklySignal, t: (key: string, fallback: st
 }
 
 /**
- * Why this topic and this hook, read by the operator before PUBLISH NOW: the
- * topic and why it is hot, the take and the opening line up front; the signals
- * and search results behind the heat, and the headlines and topics it beat,
- * one click deeper each.
+ * Why this topic and this headline, read by the operator before PUBLISH NOW:
+ * the topic and why it is hot, the insight and the first line up front; the
+ * signals and search results behind the heat, and the headlines and topics it
+ * beat, one click deeper each.
+ *
+ * `title` is the draft's title once there is one. The pitch's headline shows
+ * only while nothing else names the post, or when research changed it.
  */
-export function WeeklyPostWhy({ pitch }: { pitch: WeeklyPitch }) {
+export function WeeklyPostWhy({ pitch, title }: { pitch: WeeklyPitch; title: string | null }) {
   const { t } = useDictionary("admin-blog");
-  const alternatives = pitch.hooks_considered.filter((entry) => entry.headline !== pitch.headline);
+  const readers = (clicks: number) =>
+    `${clicks} ${t("weekly.why.of", "OF")} 3 ${t("weekly.why.readers", "READERS WOULD CLICK")}`;
+  const chosen = pitch.hooks_considered.find((entry) => entry.headline === pitch.headline) ?? null;
+  const alternatives = pitch.hooks_considered
+    .filter((entry) => entry.headline !== pitch.headline)
+    .sort((a, b) => b.clicks - a.clicks);
+  const showHeadline = !title || title !== pitch.headline;
 
   return (
     <section aria-labelledby="weekly-why-label" className="flex max-w-[68ch] flex-col gap-[16px] border-l border-line pl-[16px]">
@@ -99,9 +108,18 @@ export function WeeklyPostWhy({ pitch }: { pitch: WeeklyPitch }) {
       </div>
 
       <dl className="grid grid-cols-[max-content_1fr] items-baseline gap-x-[16px] gap-y-[8px]">
+        {showHeadline && (
+          <>
+            <dt className={META}>{t("weekly.why.headline", "HEADLINE")}</dt>
+            <dd className="flex flex-col gap-[2px]">
+              <span className="font-mohave text-body text-text">{pitch.headline}</span>
+              {chosen && <span className={META}>{readers(chosen.clicks)}</span>}
+            </dd>
+          </>
+        )}
         <dt className={META}>{t("weekly.why.angle", "ANGLE")}</dt>
         <dd className="font-mohave text-body text-text-secondary">{pitch.angle}</dd>
-        <dt className={META}>{t("weekly.why.hook", "HOOK")}</dt>
+        <dt className={META}>{t("weekly.why.hook", "FIRST LINE")}</dt>
         <dd className="font-mohave text-body text-text">{pitch.hook}</dd>
       </dl>
 
@@ -150,6 +168,7 @@ export function WeeklyPostWhy({ pitch }: { pitch: WeeklyPitch }) {
             {alternatives.map((entry) => (
               <li key={entry.headline} className="flex flex-col gap-[2px]">
                 <span className="font-mohave text-body text-text">{entry.headline}</span>
+                <span className={META}>{readers(entry.clicks)}</span>
                 <span className="font-mohave text-body-sm text-text-tertiary">{entry.verdict}</span>
               </li>
             ))}
