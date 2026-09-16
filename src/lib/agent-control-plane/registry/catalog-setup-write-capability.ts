@@ -3,6 +3,7 @@ import {
   CATALOG_SETUP_WRITE_SCHEMA_REVISION,
   CommitCatalogSetupWriteInputSchema,
   PrepareCreateCatalogVariantInputSchema,
+  PrepareSetCatalogPricingInputSchema,
   PrepareSetVariantThresholdsInputSchema,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import type {
@@ -82,6 +83,84 @@ const AUTHORIZATION = Object.freeze({
     }),
   ]),
 });
+
+/**
+ * `catalog_items.default_price` and `catalog_supplier_cost_profiles` are written
+ * nowhere in OPS except the catalogue setup wizard, whose route is gated on
+ * `catalog.run_setup`, and the supplier-cost table's own row policy names that
+ * same key. A SECURITY DEFINER writer reached through MCP must not become a way
+ * around the policy that guards the table it writes, so the two money kinds ask
+ * for setup authority on top of the shared catalogue base. The first two kinds
+ * go through `catalog_setup_save` against tables whose policies ask for no such
+ * key, which is why the spine did not need this and these two do.
+ */
+const SETUP_AUTHORITY_VARIANT = Object.freeze({
+  key: "catalog_setup_write_setup_authority",
+  selector: Object.freeze({ kind: "always" as const }),
+  requiredOAuthScopes: Object.freeze(["ops.catalog.prepare"]),
+  permissionRequirementGroups: Object.freeze([
+    Object.freeze([permission("catalog.run_setup")]),
+  ]),
+});
+
+const PRICING_AUTHORIZATION = Object.freeze({
+  variants: Object.freeze([
+    Object.freeze({
+      key: "catalog_setup_write_base",
+      selector: Object.freeze({ kind: "always" as const }),
+      requiredOAuthScopes: Object.freeze([
+        "ops.catalog.read",
+        "ops.catalog.prepare",
+      ]),
+      permissionRequirementGroups: BASE_PERMISSIONS,
+    }),
+    SETUP_AUTHORITY_VARIANT,
+  ]),
+});
+
+export const PREPARE_SET_CATALOG_PRICING_CAPABILITY_DEFINITION = Object.freeze({
+  name: "prepare_set_catalog_pricing",
+  schemaRevision: CATALOG_SETUP_WRITE_SCHEMA_REVISION,
+  operation: "prepare",
+  writeFamily: "catalog_setup_write",
+  description:
+    "Prepare the selling price of one catalogue family or one catalogue variant for exact operator approval inside OPS. Sale price resolves as the variant override when set, otherwise the family default, so aim a family ref at the number every variant should inherit and a variant ref at the one that should differ. An explicit null clears the price at the level the ref names: clearing a family default leaves every variant carrying no override of its own with no price at all, and the preview lists each one. The amount is a decimal string of at most four fraction digits and the currency must equal the company's own currency. A request that resolves to the price already on file is refused rather than staged. This tool never writes cost. Costs are recorded as supplier cost profiles with prepare_set_supplier_cost. No stock moves, no message is sent and no accounting sync is enqueued.",
+  inputSchema: PrepareSetCatalogPricingInputSchema,
+  authorization: PRICING_AUTHORIZATION,
+  riskTier: "high",
+  bounds: {
+    maxInputBytes: 32_768,
+    maxOutputCharacters: 48_000,
+    maxResultItems: 1,
+  },
+  evidencePolicy: {
+    input: "required",
+    output: "required",
+    maxEvidenceRefs: 3,
+    promptSafeOutput: true,
+    untrustedExternalContent: "structured_and_marked",
+  },
+  auditClass: "mutation_prepare",
+  rateLimitBucket: "prepare",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  confirmationPolicy: {
+    kind: "change_set_preview",
+    exactPreviewRequired: true,
+    expires: true,
+  },
+  idempotencyPolicy: {
+    kind: "required",
+    keyField: "idempotency_key",
+    conflictOnArgumentsHashMismatch: true,
+  },
+  availability: { implementation: "available" },
+  rolloutFlag: "agent_control_plane.capability.prepare_set_catalog_pricing",
+} as const satisfies ImplementationOnlyCapabilityDefinition);
 
 export const PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_DEFINITION =
   Object.freeze({
@@ -239,6 +318,7 @@ export const COMMIT_CATALOG_SETUP_WRITE_CAPABILITY_DEFINITION = Object.freeze({
 export const CATALOG_SETUP_WRITE_PREPARE_DEFINITIONS = Object.freeze([
   PREPARE_CREATE_CATALOG_VARIANT_CAPABILITY_DEFINITION,
   PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_DEFINITION,
+  PREPARE_SET_CATALOG_PRICING_CAPABILITY_DEFINITION,
 ]);
 
 export const CATALOG_SETUP_WRITE_DEFINITIONS = Object.freeze([

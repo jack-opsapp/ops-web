@@ -317,6 +317,7 @@ describe("catalogue setup write kind registry", () => {
     expect(CATALOG_SETUP_WRITE_IMPLEMENTED_KINDS).toEqual([
       "create_variant",
       "set_thresholds",
+      "set_pricing",
     ]);
   });
 });

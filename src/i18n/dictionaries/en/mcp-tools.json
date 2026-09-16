@@ -48,6 +48,7 @@
     "prepare_customer_update": "Prepare customer update",
     "prepare_create_catalog_variant": "Prepare new catalog variant",
     "prepare_set_variant_thresholds": "Prepare variant stock levels",
+    "prepare_set_catalog_pricing": "Prepare catalog price",
     "prepare_customer_message": "Prepare customer message",
     "prepare_schedule_change": "Prepare schedule change",
     "prepare_financial_document": "Prepare financial document",

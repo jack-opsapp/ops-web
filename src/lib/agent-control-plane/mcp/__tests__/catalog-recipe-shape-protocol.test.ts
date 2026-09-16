@@ -235,6 +235,7 @@ describe("catalogue recipe shape is chosen by the exposure", () => {
       ...v23.map((tool) => tool.name),
       "prepare_create_catalog_variant",
       "prepare_set_variant_thresholds",
+      "prepare_set_catalog_pricing",
     ]);
   });
 });

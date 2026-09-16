@@ -8,6 +8,7 @@ import {
   type CatalogSetupWriteKind,
   type CatalogSetupWriteResult,
   type PrepareCreateCatalogVariantInput,
+  type PrepareSetCatalogPricingInput,
   type PrepareSetVariantThresholdsInput,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import { CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
@@ -92,6 +93,8 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_THRESHOLDS_INVALID") ||
     message.startsWith("CATALOG_SETUP_THRESHOLDS_NOT_WHOLE") ||
     message.startsWith("CATALOG_SETUP_NO_CHANGE") ||
+    message.startsWith("CATALOG_SETUP_AFFECTED_VARIANTS_TOO_MANY") ||
+    message.startsWith("CATALOG_SETUP_PRICE_") ||
     message.startsWith("CATALOG_SETUP_CURRENCY_") ||
     message.startsWith("CATALOG_SETUP_EVIDENCE_") ||
     message.startsWith("CATALOG_SETUP_FAMILY_HAS_NO_OPTIONS") ||
@@ -143,6 +146,12 @@ export interface CatalogSetupWriteRepository {
   prepareSetThresholds(input: {
     actorContext: ActorContext;
     request: PrepareSetVariantThresholdsInput;
+    observedAt: string;
+    signal?: AbortSignal;
+  }): Promise<CatalogSetupWriteResult>;
+  prepareSetPricing(input: {
+    actorContext: ActorContext;
+    request: PrepareSetCatalogPricingInput;
     observedAt: string;
     signal?: AbortSignal;
   }): Promise<CatalogSetupWriteResult>;
@@ -287,6 +296,88 @@ export function matchesSetThresholdsRequest(
   );
 }
 
+
+/**
+ * A pricing preview must describe this item, this amount, this currency, and
+ * the level the ref aimed at. It must also be internally consistent: the two
+ * sides list the same variants in the same order, and `prices_changed` is the
+ * number of those variants whose resolved sale price actually moves. A preview
+ * that under-counts what it moves is the exact shape of a wrong approval.
+ */
+export function matchesSetPricingRequest(
+  result: CatalogSetupWriteResult,
+  request: PrepareSetCatalogPricingInput
+): boolean {
+  if (result.kind !== "set_pricing") return false;
+  const proposal = result.proposal;
+  if (proposal.kind !== "set_pricing") return false;
+
+  const { before, after } = proposal;
+  for (const side of [before, after]) {
+    if (
+      side.target.item_ref.kind !== request.item_ref.kind ||
+      side.target.item_ref.id !== request.item_ref.id
+    ) {
+      return false;
+    }
+  }
+
+  const requested = request.sale_price;
+  if (requested === null) {
+    // Cleared: the level the ref names carries nothing of its own any more, so
+    // the answer is either the level above or no price at all.
+    if (after.price.origin === levelFor(request.item_ref.kind)) return false;
+    if (request.item_ref.kind === "catalog_family" && after.price.amount !== null)
+      return false;
+  } else {
+    if (
+      after.price.currency !== requested.currency ||
+      after.price.origin !== levelFor(request.item_ref.kind) ||
+      !sameDecimal(after.price.amount, requested.amount)
+    ) {
+      return false;
+    }
+  }
+  if (before.price.currency !== after.price.currency) return false;
+
+  const beforeRows = before.affected_variants;
+  const afterRows = after.affected_variants;
+  if (beforeRows.length !== afterRows.length) return false;
+  let moved = 0;
+  for (let index = 0; index < afterRows.length; index += 1) {
+    const past = beforeRows[index]!;
+    const next = afterRows[index]!;
+    if (past.variant_ref.id !== next.variant_ref.id) return false;
+    if (
+      !sameDecimal(past.sale_price, next.sale_price) ||
+      past.sale_price_origin !== next.sale_price_origin
+    ) {
+      if (!sameDecimal(past.sale_price, next.sale_price)) moved += 1;
+    }
+  }
+  if (proposal.effects.prices_changed !== moved) return false;
+
+  const expectedFamily = request.item_ref.kind === "catalog_family" ? 1 : 0;
+  if (
+    proposal.effects.families_updated !== expectedFamily ||
+    proposal.effects.variants_updated !== 1 - expectedFamily ||
+    proposal.effects.stock_events_recorded !== 0 ||
+    proposal.effects.supplier_cost_profiles_written !== 0
+  ) {
+    return false;
+  }
+
+  if (proposal.evidence.length !== request.evidence.length) return false;
+  return request.evidence.every(
+    (item, index) => proposal.evidence[index]?.text === item.text
+  );
+}
+
+/** The level a ref writes at, named the way the projection names its origin. */
+function levelFor(kind: "catalog_family" | "catalog_variant") {
+  return kind === "catalog_family" ? "family" : "variant";
+}
+
 /** "45.0000" and "45" are the same price; string equality alone is not. */
 function sameDecimal(left: string | null, right: string | null): boolean {
   if (left === null || right === null) return left === right;
@@ -317,6 +408,28 @@ export function createCatalogSetupWriteRepository(input: {
         !parsed.success ||
         parsed.data.request_id !== read.actorContext.requestId ||
         !matchesCreateVariantRequest(parsed.data, read.request)
+      ) {
+        throw new CatalogSetupWriteRepositoryError("UNAVAILABLE");
+      }
+      return Object.freeze(parsed.data);
+    },
+    async prepareSetPricing(read) {
+      const response = await execute(
+        input.rpc("prepare_catalog_setup_write_as_system", {
+          ...binding(read.actorContext, "set_pricing"),
+          p_kind: "set_pricing",
+          p_request_id: read.actorContext.requestId,
+          p_request: read.request,
+          p_observed_at: read.observedAt,
+        }),
+        read.signal
+      );
+      if (response.error) throw normalizedError(response.error);
+      const parsed = CatalogSetupWriteResultSchema.safeParse(response.data);
+      if (
+        !parsed.success ||
+        parsed.data.request_id !== read.actorContext.requestId ||
+        !matchesSetPricingRequest(parsed.data, read.request)
       ) {
         throw new CatalogSetupWriteRepositoryError("UNAVAILABLE");
       }

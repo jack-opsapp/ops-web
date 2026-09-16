@@ -19,8 +19,9 @@ export const CATALOG_SETUP_WRITE_PROMPT_SAFETY_DIRECTIVE =
  *
  * `extraScopes` is the OAuth scope a kind needs beyond the shared
  * `ops.catalog.read` + `ops.catalog.prepare`; the database authority reads the
- * same table. `create_variant` and `set_thresholds` are implemented today — the
- * rest are reserved so a later vertical cannot quietly widen the grant.
+ * same table. `create_variant`, `set_thresholds` and `set_pricing` are
+ * implemented today — the rest are reserved so a later vertical cannot quietly
+ * widen the grant.
  */
 export const CATALOG_SETUP_WRITE_KINDS = Object.freeze({
   create_variant: Object.freeze({
@@ -39,7 +40,7 @@ export const CATALOG_SETUP_WRITE_KINDS = Object.freeze({
     capabilityId: "prepare_set_catalog_pricing",
     operation: "set_catalog_pricing",
     extraScopes: Object.freeze([] as readonly string[]),
-    implemented: false,
+    implemented: true,
   }),
   set_supplier_cost: Object.freeze({
     capabilityId: "prepare_set_supplier_cost",
@@ -69,6 +70,8 @@ export const PREPARE_CREATE_CATALOG_VARIANT_CAPABILITY_REVISION =
   `prepare_create_catalog_variant${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 export const PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_REVISION =
   `prepare_set_variant_thresholds${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
+export const PREPARE_SET_CATALOG_PRICING_CAPABILITY_REVISION =
+  `prepare_set_catalog_pricing${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 export const COMMIT_CATALOG_SETUP_WRITE_CAPABILITY_REVISION =
   `commit_catalog_setup_write${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 
@@ -243,6 +246,28 @@ export const PrepareSetVariantThresholdsInputSchema = z
     }
   });
 
+/**
+ * Sale price only. Costs are a different model with a different authority and a
+ * different table, and `prepare_set_supplier_cost` owns them; letting one tool
+ * write both would make one approval carry two decisions.
+ *
+ * The key is required and an explicit null clears the price at the level the
+ * ref names. An omitted key would mean "no change", which is not a request.
+ */
+export const PrepareSetCatalogPricingInputSchema = z
+  .object({
+    item_ref: z.discriminatedUnion("kind", [
+      CatalogFamilyRefSchema,
+      CatalogVariantRefSchema,
+    ]),
+    sale_price: CatalogMoneySchema.nullable().describe(
+      "Null clears the price at this level. A family ref writes the family default; a variant ref writes that variant's override. sale_price = the variant override when set, otherwise the family default."
+    ),
+    evidence: CatalogSetupWriteEvidenceInputSchema,
+    idempotency_key: Key,
+  })
+  .strict();
+
 export const CommitCatalogSetupWriteInputSchema = z
   .object({
     action_id: Id,
@@ -288,6 +313,36 @@ export const CatalogSetupWriteThresholdEffectsSchema = z
     thresholds_changed: z.union([z.literal(1), z.literal(2)]),
   })
   .strict();
+
+/**
+ * A pricing write moves exactly one level: a family default or one variant's
+ * override, never both. `prices_changed` counts the variants whose RESOLVED
+ * sale price moves, which is not the same as the field that was written —
+ * pinning a variant to the number it already inherited writes a row and moves
+ * no price, and clearing a family default moves every variant that had none of
+ * its own.
+ */
+export const CatalogSetupWritePricingEffectsSchema = z
+  .object({
+    ...CATALOG_SETUP_WRITE_EFFECT_SHAPE,
+    variants_created: z.literal(0),
+    stock_units_created: z.literal(0),
+    stock_events_recorded: z.literal(0),
+    options_created: z.literal(0),
+    variants_backfilled: z.literal(0),
+    supplier_cost_profiles_written: z.literal(0),
+    families_updated: z.union([z.literal(0), z.literal(1)]),
+    variants_updated: z.union([z.literal(0), z.literal(1)]),
+    prices_changed: z.number().int().min(0).max(128),
+  })
+  .strict()
+  .refine(
+    (effects) => effects.families_updated + effects.variants_updated === 1,
+    {
+      message:
+        "One pricing write moves one level: a family default or one variant override.",
+    }
+  );
 
 const ResolvedOptionValueSchema = z
   .object({
@@ -362,6 +417,69 @@ export const CatalogVariantThresholdProjectionSchema = z
   })
   .strict();
 
+/**
+ * Where a price comes from, in the same words `get_catalog_item` uses to answer
+ * the question: the variant's own override, else the family default, else there
+ * is no price at all. A family target can only ever answer `family` or `none`.
+ */
+export const CatalogPriceOriginSchema = z.enum(["variant", "family", "none"]);
+
+const PricedAmountShape = {
+  amount: CatalogDecimalSchema.nullable(),
+  origin: CatalogPriceOriginSchema,
+} as const;
+
+export const CatalogResolvedPriceSchema = z
+  .object({
+    ...PricedAmountShape,
+    currency: z.string().regex(/^[A-Z]{3}$/),
+  })
+  .strict()
+  .refine((price) => (price.origin === "none") === (price.amount === null), {
+    message: "An origin of none means no price, and a price names its level.",
+  });
+
+const AffectedVariantSchema = z
+  .object({
+    variant_ref: CatalogVariantRefSchema,
+    value_labels: z.array(z.string().min(1)).max(32),
+    sale_price: CatalogDecimalSchema.nullable(),
+    sale_price_origin: CatalogPriceOriginSchema,
+  })
+  .strict()
+  .refine(
+    (variant) =>
+      (variant.sale_price_origin === "none") === (variant.sale_price === null),
+    { message: "An origin of none means no price, and a price names its level." }
+  );
+
+/**
+ * Both sides of a pricing change read the same way: what this thing sells for
+ * now, and what it will sell for. `affected_variants` is every variant whose
+ * RESOLVED sale price the write touches — for a family that is every variant
+ * carrying no override of its own, and a variant whose price becomes null
+ * appears with origin `none` rather than disappearing.
+ *
+ * The list is bounded rather than truncated. A truncated list of prices is a
+ * preview an operator cannot approve honestly.
+ */
+export const CatalogPricingProjectionSchema = z
+  .object({
+    target: z
+      .object({
+        item_ref: z.discriminatedUnion("kind", [
+          CatalogFamilyRefSchema,
+          CatalogVariantRefSchema,
+        ]),
+        name: z.string().min(1),
+        value_labels: z.array(z.string().min(1)).max(32),
+      })
+      .strict(),
+    price: CatalogResolvedPriceSchema,
+    affected_variants: z.array(AffectedVariantSchema).max(128),
+  })
+  .strict();
+
 export const CatalogSetupWriteEvidenceProofSchema = z
   .object({
     kind: z.literal("operator_statement"),
@@ -430,12 +548,29 @@ export const SetVariantThresholdsPreviewSchema = z
   .strict();
 
 /**
+ * A price has no new row to describe either, so both sides are the same shape:
+ * what it sells for now and what it will sell for, with the level each answer
+ * comes from and every variant the change reaches.
+ */
+export const SetCatalogPricingPreviewSchema = z
+  .object({
+    ...PreviewBaseShape,
+    operation: z.literal("set_catalog_pricing"),
+    kind: z.literal("set_pricing"),
+    effects: CatalogSetupWritePricingEffectsSchema,
+    before: CatalogPricingProjectionSchema,
+    after: CatalogPricingProjectionSchema,
+  })
+  .strict();
+
+/**
  * One review surface for all five kinds. A later kind adds a member here and a
  * branch in the preview component; the approval queue keeps one row shape.
  */
 export const CatalogSetupWritePreviewSchema = z.discriminatedUnion("kind", [
   CreateCatalogVariantPreviewSchema,
   SetVariantThresholdsPreviewSchema,
+  SetCatalogPricingPreviewSchema,
 ]);
 
 export const CatalogSetupWriteResultSchema = z
@@ -499,9 +634,25 @@ export const SetVariantThresholdsReceiptSchema = z
   })
   .strict();
 
+/** A pricing receipt is keyed by the item the operator aimed at, not by a
+ * variant: a family default change has no single variant to name. */
+export const SetCatalogPricingReceiptSchema = z
+  .object({
+    ...RECEIPT_BASE_SHAPE,
+    kind: z.literal("set_pricing"),
+    readback: CatalogPricingProjectionSchema,
+    item_ref: z.discriminatedUnion("kind", [
+      CatalogFamilyRefSchema,
+      CatalogVariantRefSchema,
+    ]),
+    effects: CatalogSetupWritePricingEffectsSchema,
+  })
+  .strict();
+
 export const CatalogSetupWriteReceiptSchema = z.discriminatedUnion("kind", [
   CreateCatalogVariantReceiptSchema,
   SetVariantThresholdsReceiptSchema,
+  SetCatalogPricingReceiptSchema,
 ]);
 
 export const CatalogSetupWriteRejectionReceiptSchema = z
@@ -522,6 +673,12 @@ export type PrepareSetVariantThresholdsInput = z.infer<
 export type CatalogVariantThresholdProjection = z.infer<
   typeof CatalogVariantThresholdProjectionSchema
 >;
+export type PrepareSetCatalogPricingInput = z.infer<
+  typeof PrepareSetCatalogPricingInputSchema
+>;
+export type CatalogPricingProjection = z.infer<
+  typeof CatalogPricingProjectionSchema
+>;
 export type CatalogSetupWriteResult = z.infer<
   typeof CatalogSetupWriteResultSchema
 >;
@@ -536,6 +693,9 @@ export type CreateCatalogVariantPreview = z.infer<
 >;
 export type SetVariantThresholdsPreview = z.infer<
   typeof SetVariantThresholdsPreviewSchema
+>;
+export type SetCatalogPricingPreview = z.infer<
+  typeof SetCatalogPricingPreviewSchema
 >;
 export type CatalogVariantProjection = z.infer<
   typeof CatalogVariantProjectionSchema

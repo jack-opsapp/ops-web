@@ -323,7 +323,171 @@ describe("catalogue setup write exact approval", () => {
       screen.getByRole("button", { name: "catalogSetupWrite.save" })
     ).toBeDisabled();
   });
+
+  it("reads a price change as now/after and lists every variant it moves", () => {
+    const approve = vi.fn();
+    render(
+      <ActionDetail
+        action={make({
+          actionType: "approve_catalog_setup_write",
+          actionData: {
+            proposal: pricingProposal(),
+            preview_sha256: `sha256:${"f".repeat(64)}`,
+            change_set_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          },
+        })}
+        onApprove={approve}
+        onReject={() => {}}
+        t={(k) => k}
+      />
+    );
+    expect(screen.getAllByText(/Endcap rail/).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/catalogSetupWrite.targetFamily/)
+    ).toBeInTheDocument();
+    // The price reads in the same now/after idiom as the levels, with the
+    // level each answer comes from.
+    expect(screen.getByText("catalogSetupWrite.salePrice")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/catalogSetupWrite.priceOrigin.family/).length
+    ).toBeGreaterThan(0);
+    // Every affected variant is listed, not counted.
+    expect(screen.getByText(/catalogSetupWrite.affected/)).toBeInTheDocument();
+    expect(screen.getByText("Black")).toBeInTheDocument();
+    expect(screen.getByText("Sand")).toBeInTheDocument();
+    expect(
+      screen.getByText(/catalogSetupWrite.pricingEffects/)
+    ).toBeInTheDocument();
+    // This kind never claims the create kind's stock sentence.
+    expect(screen.queryByText(/catalogSetupWrite.openingStockNote/)).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    );
+    expect(approve).toHaveBeenCalledWith("action-1", {
+      preview_sha256: `sha256:${"f".repeat(64)}`,
+      change_set_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    });
+  });
+
+  it("calls out the variants a cleared price leaves with nothing", () => {
+    const proposal = pricingProposal();
+    const after = (
+      proposal as unknown as {
+        after: {
+          price: { amount: string | null; currency: string; origin: string };
+          affected_variants: Array<{
+            sale_price: string | null;
+            sale_price_origin: string;
+          }>;
+        };
+      }
+    ).after;
+    after.price = { amount: null, currency: "CAD", origin: "none" };
+    for (const row of after.affected_variants) {
+      row.sale_price = null;
+      row.sale_price_origin = "none";
+    }
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal },
+    });
+    expect(
+      screen.getByText(/catalogSetupWrite.losingPrice/)
+    ).toBeInTheDocument();
+    // An unpriced variant reads as an em dash, never as a missing row.
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("refuses a price preview whose origin and amount disagree", () => {
+    const proposal = pricingProposal();
+    (
+      proposal as unknown as {
+        after: {
+          price: { amount: string | null; currency: string; origin: string };
+        };
+      }
+    ).after.price = { amount: null, currency: "CAD", origin: "family" };
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal },
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "catalogSetupWrite.invalid"
+    );
+    expect(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    ).toBeDisabled();
+  });
+
 });
+
+function pricingProposal() {
+  const target = {
+    item_ref: {
+      kind: "catalog_family",
+      id: "948ac4a0-882f-efe9-3bc4-b6f7c53fb12f",
+    },
+    name: "Endcap rail",
+    value_labels: [] as string[],
+  };
+  const variant = (id: string, label: string, price: string) => ({
+    variant_ref: { kind: "catalog_variant", id },
+    value_labels: [label],
+    sale_price: price,
+    sale_price_origin: "family",
+  });
+  return {
+    operation: "set_catalog_pricing",
+    kind: "set_pricing",
+    policy_revision: "2026-09-15.catalog-setup-write.v1",
+    family: {
+      family_ref: {
+        kind: "catalog_family",
+        id: "948ac4a0-882f-efe9-3bc4-b6f7c53fb12f",
+      },
+      name: "Endcap rail",
+    },
+    before: {
+      target,
+      price: { amount: "6.0000", currency: "CAD", origin: "family" },
+      affected_variants: [
+        variant("7d82d8e3-b62b-4a6c-85cc-ee02642b99c4", "Black", "6.0000"),
+        variant("7d82d8e3-b62b-4a6c-85cc-ee02642b99c5", "Sand", "6.0000"),
+      ],
+    },
+    after: {
+      target,
+      price: { amount: "7.5000", currency: "CAD", origin: "family" },
+      affected_variants: [
+        variant("7d82d8e3-b62b-4a6c-85cc-ee02642b99c4", "Black", "7.5000"),
+        variant("7d82d8e3-b62b-4a6c-85cc-ee02642b99c5", "Sand", "7.5000"),
+      ],
+    },
+    effects: {
+      variants_created: 0,
+      stock_units_created: 0,
+      stock_events_recorded: 0,
+      options_created: 0,
+      variants_backfilled: 0,
+      supplier_cost_profiles_written: 0,
+      messages_sent: 0,
+      accounting_sync_enqueued: 0,
+      families_updated: 1,
+      variants_updated: 0,
+      prices_changed: 2,
+    },
+    evidence: [
+      {
+        kind: "operator_statement",
+        text: "Jackson raised the endcap rail family price to 7.50.",
+        source_sha256: `sha256:${"a".repeat(64)}`,
+        content_kind: "untrusted_business_data",
+      },
+    ],
+    expires_at: "2099-09-15T21:30:00.000Z",
+    reversal: "A correction requires a fresh preview and approval.",
+  };
+}
 
 function thresholdsProposal() {
   const variant = {
