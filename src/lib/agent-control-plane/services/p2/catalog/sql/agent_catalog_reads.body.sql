@@ -51,6 +51,20 @@ begin
 end;
 $prerequisites$;
 
+-- The detail reader and its public wrapper gained the exposure-selected recipe
+-- shape. Dropping the pre-shape signatures keeps exactly one overload
+-- resolvable by name, so PostgREST can never pick a stale projection.
+drop function if exists private.agent_p2_catalog_detail_v1(
+  uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,
+  boolean,integer,integer,integer,integer,integer,integer,integer,integer,
+  integer,integer,integer,integer,integer
+);
+drop function if exists public.read_agent_catalog_item_as_system(
+  text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,
+  text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,
+  integer,integer,integer,integer,integer,integer
+);
+
 create or replace function private.agent_p2_catalog_hash_ref(
   p_prefix text,
   p_material jsonb
@@ -108,7 +122,15 @@ create or replace function private.agent_p2_catalog_detail_v1(
   p_stock_group_limit integer,
   p_stock_group_fetch_limit integer,
   p_supplier_cost_limit integer,
-  p_supplier_cost_fetch_limit integer
+  p_supplier_cost_fetch_limit integer,
+  p_recipe_shape text,
+  p_recipe_selector_key_limit integer,
+  p_recipe_product_limit integer,
+  p_recipe_product_fetch_limit integer,
+  p_recipe_option_limit integer,
+  p_recipe_option_fetch_limit integer,
+  p_recipe_option_value_limit integer,
+  p_recipe_option_value_fetch_limit integer
 ) returns jsonb
 language plpgsql
 stable
@@ -133,6 +155,12 @@ declare
   v_recipe_count integer;
   v_recipes jsonb;
   v_recipe_invalid boolean;
+  v_recipe_selector_key_max integer;
+  v_recipe_product_count integer := 0;
+  v_recipe_option_count integer := 0;
+  v_recipe_option_value_count integer := 0;
+  v_recipe_products jsonb := '[]'::jsonb;
+  v_recipe_products_invalid boolean := false;
   v_stock_source_count integer;
   v_stock_group_count integer;
   v_physical_stock jsonb;
@@ -169,7 +197,16 @@ begin
      or p_stock_group_limit is distinct from 100
      or p_stock_group_fetch_limit is distinct from 101
      or p_supplier_cost_limit is distinct from 64
-     or p_supplier_cost_fetch_limit is distinct from 65 then
+     or p_supplier_cost_fetch_limit is distinct from 65
+     or p_recipe_shape is null
+     or p_recipe_shape not in ('v1', 'v2')
+     or p_recipe_selector_key_limit is distinct from 32
+     or p_recipe_product_limit is distinct from 64
+     or p_recipe_product_fetch_limit is distinct from 65
+     or p_recipe_option_limit is distinct from 128
+     or p_recipe_option_fetch_limit is distinct from 129
+     or p_recipe_option_value_limit is distinct from 512
+     or p_recipe_option_value_fetch_limit is distinct from 513 then
     raise exception 'invalid_agent_catalog_detail_request'
       using errcode = '22023';
   end if;
@@ -406,7 +443,11 @@ begin
            'stock_link'::text as relationship,
            null::uuid as variant_id,
              null::numeric as quantity_value,
-           null::uuid as unit_id
+           null::uuid as unit_id,
+           null::uuid as material_id,
+           null::uuid as material_family_id,
+           null::jsonb as raw_variant_selector,
+           null::uuid as scaled_by_option_id
     from public.products product
     where product.company_id = p_company_id
       and product.linked_catalog_item_id = v_family_id
@@ -418,7 +459,11 @@ begin
            'recipe',
            material.catalog_variant_id,
            material.quantity_per_unit,
-           material.unit_id
+           material.unit_id,
+           material.id,
+           material.catalog_item_id,
+           material.variant_selector,
+           material.scaled_by_option_id
     from public.product_materials material
     join public.products product
       on product.id = material.product_id
@@ -432,7 +477,11 @@ begin
           select selected.variant_id from selected_variants selected
         )
       )
-    order by relationship, product_id, variant_id nulls first
+    -- The material id only breaks ties the pre-existing key leaves open. A
+    -- truncated fetch always raises the bound below, so the retained set — and
+    -- therefore every shape v1 byte — is unchanged.
+    order by relationship, product_id, variant_id nulls first,
+             material_id nulls first
     limit p_recipe_fetch_limit
   ), recipe_projection as materialized (
     select recipe.*,
@@ -443,6 +492,10 @@ begin
              recipe.quantity_value
            )
              as quantity_milliunits,
+           private.agent_p2_catalog_float8_decimal4_v1(
+             recipe.quantity_value
+           )
+             as quantity_per_unit,
            unit_row.display as raw_unit_label,
            case when unit_row.id is null then null
              else private.agent_p2_optional_canonical_text(
@@ -454,61 +507,346 @@ begin
              else private.agent_p2_optional_canonical_text(
                unit_row.abbreviation, 160, 640, true
              )
-           end as unit_abbreviation
+           end as unit_abbreviation,
+           scaled_option.id as scaled_option_id,
+           private.agent_p2_optional_canonical_text(
+             scaled_option.name, 160, 640, true
+           ) as scaled_option_name,
+           selector_state.entries as selector_entries,
+           coalesce(selector_state.entry_count, 0) as selector_entry_count,
+           coalesce(selector_state.source_invalid, false)
+             as selector_invalid
     from raw_recipes recipe
     left join public.catalog_units unit_row
       on unit_row.id = recipe.unit_id
      and unit_row.company_id = p_company_id
      and unit_row.deleted_at is null
+    -- A scaling option must still belong to the same live product. A dangling
+    -- reference leaves the name null and fails the source check below.
+    left join public.product_options scaled_option
+      on scaled_option.id = recipe.scaled_by_option_id
+     and scaled_option.product_id = recipe.product_id
+     and scaled_option.deleted_at is null
+    left join lateral (
+      select pg_catalog.count(*)::integer as entry_count,
+             pg_catalog.jsonb_agg(
+               pg_catalog.jsonb_build_object(
+                 'catalog_option_label', entry.safe_key,
+                 'value_expression', entry.safe_value
+               ) order by entry.raw_key collate "C"
+             ) as entries,
+             coalesce(
+               pg_catalog.bool_or(
+                 entry.safe_key is null or entry.safe_value is null
+               ),
+               false
+             ) as source_invalid
+      from (
+        select selector.key as raw_key,
+               private.agent_p2_optional_canonical_text(
+                 selector.key, 160, 640, true
+               ) as safe_key,
+               private.agent_p2_optional_canonical_text(
+                 selector.value, 160, 640, true
+               ) as safe_value
+        from pg_catalog.jsonb_each_text(
+          case when p_recipe_shape = 'v2'
+                and recipe.raw_variant_selector is not null
+                and pg_catalog.jsonb_typeof(recipe.raw_variant_selector)
+                      = 'object'
+               then recipe.raw_variant_selector
+               else '{}'::jsonb
+          end
+        ) selector
+      ) entry
+    ) selector_state on true
   )
   select pg_catalog.count(*)::integer,
          coalesce(
            pg_catalog.jsonb_agg(
-             pg_catalog.jsonb_build_object(
-               'product_ref', pg_catalog.jsonb_build_object(
-                 'kind', 'product', 'id', recipe.product_id
-               ),
-               'product_label', recipe.safe_product_name,
-               'relationship', recipe.relationship,
-               'variant_ref', case when recipe.variant_id is null then null
-                 else pg_catalog.jsonb_build_object(
-                   'kind', 'catalog_variant', 'id', recipe.variant_id
-                 )
-               end,
-               'quantity_milliunits', recipe.quantity_milliunits,
-               'unit', case when recipe.raw_unit_label is null then null
-                 else pg_catalog.jsonb_build_object(
-                   'label', recipe.unit_label,
-                   'abbreviation', recipe.unit_abbreviation
-                 )
-               end,
-               'content_kind', 'untrusted_business_data'
-             ) order by recipe.relationship, recipe.product_id,
-                        recipe.variant_id nulls first
+             case when p_recipe_shape = 'v2' then
+               pg_catalog.jsonb_build_object(
+                 'product_ref', pg_catalog.jsonb_build_object(
+                   'kind', 'product', 'id', recipe.product_id
+                 ),
+                 'product_label', recipe.safe_product_name,
+                 'relationship', recipe.relationship,
+                 'material_ref', case when recipe.material_id is null
+                   then null
+                   else pg_catalog.jsonb_build_object(
+                     'kind', 'product_material', 'id', recipe.material_id
+                   )
+                 end,
+                 'family_ref', case when recipe.material_family_id is null
+                   then null
+                   else pg_catalog.jsonb_build_object(
+                     'kind', 'catalog_family', 'id', recipe.material_family_id
+                   )
+                 end,
+                 'variant_ref', case when recipe.variant_id is null then null
+                   else pg_catalog.jsonb_build_object(
+                     'kind', 'catalog_variant', 'id', recipe.variant_id
+                   )
+                 end,
+                 'variant_selector', case
+                   when recipe.selector_entry_count = 0 then null
+                   else recipe.selector_entries
+                 end,
+                 'quantity_milliunits', recipe.quantity_milliunits,
+                 'quantity_per_unit', recipe.quantity_per_unit,
+                 'quantity_basis', case
+                   when recipe.relationship = 'stock_link' then null
+                   when recipe.scaled_by_option_id is null
+                     then 'per_product_unit'
+                   else 'per_option_count'
+                 end,
+                 'scaled_by', case
+                   when recipe.scaled_by_option_id is null then null
+                   else pg_catalog.jsonb_build_object(
+                     'option_ref', pg_catalog.jsonb_build_object(
+                       'kind', 'product_option',
+                       'id', recipe.scaled_by_option_id
+                     ),
+                     'option_name', recipe.scaled_option_name
+                   )
+                 end,
+                 'unit', case when recipe.raw_unit_label is null then null
+                   else pg_catalog.jsonb_build_object(
+                     'label', recipe.unit_label,
+                     'abbreviation', recipe.unit_abbreviation
+                   )
+                 end,
+                 'content_kind', 'untrusted_business_data'
+               )
+             else
+               pg_catalog.jsonb_build_object(
+                 'product_ref', pg_catalog.jsonb_build_object(
+                   'kind', 'product', 'id', recipe.product_id
+                 ),
+                 'product_label', recipe.safe_product_name,
+                 'relationship', recipe.relationship,
+                 'variant_ref', case when recipe.variant_id is null then null
+                   else pg_catalog.jsonb_build_object(
+                     'kind', 'catalog_variant', 'id', recipe.variant_id
+                   )
+                 end,
+                 'quantity_milliunits', recipe.quantity_milliunits,
+                 'unit', case when recipe.raw_unit_label is null then null
+                   else pg_catalog.jsonb_build_object(
+                     'label', recipe.unit_label,
+                     'abbreviation', recipe.unit_abbreviation
+                   )
+                 end,
+                 'content_kind', 'untrusted_business_data'
+               )
+             end order by recipe.relationship, recipe.product_id,
+                        recipe.variant_id nulls first,
+                        case when p_recipe_shape = 'v2'
+                          then recipe.material_id
+                        end nulls first
            ),
            '[]'::jsonb
          ),
          coalesce(
            pg_catalog.bool_or(
              recipe.safe_product_name is null
-             or recipe.relationship = 'recipe'
+             or p_recipe_shape = 'v1'
+                and recipe.relationship = 'recipe'
                 and recipe.quantity_milliunits is null
              or recipe.raw_unit_label is not null
                 and recipe.unit_label is null
              or recipe.raw_unit_abbreviation is not null
                 and recipe.unit_abbreviation is null
+             -- Shape v2 states the authored quantity at four decimals, so a
+             -- line the three-decimal milliunit integer cannot carry is
+             -- readable with quantity_milliunits null rather than refused.
+             or p_recipe_shape = 'v2' and (
+                  recipe.relationship = 'recipe'
+                    and (
+                      recipe.material_id is null
+                      or recipe.quantity_per_unit is null
+                    )
+                  or recipe.relationship = 'stock_link'
+                     and (
+                       recipe.material_id is not null
+                       or recipe.raw_variant_selector is not null
+                       or recipe.scaled_by_option_id is not null
+                     )
+                  or recipe.material_family_id is not null
+                     and recipe.material_family_id is distinct from v_family_id
+                  or recipe.raw_variant_selector is not null
+                     and pg_catalog.jsonb_typeof(recipe.raw_variant_selector)
+                           is distinct from 'object'
+                  or recipe.selector_invalid
+                  or recipe.scaled_by_option_id is not null
+                     and recipe.scaled_option_name is null
+                )
            ),
            false
-         )
-    into v_recipe_count, v_recipes, v_recipe_invalid
+         ),
+         coalesce(pg_catalog.max(recipe.selector_entry_count), 0)
+    into v_recipe_count, v_recipes, v_recipe_invalid,
+         v_recipe_selector_key_max
   from recipe_projection recipe;
-  if v_recipe_count >= p_recipe_fetch_limit then
+  if v_recipe_count >= p_recipe_fetch_limit
+     or v_recipe_selector_key_max > p_recipe_selector_key_limit then
     raise exception 'agent_catalog_result_bound'
       using errcode = '54000';
   end if;
   if v_recipe_invalid then
     raise exception 'agent_catalog_source_data_invalid'
       using errcode = '22023';
+  end if;
+
+  if p_recipe_shape = 'v2' then
+    with recipe_product_source as materialized (
+      select distinct on ((recipe.value #>> '{product_ref,id}')::uuid)
+             (recipe.value #>> '{product_ref,id}')::uuid as product_id,
+             recipe.value -> 'product_label' as product_label
+      from pg_catalog.jsonb_array_elements(v_recipes) recipe(value)
+      order by (recipe.value #>> '{product_ref,id}')::uuid
+      limit p_recipe_product_fetch_limit
+    ), recipe_option_source as materialized (
+      select option_row.id,
+             option_row.product_id,
+             option_row.sort_order,
+             option_row.kind,
+             option_row.required,
+             option_row.affects_recipe,
+             private.agent_p2_optional_canonical_text(
+               option_row.name, 160, 640, true
+             ) as safe_name,
+             option_row.default_value as raw_default_value,
+             private.agent_p2_optional_canonical_text(
+               option_row.default_value, 160, 640, true
+             ) as safe_default_value
+      from public.product_options option_row
+      join recipe_product_source source
+        on source.product_id = option_row.product_id
+      where option_row.deleted_at is null
+      order by option_row.product_id, option_row.sort_order, option_row.id
+      limit p_recipe_option_fetch_limit
+    ), recipe_option_value_source as materialized (
+      select value_row.id,
+             value_row.option_id,
+             value_row.sort_order,
+             private.agent_p2_optional_canonical_text(
+               value_row.value, 160, 640, true
+             ) as safe_value
+      from public.product_option_values value_row
+      join recipe_option_source option_row
+        on option_row.id = value_row.option_id
+      where value_row.deleted_at is null
+      order by value_row.option_id, value_row.sort_order, value_row.id
+      limit p_recipe_option_value_fetch_limit
+    ), recipe_option_projection as materialized (
+      select option_row.product_id,
+             option_row.id,
+             option_row.sort_order,
+             option_row.safe_name is null
+               or option_row.kind not in ('boolean', 'integer', 'select')
+               or option_row.required is null
+               or option_row.affects_recipe is null
+               or option_row.sort_order < 0
+               or option_row.sort_order > 9007199254740991
+               or option_row.raw_default_value is not null
+                  and option_row.safe_default_value is null
+               or coalesce(value_state.source_invalid, false)
+                 as source_invalid,
+             pg_catalog.jsonb_build_object(
+               'option_ref', pg_catalog.jsonb_build_object(
+                 'kind', 'product_option', 'id', option_row.id
+               ),
+               'name', option_row.safe_name,
+               'kind', option_row.kind,
+               'required', option_row.required,
+               'affects_recipe', option_row.affects_recipe,
+               'default_value', option_row.safe_default_value,
+               'values', coalesce(value_state.values, '[]'::jsonb),
+               'content_kind', 'untrusted_business_data'
+             ) as option_item
+      from recipe_option_source option_row
+      left join lateral (
+        select pg_catalog.jsonb_agg(
+                 pg_catalog.jsonb_build_object(
+                   'value_ref', pg_catalog.jsonb_build_object(
+                     'kind', 'product_option_value', 'id', value_row.id
+                   ),
+                   'value', value_row.safe_value,
+                   'content_kind', 'untrusted_business_data'
+                 ) order by value_row.sort_order, value_row.id
+               ) as values,
+               coalesce(
+                 pg_catalog.bool_or(
+                   value_row.safe_value is null
+                   or value_row.sort_order < 0
+                   or value_row.sort_order > 9007199254740991
+                 ),
+                 false
+               ) as source_invalid
+        from recipe_option_value_source value_row
+        where value_row.option_id = option_row.id
+      ) value_state on true
+    ), recipe_product_projection as materialized (
+      select source.product_id,
+             pg_catalog.jsonb_build_object(
+               'product_ref', pg_catalog.jsonb_build_object(
+                 'kind', 'product', 'id', source.product_id
+               ),
+               'product_label', source.product_label,
+               'options', coalesce(option_state.options, '[]'::jsonb),
+               'content_kind', 'untrusted_business_data'
+             ) as product_item,
+             coalesce(option_state.source_invalid, false) as source_invalid
+      from recipe_product_source source
+      left join lateral (
+        select pg_catalog.jsonb_agg(
+                 projection.option_item
+                 order by projection.sort_order, projection.id
+               ) as options,
+               coalesce(
+                 pg_catalog.bool_or(projection.source_invalid), false
+               ) as source_invalid
+        from recipe_option_projection projection
+        where projection.product_id = source.product_id
+      ) option_state on true
+    ), recipe_product_states as materialized (
+      select (select pg_catalog.count(*)::integer from recipe_product_source)
+               as product_count,
+             (select pg_catalog.count(*)::integer from recipe_option_source)
+               as option_count,
+             (select pg_catalog.count(*)::integer
+                from recipe_option_value_source) as option_value_count
+    )
+    select states.product_count,
+           states.option_count,
+           states.option_value_count,
+           coalesce(
+             pg_catalog.jsonb_agg(
+               projection.product_item order by projection.product_id
+             ) filter (where projection.product_id is not null),
+             '[]'::jsonb
+           ),
+           coalesce(
+             pg_catalog.bool_or(projection.source_invalid), false
+           )
+      into v_recipe_product_count, v_recipe_option_count,
+           v_recipe_option_value_count, v_recipe_products,
+           v_recipe_products_invalid
+    from recipe_product_states states
+    left join recipe_product_projection projection on true
+    group by states.product_count, states.option_count,
+             states.option_value_count;
+    if v_recipe_product_count >= p_recipe_product_fetch_limit
+       or v_recipe_option_count >= p_recipe_option_fetch_limit
+       or v_recipe_option_value_count >= p_recipe_option_value_fetch_limit then
+      raise exception 'agent_catalog_result_bound'
+        using errcode = '54000';
+    end if;
+    if v_recipe_products_invalid then
+      raise exception 'agent_catalog_source_data_invalid'
+        using errcode = '22023';
+    end if;
   end if;
 
   with selected_variants as materialized (
@@ -765,7 +1103,10 @@ begin
     'options', v_options,
     'recipes', v_recipes,
     'physical_stock', v_physical_stock
-  ) || case when p_include_supplier_costs
+  ) || case when p_recipe_shape = 'v2'
+    then pg_catalog.jsonb_build_object('recipe_products', v_recipe_products)
+    else '{}'::jsonb
+  end || case when p_include_supplier_costs
     then pg_catalog.jsonb_build_object('supplier_costs', v_supplier_costs)
     else '{}'::jsonb
   end;
@@ -777,7 +1118,14 @@ begin
     'recipes', v_recipe_count,
     'stock_units', v_stock_source_count,
     'supplier_costs', v_supplier_cost_count
-  );
+  ) || case when p_recipe_shape = 'v2'
+    then pg_catalog.jsonb_build_object(
+      'recipe_products', v_recipe_product_count,
+      'recipe_product_options', v_recipe_option_count,
+      'recipe_product_option_values', v_recipe_option_value_count
+    )
+    else '{}'::jsonb
+  end;
   v_query := pg_catalog.jsonb_build_object(
     'item_ref', pg_catalog.jsonb_build_object(
       'kind', p_item_kind, 'id', p_item_id
@@ -1264,6 +1612,44 @@ begin
   end if;
   return private.agent_p2_catalog_milliunits_v1(
     p_value::text::numeric
+  );
+end;
+$function$;
+
+-- Recipe shape v2 reports a line's authored quantity at four decimal places
+-- beside the three-decimal milliunit integer, which silently drops anything
+-- finer than a thousandth. Four decimals covers every authored quantity in
+-- production today; a finer value still returns null and fails the source
+-- check rather than being rounded into a wrong number.
+create or replace function private.agent_p2_catalog_float8_decimal4_v1(
+  p_value double precision
+) returns text
+language plpgsql
+immutable
+strict
+parallel safe
+security invoker
+set search_path = ''
+set extra_float_digits = 3
+as $function$
+declare
+  v_numeric numeric;
+begin
+  if p_value in (
+    'NaN'::double precision,
+    'Infinity'::double precision,
+    '-Infinity'::double precision
+  ) then
+    return null;
+  end if;
+  v_numeric := p_value::text::numeric;
+  if v_numeric < 0
+     or v_numeric > 9007199254740.991
+     or pg_catalog.round(v_numeric, 4) <> v_numeric then
+    return null;
+  end if;
+  return pg_catalog.to_char(
+    pg_catalog.round(v_numeric, 4), 'FM9999999999990.0000'
   );
 end;
 $function$;
@@ -2223,7 +2609,17 @@ create or replace function public.read_agent_catalog_item_as_system(
   p_stock_group_limit integer,
   p_stock_group_fetch_limit integer,
   p_supplier_cost_limit integer,
-  p_supplier_cost_fetch_limit integer
+  p_supplier_cost_fetch_limit integer,
+  -- Shape is server-selected from the caller's MCP exposure revision, never
+  -- from tool arguments. V23 and every earlier pin keep 'v1'.
+  p_recipe_shape text default 'v1',
+  p_recipe_selector_key_limit integer default 32,
+  p_recipe_product_limit integer default 64,
+  p_recipe_product_fetch_limit integer default 65,
+  p_recipe_option_limit integer default 128,
+  p_recipe_option_fetch_limit integer default 129,
+  p_recipe_option_value_limit integer default 512,
+  p_recipe_option_value_fetch_limit integer default 513
 ) returns jsonb
 language plpgsql
 stable
@@ -2268,7 +2664,15 @@ begin
     p_stock_group_limit,
     p_stock_group_fetch_limit,
     p_supplier_cost_limit,
-    p_supplier_cost_fetch_limit
+    p_supplier_cost_fetch_limit,
+    p_recipe_shape,
+    p_recipe_selector_key_limit,
+    p_recipe_product_limit,
+    p_recipe_product_fetch_limit,
+    p_recipe_option_limit,
+    p_recipe_option_fetch_limit,
+    p_recipe_option_value_limit,
+    p_recipe_option_value_fetch_limit
   );
   if v_result is null then
     raise exception 'agent_catalog_item_not_found_or_not_visible'
@@ -2286,7 +2690,8 @@ revoke all on function public.read_agent_catalog_items_as_system(
 revoke all on function public.read_agent_catalog_item_as_system(
   text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,
   text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,
-  integer,integer,integer,integer,integer,integer
+  integer,integer,integer,integer,integer,integer,
+  text,integer,integer,integer,integer,integer,integer,integer
 ) from public, anon, authenticated, service_role;
 
 do $canonical_acl$
@@ -2300,16 +2705,17 @@ begin
     'private.agent_p2_catalog_hash_ref(text,jsonb)',
     'private.agent_p2_catalog_milliunits_v1(numeric)',
     'private.agent_p2_catalog_float8_milliunits_v1(double precision)',
+    'private.agent_p2_catalog_float8_decimal4_v1(double precision)',
     'private.agent_p2_catalog_normalized_text_v1(text)',
     'private.agent_p2_catalog_expected_candidate_v1(text,jsonb)',
     'private.agent_p2_catalog_proof_candidates_v1(jsonb,jsonb)',
     'private.agent_p2_catalog_read_context_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,boolean)',
     'private.agent_p2_catalog_variant_source_v1(uuid,text,text,uuid,uuid,integer)',
     'private.agent_p2_catalog_list_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,text,text,text[],boolean,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid)',
-    'private.agent_p2_catalog_detail_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer)',
+    'private.agent_p2_catalog_detail_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,text,integer,integer,integer,integer,integer,integer,integer)',
     'private.agent_p2_catalog_attention_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,boolean,timestamp with time zone,integer,integer,integer)',
     'public.read_agent_catalog_items_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,text,text,text[],boolean,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid)',
-    'public.read_agent_catalog_item_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer)'
+    'public.read_agent_catalog_item_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,text,integer,integer,integer,integer,integer,integer,integer)'
   ]::text[] loop
     v_function_oid := pg_catalog.to_regprocedure(v_signature)::oid;
     if v_function_oid is null then
@@ -2363,7 +2769,8 @@ grant execute on function public.read_agent_catalog_items_as_system(
 grant execute on function public.read_agent_catalog_item_as_system(
   text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,
   text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,
-  integer,integer,integer,integer,integer,integer
+  integer,integer,integer,integer,integer,integer,
+  text,integer,integer,integer,integer,integer,integer,integer
 ) to service_role;
 
 do $postflight$
@@ -2376,10 +2783,10 @@ begin
   from (
     values
       ('private.agent_p2_catalog_list_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,text,text,text[],boolean,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid)'),
-      ('private.agent_p2_catalog_detail_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer)'),
+      ('private.agent_p2_catalog_detail_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,text,integer,integer,integer,integer,integer,integer,integer)'),
       ('private.agent_p2_catalog_attention_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,boolean,timestamp with time zone,integer,integer,integer)'),
       ('public.read_agent_catalog_items_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,text,text,text[],boolean,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid)'),
-      ('public.read_agent_catalog_item_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer)')
+      ('public.read_agent_catalog_item_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,text,integer,integer,integer,integer,integer,integer,integer)')
   ) required(signature)
   where pg_catalog.to_regprocedure(required.signature) is null;
 
@@ -2435,6 +2842,41 @@ begin
   if v_invalid is not null then
     raise exception 'agent_catalog_reads_postflight_invalid: %',
       pg_catalog.array_to_string(v_invalid, ',')
+      using errcode = '55000';
+  end if;
+
+  if exists (
+    select 1
+    from pg_catalog.unnest(array[
+      'private.agent_p2_catalog_float8_decimal4_v1(double precision)'
+    ]::text[]) required(signature)
+    where not exists (
+      select 1
+      from pg_catalog.pg_proc procedure
+      where procedure.oid = pg_catalog.to_regprocedure(required.signature)
+        and procedure.provolatile = 'i'
+        and procedure.proisstrict
+        and procedure.proparallel = 's'
+        and not procedure.prosecdef
+        and procedure.proconfig @> array[
+          'search_path=""', 'extra_float_digits=3'
+        ]::text[]
+        and pg_catalog.cardinality(procedure.proconfig) = 2
+        and not pg_catalog.has_function_privilege(
+          'public', procedure.oid, 'EXECUTE'
+        )
+        and not pg_catalog.has_function_privilege(
+          'anon', procedure.oid, 'EXECUTE'
+        )
+        and not pg_catalog.has_function_privilege(
+          'authenticated', procedure.oid, 'EXECUTE'
+        )
+        and not pg_catalog.has_function_privilege(
+          'service_role', procedure.oid, 'EXECUTE'
+        )
+    )
+  ) then
+    raise exception 'agent_catalog_decimal4_postflight_invalid'
       using errcode = '55000';
   end if;
 
