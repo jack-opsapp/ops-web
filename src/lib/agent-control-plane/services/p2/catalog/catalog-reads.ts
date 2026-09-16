@@ -2,10 +2,12 @@ import "server-only";
 
 import { P2_MAX_SERIALIZED_CHARACTERS } from "@/lib/agent-control-plane/contracts";
 import {
-  CatalogItemDetailResultSchema,
   CatalogSearchResultSchema,
   assertNoCatalogForbiddenFields,
+  catalogItemDetailResultSchema,
   type CatalogItemDetailResult,
+  type CatalogItemDetailV2Result,
+  type CatalogRecipeShape,
   type CatalogSearchResult,
 } from "@/lib/agent-control-plane/contracts/catalog-purchasing";
 import { P2ReadCursorError } from "../shared/cursor";
@@ -136,7 +138,8 @@ function parseListRepositoryResult(raw: unknown): CatalogListRepositoryResult {
 }
 
 function parseDetailRepositoryResult(
-  raw: unknown
+  raw: unknown,
+  recipeShape: CatalogRecipeShape
 ): CatalogDetailRepositoryResult {
   const record = exactStateRecord(raw, ["not_found", "source_bound", "stale"]);
   if (
@@ -155,7 +158,7 @@ function parseDetailRepositoryResult(
   }
   return deepFreeze({
     state: "found" as const,
-    value: CatalogItemDetailResultSchema.parse(record.value),
+    value: catalogItemDetailResultSchema(recipeShape).parse(record.value),
   });
 }
 
@@ -322,11 +325,26 @@ export async function searchCatalogItems(input: {
   }
 }
 
-export async function getCatalogItem(input: {
+interface CatalogDetailReadInput {
   readonly authorization: AuthorizedGetCatalogItemRead;
   readonly repository: CatalogReadRepository;
+  /** Server-selected from the caller's exposure; never a tool argument. */
+  readonly recipeShape?: CatalogRecipeShape;
   readonly signal?: AbortSignal;
-}): Promise<CatalogItemDetailResult> {
+}
+
+export function getCatalogItem(
+  input: CatalogDetailReadInput & { recipeShape: "v2" }
+): Promise<CatalogItemDetailV2Result>;
+export function getCatalogItem(
+  input: CatalogDetailReadInput & { recipeShape?: "v1" }
+): Promise<CatalogItemDetailResult>;
+export function getCatalogItem(
+  input: CatalogDetailReadInput
+): Promise<CatalogItemDetailResult | CatalogItemDetailV2Result>;
+export async function getCatalogItem(
+  input: CatalogDetailReadInput
+): Promise<CatalogItemDetailResult | CatalogItemDetailV2Result> {
   const authorization = input.authorization;
   if (!isAuthorizedGetCatalogItemRead(authorization)) {
     throw new CatalogReadError({
@@ -334,6 +352,14 @@ export async function getCatalogItem(input: {
       requestId: "unknown-request",
     });
   }
+  if (
+    input.recipeShape !== undefined &&
+    input.recipeShape !== "v1" &&
+    input.recipeShape !== "v2"
+  ) {
+    throw readError("INTERNAL", authorization);
+  }
+  const recipeShape: CatalogRecipeShape = input.recipeShape ?? "v1";
   if (!isTrustedCatalogReadRepository(input.repository)) {
     throw readError("INTERNAL", authorization);
   }
@@ -346,9 +372,10 @@ export async function getCatalogItem(input: {
       read: (repository, signal) =>
         repository.get({
           authorization,
+          recipeShape,
           ...(signal ? { signal } : {}),
         }),
-      parse: parseDetailRepositoryResult,
+      parse: (raw) => parseDetailRepositoryResult(raw, recipeShape),
     });
   } catch (error) {
     throw readError(
@@ -366,7 +393,9 @@ export async function getCatalogItem(input: {
     throw readError("STALE_CONTEXT", authorization);
   }
   try {
-    const parsed = CatalogItemDetailResultSchema.parse(result.value);
+    const parsed = catalogItemDetailResultSchema(recipeShape).parse(
+      result.value
+    );
     assertNoCatalogForbiddenFields(parsed, {
       supplierCostsSelected:
         authorization.query.sections.includes("supplier_costs"),

@@ -229,7 +229,7 @@ describe("MCP bearer grant boundary", () => {
     expect(resolution).toEqual({ kind: "invalid_token" });
     expect(observed).toHaveBeenCalledWith({
       p_token_hash: credentialDigest(TOKEN, "ops_mcp_at_"),
-      p_active_exposure_revision: "2026-09-10.mcp-exposure.v23",
+      p_active_exposure_revision: "2026-09-15.mcp-exposure.v24",
     });
   });
 });

@@ -3,7 +3,6 @@ import {
   MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V23,
   capabilityManifestRevisionForExposure,
-  resolveActiveMcpExposure,
   resolveMcpExposure,
 } from "../mcp-exposure-catalog";
 import {
@@ -54,7 +53,9 @@ describe("full deck result v2 successor", () => {
       ...consentSnapshotForExposure(MCP_EXPOSURE_V14, MCP_CONSENT_CATALOG_V9),
       exposureRevision: MCP_EXPOSURE_V23.revision,
     });
-    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V23);
+    expect(resolveMcpExposure(MCP_EXPOSURE_V23.revision)).toBe(
+      MCP_EXPOSURE_V23
+    );
     expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V9);
     expect(resolveMcpExposure(MCP_EXPOSURE_V14.revision)).toBe(
       MCP_EXPOSURE_V14

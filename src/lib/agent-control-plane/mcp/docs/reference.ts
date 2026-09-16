@@ -7,7 +7,11 @@ import {
   getCapabilityManifestEntry,
   getCustomerUpdateCapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  MCP_EXPOSURE_V24,
+  resolveActiveMcpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import { GET_CATALOG_ITEM_RECIPE_V2_DESCRIPTION } from "@/lib/agent-control-plane/registry/read-capabilities/p2/catalog";
 import {
   MCP_SCOPE_OPERATION_BY_ID,
   mcpScopeConsentLabel,
@@ -255,7 +259,8 @@ function publicScope(scopeId: string): PublicMcpScope {
 
 function publicTool(
   toolId: string,
-  activeScopeOrder: readonly string[]
+  activeScopeOrder: readonly string[],
+  readsRecipeShapeV2: boolean
 ): PublicMcpTool {
   const entry =
     toolId === "prepare_customer_update"
@@ -297,7 +302,12 @@ function publicTool(
 
   return Object.freeze({
     id: entry.name,
-    description: requiredNonBlank(entry.description, "MCP tool description"),
+    description: requiredNonBlank(
+      readsRecipeShapeV2 && toolId === "get_catalog_item"
+        ? GET_CATALOG_ITEM_RECIPE_V2_DESCRIPTION
+        : entry.description,
+      "MCP tool description"
+    ),
     operation: entry.operation,
     availability: "available" as const,
     requiredScopes: Object.freeze(requiredScopes),
@@ -360,9 +370,11 @@ export function resolvePublicMcpReference(
   assertPublicMcpToolGroupCoverage(exposure.toolIds, PUBLIC_MCP_TOOL_GROUPS);
 
   const scopes = Object.freeze(exposure.grantableScopes.map(publicScope));
+  // The reference documents whatever the active exposure actually returns.
+  const readsRecipeShapeV2 = exposure.revision === MCP_EXPOSURE_V24.revision;
   const tools = Object.freeze(
     exposure.toolIds.map((toolId) =>
-      publicTool(toolId, exposure.grantableScopes)
+      publicTool(toolId, exposure.grantableScopes, readsRecipeShapeV2)
     )
   );
   const oauth = resolveMcpOAuthConfig();

@@ -391,10 +391,26 @@ export const MCP_EXPOSURE_V23 = Object.freeze({
   grantableScopes: MCP_EXPOSURE_V14.grantableScopes,
 } as const satisfies McpExposure);
 
+/**
+ * Full successor for new registrations. Authority is exactly V23; only the
+ * catalogue recipe projection changes (`catalogRecipeShape` v2, selected in
+ * `server-factory.ts`). Existing V14 and V23 pins remain immutable.
+ *
+ * The five `prepare_*` catalogue tools and the `ops.catalog.prepare` scope are
+ * added to this same revision in place, before anything is published — extend
+ * `toolIds` and `grantableScopes` here rather than minting a V25.
+ */
+export const MCP_EXPOSURE_V24 = Object.freeze({
+  revision: "2026-09-15.mcp-exposure.v24",
+  toolIds: MCP_EXPOSURE_V23.toolIds,
+  grantableScopes: MCP_EXPOSURE_V23.grantableScopes,
+} as const satisfies McpExposure);
+
 export function isCustomerUpdateMcpExposure(revision: string): boolean {
   return (
     revision === MCP_EXPOSURE_V14.revision ||
-    revision === MCP_EXPOSURE_V23.revision
+    revision === MCP_EXPOSURE_V23.revision ||
+    revision === MCP_EXPOSURE_V24.revision
   );
 }
 
@@ -499,7 +515,7 @@ export const MCP_EXPOSURE_V17 = Object.freeze({
   ),
 } as const satisfies McpExposure);
 
-export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V23.revision;
+export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V24.revision;
 
 /** Exact subject-bound catalog trial. Public registration uses the full V23 successor. */
 export const MCP_CATALOG_TRIAL_EXPOSURE = Object.freeze({
@@ -559,6 +575,7 @@ export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
     [MCP_EXPOSURE_V13.revision]: MCP_EXPOSURE_V13,
     [MCP_EXPOSURE_V14.revision]: MCP_EXPOSURE_V14,
     [MCP_EXPOSURE_V23.revision]: MCP_EXPOSURE_V23,
+    [MCP_EXPOSURE_V24.revision]: MCP_EXPOSURE_V24,
     [MCP_EXPOSURE_V22.revision]: MCP_EXPOSURE_V22,
   });
 
@@ -785,6 +802,7 @@ validateExposure(MCP_EXPOSURE_V12);
 validateExposure(MCP_EXPOSURE_V13);
 validateExposure(MCP_EXPOSURE_V14);
 validateExposure(MCP_EXPOSURE_V23);
+validateExposure(MCP_EXPOSURE_V24);
 // Validate both the full candidate and the separately restricted trial.
 validateExposure(MCP_EXPOSURE_V17);
 validateExposure(MCP_FINANCIAL_TRIAL_EXPOSURE);

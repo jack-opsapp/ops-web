@@ -4,12 +4,16 @@ import { isActorContext } from "../actor/resolve-actor-context";
 import { getCatalogAuthoringCapabilityManifestEntry } from "../registry/capability-manifest";
 import { MCP_EXPOSURE_V19 } from "../registry/mcp-exposure-catalog";
 import { getSiteVisitWorkflowCapabilityManifestEntry } from "../registry/capability-manifest";
-import { MCP_EXPOSURE_V22 } from "../registry/mcp-exposure-catalog";
+import {
+  MCP_EXPOSURE_V22,
+  MCP_EXPOSURE_V24,
+} from "../registry/mcp-exposure-catalog";
 import {
   getCustomerUpdateCapabilityManifestEntry,
   getFinancialDocumentCapabilityManifestEntry,
 } from "../registry/capability-manifest";
 import { MCP_EXPOSURE_V17 } from "../registry/mcp-exposure-catalog";
+import { GET_CATALOG_ITEM_RECIPE_V2_DESCRIPTION } from "../registry/read-capabilities/p2/catalog";
 import "server-only";
 
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
@@ -352,7 +356,11 @@ function createServerForExposure(
   // deck result before activation. Historical public pins retain result v1.
   const usesDeckGeometryV2 =
     exposure.revision === MCP_DECK_GEOMETRY_CANDIDATE_EXPOSURE.revision ||
+    exposure.revision === MCP_EXPOSURE_V24.revision ||
     exposure.revision === MCP_EXPOSURE_V22.revision;
+  // V24 is V23's full successor and the only revision that reads the richer
+  // catalogue recipe projection. Every earlier pin keeps shape v1 exactly.
+  const usesCatalogRecipeV2 = exposure.revision === MCP_EXPOSURE_V24.revision;
 
   const server = new McpServer(
     { name: "OPS", version: CONTRACT_VERSION },
@@ -420,7 +428,9 @@ function createServerForExposure(
         description:
           usesDeckGeometryV2 && entry.name === "get_deck_design_geometry"
             ? "Read authorized deck geometry using result v2. Configured railing quantities are separate from a measured perimeter scenario with exclusions, assumptions and missing facts. Perimeter estimates are not order-ready quantities."
-            : entry.description,
+            : usesCatalogRecipeV2 && entry.name === "get_catalog_item"
+              ? GET_CATALOG_ITEM_RECIPE_V2_DESCRIPTION
+              : entry.description,
         inputSchema: entry.inputSchema,
         annotations: {
           title,
@@ -487,6 +497,13 @@ function createServerForExposure(
             ...(entry.name === "get_deck_design_geometry"
               ? {
                   deckGeometryResultRevision: usesDeckGeometryV2
+                    ? ("v2" as const)
+                    : ("v1" as const),
+                }
+              : {}),
+            ...(entry.name === "get_catalog_item"
+              ? {
+                  catalogRecipeShape: usesCatalogRecipeV2
                     ? ("v2" as const)
                     : ("v1" as const),
                 }

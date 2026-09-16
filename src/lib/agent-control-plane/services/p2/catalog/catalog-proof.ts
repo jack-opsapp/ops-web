@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import type { P2DomainRevision } from "@/lib/agent-control-plane/contracts";
 import type {
   CatalogItemDetailResult,
+  CatalogItemDetailV2Result,
   CatalogSearchItem,
 } from "@/lib/agent-control-plane/contracts/catalog-purchasing";
 import { canonicalOperationalProjection } from "@/lib/agent-control-plane/services/operational-read-projection";
@@ -65,6 +66,10 @@ export interface CatalogDetailSourceInspected {
   readonly recipes: number;
   readonly stock_units: number;
   readonly supplier_costs: number;
+  /** Present only in recipe shape v2, which is the only shape that reads them. */
+  readonly recipe_products?: number;
+  readonly recipe_product_options?: number;
+  readonly recipe_product_option_values?: number;
 }
 
 export interface CatalogDetailProofContext {
@@ -95,8 +100,9 @@ type WithoutCatalogProofEnvelope<T> = T extends unknown
   ? Omit<T, "evidence" | "proof">
   : never;
 
-export type CatalogDetailSource =
-  WithoutCatalogProofEnvelope<CatalogItemDetailResult>;
+export type CatalogDetailSource = WithoutCatalogProofEnvelope<
+  CatalogItemDetailResult | CatalogItemDetailV2Result
+>;
 
 function proofRef(material: unknown): `ops_proof:v1:${string}` {
   return `ops_proof:v1:${createHash("sha256")

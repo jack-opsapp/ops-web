@@ -26,7 +26,7 @@
     "get_expense_context": "Devuelve un gasto visible exacto con datos seguros de asignación y reembolso, y contexto de revisión acotado.",
     "list_work_queue": "Enumera una cola acotada y visible para el operador, formada por tarjetas de atención operativa autorizadas de forma independiente.",
     "search_catalog_items": "Busca en un conjunto acotado de variantes actuales del catálogo por familia, SKU, categoría, etiqueta, estado activo y estado de existencias.",
-    "get_catalog_item": "Devuelve una familia o variante exacta del catálogo con datos seguros de opciones, recetas, precio de venta y existencias, además de costos de proveedores autorizados por separado.",
+    "get_catalog_item": "Devuelve una familia o variante exacta del catálogo con datos seguros de opciones, precio de venta y existencias, además de costos de proveedores autorizados por separado. Cada línea de receta también indica el selector de variante que la resuelve, la cantidad por unidad y la opción de producto que la escala cuando la cantidad es por conteo de opción en lugar de por unidad de producto. Los productos de receta enumeran esas opciones. Una línea de receta es la regla registrada, no una cantidad de pedido.",
     "list_purchase_orders": "Enumera un conjunto acotado de órdenes de compra por estado, coincidencia exacta de proveedor e intervalo de entrega, con instantáneas seguras de partidas y costos autorizados por separado.",
     "get_purchase_order": "Devuelve una orden de compra exacta con instantáneas seguras de partidas ordenadas y costos autorizados por separado.",
     "get_company_context": "Devuelve el perfil operativo actual de la empresa, la ventana de trabajo, el estado del catálogo y los recursos públicos.",

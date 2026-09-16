@@ -18,6 +18,7 @@ import {
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V23,
+  MCP_EXPOSURE_V24,
   MCP_EXPOSURE_V22,
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
@@ -61,7 +62,11 @@ export async function resolveOAuthExposureForSubject(input: {
   readonly userId: string;
   readonly companyId: string;
 }): Promise<McpExposure | null> {
-  const ordinary = [MCP_EXPOSURE_V14, MCP_EXPOSURE_V23].find(
+  const ordinary = [
+    MCP_EXPOSURE_V14,
+    MCP_EXPOSURE_V23,
+    MCP_EXPOSURE_V24,
+  ].find(
     (exposure) => exposure.revision === input.client.exposure_revision
   );
   if (
