@@ -31,3 +31,30 @@ export function useLeadDeckMarkers() {
     queryFn: () => DeckDesignService.fetchLeadDeckMarkers(),
   });
 }
+
+/**
+ * One design's complete `drawing_data` — the fullscreen viewer's read, kept
+ * out of the list query so opening a deck never re-fetches every other deck,
+ * and so the row list stays cheap for leads with several designs.
+ */
+export function useDeckDesignDrawing(designId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.opportunities.deckDrawing(designId ?? ""),
+    queryFn: () => DeckDesignService.fetchDesignWithDrawing(designId!),
+    enabled: !!designId,
+  });
+}
+
+/**
+ * Every deck design attached to a PROJECT — the workspace's `// DECK DESIGN`
+ * section (report acc0d021). A deck carries `project_id` from the moment the
+ * lead converts, so the sketch the crew made on the site visit follows the job
+ * into the build instead of being stranded on the closed lead.
+ */
+export function useProjectDeckDesigns(projectId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.projects.deckDesigns(projectId ?? ""),
+    queryFn: () => DeckDesignService.fetchForProject(projectId!),
+    enabled: !!projectId,
+  });
+}

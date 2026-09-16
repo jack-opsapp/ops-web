@@ -2,38 +2,30 @@
   "crumb.project": "PROYECTO",
   "crumb.fallback": "Proyecto",
   "crumb.newProject": "Nuevo Proyecto",
-
   "title.newProject": "NUEVO PROYECTO",
   "title.loading": "Cargando…",
-
   "status.draft": "BORRADOR",
-
   "traffic.close": "Cerrar",
   "traffic.minimize": "Minimizar",
   "traffic.maximize": "Maximizar",
-
   "mode.viewing": "VIENDO",
   "mode.editing": "EDITANDO",
   "mode.creating": "CREANDO",
-
   "footer.edit": "EDITAR",
   "footer.save": "GUARDAR",
   "footer.discard": "DESCARTAR CAMBIOS",
   "footer.archive": "ARCHIVAR",
   "footer.cancel": "CANCELAR",
   "footer.create": "CREAR",
-
   "tabs.identity": "IDENTIDAD",
   "tabs.schedule": "PROGRAMA",
   "tabs.activity": "ACTIVIDAD",
   "tabs.details": "DETALLES",
   "tabs.accounting": "CONTABILIDAD",
-
   "confirm.archive.title": "// ARCHIVAR PROYECTO",
   "confirm.archive.body": "{title} pasa a la vista de archivo y deja de recibir notificaciones. Es reversible.",
   "confirm.archive.bodyFallback": "Este proyecto pasa a la vista de archivo y deja de recibir notificaciones. Es reversible.",
   "confirm.archive.confirm": "ARCHIVAR",
-
   "activity.section": "ACTIVIDAD",
   "activity.loading": "Cargando…",
   "activity.empty": "Sin actividad aún.",
@@ -52,7 +44,6 @@
   "activity.kind.projectCreated": "CREADO",
   "activity.kind.projectArchived": "ARCHIVADO",
   "activity.kind.taskCompleted": "TAREA HECHA",
-
   "details.scope.section": "ALCANCE",
   "details.scope.empty": "Sin alcance escrito aún.",
   "details.team.section": "EQUIPO",
@@ -64,7 +55,6 @@
   "details.tasks.group.active": "ACTIVAS",
   "details.tasks.group.upcoming": "PRÓXIMAS",
   "details.tasks.group.done": "HECHAS",
-
   "accounting.pipeline.section": "CARTERA",
   "accounting.pipeline.quoted": "COTIZADO",
   "accounting.pipeline.invoiced": "FACTURADO",
@@ -82,7 +72,6 @@
   "accounting.source.changeOrder": "ORDEN DE CAMBIO",
   "accounting.source.payment": "PAGO",
   "accounting.source.expense": "GASTO",
-
   "sidebar.health.section": "SALUD",
   "sidebar.health.tasks": "TAREAS",
   "sidebar.health.overdue": "VENCIDAS",
@@ -106,7 +95,6 @@
   "sidebar.linked.section": "VINCULADOS",
   "sidebar.linked.restricted": "Restringido.",
   "sidebar.linked.empty": "Ninguno.",
-
   "identity.section": "IDENTIDAD",
   "identity.title.label": "NOMBRE DEL PROYECTO",
   "identity.title.placeholder": "ej. Re-techado HQ Acme",
@@ -129,7 +117,6 @@
   "identity.description.label": "DESCRIPCIÓN",
   "identity.description.hint": "QUÉ SE HARÁ",
   "identity.description.placeholder": "Alcance del trabajo",
-
   "schedule.section": "PROGRAMA",
   "schedule.start.label": "INICIO",
   "schedule.end.label": "FIN",
@@ -141,7 +128,6 @@
   "schedule.visibility.options.all": "TODOS",
   "schedule.visibility.options.office": "OFICINA",
   "schedule.visibility.options.private": "PRIVADO",
-
   "editCreate.accessDenied.title": "// ACCESO DENEGADO",
   "editCreate.accessDenied.body": "No tienes permiso para modificar este proyecto.",
   "editCreate.loading": "Cargando…",
@@ -153,9 +139,7 @@
   "editCreate.clientProject": "{client}'s Project",
   "editCreate.errors.titleRequired": "El nombre del proyecto es obligatorio",
   "editCreate.errors.titleTooLong": "Nombre demasiado largo",
-
   "field.optional": "[opcional]",
-
   "map.expandHint": "EXPANDIR MAPA",
   "map.collapse": "CONTRAER",
   "map.collapseAria": "Contraer mapa",
@@ -170,6 +154,8 @@
   "map.toolbar.recenter": "Centrar",
   "map.placeholder.noCoordinates": "SIN COORDENADAS",
   "map.tokenMissing": "// MAPA NO DISPONIBLE — FALTA NEXT_PUBLIC_MAPBOX_TOKEN",
-
-  "body.loading": "Cargando…"
+  "body.loading": "Cargando…",
+  "deck.title": "Diseño de terraza",
+  "deck.open": "Ver el diseño de terraza",
+  "deck.empty": "[ sin diseño de terraza ]"
 }
