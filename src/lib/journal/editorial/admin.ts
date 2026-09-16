@@ -67,12 +67,20 @@ export async function readJournalEditorial() {
     db.from("app_settings").select("value").eq("key", "blog_newsletter_enabled").maybeSingle(),
   ]);
   for (const result of [settings, assignments, newsletter]) if (result.error) throw result.error;
-  const { radar_scanned_at: radarScannedAt, radar_sources: radarSources, ...settingsRow } = settings.data;
-  const feeds = (Array.isArray(radarSources) ? radarSources : []) as JournalRadarSourceStatus[];
+  const settingsData = settings.data;
+  const radarScannedAt: string | null = settingsData?.radar_scanned_at ?? null;
+  const feeds = (Array.isArray(settingsData?.radar_sources) ? settingsData.radar_sources : []) as JournalRadarSourceStatus[];
   return {
-    settings: settingsRow,
+    settings: settingsData
+      ? {
+          mode: settingsData.mode,
+          authoring_heartbeat_at: settingsData.authoring_heartbeat_at,
+          publish_weekday: settingsData.publish_weekday,
+          publish_hour: settingsData.publish_hour,
+        }
+      : null,
     radar: {
-      scanned_at: radarScannedAt ?? null,
+      scanned_at: radarScannedAt,
       ok: feeds.filter((feed) => feed.ok).length,
       total: feeds.length,
       // Only a scan that happened can be degraded; a radar never scanned is simply empty.

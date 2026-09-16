@@ -53,7 +53,7 @@ describe("admin journal read", () => {
 
   it("reports the radar's health and hides its raw feed list", async () => {
     const result = await readJournalEditorial();
-    expect(result.settings).toEqual({ mode: "prepare" });
+    expect(result.settings).toEqual({ mode: "prepare", authoring_heartbeat_at: undefined, publish_weekday: undefined, publish_hour: undefined });
     expect(result.radar).toEqual({ scanned_at: "2026-09-16T18:09:00+00:00", ok: 25, total: 26, degraded: false });
 
     state.settings = { mode: "prepare", radar_scanned_at: "2026-09-16T18:09:00+00:00", radar_sources: feeds(9, 17) };
