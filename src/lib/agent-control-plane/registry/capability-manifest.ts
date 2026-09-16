@@ -2,6 +2,10 @@ import {
   CATALOG_AUTHORING_DEFINITIONS,
   catalogAuthoringHasEffect,
 } from "./catalog-authoring-capability";
+import {
+  CATALOG_SETUP_WRITE_DEFINITIONS,
+  catalogSetupWriteHasEffect,
+} from "./catalog-setup-write-capability";
 import { CATALOG_AUTHORING_MANIFEST } from "../contracts/catalog-authoring";
 import { SITE_VISIT_WORKFLOW_MANIFEST } from "../contracts/site-visit-workflow";
 import { SITE_VISIT_WORKFLOW_DEFINITIONS } from "./site-visit-workflow-capability";
@@ -768,6 +772,51 @@ export function resolveCatalogAuthoringCapabilityAuthorization(
   );
 }
 
+/**
+ * v28 is the v20 customer-update manifest reminted, plus the catalogue-setup
+ * write family. V24 actors bind here; V14 and V23 actors stay on v20, which is
+ * why every v20 entry is reminted rather than shared.
+ */
+export const CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-15.capability-manifest.v28" as const;
+const catalogSetupWriteEntries = [
+  ...CUSTOMER_UPDATE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION)
+  ),
+  ...CATALOG_SETUP_WRITE_DEFINITIONS.map((definition) =>
+    mintImplementationEntry(
+      definition,
+      CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION
+    )
+  ),
+];
+assertCapabilityManifestInvariants(
+  catalogSetupWriteEntries,
+  CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(catalogSetupWriteEntries);
+export const CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST = Object.freeze(
+  catalogSetupWriteEntries
+);
+export function getCatalogSetupWriteCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST.find(
+    (candidate) => candidate.name === name
+  );
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+export function resolveCatalogSetupWriteCapabilityAuthorization(
+  name: string,
+  input: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getCatalogSetupWriteCapabilityManifestEntry(name),
+    input
+  );
+}
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -1037,6 +1086,9 @@ function selectorMatches(
 
   if (selector.kind === "catalog_authoring_effect")
     return catalogAuthoringHasEffect(parsedInput, selector.effect);
+
+  if (selector.kind === "catalog_setup_write_effect")
+    return catalogSetupWriteHasEffect(parsedInput, selector.effect);
 
   if (selector.kind === "input_array_contains") {
     const values = parsedInput[selector.field];

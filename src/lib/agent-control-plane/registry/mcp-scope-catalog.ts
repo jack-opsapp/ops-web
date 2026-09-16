@@ -172,6 +172,17 @@ export const CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
   "ops.customers.prepare":
     "Prepare customer notes and lead details, owner and follow-up date changes for exact approval inside OPS",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+/**
+ * Consent catalogue v18: the v9 label set plus ops.catalog.prepare. The label
+ * differs deliberately from the dark V19 trial's catalogue label — this grant
+ * stages catalogue changes for an operator, and never moves stock or price on
+ * its own.
+ */
+export const CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
+  "ops.catalog.prepare":
+    "Prepare exact catalog changes for named operator approval in OPS; never change stock or prices without that approval",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 /** Candidate only. Enrollment is not financial save or delivery authority. */
 export const FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
   ...CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
@@ -193,6 +204,7 @@ export const CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
 export type LabelledMcpScope =
+  | keyof typeof CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS
   | keyof typeof SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS
   | keyof typeof DISPATCH_CONFIRMATION_TASK_MCP_SCOPE_CONSENT_LABELS
   | keyof typeof CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS

@@ -23,7 +23,9 @@ import {
 } from "@/lib/agent-control-plane/contracts/customer-update";
 import { reauthorizeResolvedMcpActor } from "@/lib/agent-control-plane/mcp/actor-reauthorization";
 import {
+  CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION,
   CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
+  resolveCatalogSetupWriteCapabilityAuthorization,
   resolveCustomerUpdateCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import { toP2ReadAgentError } from "@/lib/agent-control-plane/services/p2/shared/read-error-transport";
@@ -125,10 +127,13 @@ function authorize(
   actorContext: ActorContext,
   input: PrepareCustomerUpdateInput
 ) {
-  const resolved = resolveCustomerUpdateCapabilityAuthorization(
-    CAPABILITY_ID,
-    input
-  );
+  // authorizeCapability refuses a policy minted under a different manifest, so
+  // a V24 actor must be authorized from the v28 remint of this same entry.
+  const resolved =
+    actorContext.capabilityManifestRevision ===
+    CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION
+      ? resolveCatalogSetupWriteCapabilityAuthorization(CAPABILITY_ID, input)
+      : resolveCustomerUpdateCapabilityAuthorization(CAPABILITY_ID, input);
   if (resolved.variants.length !== 1)
     throw authorizationInternal(
       actorContext.requestId,
@@ -175,7 +180,10 @@ export function createCustomerUpdateService(input: {
           actorContext,
           authorityRepository: input.authorityRepository,
           capabilityManifestRevision:
-            CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
+            actorContext.capabilityManifestRevision ===
+            CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION
+              ? CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION
+              : CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
           signal: options?.signal,
         });
         authorize(current, request);

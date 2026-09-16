@@ -7,12 +7,14 @@ import {
   MCP_EXPOSURE_V23,
   MCP_EXPOSURE_V24,
   capabilityManifestRevisionForExposure,
+  isCatalogSetupWriteMcpExposure,
   isCustomerUpdateMcpExposure,
   resolveActiveMcpExposure,
   resolveMcpExposure,
 } from "../mcp-exposure-catalog";
 import {
   MCP_CONSENT_CATALOG_V9,
+  MCP_CONSENT_CATALOG_V18,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,
 } from "../../mcp/oauth/scope-catalog";
@@ -30,7 +32,10 @@ function client(
     token_endpoint_auth_method: "none",
     scope: scopes.join(" "),
     scope_ceiling: scopes,
-    consent_catalog_revision: MCP_CONSENT_CATALOG_V9.revision,
+    consent_catalog_revision:
+      exposureRevision === MCP_EXPOSURE_V24.revision
+        ? MCP_CONSENT_CATALOG_V18.revision
+        : MCP_CONSENT_CATALOG_V9.revision,
     exposure_revision: exposureRevision,
     disabled: false,
   };
@@ -47,16 +52,29 @@ const subject = {
 };
 
 describe("catalogue recipe read successor exposure", () => {
-  it("is V23's authority exactly, published as the new active revision", () => {
+  it("is V23's authority plus the one catalogue prepare, published as the new active revision", () => {
     expect(MCP_EXPOSURE_V24.revision).toBe("2026-09-15.mcp-exposure.v24");
-    expect(MCP_EXPOSURE_V24.toolIds).toEqual(MCP_EXPOSURE_V23.toolIds);
+    // V24 carries the richer recipe read AND the first catalogue setup write.
+    expect(MCP_EXPOSURE_V24.toolIds).toEqual([
+      ...MCP_EXPOSURE_V23.toolIds,
+      "prepare_create_catalog_variant",
+    ]);
+    expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(36);
     expect(MCP_EXPOSURE_V24.grantableScopes).toEqual(
-      MCP_EXPOSURE_V23.grantableScopes
+      [...MCP_EXPOSURE_V23.grantableScopes, "ops.catalog.prepare"].sort()
     );
+    expect(MCP_EXPOSURE_V24.grantableScopes).toHaveLength(22);
     expect(
       capabilityManifestRevisionForExposure(MCP_EXPOSURE_V24.revision)
-    ).toBe(capabilityManifestRevisionForExposure(MCP_EXPOSURE_V23.revision));
+    ).toBe("2026-09-15.capability-manifest.v28");
+    expect(
+      capabilityManifestRevisionForExposure(MCP_EXPOSURE_V23.revision)
+    ).toBe("2026-09-04.capability-manifest.v20");
     expect(isCustomerUpdateMcpExposure(MCP_EXPOSURE_V24.revision)).toBe(true);
+    expect(isCatalogSetupWriteMcpExposure(MCP_EXPOSURE_V24.revision)).toBe(true);
+    expect(isCatalogSetupWriteMcpExposure(MCP_EXPOSURE_V23.revision)).toBe(
+      false
+    );
     expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(MCP_EXPOSURE_V24.revision);
     expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V24);
     expect(resolveMcpExposure(MCP_EXPOSURE_V24.revision)).toBe(
@@ -67,14 +85,33 @@ describe("catalogue recipe read successor exposure", () => {
     );
   });
 
-  it("reuses consent catalogue v9 because the grantable scopes did not move", () => {
-    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V9);
+  it("moves to consent catalogue v18 because one grantable scope was added", () => {
+    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V18);
+    const v24 = consentSnapshotForExposure(
+      MCP_EXPOSURE_V24,
+      MCP_CONSENT_CATALOG_V18
+    );
+    const v23 = consentSnapshotForExposure(
+      MCP_EXPOSURE_V23,
+      MCP_CONSENT_CATALOG_V9
+    );
+    expect(v24.consentCatalogRevision).toBe(
+      "2026-09-15.mcp-consent-catalog.v18"
+    );
+    expect(v23.consentCatalogRevision).toBe("2026-09-04.mcp-consent-catalog.v9");
+    // Exactly one label is added; every V23 label survives byte for byte.
+    expect(v24.acceptedLabels).toHaveLength(v23.acceptedLabels.length + 1);
     expect(
+      v24.acceptedLabels.filter(
+        (label) => !v23.acceptedLabels.includes(label)
+      )
+    ).toEqual([
+      "Prepare exact catalog changes for named operator approval in OPS; never change stock or prices without that approval",
+    ]);
+    // A V24 exposure cannot be consented under the old catalogue.
+    expect(() =>
       consentSnapshotForExposure(MCP_EXPOSURE_V24, MCP_CONSENT_CATALOG_V9)
-    ).toEqual({
-      ...consentSnapshotForExposure(MCP_EXPOSURE_V23, MCP_CONSENT_CATALOG_V9),
-      exposureRevision: MCP_EXPOSURE_V24.revision,
-    });
+    ).toThrow(TypeError);
   });
 
   it("leaves the V14 and V23 pins immutable and still resolvable", () => {

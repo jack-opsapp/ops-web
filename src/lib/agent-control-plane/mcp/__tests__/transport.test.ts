@@ -932,7 +932,7 @@ describe("/api/mcp route gate", () => {
       'resource_metadata="https://app.opsapp.co/.well-known/oauth-protected-resource/api/mcp"'
     );
     expect(challenge).not.toContain("invalid_token");
-    expect(challenge).toContain('scope="ops.catalog.read');
+    expect(challenge).toContain('scope="ops.catalog.prepare ops.catalog.read');
     expect(challenge).toContain("ops.customers.prepare");
     const body = await response.text();
     for (const name of CAPABILITY_NAMES) {

@@ -46,6 +46,7 @@
     "prepare_crew_callout_recovery": "Prepare crew absence recovery",
     "prepare_dispatch_confirmation_task": "Prepare dispatch confirmation task",
     "prepare_customer_update": "Prepare customer update",
+    "prepare_create_catalog_variant": "Prepare new catalog variant",
     "prepare_customer_message": "Prepare customer message",
     "prepare_schedule_change": "Prepare schedule change",
     "prepare_financial_document": "Prepare financial document",

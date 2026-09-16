@@ -51,6 +51,7 @@ function runtime(
     dispatchConfirmationTask:
       {} as McpServerRuntime["dispatchConfirmationTask"],
     customerUpdate: {} as McpServerRuntime["customerUpdate"],
+    catalogSetupWrite: {} as McpServerRuntime["catalogSetupWrite"],
     scheduleChange: {} as McpServerRuntime["scheduleChange"],
     financialDocument: {} as McpServerRuntime["financialDocument"],
     customerMessage: {} as McpServerRuntime["customerMessage"],

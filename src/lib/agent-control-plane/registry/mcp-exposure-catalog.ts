@@ -1,6 +1,8 @@
 import {
   CATALOG_AUTHORING_CAPABILITY_MANIFEST,
   SITE_VISIT_WORKFLOW_CAPABILITY_MANIFEST,
+  CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST,
+  CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION,
   CUSTOMER_UPDATE_CAPABILITY_MANIFEST,
   CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION,
   FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST,
@@ -9,6 +11,7 @@ import {
 import {
   CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS,
   SITE_VISIT_WORKFLOW_MCP_SCOPE_CONSENT_LABELS,
+  CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS,
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
   FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS,
 } from "./mcp-scope-catalog";
@@ -402,16 +405,30 @@ export const MCP_EXPOSURE_V23 = Object.freeze({
  */
 export const MCP_EXPOSURE_V24 = Object.freeze({
   revision: "2026-09-15.mcp-exposure.v24",
-  toolIds: MCP_EXPOSURE_V23.toolIds,
-  grantableScopes: MCP_EXPOSURE_V23.grantableScopes,
+  toolIds: Object.freeze([
+    ...MCP_EXPOSURE_V23.toolIds,
+    "prepare_create_catalog_variant",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze(
+    [...MCP_EXPOSURE_V23.grantableScopes, "ops.catalog.prepare"].sort()
+  ),
 } as const satisfies McpExposure);
 
+/**
+ * V14, V23 and V24 all carry the customer-update tool. V24 additionally carries
+ * the catalogue-setup writes, so it binds to consent v18 and capability
+ * manifest v28 while V14 and V23 stay on v9 and v20.
+ */
 export function isCustomerUpdateMcpExposure(revision: string): boolean {
   return (
     revision === MCP_EXPOSURE_V14.revision ||
     revision === MCP_EXPOSURE_V23.revision ||
     revision === MCP_EXPOSURE_V24.revision
   );
+}
+
+export function isCatalogSetupWriteMcpExposure(revision: string): boolean {
+  return revision === MCP_EXPOSURE_V24.revision;
 }
 
 /** Dormant Phase 13 candidate. It is deliberately absent from the active
@@ -713,6 +730,8 @@ function validateExposure(exposure: McpExposure): void {
           ? CATALOG_AUTHORING_CAPABILITY_MANIFEST
           : exposure.revision === MCP_EXPOSURE_V17.revision
             ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST
+            : isCatalogSetupWriteMcpExposure(exposure.revision)
+              ? CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST
             : isCustomerUpdateMcpExposure(exposure.revision)
               ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST
               : exposure.revision === MCP_EXPOSURE_V13.revision
@@ -753,6 +772,8 @@ function validateExposure(exposure: McpExposure): void {
           ? CATALOG_AUTHORING_MCP_SCOPE_CONSENT_LABELS
           : exposure.revision === MCP_EXPOSURE_V17.revision
             ? FINANCIAL_DOCUMENT_MCP_SCOPE_CONSENT_LABELS
+            : isCatalogSetupWriteMcpExposure(exposure.revision)
+              ? CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS
             : isCustomerUpdateMcpExposure(exposure.revision)
               ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS
               : exposure.revision === MCP_EXPOSURE_V13.revision
@@ -819,6 +840,8 @@ export function capabilityManifestRevisionForExposure(
       ? CATALOG_AUTHORING_MANIFEST
       : exposureRevision === MCP_EXPOSURE_V17.revision
         ? FINANCIAL_DOCUMENT_CAPABILITY_MANIFEST_REVISION
+        : isCatalogSetupWriteMcpExposure(exposureRevision)
+          ? CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION
         : isCustomerUpdateMcpExposure(exposureRevision)
           ? CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION
           : exposureRevision === MCP_EXPOSURE_V13.revision

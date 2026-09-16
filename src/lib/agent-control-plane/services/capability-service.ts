@@ -35,6 +35,11 @@ import {
   type CustomerUpdateService,
 } from "./customer-update/customer-update-service";
 import {
+  isTrustedCatalogSetupWriteService,
+  type CatalogSetupWriteService,
+} from "./catalog-setup-write/catalog-setup-write-service";
+import { CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION } from "../registry/capability-manifest";
+import {
   isTrustedCustomerMessageService,
   type CustomerMessageService,
 } from "./customer-message/customer-message-service";
@@ -108,6 +113,7 @@ export type OpsAgentCapabilityService = SiteVisitWorkflowService &
   CustomerUpdateService &
   ScheduleChangeService &
   FinancialDocumentService &
+  CatalogSetupWriteService &
   CustomerMessageService;
 
 export function createOpsAgentCapabilityService(input: {
@@ -124,6 +130,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly customerUpdate: CustomerUpdateService;
+  readonly catalogSetupWrite: CatalogSetupWriteService;
   readonly scheduleChange: ScheduleChangeService;
   readonly financialDocument: FinancialDocumentService;
   readonly catalogAuthoring: CatalogAuthoringService;
@@ -187,6 +194,8 @@ export function createOpsAgentCapabilityService(input: {
     throw new TypeError("A trusted schedule change service is required");
   if (!isTrustedCustomerUpdateService(input.customerUpdate))
     throw new TypeError("A trusted customer update service is required");
+  if (!isTrustedCatalogSetupWriteService(input.catalogSetupWrite))
+    throw new TypeError("A trusted catalogue setup write service is required");
   if (!isTrustedCustomerMessageService(input.customerMessage))
     throw new TypeError("A trusted customer message service is required");
   // Preserve the independently proven v8 read contracts under the additive v20
@@ -228,6 +237,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.crewCalloutRecovery,
     ...input.dispatchConfirmationTask,
     ...input.customerUpdate,
+    ...input.catalogSetupWrite,
     ...input.scheduleChange,
     ...input.financialDocument,
     ...input.catalogAuthoring,
@@ -259,6 +269,8 @@ export async function reauthorizeCustomerUpdateReadActor(
       actor.capabilityManifestRevision !== CATALOG_AUTHORING_MANIFEST &&
       actor.capabilityManifestRevision !==
         CUSTOMER_UPDATE_CAPABILITY_MANIFEST_REVISION &&
+      actor.capabilityManifestRevision !==
+        CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION &&
       actor.capabilityManifestRevision !==
         CUSTOMER_MESSAGE_CAPABILITY_MANIFEST_REVISION &&
       actor.capabilityManifestRevision !==

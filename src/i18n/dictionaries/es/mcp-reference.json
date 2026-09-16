@@ -34,6 +34,7 @@
     "list_team_availability": "Devuelve estados diarios y acotados de capacidad dentro de la empresa para el equipo activo o el miembro actual, sin detalles de eventos del calendario.",
     "get_integration_health": "Devuelve información acotada y de alto nivel sobre el estado de conexión, sincronización, progreso, motivo y consentimiento del calendario para las integraciones seleccionadas explícitamente.",
     "get_operational_overview": "Devuelve un recuento acotado de alto nivel y un estado de salud definido por un conjunto fijo de valores para cada componente operativo autorizado de forma independiente.",
+    "prepare_create_catalog_variant": "Prepara una variante nueva en una familia existente del catálogo para la aprobación exacta de un operador dentro de OPS. Responde una sola vez cada opción vigente de la familia; un conjunto de valores que ya existe se rechaza. El precio de venta se resuelve como el precio propio de la variante y, si no lo tiene, el predeterminado de la familia, por lo que el precio es obligatorio cuando la familia no tiene predeterminado. Los umbrales son unidades enteras, tal como OPS las guarda. Una cantidad inicial se registra como unidad de existencias y como evento de recepción, nunca como un conteo silencioso. La preparación no escribe nada, no envía mensajes ni encola sincronización contable.",
     "prepare_customer_update": "Prepara una vista previa exacta de los cambios de una oportunidad existente y, de forma opcional, las notas del cliente vinculado, con evidencia atribuida. Los cambios requieren aprobación dentro de OPS; no autoriza mensajes, borradores externos, cambios de agenda ni contabilidad."
   },
   "scopeConsentLabels": {
@@ -57,6 +58,7 @@
     "ops.team.read": "Ver el directorio del equipo y la disponibilidad de la empresa",
     "ops.integrations.read": "Ver el estado de las integraciones sin exponer credenciales",
     "ops.operations.read": "Ver colas de trabajo autorizadas y resúmenes operativos",
-    "ops.customers.prepare": "Preparar cambios de notas de clientes y de detalles, responsables y fechas de seguimiento de oportunidades para su aprobación exacta dentro de OPS"
+    "ops.customers.prepare": "Preparar cambios de notas de clientes y de detalles, responsables y fechas de seguimiento de oportunidades para su aprobación exacta dentro de OPS",
+    "ops.catalog.prepare": "Preparar cambios exactos del catálogo para la aprobación de un operador nombrado dentro de OPS; nunca cambia existencias ni precios sin esa aprobación"
   }
 }

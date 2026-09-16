@@ -5,6 +5,7 @@ import type { Locale } from "@/i18n/types";
 import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth/config";
 import {
   getCapabilityManifestEntry,
+  getCatalogSetupWriteCapabilityManifestEntry,
   getCustomerUpdateCapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
@@ -15,6 +16,7 @@ import { GET_CATALOG_ITEM_RECIPE_V2_DESCRIPTION } from "@/lib/agent-control-plan
 import {
   MCP_SCOPE_OPERATION_BY_ID,
   mcpScopeConsentLabel,
+  CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS,
   CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS,
   type McpScopeOperation,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
@@ -144,6 +146,7 @@ const PUBLIC_MCP_TOOL_GROUPS = Object.freeze([
       "get_expense_context",
       "search_catalog_items",
       "get_catalog_item",
+      "prepare_create_catalog_variant",
       "list_purchase_orders",
       "get_purchase_order",
     ]),
@@ -235,6 +238,16 @@ export function assertPublicMcpToolGroupCoverage(
   }
 }
 
+/** Prepare scopes safe to document publicly: they stage, never commit. */
+const DOCUMENTED_PREPARE_SCOPES: ReadonlySet<string> = new Set([
+  "ops.customers.prepare",
+  "ops.catalog.prepare",
+]);
+const DOCUMENTED_PREPARE_TOOLS: ReadonlySet<string> = new Set([
+  "prepare_customer_update",
+  "prepare_create_catalog_variant",
+]);
+
 function publicScope(scopeId: string): PublicMcpScope {
   const operation = MCP_SCOPE_OPERATION_BY_ID[
     scopeId as keyof typeof MCP_SCOPE_OPERATION_BY_ID
@@ -242,10 +255,15 @@ function publicScope(scopeId: string): PublicMcpScope {
   const consentLabel =
     scopeId === "ops.customers.prepare"
       ? CUSTOMER_UPDATE_MCP_SCOPE_CONSENT_LABELS[scopeId]
-      : mcpScopeConsentLabel(scopeId);
+      : scopeId === "ops.catalog.prepare"
+        ? CATALOG_SETUP_WRITE_MCP_SCOPE_CONSENT_LABELS[scopeId]
+        : mcpScopeConsentLabel(scopeId);
   if (
     (operation !== "read" &&
-      !(operation === "prepare" && scopeId === "ops.customers.prepare")) ||
+      !(
+        operation === "prepare" &&
+        DOCUMENTED_PREPARE_SCOPES.has(scopeId)
+      )) ||
     consentLabel === null
   ) {
     throw new TypeError("Active MCP scope is not safe for public docs");
@@ -263,13 +281,15 @@ function publicTool(
   readsRecipeShapeV2: boolean
 ): PublicMcpTool {
   const entry =
-    toolId === "prepare_customer_update"
-      ? getCustomerUpdateCapabilityManifestEntry(toolId)
-      : getCapabilityManifestEntry(toolId);
+    toolId === "prepare_create_catalog_variant"
+      ? getCatalogSetupWriteCapabilityManifestEntry(toolId)
+      : toolId === "prepare_customer_update"
+        ? getCustomerUpdateCapabilityManifestEntry(toolId)
+        : getCapabilityManifestEntry(toolId);
   if (
     (entry.operation !== "read" &&
       !(
-        entry.operation === "prepare" && toolId === "prepare_customer_update"
+        entry.operation === "prepare" && DOCUMENTED_PREPARE_TOOLS.has(toolId)
       )) ||
     entry.availability.implementation !== "available" ||
     entry.annotations.readOnlyHint !== (entry.operation === "read") ||

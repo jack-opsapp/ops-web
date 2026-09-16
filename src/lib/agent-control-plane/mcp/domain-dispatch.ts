@@ -60,6 +60,7 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   prepare_crew_callout_recovery: "prepareCrewCalloutRecovery",
   prepare_dispatch_confirmation_task: "prepareDispatchConfirmationTask",
   prepare_customer_update: "prepareCustomerUpdate",
+  prepare_create_catalog_variant: "prepareCreateCatalogVariant",
   prepare_customer_message: "prepareCustomerMessage",
   prepare_schedule_change: "prepareScheduleChange",
   prepare_financial_document: "prepareFinancialDocument",
@@ -96,6 +97,7 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
     | "prepare_crew_callout_recovery"
     | "prepare_dispatch_confirmation_task"
     | "prepare_customer_update"
+    | "prepare_create_catalog_variant"
     | "prepare_customer_message"
     | "inspect_catalog_changes"
     | "prepare_catalog_changes"
@@ -123,6 +125,7 @@ export type McpDomainCapabilityId =
   | "prepare_crew_callout_recovery"
   | "prepare_dispatch_confirmation_task"
   | "prepare_customer_update"
+  | "prepare_create_catalog_variant"
   | "prepare_customer_message"
   | "inspect_catalog_changes"
   | "prepare_catalog_changes"

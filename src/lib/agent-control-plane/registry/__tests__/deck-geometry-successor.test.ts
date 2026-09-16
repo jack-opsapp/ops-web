@@ -56,7 +56,10 @@ describe("full deck result v2 successor", () => {
     expect(resolveMcpExposure(MCP_EXPOSURE_V23.revision)).toBe(
       MCP_EXPOSURE_V23
     );
-    expect(resolveActiveMcpConsentCatalog()).toBe(MCP_CONSENT_CATALOG_V9);
+    // V23's own consent stays v9; the active revision moved to v18 with V24.
+    expect(resolveActiveMcpConsentCatalog().revision).toBe(
+      "2026-09-15.mcp-consent-catalog.v18"
+    );
     expect(resolveMcpExposure(MCP_EXPOSURE_V14.revision)).toBe(
       MCP_EXPOSURE_V14
     );

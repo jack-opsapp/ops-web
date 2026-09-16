@@ -119,6 +119,7 @@ describe("MCP production runtime", () => {
       "prepareCrewCalloutRecovery",
       "prepareDispatchConfirmationTask",
       "prepareCustomerUpdate",
+      "prepareCreateCatalogVariant",
       "prepareScheduleChange",
       "inspectFinancialDocument",
       "prepareFinancialDocument",
