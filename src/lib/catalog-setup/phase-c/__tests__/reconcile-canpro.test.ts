@@ -101,7 +101,7 @@ const desiredWithProducts: DesiredCatalogStructure = {
           quantityPerUnit: 1,
           quantityRule: {
             calculationKind: "cut_plan",
-            measureSource: "deck_geometry/v1",
+            measureSource: "deck-geometry/v1",
             requiredInputs: ["finished_area_sqft", "deck_dimensions"],
             wasteFactor: 1,
             purchaseRounding: "none",
@@ -111,7 +111,7 @@ const desiredWithProducts: DesiredCatalogStructure = {
         },
       ],
       capability: {
-        capabilityKey: "deck_geometry/v1",
+        capabilityKey: "deck-geometry/v1",
         requiredInputs: [
           "finished_area_sqft",
           "deck_dimensions",
@@ -373,7 +373,7 @@ describe("Phase C Canpro vinyl reconciliation", () => {
         actionType: "upsert_material_quantity_rule",
         payload: expect.objectContaining({
           calculationKind: "cut_plan",
-          measureSource: "deck_geometry/v1",
+          measureSource: "deck-geometry/v1",
           fallbackRule: { mode: "manual_dimensions" },
         }),
       }),
@@ -382,7 +382,7 @@ describe("Phase C Canpro vinyl reconciliation", () => {
       expect.objectContaining({
         actionType: "upsert_capability_binding",
         payload: expect.objectContaining({
-          capabilityKey: "deck_geometry/v1",
+          capabilityKey: "deck-geometry/v1",
           fallbackBehavior: { mode: "manual_dimensions" },
         }),
       }),

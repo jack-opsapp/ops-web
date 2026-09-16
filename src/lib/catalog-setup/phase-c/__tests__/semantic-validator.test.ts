@@ -205,7 +205,7 @@ describe("Phase C semantic validator", () => {
             clientId: "vinyl-rule",
             dependsOn: [],
             payload: {
-              measureSource: "deck_geometry/v1",
+              measureSource: "deck-geometry/v1",
             },
           },
         ],

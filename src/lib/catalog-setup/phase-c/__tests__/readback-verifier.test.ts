@@ -185,7 +185,7 @@ function exactFixture() {
     action("upsert_material_quantity_rule", "rule", ids.rule, {
       productMaterialRef: "material",
       calculationKind: "cut_plan",
-      measureSource: "deck_geometry/v1",
+      measureSource: "deck-geometry/v1",
       requiredInputs: ["finished_area_sqft", "deck_dimensions"],
       wasteFactor: 1,
       purchaseRounding: "none",
@@ -203,7 +203,7 @@ function exactFixture() {
     }),
     action("upsert_capability_binding", "capability", ids.capability, {
       productRef: "product",
-      capabilityKey: "deck_geometry/v1",
+      capabilityKey: "deck-geometry/v1",
       requiredInputs: ["finished_area_sqft", "deck_dimensions"],
       fallbackBehavior: { mode: "manual_dimensions" },
       enabled: true,
@@ -322,7 +322,7 @@ function exactFixture() {
     id: ids.rule,
     product_material_id: ids.material,
     calculation_kind: "cut_plan",
-    measure_source: "deck_geometry/v1",
+    measure_source: "deck-geometry/v1",
     required_inputs: ["finished_area_sqft", "deck_dimensions"],
     coverage_quantity: null,
     waste_factor: 1,
@@ -347,7 +347,7 @@ function exactFixture() {
   live.capabilityBindings.push({
     id: ids.capability,
     product_id: ids.product,
-    capability_key: "deck_geometry/v1",
+    capability_key: "deck-geometry/v1",
     required_inputs: ["finished_area_sqft", "deck_dimensions"],
     fallback_behavior: { mode: "manual_dimensions" },
     enabled: true,

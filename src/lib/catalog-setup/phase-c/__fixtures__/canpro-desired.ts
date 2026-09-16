@@ -154,7 +154,7 @@ function membraneMaterial(productClientId: string, familyClientId: string) {
     notes: "Exact cuts come from each deck's dimensions.",
     quantityRule: {
       calculationKind: "cut_plan" as const,
-      measureSource: "deck_geometry/v1",
+      measureSource: "deck-geometry/v1",
       requiredInputs: ["finished_area_sqft", "deck_dimensions"],
       wasteFactor: 1,
       purchaseRounding: "none" as const,
@@ -290,7 +290,7 @@ export function buildDeksmartVinylDesiredStructure(
           },
         ],
         capability: {
-          capabilityKey: "deck_geometry/v1",
+          capabilityKey: "deck-geometry/v1",
           requiredInputs: [
             "finished_area_sqft",
             "deck_dimensions",
@@ -342,7 +342,7 @@ export function buildDeksmartVinylDesiredStructure(
           },
         ],
         capability: {
-          capabilityKey: "deck_geometry/v1",
+          capabilityKey: "deck-geometry/v1",
           requiredInputs: [
             "finished_area_sqft",
             "deck_dimensions",
