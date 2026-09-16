@@ -33,6 +33,12 @@ const COST_SOURCE = read(
     "supabase/migrations/20260916040000_agent_catalog_setup_write_supplier_cost.sql"
   )
 );
+const VARIANT_SOURCE = read(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260916010000_agent_catalog_setup_write_variant.sql"
+  )
+);
 
 describe("catalogue money is written at the currency's minor unit", () => {
   it("ships one transactional migration ordered after every write kind", () => {
@@ -48,6 +54,9 @@ describe("catalogue money is written at the currency's minor unit", () => {
   it("refuses to install without the functions it replaces or the read's own exponent table", () => {
     expect(MIGRATION).toContain(
       "agent_catalog_setup_money_precision_prerequisite_missing"
+    );
+    expect(MIGRATION).toContain(
+      "private.agent_catalog_setup_compile_create_variant(uuid,uuid,jsonb)"
     );
     expect(MIGRATION).toContain(
       "private.agent_catalog_setup_compile_set_pricing(uuid,uuid,jsonb)"
@@ -66,21 +75,23 @@ describe("catalogue money is written at the currency's minor unit", () => {
     );
   });
 
-  it("replaces exactly the two compile functions that write money, and nothing else", () => {
-    expect(RAW).toContain(
-      "create or replace function private.agent_catalog_setup_compile_set_pricing("
-    );
-    expect(RAW).toContain(
-      "create or replace function private.agent_catalog_setup_compile_set_supplier_cost("
-    );
-    // Two definitions in the file, both replacements.
-    expect(RAW.split("create or replace function ").length - 1).toBe(2);
+  it("replaces exactly the three compile functions that write money, and nothing else", () => {
+    for (const name of [
+      "agent_catalog_setup_compile_create_variant",
+      "agent_catalog_setup_compile_set_pricing",
+      "agent_catalog_setup_compile_set_supplier_cost",
+    ]) {
+      expect(RAW, name).toContain(
+        `create or replace function private.${name}(`
+      );
+    }
+    // Three definitions in the file, all replacements.
+    expect(RAW.split("create or replace function ").length - 1).toBe(3);
     expect(RAW.split(/create function /).length - 1).toBe(0);
     // Nothing else in the vertical is redefined. The sibling writers are named
     // inside the carried bodies, which is what makes them the carried bodies —
     // what must not appear is a definition of one.
     for (const other of [
-      "agent_catalog_setup_compile_create_variant",
       "agent_catalog_setup_compile_set_thresholds",
       "agent_catalog_setup_compile_create_option",
       "agent_catalog_setup_write_compile",
@@ -112,13 +123,15 @@ describe("catalogue money is written at the currency's minor unit", () => {
   });
 
   it("raises one named error, from the same table the catalogue read uses", () => {
+    // One raise in each of the three bodies, plus the postflight's LIKE probe
+    // and the header's mention.
     expect(RAW.split("CATALOG_SETUP_MONEY_PRECISION_INVALID").length - 1).toBe(
-      4
+      5
     );
     // Prerequisite list, the CAD and USD assertions, and one call in each body.
     expect(
       RAW.split("private.agent_currency_minor_exponent_or_null(").length - 1
-    ).toBe(5);
+    ).toBe(6);
     // 22023 is the class the sibling input refusals already use.
     expect(MIGRATION).toContain(
       "raise exception 'catalog_setup_money_precision_invalid' using errcode = '22023'"
@@ -129,7 +142,7 @@ describe("catalogue money is written at the currency's minor unit", () => {
     expect(MIGRATION).toContain("pg_catalog.power(10::numeric, v_minor)");
   });
 
-  it("carries the two bodies through byte for byte apart from the guard", () => {
+  it("carries the three bodies through byte for byte apart from the guard", () => {
     // Everything but the declaration and the check must be the text the two
     // authored migrations already shipped: a silent drift here would revert a
     // rule those files' own proofs established.
@@ -142,6 +155,7 @@ describe("catalogue money is written at the currency's minor unit", () => {
     let stripped = RAW;
     for (const shape of guardShapes) stripped = stripped.replace(shape, "\n");
     for (const [name, source] of [
+      ["agent_catalog_setup_compile_create_variant", VARIANT_SOURCE],
       ["agent_catalog_setup_compile_set_pricing", PRICING_SOURCE],
       ["agent_catalog_setup_compile_set_supplier_cost", COST_SOURCE],
     ] as const) {
@@ -174,9 +188,12 @@ describe("catalogue money is written at the currency's minor unit", () => {
     expect(MIGRATION).toContain(
       "agent_catalog_setup_money_precision_executable"
     );
+    // Pinned to three: a body silently dropped from the replace list would
+    // otherwise leave one tool still able to write a value the read refuses.
     expect(MIGRATION).toContain(
-      "agent_catalog_setup_money_precision_incomplete"
+      "agent_catalog_setup_money_precision_incomplete: % of 3"
     );
+    expect(MIGRATION).toContain("if v_seen <> 3 then");
   });
 
   it("says in its header that it moves the effect seal on purpose", () => {

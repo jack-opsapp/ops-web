@@ -128,12 +128,15 @@ function significantFractionDigits(amount: string): number {
  * `agent_money_minor_units_not_exact` on a stored number that is not exact
  * there. A write allowed to store 16.925 CAD would therefore create a row the
  * read refuses to show, which is how four of Canpro's Glass Panel cost profiles
- * came to break `get_catalog_item` for a whole family. The two tools that write
- * money hold to the read's own rule, so that state cannot be created again.
+ * came to break `get_catalog_item` for a whole family. Every tool that writes
+ * money holds to the read's own rule, so that state cannot be created again.
  *
  * `CatalogMoneySchema` stays as it is for the quantities and the pre-images:
  * OPS stores `numeric(14,4)` and projects it back at four decimal places, and
  * this bound is on what a caller may ask to write, not on what OPS may show.
+ *
+ * Every tool that writes money uses this: a new variant's `price_override`, a
+ * family or variant `sale_price`, and a supplier profile's `unit_cost`.
  */
 export const CatalogMinorUnitMoneySchema = CatalogMoneySchema.superRefine(
   (value, context) => {
@@ -260,7 +263,7 @@ export const PrepareCreateCatalogVariantInputSchema = z
         "Every non-deleted option on the family, exactly once. A variant missing a live axis makes the whole grid ambiguous."
       ),
     sku: z.string().trim().min(1).max(80).optional(),
-    price_override: CatalogMoneySchema.optional().describe(
+    price_override: CatalogMinorUnitMoneySchema.optional().describe(
       "Required when the family has no default price. sale_price = price_override, else the family default."
     ),
     warning_threshold: CatalogWholeUnitSchema.optional(),

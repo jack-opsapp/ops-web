@@ -330,7 +330,7 @@ export const PREPARE_CREATE_CATALOG_VARIANT_CAPABILITY_DEFINITION =
     operation: "prepare",
     writeFamily: "catalog_setup_write",
     description:
-      "Prepare one new variant on an existing catalogue family for exact operator approval inside OPS. Answer every non-deleted option on the family exactly once; a value set that already exists is refused. Selling price resolves as the variant price override, else the family default, so a price is required when the family has no default. Thresholds are whole units, as OPS stores them. An opening quantity is recorded as a stock unit and a receive stock event, never as a silent count. Nothing is written, no message is sent and no accounting sync is enqueued during preparation.",
+      "Prepare one new variant on an existing catalogue family for exact operator approval inside OPS. Answer every non-deleted option on the family exactly once; a value set that already exists is refused. Selling price resolves as the variant price override, else the family default, so a price is required when the family has no default; amounts carry at most two decimals for CAD/USD. Thresholds are whole units, as OPS stores them. An opening quantity is recorded as a stock unit and a receive stock event, never as a silent count. Nothing is written, no message is sent and no accounting sync is enqueued during preparation.",
     inputSchema: PrepareCreateCatalogVariantInputSchema,
     authorization: AUTHORIZATION,
     riskTier: "high",

@@ -30,14 +30,14 @@
 \set ON_ERROR_ROLLBACK on
 begin;
 \echo ''
-\echo '## 0. the guard is installed in both compile functions'
+\echo '## 0. the guard is installed in all three compile functions that write money,'
+\echo '##    and in neither of the two that do not'
 select p.proname,
        pg_get_functiondef(p.oid) like '%CATALOG_SETUP_MONEY_PRECISION_INVALID%' as has_guard,
        pg_get_functiondef(p.oid) like '%agent_currency_minor_exponent_or_null%' as uses_read_table
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
  where n.nspname = 'private'
-   and p.proname in ('agent_catalog_setup_compile_set_pricing',
-                     'agent_catalog_setup_compile_set_supplier_cost')
+   and p.proname like 'agent_catalog_setup_compile_%'
  order by 1;
 
 \echo ''
@@ -110,7 +110,42 @@ select (private.agent_catalog_setup_compile_set_supplier_cost(
     'idempotency_key','money-precision-cost-3')))->'effects' as accepted_effects;
 
 \echo ''
-\echo '## 3. a currency whose minor unit the read table does not name is refused'
+\echo '## 3. create_variant: a new variant priced at 45.005 CAD is refused'
+select private.agent_catalog_setup_compile_create_variant(
+  'a612edc0-5c18-4c4d-af97-55b9410dd077',
+  '11111111-1111-4111-8111-111111111111',
+  jsonb_build_object(
+    'family_ref', jsonb_build_object('kind','catalog_family','id','9b30f44d-47da-4134-872d-7f9c2d6f1b44'),
+    'option_values', jsonb_build_array(
+      jsonb_build_object('option_ref', jsonb_build_object('kind','catalog_option','id','507683da-ac06-477e-90cb-e895e7bcdd5c'),
+                         'value_ref',  jsonb_build_object('kind','catalog_option_value','id','247c1452-41db-485e-9463-6cc7059c3bb5')),
+      jsonb_build_object('option_ref', jsonb_build_object('kind','catalog_option','id','eac1b169-30dd-4d58-8480-14f97b670654'),
+                         'value_ref',  jsonb_build_object('kind','catalog_option_value','id','a0a25675-71dc-4c45-b01f-99c4a3409f0b'))),
+    'sku', 'PROOF-PRECISION',
+    'price_override', jsonb_build_object('amount','45.005','currency','CAD'),
+    'evidence', jsonb_build_array(jsonb_build_object('kind','operator_statement','text','Precision proof.')),
+    'idempotency_key','money-precision-variant-1'));
+
+\echo ''
+\echo '## 3b. the same new variant at 45.00 clears the precision gate and compiles'
+select (private.agent_catalog_setup_compile_create_variant(
+  'a612edc0-5c18-4c4d-af97-55b9410dd077',
+  '11111111-1111-4111-8111-111111111111',
+  jsonb_build_object(
+    'family_ref', jsonb_build_object('kind','catalog_family','id','9b30f44d-47da-4134-872d-7f9c2d6f1b44'),
+    'option_values', jsonb_build_array(
+      jsonb_build_object('option_ref', jsonb_build_object('kind','catalog_option','id','507683da-ac06-477e-90cb-e895e7bcdd5c'),
+                         'value_ref',  jsonb_build_object('kind','catalog_option_value','id','247c1452-41db-485e-9463-6cc7059c3bb5')),
+      jsonb_build_object('option_ref', jsonb_build_object('kind','catalog_option','id','eac1b169-30dd-4d58-8480-14f97b670654'),
+                         'value_ref',  jsonb_build_object('kind','catalog_option_value','id','a0a25675-71dc-4c45-b01f-99c4a3409f0b'))),
+    'sku', 'PROOF-PRECISION',
+    'price_override', jsonb_build_object('amount','45.00','currency','CAD'),
+    'evidence', jsonb_build_array(jsonb_build_object('kind','operator_statement','text','Precision proof.')),
+    'idempotency_key','money-precision-variant-2')))
+  #> '{proposal_after,variant,sale_price}' as accepted_sale_price;
+
+\echo ''
+\echo '## 4. a currency whose minor unit the read table does not name is refused'
 select private.agent_catalog_setup_compile_set_pricing(
   'a612edc0-5c18-4c4d-af97-55b9410dd077',
   '11111111-1111-4111-8111-111111111111',
@@ -121,7 +156,7 @@ select private.agent_catalog_setup_compile_set_pricing(
     'idempotency_key','money-precision-price-4'));
 
 \echo ''
-\echo '## 4. the precision refusal is what the read would have refused'
+\echo '## 5. the precision refusal is what the read would have refused'
 select private.agent_money_to_minor_units(16.925, 'CAD');
 
 rollback;

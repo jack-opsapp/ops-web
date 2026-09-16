@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CATALOG_CURRENCY_MINOR_UNITS,
   CATALOG_SETUP_WRITE_IMPLEMENTED_KINDS,
   CATALOG_SETUP_WRITE_KINDS,
   CATALOG_SETUP_WRITE_POLICY,
   CATALOG_SETUP_WRITE_SCHEMA_REVISION,
   CatalogDecimalSchema,
+  CatalogMinorUnitMoneySchema,
   CatalogMoneySchema,
   CatalogSetupWritePreviewSchema,
   CatalogSetupWriteReceiptSchema,
@@ -131,6 +133,36 @@ describe("catalogue money and whole units", () => {
     ).toBe(false);
   });
 
+  it("bounds money to the currency's minor unit where a tool writes it", () => {
+    // CatalogMoneySchema keeps the numeric(14,4) scale for pre-images and
+    // projections; CatalogMinorUnitMoneySchema is what the write tools accept.
+    expect(
+      CatalogMoneySchema.safeParse({ amount: "16.9250", currency: "CAD" })
+        .success
+    ).toBe(true);
+    expect(
+      CatalogMinorUnitMoneySchema.safeParse({
+        amount: "16.9250",
+        currency: "CAD",
+      }).success
+    ).toBe(false);
+    expect(CATALOG_CURRENCY_MINOR_UNITS).toEqual({ CAD: 2, USD: 2 });
+    for (const amount of ["16.92", "16.9200", "16", "0"]) {
+      expect(
+        CatalogMinorUnitMoneySchema.safeParse({ amount, currency: "CAD" })
+          .success,
+        amount
+      ).toBe(true);
+    }
+    for (const currency of ["JPY", "EUR", "BHD"]) {
+      expect(
+        CatalogMinorUnitMoneySchema.safeParse({ amount: "16.92", currency })
+          .success,
+        currency
+      ).toBe(false);
+    }
+  });
+
   it("keeps thresholds whole and non-negative", () => {
     expect(CatalogWholeUnitSchema.safeParse(0).success).toBe(true);
     expect(CatalogWholeUnitSchema.safeParse(30).success).toBe(true);
@@ -157,6 +189,42 @@ describe("prepare_create_catalog_variant input", () => {
     const { price_override: _dropped, ...rest } = input();
     expect(
       PrepareCreateCatalogVariantInputSchema.safeParse(rest).success
+    ).toBe(true);
+  });
+
+  it("refuses a new variant priced finer than the currency's minor unit", () => {
+    // A variant written at 45.005 CAD is a variant the catalogue read refuses
+    // to project, for the whole family — the same failure the four Glass Panel
+    // cost profiles cause.
+    for (const amount of ["45.005", "16.925", "45.0001"]) {
+      expect(
+        PrepareCreateCatalogVariantInputSchema.safeParse(
+          input({ price_override: { amount, currency: "CAD" } })
+        ).success,
+        amount
+      ).toBe(false);
+    }
+    // Trailing zeros are not precision: these are all cent-exact.
+    for (const amount of ["45.00", "45.0000", "45", "45.5"]) {
+      expect(
+        PrepareCreateCatalogVariantInputSchema.safeParse(
+          input({ price_override: { amount, currency: "CAD" } })
+        ).success,
+        amount
+      ).toBe(true);
+    }
+  });
+
+  it("refuses a new variant priced in a currency whose minor unit OPS does not know", () => {
+    expect(
+      PrepareCreateCatalogVariantInputSchema.safeParse(
+        input({ price_override: { amount: "45.00", currency: "JPY" } })
+      ).success
+    ).toBe(false);
+    expect(
+      PrepareCreateCatalogVariantInputSchema.safeParse(
+        input({ price_override: { amount: "45.00", currency: "USD" } })
+      ).success
     ).toBe(true);
   });
 

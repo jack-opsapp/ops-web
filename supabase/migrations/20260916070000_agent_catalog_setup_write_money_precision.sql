@@ -1,8 +1,10 @@
 -- Catalogue money is written at the currency's own minor unit, and no finer.
 --
--- WHAT IS WRONG. prepare_set_catalog_pricing and prepare_set_supplier_cost both
--- accept a decimal string of up to four fraction digits, because that is the
--- scale of the numeric(14,4) columns they write. The catalogue READ does not
+-- WHAT IS WRONG. prepare_create_catalog_variant, prepare_set_catalog_pricing
+-- and prepare_set_supplier_cost all accept a decimal string of up to four
+-- fraction digits, because that is the scale of the numeric(14,4) columns they
+-- write. All three write money: a new variant's price_override, a family or
+-- variant sale price, and a supplier profile's unit cost. The catalogue READ does not
 -- accept that: private.agent_money_to_minor_units projects money in minor units
 -- and raises agent_money_minor_units_not_exact on any stored number that is not
 -- exact there. CAD and USD carry two decimals, so a cost of 16.925 CAD is a row
@@ -13,7 +15,7 @@
 -- (docs/artifacts/mcp-catalog-setup-writes/text-repair-proof.md, sections 2
 -- and 5).
 --
--- WHAT THIS CHANGES. The two compile functions gain one check, placed with the
+-- WHAT THIS CHANGES. The three compile functions gain one check, placed with the
 -- other input validation and raising CATALOG_SETUP_MONEY_PRECISION_INVALID
 -- (SQLSTATE 22023) before any authority check, any lock and any read of the
 -- family. The decision is delegated to the same exponent table the read uses,
@@ -37,14 +39,15 @@
 --
 -- THIS MOVES THE EFFECT SEAL, AND THAT IS INTENDED.
 -- private.agent_catalog_setup_write_effect_revision() hashes pg_get_functiondef
--- of every function reachable from the catalogue write spine, and both compile
--- functions are reachable. Replacing them therefore changes the revision this
+-- of every function reachable from the catalogue write spine, and all three
+-- compile functions are reachable. Replacing them therefore changes the revision this
 -- vertical's effect policy would be sealed against. Nothing is sealed yet - the
 -- tools are dark until an operator installs a seal row (decision W10) - so this
 -- moves a value nothing is currently compared against. Whoever installs the
 -- seal must do it after this migration, not before.
 --
 -- The bodies below are the definitions from
+-- 20260916010000_agent_catalog_setup_write_variant.sql,
 -- 20260916030000_agent_catalog_setup_write_pricing.sql and
 -- 20260916040000_agent_catalog_setup_write_supplier_cost.sql, byte for byte,
 -- plus the one check and its declaration. Those files are left alone.
@@ -59,6 +62,7 @@ begin
     into v_missing
   from (
     values
+      ('private.agent_catalog_setup_compile_create_variant(uuid,uuid,jsonb)'),
       ('private.agent_catalog_setup_compile_set_pricing(uuid,uuid,jsonb)'),
       ('private.agent_catalog_setup_compile_set_supplier_cost(uuid,uuid,jsonb)'),
       -- The read's own exponent table. If this is missing the check cannot be
@@ -81,6 +85,356 @@ begin
 end;
 $prerequisites$;
 
+-- New variant price --------------------------------------------------
+create or replace function private.agent_catalog_setup_compile_create_variant(
+  p_company uuid, p_actor uuid, p_request jsonb
+) returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_state jsonb;
+  v_family uuid;
+  v_entry jsonb;
+  v_value jsonb;
+  v_text text;
+  v_money_pattern constant text := '^(0|[1-9][0-9]{0,11})([.][0-9]{1,4})?$';
+  v_uuid_pattern constant text := '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  v_option_ids uuid[];
+  v_value_ids uuid[];
+  v_live_option_ids uuid[];
+  v_evidence jsonb := '[]'::jsonb;
+  v_price text;
+  v_minor smallint;
+  v_quantity text;
+  v_note text;
+  v_sku text;
+  v_warning text;
+  v_critical text;
+  v_payload jsonb;
+  v_variant_doc jsonb;
+  v_before jsonb;
+  v_after jsonb;
+  v_effects jsonb;
+  v_existing_sets jsonb;
+  v_set_total integer;
+  v_option_values jsonb;
+begin
+  if p_request is null or jsonb_typeof(p_request) <> 'object'
+     or octet_length(p_request::text) > 32768
+     or exists (
+       select 1 from jsonb_object_keys(p_request) key
+       where key not in ('family_ref','option_values','sku','price_override',
+                         'warning_threshold','critical_threshold','opening_quantity',
+                         'evidence','idempotency_key')
+     )
+     or not p_request ?& array['family_ref','option_values','evidence','idempotency_key']
+     or jsonb_typeof(p_request->'option_values') is distinct from 'array'
+     or jsonb_typeof(p_request->'evidence') is distinct from 'array'
+     or (p_request->>'idempotency_key') is null
+     or (p_request->>'idempotency_key') !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$'
+     or jsonb_typeof(p_request->'family_ref') is distinct from 'object'
+     or (p_request#>>'{family_ref,kind}') is distinct from 'catalog_family'
+     or exists (select 1 from jsonb_object_keys(p_request->'family_ref') key where key not in ('kind','id'))
+     or (p_request#>>'{family_ref,id}') !~ v_uuid_pattern then
+    raise exception 'CATALOG_SETUP_WRITE_INPUT_INVALID' using errcode = '22023';
+  end if;
+  v_family := (p_request#>>'{family_ref,id}')::uuid;
+
+  if jsonb_array_length(p_request->'option_values') not between 1 and 32 then
+    raise exception 'CATALOG_SETUP_WRITE_INPUT_INVALID' using errcode = '22023';
+  end if;
+  v_option_ids := array[]::uuid[];
+  v_value_ids := array[]::uuid[];
+  for v_entry in select value from jsonb_array_elements(p_request->'option_values') loop
+    if jsonb_typeof(v_entry) is distinct from 'object'
+       or exists (select 1 from jsonb_object_keys(v_entry) key where key not in ('option_ref','value_ref'))
+       or (v_entry#>>'{option_ref,kind}') is distinct from 'catalog_option'
+       or (v_entry#>>'{value_ref,kind}') is distinct from 'catalog_option_value'
+       or (v_entry#>>'{option_ref,id}') !~ v_uuid_pattern
+       or (v_entry#>>'{value_ref,id}') !~ v_uuid_pattern then
+      raise exception 'CATALOG_SETUP_WRITE_INPUT_INVALID' using errcode = '22023';
+    end if;
+    v_option_ids := v_option_ids || (v_entry#>>'{option_ref,id}')::uuid;
+    v_value_ids := v_value_ids || (v_entry#>>'{value_ref,id}')::uuid;
+  end loop;
+
+  v_sku := nullif(pg_catalog.btrim(coalesce(p_request->>'sku', '')), '');
+  if p_request ? 'sku' and (
+       jsonb_typeof(p_request->'sku') is distinct from 'string'
+       or v_sku is distinct from (p_request->>'sku')
+       or length(v_sku) > 80
+       or not private.agent_prompt_text_is_safe(v_sku, true)) then
+    raise exception 'CATALOG_SETUP_WRITE_INPUT_INVALID' using errcode = '22023';
+  end if;
+
+  if p_request ? 'price_override' then
+    if jsonb_typeof(p_request->'price_override') is distinct from 'object'
+       or not (p_request->'price_override') ?& array['amount','currency']
+       or exists (select 1 from jsonb_object_keys(p_request->'price_override') key where key not in ('amount','currency'))
+       or (p_request#>>'{price_override,amount}') !~ v_money_pattern
+       or (p_request#>>'{price_override,currency}') !~ '^[A-Z]{3}$' then
+      raise exception 'CATALOG_SETUP_WRITE_INPUT_INVALID' using errcode = '22023';
+    end if;
+    v_price := private.agent_catalog_setup_money((p_request#>>'{price_override,amount}')::numeric);
+
+    -- Money at the currency's own minor unit, and no finer. The catalogue read
+    -- projects money through private.agent_money_to_minor_units, which raises
+    -- agent_money_minor_units_not_exact on a stored number that is not exact
+    -- there, so a row written finer than its currency is a row the read then
+    -- refuses to show -- which is exactly how four Glass Panel cost profiles
+    -- broke get_catalog_item for a whole family. The same exponent table the
+    -- read uses decides it here, so the two cannot disagree, and a currency that
+    -- table does not name is refused rather than guessed at.
+    v_minor := private.agent_currency_minor_exponent_or_null(p_request#>>'{price_override,currency}');
+    if v_minor is null
+       or pg_catalog.trunc(v_price::numeric * pg_catalog.power(10::numeric, v_minor))
+          is distinct from v_price::numeric * pg_catalog.power(10::numeric, v_minor) then
+      raise exception 'CATALOG_SETUP_MONEY_PRECISION_INVALID' using errcode = '22023';
+    end if;
+  end if;
+
+  foreach v_text in array array['warning_threshold','critical_threshold'] loop
+    if p_request ? v_text then
+      if jsonb_typeof(p_request->v_text) is distinct from 'number'
+         or (p_request->>v_text) !~ '^(0|[1-9][0-9]{0,8})$' then
+        raise exception 'CATALOG_SETUP_WRITE_INPUT_INVALID' using errcode = '22023';
+      end if;
+    end if;
+  end loop;
+  v_warning := p_request->>'warning_threshold';
+  v_critical := p_request->>'critical_threshold';
+  if v_warning is not null and v_critical is not null
+     and v_critical::numeric > v_warning::numeric then
+    raise exception 'CATALOG_SETUP_THRESHOLDS_INVALID' using errcode = '22023';
+  end if;
+
+  if p_request ? 'opening_quantity' then
+    if jsonb_typeof(p_request->'opening_quantity') is distinct from 'object'
+       or not (p_request->'opening_quantity') ? 'quantity'
+       or exists (select 1 from jsonb_object_keys(p_request->'opening_quantity') key where key not in ('quantity','note'))
+       or (p_request#>>'{opening_quantity,quantity}') !~ v_money_pattern then
+      raise exception 'CATALOG_SETUP_WRITE_INPUT_INVALID' using errcode = '22023';
+    end if;
+    v_quantity := (p_request#>>'{opening_quantity,quantity}');
+    if (p_request->'opening_quantity') ? 'note' then
+      v_note := nullif(pg_catalog.btrim(coalesce(p_request#>>'{opening_quantity,note}', '')), '');
+      if v_note is null or length(v_note) > 500 or not private.agent_prompt_text_is_safe(v_note, true) then
+        raise exception 'CATALOG_SETUP_WRITE_INPUT_INVALID' using errcode = '22023';
+      end if;
+    end if;
+    if not public.has_permission(p_actor, 'catalog.stock.adjust', 'all') then
+      raise exception 'CATALOG_SETUP_WRITE_AUTHORITY_DENIED' using errcode = '42501';
+    end if;
+  end if;
+
+  if jsonb_array_length(p_request->'evidence') not between 1 and 3 then
+    raise exception 'CATALOG_SETUP_EVIDENCE_MISSING' using errcode = '22023';
+  end if;
+  for v_entry in select value from jsonb_array_elements(p_request->'evidence') loop
+    if jsonb_typeof(v_entry) is distinct from 'object'
+       or (v_entry->>'kind') is distinct from 'operator_statement'
+       or exists (select 1 from jsonb_object_keys(v_entry) key where key not in ('kind','text')) then
+      raise exception 'CATALOG_SETUP_EVIDENCE_INVALID' using errcode = '22023';
+    end if;
+    v_text := v_entry->>'text';
+    if v_text is null or v_text is distinct from pg_catalog.btrim(v_text)
+       or length(v_text) not between 1 and 2000
+       or not private.agent_prompt_text_is_safe(v_text, true) then
+      raise exception 'CATALOG_SETUP_EVIDENCE_INVALID' using errcode = '22023';
+    end if;
+    v_evidence := v_evidence || jsonb_build_array(jsonb_build_object(
+      'kind', 'operator_statement',
+      'text', v_text,
+      'source_sha256', private.agent_catalog_setup_write_hash(
+        jsonb_build_object('actor', p_actor, 'statement', v_text)),
+      'content_kind', 'untrusted_business_data'
+    ));
+  end loop;
+
+  v_state := private.agent_catalog_setup_family_state(p_company, v_family);
+  if p_request ? 'price_override'
+     and (p_request#>>'{price_override,currency}') is distinct from (v_state->>'currency_code') then
+    raise exception 'CATALOG_SETUP_CURRENCY_MISMATCH' using errcode = '22023';
+  end if;
+
+  -- Every non-deleted option of the family must be named exactly once, and each
+  -- chosen value must belong to the option that names it (design note 3: a
+  -- variant without a value for a live axis makes the whole grid ambiguous).
+  select coalesce(array_agg(option_row.id order by option_row.id), array[]::uuid[])
+    into v_live_option_ids
+  from public.catalog_options option_row
+  where option_row.catalog_item_id = v_family and option_row.deleted_at is null;
+  if cardinality(v_live_option_ids) = 0 then
+    raise exception 'CATALOG_SETUP_FAMILY_HAS_NO_OPTIONS' using errcode = '22023';
+  end if;
+  if (select array_agg(distinct id order by id) from unnest(v_option_ids) id) is distinct from v_live_option_ids
+     or cardinality(v_option_ids) <> cardinality(v_live_option_ids) then
+    raise exception 'CATALOG_SETUP_OPTION_COVERAGE_INVALID' using errcode = '22023';
+  end if;
+  if exists (
+    select 1 from jsonb_array_elements(p_request->'option_values') entry(value)
+    where not exists (
+      select 1 from public.catalog_option_values value_row
+      join public.catalog_options option_row on option_row.id = value_row.option_id
+      where value_row.id = (entry.value#>>'{value_ref,id}')::uuid
+        and value_row.deleted_at is null
+        and option_row.id = (entry.value#>>'{option_ref,id}')::uuid
+        and option_row.deleted_at is null
+        and option_row.catalog_item_id = v_family
+    )
+  ) then
+    raise exception 'CATALOG_SETUP_OPTION_VALUE_INVALID' using errcode = '22023';
+  end if;
+
+  -- Application-layer uniqueness. The database accepts two identical value sets
+  -- on one family (design note 1); this write surface refuses to create one.
+  if exists (
+    select 1 from public.catalog_variants variant_row
+    where variant_row.catalog_item_id = v_family
+      and variant_row.company_id = p_company
+      and variant_row.deleted_at is null
+      and (
+        select coalesce(array_agg(distinct value_row.id order by value_row.id), array[]::uuid[])
+        from public.catalog_variant_option_values junction
+        join public.catalog_option_values value_row on value_row.id = junction.option_value_id
+        join public.catalog_options option_row on option_row.id = value_row.option_id
+        where junction.variant_id = variant_row.id and junction.deleted_at is null
+          and value_row.deleted_at is null and option_row.deleted_at is null
+          and option_row.catalog_item_id = v_family
+      ) = (select array_agg(distinct id order by id) from unnest(v_value_ids) id)
+  ) then
+    raise exception 'CATALOG_SETUP_VARIANT_EXISTS' using errcode = '23505';
+  end if;
+
+  -- Design note 8 / decision W5. A family whose price varies by option has no
+  -- default_price, so a variant created without an override reads as no price.
+  if v_price is null and (v_state#>>'{family,default_price}') is null then
+    raise exception 'CATALOG_SETUP_PRICE_REQUIRED' using errcode = '22023';
+  end if;
+
+  select jsonb_agg(jsonb_build_object(
+           'option_ref', jsonb_build_object('kind', 'catalog_option', 'id', option_row.id),
+           'option_name', option_row.name,
+           'value_ref', jsonb_build_object('kind', 'catalog_option_value', 'id', value_row.id),
+           'value', value_row.value
+         ) order by option_row.sort_order, option_row.name, option_row.id)
+    into v_option_values
+  from unnest(v_value_ids) chosen(id)
+  join public.catalog_option_values value_row on value_row.id = chosen.id
+  join public.catalog_options option_row on option_row.id = value_row.option_id;
+
+  -- The one new variant, appended to the family's complete current document.
+  --
+  -- `quantity` mirrors the opening quantity deliberately. Nothing in the
+  -- database projects catalog_stock_unit_events onto catalog_variants.quantity
+  -- (verified: no trigger on either table does), and catalog_setup_save replaces
+  -- quantity with 0 when a variant doc omits it. Recording the receipt event
+  -- without the mirror would ship a variant that OPS shows as zero on hand while
+  -- a stock unit of twelve exists. The audit trail is the event; the scalar is
+  -- the projection the rest of OPS reads.
+  v_variant_doc := jsonb_build_object(
+    'client_id', 'agent_new_variant',
+    'sku', v_sku,
+    'quantity', coalesce(v_quantity, '0'),
+    'price_override', v_price,
+    'warning_threshold', v_warning,
+    'critical_threshold', v_critical,
+    'unit_id', null,
+    'excluded', false,
+    'option_value_ids', (select jsonb_agg(to_jsonb(id::text) order by id) from unnest(v_value_ids) id)
+  );
+  v_payload := private.agent_catalog_setup_write_payload(v_state);
+  v_payload := jsonb_set(v_payload, '{variants}', (v_payload->'variants') || jsonb_build_array(v_variant_doc));
+  if v_quantity is not null then
+    v_payload := jsonb_set(v_payload, '{stock_units}', jsonb_build_array(jsonb_build_object(
+      'client_id', 'agent_new_stock_unit',
+      'variant_client_id', 'agent_new_variant',
+      'unit_kind', 'each',
+      'status', 'full',
+      'quantity_value', v_quantity,
+      'notes', v_note
+    )));
+    -- Design note 4 / decision W4: opening stock is an event, never a silent set.
+    v_payload := jsonb_set(v_payload, '{stock_unit_events}', jsonb_build_array(jsonb_build_object(
+      'stock_unit_client_id', 'agent_new_stock_unit',
+      'variant_client_id', 'agent_new_variant',
+      'event_type', 'receive',
+      'to_status', 'full',
+      'quantity_delta', v_quantity,
+      'notes', v_note,
+      'payload', jsonb_build_object('source', 'agent_catalog_setup_write', 'kind', 'create_variant')
+    )));
+  end if;
+
+  select count(*), coalesce(jsonb_agg(numbered.label order by numbered.label)
+           filter (where numbered.position <= 50), '[]'::jsonb)
+    into v_set_total, v_existing_sets
+  from (
+    select labelled.label,
+           row_number() over (order by labelled.label) position
+    from (
+      select (
+        select string_agg(value_row.value, ' / ' order by option_row.sort_order, option_row.name, option_row.id)
+        from public.catalog_variant_option_values junction
+        join public.catalog_option_values value_row on value_row.id = junction.option_value_id
+        join public.catalog_options option_row on option_row.id = value_row.option_id
+        where junction.variant_id = variant_row.id and junction.deleted_at is null
+          and value_row.deleted_at is null and option_row.deleted_at is null
+          and option_row.catalog_item_id = v_family
+      ) label
+      from public.catalog_variants variant_row
+      where variant_row.catalog_item_id = v_family and variant_row.company_id = p_company
+        and variant_row.deleted_at is null
+    ) labelled
+  ) numbered;
+
+  v_before := jsonb_build_object(
+    'variant_count', v_set_total,
+    'default_price', v_state#>'{family,default_price}',
+    'default_unit_cost', v_state#>'{family,default_unit_cost}',
+    'existing_value_sets', v_existing_sets,
+    'existing_value_sets_truncated', v_set_total > 50
+  );
+  v_after := jsonb_build_object(
+    'variant', jsonb_build_object(
+      'option_values', coalesce(v_option_values, '[]'::jsonb),
+      'sku', v_sku,
+      'sale_price', coalesce(v_price, v_state#>>'{family,default_price}'),
+      'sale_price_source', case when v_price is not null then 'variant_override' else 'family_default' end,
+      'unit_cost', v_state#>>'{family,default_unit_cost}',
+      'warning_threshold', v_warning,
+      'critical_threshold', v_critical,
+      'quantity', private.agent_catalog_setup_exact(coalesce(v_quantity, '0')::numeric),
+      'is_active', true,
+      'stock_units', case when v_quantity is null then 0 else 1 end,
+      'stock_events', case when v_quantity is null then 0 else 1 end
+    ),
+    'opening_quantity', case when v_quantity is null then null
+      else jsonb_build_object('quantity', v_quantity, 'note', v_note, 'recorded_as', 'stock_receive_event') end,
+    'currency', v_state->>'currency_code'
+  );
+  v_effects := jsonb_build_object(
+    'variants_created', 1,
+    'stock_units_created', case when v_quantity is null then 0 else 1 end,
+    'stock_events_recorded', case when v_quantity is null then 0 else 1 end,
+    'prices_changed', 0,
+    'options_created', 0,
+    'variants_backfilled', 0,
+    'supplier_cost_profiles_written', 0,
+    'messages_sent', 0,
+    'accounting_sync_enqueued', 0
+  );
+
+  return jsonb_build_object(
+    'family_id', v_family,
+    'family_name', v_state#>>'{family,name}',
+    'pre_image_hash', private.agent_catalog_setup_write_hash(v_state),
+    'payload', v_payload,
+    'evidence', v_evidence,
+    'proposal_before', v_before,
+    'proposal_after', v_after,
+    'effects', v_effects,
+    'blockers', '[]'::jsonb
+  );
+end $$;
 -- Selling price --------------------------------------------------
 create or replace function private.agent_catalog_setup_compile_set_pricing(
   p_company uuid, p_actor uuid, p_request jsonb
@@ -625,7 +979,7 @@ begin
 end $$;
 
 -- ACLs, restated. CREATE OR REPLACE keeps the privileges a function already
--- has, so this is an assertion of the state the two migrations above
+-- has, so this is an assertion of the state the three migrations above
 -- established rather than a change: no app role executes a compile function.
 do $acl$
 declare f record;
@@ -634,7 +988,8 @@ begin
     select n.nspname, p.proname, pg_get_function_identity_arguments(p.oid) args
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'private'
-      and p.proname in ('agent_catalog_setup_compile_set_pricing',
+      and p.proname in ('agent_catalog_setup_compile_create_variant',
+                        'agent_catalog_setup_compile_set_pricing',
                         'agent_catalog_setup_compile_set_supplier_cost')
   loop
     execute format('revoke all on function %I.%I(%s) from public,anon,authenticated,service_role',
@@ -653,7 +1008,8 @@ begin
            pg_get_function_identity_arguments(p.oid) args
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'private'
-      and p.proname in ('agent_catalog_setup_compile_set_pricing',
+      and p.proname in ('agent_catalog_setup_compile_create_variant',
+                        'agent_catalog_setup_compile_set_pricing',
                         'agent_catalog_setup_compile_set_supplier_cost')
   loop
     v_seen := v_seen + 1;
@@ -677,11 +1033,11 @@ begin
       end if;
     end loop;
   end loop;
-  if v_seen <> 2 then
-    raise exception 'agent_catalog_setup_money_precision_incomplete: % of 2', v_seen
+  if v_seen <> 3 then
+    raise exception 'agent_catalog_setup_money_precision_incomplete: % of 3', v_seen
       using errcode = '55000';
   end if;
-  raise notice 'catalogue money precision: both compile functions refuse amounts finer than the currency';
+  raise notice 'catalogue money precision: all three compile functions refuse amounts finer than the currency';
 end;
 $postflight$;
 
