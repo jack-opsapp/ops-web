@@ -4,6 +4,7 @@ import {
   type CatalogSetupWritePreview,
   type CreateCatalogVariantPreview,
   type SetCatalogPricingPreview,
+  type SetSupplierCostPreview,
   type SetVariantThresholdsPreview,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import { useDictionary, useLocale } from "@/i18n/client";
@@ -66,8 +67,10 @@ export function CatalogSetupWritePreview({ proposal }: { proposal: unknown }) {
         <CreateVariantBody preview={preview} locale={locale} t={t} />
       ) : preview.kind === "set_thresholds" ? (
         <SetThresholdsBody preview={preview} t={t} />
-      ) : (
+      ) : preview.kind === "set_pricing" ? (
         <SetPricingBody preview={preview} locale={locale} t={t} />
+      ) : (
+        <SetSupplierCostBody preview={preview} locale={locale} t={t} />
       )}
 
       <div className="space-y-3 border-t border-border-subtle pt-3">
@@ -94,7 +97,9 @@ export function CatalogSetupWritePreview({ proposal }: { proposal: unknown }) {
           ? t("catalogSetupWrite.thresholdEffects")
           : preview.kind === "set_pricing"
             ? t("catalogSetupWrite.pricingEffects")
-            : t("catalogSetupWrite.effects")}
+            : preview.kind === "set_supplier_cost"
+              ? t("catalogSetupWrite.supplierCostEffects")
+              : t("catalogSetupWrite.effects")}
         {preview.kind === "create_variant" && effects.stock_events_recorded === 1
           ? ` ${t("catalogSetupWrite.stockEffects")}`
           : ""}
@@ -409,6 +414,151 @@ function SetPricingBody({
               </li>
             ))}
           </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * A cost change reads as the variant's cost sheet, because that is what it is.
+ * The rows are listed in the order they will stand — default first — each
+ * carrying what this approval does to it and, where the number moves, both
+ * numbers. The operator is not asked to compute the default flip from a diff:
+ * the DEFAULT marker sits on the row that will carry it, and the row losing it
+ * says so.
+ *
+ * Above the sheet is the one number that leaves this table. `unit_cost_override`
+ * is the simple cost field the rest of OPS reads, and it follows the default
+ * profile — so it is shown now/after, in the same idiom as a threshold or a
+ * price, rather than buried as an effect counter.
+ *
+ * A row whose stored text OPS will not display keeps its key, its cost and its
+ * default flag and says its text was withheld. Dropping such a row would hide a
+ * cost that is in force; showing the bytes would put control characters on
+ * screen.
+ */
+function SetSupplierCostBody({
+  preview,
+  locale,
+  t,
+}: {
+  preview: SetSupplierCostPreview;
+  locale: string;
+  t: Translate;
+}) {
+  const { before, after } = preview;
+  const currency = after.profiles[0]?.currency ?? "CAD";
+  const money = (amount: string | null) => {
+    if (amount === null) return null;
+    const value = Number.parseFloat(amount);
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency,
+      }).format(value);
+    } catch {
+      // A company currency Intl does not know is still a number worth showing.
+      return `${new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+      }).format(value)} ${currency}`;
+    }
+  };
+
+  const labels = after.variant.value_labels.join(" / ");
+  const priorByKey = new Map(
+    before.profiles.map((entry) => [entry.profile_key, entry])
+  );
+  const withheld = after.profiles.some((entry) => entry.label === null);
+
+  return (
+    <>
+      <p className="font-mohave text-body-sm text-text-3">
+        {labels === "" ? "—" : labels}
+        {" · "}
+        {t("catalogSetupWrite.sku")}{" "}
+        <span className="font-mono tabular-nums text-text-2">
+          {after.variant.sku ?? "—"}
+        </span>
+      </p>
+
+      <dl className="divide-y divide-border-subtle border-t border-border-subtle">
+        <div className="space-y-1 py-2">
+          <dt className="font-mono text-micro uppercase tracking-authority text-text-3">
+            {t("catalogSetupWrite.variantCost")}
+          </dt>
+          <dd className="space-y-1">
+            <p className="break-words font-mohave text-body-sm text-text-3">
+              <span className="font-mono text-micro">
+                {t("catalogSetupWrite.now")}{" "}
+              </span>
+              <span className="font-mono tabular-nums">
+                {money(before.variant_unit_cost) ?? "—"}
+              </span>
+            </p>
+            <p className="break-words font-mohave text-body-sm text-text">
+              <span className="font-mono text-micro">
+                {t("catalogSetupWrite.after")}{" "}
+              </span>
+              <span className="font-mono tabular-nums">
+                {money(after.variant_unit_cost) ?? "—"}
+              </span>
+            </p>
+          </dd>
+        </div>
+      </dl>
+      <p className="font-mohave text-body-sm text-text-3">
+        {t("catalogSetupWrite.variantCostNote")}
+      </p>
+
+      <div className="space-y-2">
+        <h4 className="font-mono text-micro uppercase tracking-authority text-text-3">
+          {t("catalogSetupWrite.costSheet")}
+          <span className="text-text-mute">{" :: "}</span>
+          <span className="tabular-nums">{after.profiles.length}</span>
+        </h4>
+        <ul className="max-h-64 divide-y divide-border-subtle overflow-y-auto border-t border-border-subtle scrollbar-hide">
+          {after.profiles.map((entry) => {
+            const past = priorByKey.get(entry.profile_key);
+            const moved =
+              past !== undefined && past.unit_cost !== entry.unit_cost;
+            return (
+              <li key={entry.profile_key} className="space-y-1 py-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 break-words font-mono text-body-sm text-text">
+                    {entry.profile_key}
+                    {entry.is_default && (
+                      <span className="ml-2 border border-border-subtle px-1 font-mono text-micro uppercase tracking-authority text-text-2">
+                        {t("catalogSetupWrite.default")}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 font-mono tabular-nums text-body-sm">
+                    {moved && (
+                      <>
+                        <span className="text-text-3">
+                          {money(past.unit_cost)}
+                        </span>
+                        <span className="text-text-mute">{" → "}</span>
+                      </>
+                    )}
+                    <span className="text-text">{money(entry.unit_cost)}</span>
+                  </span>
+                </div>
+                <p className="break-words font-mohave text-body-sm text-text-3">
+                  {entry.label ?? t("catalogSetupWrite.withheldText")}
+                  {entry.state === "unchanged"
+                    ? ""
+                    : ` · ${t(`catalogSetupWrite.profileState.${entry.state}`)}`}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+        {withheld && (
+          <p className="border-l border-border-subtle pl-3 font-mohave text-body-sm text-text-3">
+            {t("catalogSetupWrite.withheldNote")}
+          </p>
         )}
       </div>
     </>

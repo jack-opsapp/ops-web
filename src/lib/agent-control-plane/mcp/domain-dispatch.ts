@@ -63,6 +63,7 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   prepare_create_catalog_variant: "prepareCreateCatalogVariant",
   prepare_set_variant_thresholds: "prepareSetVariantThresholds",
   prepare_set_catalog_pricing: "prepareSetCatalogPricing",
+  prepare_set_supplier_cost: "prepareSetSupplierCost",
   prepare_customer_message: "prepareCustomerMessage",
   prepare_schedule_change: "prepareScheduleChange",
   prepare_financial_document: "prepareFinancialDocument",
@@ -102,6 +103,7 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
     | "prepare_create_catalog_variant"
     | "prepare_set_variant_thresholds"
     | "prepare_set_catalog_pricing"
+    | "prepare_set_supplier_cost"
     | "prepare_customer_message"
     | "inspect_catalog_changes"
     | "prepare_catalog_changes"
@@ -132,6 +134,7 @@ export type McpDomainCapabilityId =
   | "prepare_create_catalog_variant"
   | "prepare_set_variant_thresholds"
   | "prepare_set_catalog_pricing"
+  | "prepare_set_supplier_cost"
   | "prepare_customer_message"
   | "inspect_catalog_changes"
   | "prepare_catalog_changes"

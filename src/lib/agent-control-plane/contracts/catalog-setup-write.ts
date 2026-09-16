@@ -19,9 +19,8 @@ export const CATALOG_SETUP_WRITE_PROMPT_SAFETY_DIRECTIVE =
  *
  * `extraScopes` is the OAuth scope a kind needs beyond the shared
  * `ops.catalog.read` + `ops.catalog.prepare`; the database authority reads the
- * same table. `create_variant`, `set_thresholds` and `set_pricing` are
- * implemented today — the rest are reserved so a later vertical cannot quietly
- * widen the grant.
+ * same table. Everything but `create_option` is implemented today; that one is
+ * reserved so a later vertical cannot quietly widen the grant.
  */
 export const CATALOG_SETUP_WRITE_KINDS = Object.freeze({
   create_variant: Object.freeze({
@@ -46,7 +45,7 @@ export const CATALOG_SETUP_WRITE_KINDS = Object.freeze({
     capabilityId: "prepare_set_supplier_cost",
     operation: "set_supplier_cost",
     extraScopes: Object.freeze(["ops.catalog_costs.read"] as readonly string[]),
-    implemented: false,
+    implemented: true,
   }),
   create_option: Object.freeze({
     capabilityId: "prepare_create_catalog_option",
@@ -72,6 +71,8 @@ export const PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_REVISION =
   `prepare_set_variant_thresholds${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 export const PREPARE_SET_CATALOG_PRICING_CAPABILITY_REVISION =
   `prepare_set_catalog_pricing${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
+export const PREPARE_SET_SUPPLIER_COST_CAPABILITY_REVISION =
+  `prepare_set_supplier_cost${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 export const COMMIT_CATALOG_SETUP_WRITE_CAPABILITY_REVISION =
   `commit_catalog_setup_write${CATALOG_SETUP_WRITE_CAPABILITY_REVISION_SUFFIX}` as const;
 
@@ -105,6 +106,62 @@ export const CatalogWholeUnitSchema = z
   .int()
   .nonnegative()
   .max(999_999_999);
+
+/**
+ * An object OPS stores verbatim on the caller's behalf. Bounded so a cost
+ * profile cannot become a document store: object depth at most 3, at most 32
+ * keys per object and 32 elements per array, arrays of scalars only, strings at
+ * most 512 characters, no key beginning with `$`, and no top-level key named
+ * `ops` — that one is reserved for the server's own provenance block, so the
+ * caller can neither forge it nor overwrite it.
+ */
+const BOUNDED_STRING = 512;
+const BOUNDED_KEYS = 32;
+const BOUNDED_DEPTH = 3;
+
+function isBoundedJsonValue(value: unknown, depth: number): boolean {
+  if (value === null) return true;
+  if (typeof value === "string") return value.length <= BOUNDED_STRING;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return true;
+  if (Array.isArray(value)) {
+    if (depth >= BOUNDED_DEPTH) return false;
+    return (
+      value.length <= BOUNDED_KEYS &&
+      value.every(
+        (entry) =>
+          entry === null ||
+          typeof entry === "string" ||
+          typeof entry === "number" ||
+          typeof entry === "boolean"
+      ) &&
+      value.every((entry) => isBoundedJsonValue(entry, depth + 1))
+    );
+  }
+  if (typeof value !== "object") return false;
+  return isBoundedObject(value as Record<string, unknown>, depth + 1);
+}
+
+function isBoundedObject(value: Record<string, unknown>, depth: number) {
+  if (depth > BOUNDED_DEPTH) return false;
+  const keys = Object.keys(value);
+  if (keys.length > BOUNDED_KEYS) return false;
+  return keys.every(
+    (key) =>
+      key.length >= 1 &&
+      key.length <= BOUNDED_STRING &&
+      !key.startsWith("$") &&
+      !(depth === 1 && key === "ops") &&
+      isBoundedJsonValue(value[key], depth)
+  );
+}
+
+export const CatalogBoundedObjectSchema = z
+  .record(z.string(), z.unknown())
+  .refine((value) => isBoundedObject(value, 1), {
+    message:
+      "A small object: depth 3, 32 keys, 512-character strings, no $ key and no reserved ops key.",
+  });
 
 export const CatalogFamilyRefSchema = z
   .object({ kind: z.literal("catalog_family"), id: Id })
@@ -268,6 +325,47 @@ export const PrepareSetCatalogPricingInputSchema = z
   })
   .strict();
 
+/**
+ * A supplier cost profile, keyed by `profile_key` rather than by a suppliers
+ * row — which is how the table is keyed and how Canpro's real profiles read
+ * (`deksmart-standard`, `rails-direct-2023`, `home-depot-2026-09`).
+ *
+ * A variant carrying profiles keeps exactly one default, so `is_default` is
+ * never just a field: promoting one profile demotes the current default, and a
+ * request that would leave the variant with profiles and no default is refused.
+ * The default is also the number mirrored onto the variant's own cost field, so
+ * the two cost models OPS carries cannot drift for anything written here.
+ */
+export const PrepareSetSupplierCostInputSchema = z
+  .object({
+    variant_ref: CatalogVariantRefSchema,
+    profile_key: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(
+        /^[a-z0-9][a-z0-9-]*$/,
+        "Lower-case letters, digits and hyphens, starting with a letter or digit."
+      ),
+    label: z.string().trim().min(1).max(160),
+    unit_cost: CatalogMoneySchema,
+    is_default: z
+      .boolean()
+      .default(false)
+      .describe(
+        "True promotes this profile and demotes the variant's current default in the same write."
+      ),
+    activation_rule: CatalogBoundedObjectSchema.optional().describe(
+      "When this profile applies, in the company's own words. OPS stores it; nothing evaluates it yet."
+    ),
+    source: CatalogBoundedObjectSchema.optional().describe(
+      "Where the number came from. OPS adds its own provenance under the reserved `ops` key."
+    ),
+    evidence: CatalogSetupWriteEvidenceInputSchema,
+    idempotency_key: Key,
+  })
+  .strict();
+
 export const CommitCatalogSetupWriteInputSchema = z
   .object({
     action_id: Id,
@@ -341,6 +439,49 @@ export const CatalogSetupWritePricingEffectsSchema = z
     {
       message:
         "One pricing write moves one level: a family default or one variant override.",
+    }
+  );
+
+/**
+ * `supplier_cost_profiles_written` counts the rows this write touches: the
+ * profile named in the request, plus the current default when promoting demotes
+ * it. The named counters say which of those it was, because "created" and
+ * "revived" and "promoted" are different answers to an operator asking what
+ * just happened to their cost sheet.
+ */
+export const CatalogSetupWriteSupplierCostEffectsSchema = z
+  .object({
+    ...CATALOG_SETUP_WRITE_EFFECT_SHAPE,
+    variants_created: z.literal(0),
+    stock_units_created: z.literal(0),
+    stock_events_recorded: z.literal(0),
+    prices_changed: z.literal(0),
+    options_created: z.literal(0),
+    variants_backfilled: z.literal(0),
+    supplier_cost_profiles_written: z.union([z.literal(1), z.literal(2)]),
+    profiles_created: z.union([z.literal(0), z.literal(1)]),
+    profiles_revived: z.union([z.literal(0), z.literal(1)]),
+    profiles_updated: z.union([z.literal(0), z.literal(1)]),
+    profiles_demoted: z.union([z.literal(0), z.literal(1)]),
+    profiles_promoted: z.union([z.literal(0), z.literal(1)]),
+    variant_unit_cost_mirrored: z.boolean(),
+  })
+  .strict()
+  .refine(
+    (effects) =>
+      effects.profiles_created +
+        effects.profiles_revived +
+        effects.profiles_updated +
+        effects.profiles_promoted >=
+      1,
+    { message: "A supplier cost write does something to the profile it names." }
+  )
+  .refine(
+    (effects) =>
+      effects.supplier_cost_profiles_written === 1 + effects.profiles_demoted,
+    {
+      message:
+        "One profile row is written, plus the current default when promoting demotes it.",
     }
   );
 
@@ -480,6 +621,104 @@ export const CatalogPricingProjectionSchema = z
   })
   .strict();
 
+/**
+ * What this approval does to one profile row. `unchanged` is carried rather than
+ * omitted: an operator reading a cost sheet has to see the rows that stay put
+ * beside the one that moves, or "the default is now 18.25" means nothing.
+ */
+export const CatalogSupplierCostProfileStateSchema = z.enum([
+  "unchanged",
+  "created",
+  "updated",
+  "revived",
+  "demoted",
+  "promoted",
+]);
+
+const SUPPLIER_COST_PROFILE_SHAPE = {
+  profile_key: z.string().min(1).max(80),
+  /**
+   * Null when the stored row's own text cannot be displayed. OPS refuses to
+   * render control characters inside an approval preview, and 107 of Canpro's
+   * 137 live profiles carry a double-encoded em dash written by the hand-SQL
+   * workaround this vertical replaces. Rather than refuse the whole cost sheet
+   * — which would make the tool unusable on the exact catalogue it was built
+   * for — such a row keeps its key, its cost and its default flag, and its
+   * label, activation rule and source are withheld together. Writing the row
+   * again through this tool replaces the unreadable text with readable text.
+   */
+  label: z.string().min(1).max(160).nullable(),
+  unit_cost: CatalogDecimalSchema,
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  is_default: z.boolean(),
+  activation_rule: CatalogBoundedObjectSchema,
+  source: CatalogBoundedObjectSchema,
+  /** Cost is separately authorised data, and it reads as data, never as an
+   * instruction — the same tagging `get_catalog_item.supplier_costs` uses. */
+  content_kind: z.literal("untrusted_business_data"),
+} as const;
+
+/** The rows on file: what they are, not what is about to happen to them. */
+export const CatalogSupplierCostProfileSchema = z
+  .object(SUPPLIER_COST_PROFILE_SHAPE)
+  .strict();
+
+/** The rows after the write, each carrying what this approval did to it. */
+export const CatalogSupplierCostProfilePlanSchema = z
+  .object({
+    ...SUPPLIER_COST_PROFILE_SHAPE,
+    state: CatalogSupplierCostProfileStateSchema,
+  })
+  .strict();
+
+function exactlyOneDefault(profiles: readonly { is_default: boolean }[]) {
+  return (
+    profiles.length === 0 ||
+    profiles.filter((entry) => entry.is_default).length === 1
+  );
+}
+
+const SupplierCostVariantSchema = z
+  .object({
+    variant_ref: CatalogVariantRefSchema,
+    value_labels: z.array(z.string().min(1)).max(32),
+    sku: z.string().min(1).nullable(),
+  })
+  .strict();
+
+/**
+ * Both sides carry EVERY profile the variant has, so the default flip is legible
+ * at a glance rather than a diff the operator has to compute. `variant_unit_cost`
+ * is the variant's own cost field — the simple model that job costing reads —
+ * shown on both sides because promoting a profile moves it (gap #17).
+ */
+export const CatalogSupplierCostProjectionSchema = z
+  .object({
+    variant: SupplierCostVariantSchema,
+    profiles: z
+      .array(CatalogSupplierCostProfileSchema)
+      .max(32)
+      .refine(exactlyOneDefault, {
+        message: "A variant carrying profiles carries exactly one default.",
+      }),
+    variant_unit_cost: CatalogDecimalSchema.nullable(),
+  })
+  .strict();
+
+export const CatalogSupplierCostPlanSchema = z
+  .object({
+    variant: SupplierCostVariantSchema,
+    profiles: z
+      .array(CatalogSupplierCostProfilePlanSchema)
+      .min(1)
+      .max(32)
+      .refine(exactlyOneDefault, {
+        message: "A variant carrying profiles carries exactly one default.",
+      }),
+    variant_unit_cost: CatalogDecimalSchema.nullable(),
+  })
+  .strict();
+
 export const CatalogSetupWriteEvidenceProofSchema = z
   .object({
     kind: z.literal("operator_statement"),
@@ -564,6 +803,23 @@ export const SetCatalogPricingPreviewSchema = z
   .strict();
 
 /**
+ * A cost change is read as a cost sheet, before and after. The before side is
+ * the rows on file; the after side is the same rows with what this approval
+ * does to each of them, and the one number that leaves the profile table — the
+ * variant's own cost field — on both.
+ */
+export const SetSupplierCostPreviewSchema = z
+  .object({
+    ...PreviewBaseShape,
+    operation: z.literal("set_supplier_cost"),
+    kind: z.literal("set_supplier_cost"),
+    effects: CatalogSetupWriteSupplierCostEffectsSchema,
+    before: CatalogSupplierCostProjectionSchema,
+    after: CatalogSupplierCostPlanSchema,
+  })
+  .strict();
+
+/**
  * One review surface for all five kinds. A later kind adds a member here and a
  * branch in the preview component; the approval queue keeps one row shape.
  */
@@ -571,6 +827,7 @@ export const CatalogSetupWritePreviewSchema = z.discriminatedUnion("kind", [
   CreateCatalogVariantPreviewSchema,
   SetVariantThresholdsPreviewSchema,
   SetCatalogPricingPreviewSchema,
+  SetSupplierCostPreviewSchema,
 ]);
 
 export const CatalogSetupWriteResultSchema = z
@@ -649,10 +906,23 @@ export const SetCatalogPricingReceiptSchema = z
   })
   .strict();
 
+/** The read-back is live rows, so it carries no per-row `state`: a state is a
+ * prediction about a write, and the receipt is a read of what landed. */
+export const SetSupplierCostReceiptSchema = z
+  .object({
+    ...RECEIPT_BASE_SHAPE,
+    kind: z.literal("set_supplier_cost"),
+    readback: CatalogSupplierCostProjectionSchema,
+    variant_ref: CatalogVariantRefSchema,
+    effects: CatalogSetupWriteSupplierCostEffectsSchema,
+  })
+  .strict();
+
 export const CatalogSetupWriteReceiptSchema = z.discriminatedUnion("kind", [
   CreateCatalogVariantReceiptSchema,
   SetVariantThresholdsReceiptSchema,
   SetCatalogPricingReceiptSchema,
+  SetSupplierCostReceiptSchema,
 ]);
 
 export const CatalogSetupWriteRejectionReceiptSchema = z
@@ -679,6 +949,15 @@ export type PrepareSetCatalogPricingInput = z.infer<
 export type CatalogPricingProjection = z.infer<
   typeof CatalogPricingProjectionSchema
 >;
+export type PrepareSetSupplierCostInput = z.infer<
+  typeof PrepareSetSupplierCostInputSchema
+>;
+export type CatalogSupplierCostProjection = z.infer<
+  typeof CatalogSupplierCostProjectionSchema
+>;
+export type CatalogSupplierCostPlan = z.infer<
+  typeof CatalogSupplierCostPlanSchema
+>;
 export type CatalogSetupWriteResult = z.infer<
   typeof CatalogSetupWriteResultSchema
 >;
@@ -696,6 +975,9 @@ export type SetVariantThresholdsPreview = z.infer<
 >;
 export type SetCatalogPricingPreview = z.infer<
   typeof SetCatalogPricingPreviewSchema
+>;
+export type SetSupplierCostPreview = z.infer<
+  typeof SetSupplierCostPreviewSchema
 >;
 export type CatalogVariantProjection = z.infer<
   typeof CatalogVariantProjectionSchema

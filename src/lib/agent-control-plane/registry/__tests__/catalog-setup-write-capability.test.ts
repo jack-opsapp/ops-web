@@ -42,12 +42,12 @@ function input(over: Record<string, unknown> = {}) {
 }
 
 describe("catalogue setup write manifest v28", () => {
-  it("remints v20 and adds exactly the three prepares and their shared commit", () => {
+  it("remints v20 and adds exactly the four prepares and their shared commit", () => {
     expect(CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION).toBe(
       "2026-09-15.capability-manifest.v28"
     );
     expect(CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST).toHaveLength(
-      CUSTOMER_UPDATE_CAPABILITY_MANIFEST.length + 4
+      CUSTOMER_UPDATE_CAPABILITY_MANIFEST.length + 5
     );
     const added = CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST.filter(
       (entry) =>
@@ -59,6 +59,7 @@ describe("catalogue setup write manifest v28", () => {
       "prepare_create_catalog_variant",
       "prepare_set_variant_thresholds",
       "prepare_set_catalog_pricing",
+      "prepare_set_supplier_cost",
       "commit_catalog_setup_write",
     ]);
     for (const entry of CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST) {

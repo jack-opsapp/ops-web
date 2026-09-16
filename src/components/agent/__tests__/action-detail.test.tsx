@@ -419,7 +419,184 @@ describe("catalogue setup write exact approval", () => {
     ).toBeDisabled();
   });
 
+  it("reads a cost change as the variant's cost sheet, default first", () => {
+    const approve = vi.fn();
+    render(
+      <ActionDetail
+        action={make({
+          actionType: "approve_catalog_setup_write",
+          actionData: {
+            proposal: supplierCostProposal(),
+            preview_sha256: `sha256:${"1".repeat(64)}`,
+            change_set_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+          },
+        })}
+        onApprove={approve}
+        onReject={() => {}}
+        t={(k) => k}
+      />
+    );
+    // Every profile the variant carries, keyed the way the table is keyed.
+    expect(screen.getByText(/rails-direct-2026/)).toBeInTheDocument();
+    expect(screen.getByText(/deksmart-condo/)).toBeInTheDocument();
+    expect(screen.getByText(/deksmart-standard/)).toBeInTheDocument();
+    // The default flip is marked on the rows, not left to be computed.
+    expect(screen.getAllByText("catalogSetupWrite.default")).toHaveLength(1);
+    expect(
+      screen.getByText(/catalogSetupWrite.profileState.promoted/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/catalogSetupWrite.profileState.demoted/)
+    ).toBeInTheDocument();
+    // The number the rest of OPS reads is shown now/after.
+    expect(
+      screen.getByText("catalogSetupWrite.variantCost")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/catalogSetupWrite.variantCostNote/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/catalogSetupWrite.supplierCostEffects/)
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    );
+    expect(approve).toHaveBeenCalledWith("action-1", {
+      preview_sha256: `sha256:${"1".repeat(64)}`,
+      change_set_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    });
+  });
+
+  it("says a row's text was withheld rather than dropping the row", () => {
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal: supplierCostProposal() },
+    });
+    // The unreadable row is still on the sheet, with its cost and its state.
+    expect(
+      screen.getAllByText(/catalogSetupWrite.withheldText/).length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/catalogSetupWrite.withheldNote/)
+    ).toBeInTheDocument();
+  });
+
+  it("refuses a cost preview that leaves the variant with two defaults", () => {
+    const proposal = supplierCostProposal();
+    (
+      proposal as unknown as {
+        after: { profiles: Array<{ is_default: boolean }> };
+      }
+    ).after.profiles[1]!.is_default = true;
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal },
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "catalogSetupWrite.invalid"
+    );
+    expect(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    ).toBeDisabled();
+  });
+
 });
+
+function supplierCostProposal() {
+  const variant = {
+    variant_ref: {
+      kind: "catalog_variant",
+      id: "18234bac-442f-41e8-98e7-956c051fbf21",
+    },
+    value_labels: ["Boardwalk", "60mil Smooth"],
+    sku: null,
+  };
+  const profile = (
+    key: string,
+    cost: string,
+    isDefault: boolean,
+    label: string | null,
+    state?: string
+  ) => ({
+    profile_key: key,
+    label,
+    unit_cost: cost,
+    currency: "CAD",
+    is_default: isDefault,
+    activation_rule: {},
+    source: {},
+    content_kind: "untrusted_business_data",
+    ...(state === undefined ? {} : { state }),
+  });
+  return {
+    operation: "set_supplier_cost",
+    kind: "set_supplier_cost",
+    policy_revision: "2026-09-15.catalog-setup-write.v1",
+    family: {
+      family_ref: {
+        kind: "catalog_family",
+        id: "9b30f44d-47da-4134-872d-7f9c2d6f1b44",
+      },
+      name: "Vinyl",
+    },
+    before: {
+      variant,
+      profiles: [
+        profile("deksmart-standard", "16.9200", true, null),
+        profile("deksmart-condo", "15.7200", false, "Deksmart condo rate"),
+      ],
+      variant_unit_cost: "16.9200",
+    },
+    after: {
+      variant,
+      profiles: [
+        profile(
+          "rails-direct-2026",
+          "18.2500",
+          true,
+          "Rails Direct 2026 rate card",
+          "promoted"
+        ),
+        profile(
+          "deksmart-condo",
+          "15.7200",
+          false,
+          "Deksmart condo rate",
+          "unchanged"
+        ),
+        profile("deksmart-standard", "16.9200", false, null, "demoted"),
+      ],
+      variant_unit_cost: "18.2500",
+    },
+    effects: {
+      variants_created: 0,
+      stock_units_created: 0,
+      stock_events_recorded: 0,
+      prices_changed: 0,
+      options_created: 0,
+      variants_backfilled: 0,
+      messages_sent: 0,
+      accounting_sync_enqueued: 0,
+      supplier_cost_profiles_written: 2,
+      profiles_created: 1,
+      profiles_revived: 0,
+      profiles_updated: 0,
+      profiles_demoted: 1,
+      profiles_promoted: 1,
+      variant_unit_cost_mirrored: true,
+    },
+    evidence: [
+      {
+        kind: "operator_statement",
+        text: "Rails Direct quoted 18.25 per LF on the 2026 card.",
+        source_sha256: `sha256:${"a".repeat(64)}`,
+        content_kind: "untrusted_business_data",
+      },
+    ],
+    expires_at: "2099-09-15T21:30:00.000Z",
+    reversal: "A correction requires a fresh preview and approval.",
+  };
+}
 
 function pricingProposal() {
   const target = {

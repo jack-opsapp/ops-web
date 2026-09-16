@@ -19,10 +19,12 @@ import {
 import {
   PrepareCreateCatalogVariantInputSchema,
   PrepareSetCatalogPricingInputSchema,
+  PrepareSetSupplierCostInputSchema,
   PrepareSetVariantThresholdsInputSchema,
   type CatalogSetupWriteResult,
   type PrepareCreateCatalogVariantInput,
   type PrepareSetCatalogPricingInput,
+  type PrepareSetSupplierCostInput,
   type PrepareSetVariantThresholdsInput,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import { reauthorizeResolvedMcpActor } from "@/lib/agent-control-plane/mcp/actor-reauthorization";
@@ -128,6 +130,11 @@ export interface CatalogSetupWriteService {
   prepareSetCatalogPricing(
     actorContext: ActorContext,
     input: PrepareSetCatalogPricingInput,
+    options?: { signal?: AbortSignal }
+  ): Promise<CatalogSetupWriteResult>;
+  prepareSetSupplierCost(
+    actorContext: ActorContext,
+    input: PrepareSetSupplierCostInput,
     options?: { signal?: AbortSignal }
   ): Promise<CatalogSetupWriteResult>;
 }
@@ -291,6 +298,22 @@ export function createCatalogSetupWriteService(input: {
         schema: PrepareSetCatalogPricingInputSchema,
         send: (current, request, observedAt) =>
           input.repository.prepareSetPricing({
+            actorContext: current,
+            request,
+            observedAt,
+            signal: options?.signal,
+          }),
+      });
+    },
+    async prepareSetSupplierCost(actorContext, rawInput, options) {
+      return await prepare<PrepareSetSupplierCostInput>({
+        actorContext,
+        rawInput,
+        options,
+        capabilityId: "prepare_set_supplier_cost",
+        schema: PrepareSetSupplierCostInputSchema,
+        send: (current, request, observedAt) =>
+          input.repository.prepareSetSupplierCost({
             actorContext: current,
             request,
             observedAt,

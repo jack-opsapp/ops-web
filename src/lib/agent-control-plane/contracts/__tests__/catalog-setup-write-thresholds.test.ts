@@ -318,6 +318,7 @@ describe("catalogue setup write kind registry", () => {
       "create_variant",
       "set_thresholds",
       "set_pricing",
+      "set_supplier_cost",
     ]);
   });
 });

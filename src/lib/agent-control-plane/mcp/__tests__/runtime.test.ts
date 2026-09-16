@@ -122,6 +122,7 @@ describe("MCP production runtime", () => {
       "prepareCreateCatalogVariant",
       "prepareSetVariantThresholds",
       "prepareSetCatalogPricing",
+      "prepareSetSupplierCost",
       "prepareScheduleChange",
       "inspectFinancialDocument",
       "prepareFinancialDocument",

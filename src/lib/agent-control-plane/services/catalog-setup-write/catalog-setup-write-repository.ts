@@ -9,6 +9,7 @@ import {
   type CatalogSetupWriteResult,
   type PrepareCreateCatalogVariantInput,
   type PrepareSetCatalogPricingInput,
+  type PrepareSetSupplierCostInput,
   type PrepareSetVariantThresholdsInput,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import { CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
@@ -95,6 +96,9 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_NO_CHANGE") ||
     message.startsWith("CATALOG_SETUP_AFFECTED_VARIANTS_TOO_MANY") ||
     message.startsWith("CATALOG_SETUP_PRICE_") ||
+    message.startsWith("CATALOG_SETUP_DEFAULT_REQUIRED") ||
+    message.startsWith("CATALOG_SETUP_PROFILES_TOO_MANY") ||
+    message.startsWith("CATALOG_SETUP_PROFILE_") ||
     message.startsWith("CATALOG_SETUP_CURRENCY_") ||
     message.startsWith("CATALOG_SETUP_EVIDENCE_") ||
     message.startsWith("CATALOG_SETUP_FAMILY_HAS_NO_OPTIONS") ||
@@ -152,6 +156,12 @@ export interface CatalogSetupWriteRepository {
   prepareSetPricing(input: {
     actorContext: ActorContext;
     request: PrepareSetCatalogPricingInput;
+    observedAt: string;
+    signal?: AbortSignal;
+  }): Promise<CatalogSetupWriteResult>;
+  prepareSetSupplierCost(input: {
+    actorContext: ActorContext;
+    request: PrepareSetSupplierCostInput;
     observedAt: string;
     signal?: AbortSignal;
   }): Promise<CatalogSetupWriteResult>;
@@ -378,6 +388,94 @@ function levelFor(kind: "catalog_family" | "catalog_variant") {
   return kind === "catalog_family" ? "family" : "variant";
 }
 
+
+/**
+ * A supplier-cost preview must describe this variant, this profile key, this
+ * cost and this default decision — and it must be a coherent cost sheet on its
+ * own terms. Three invariants are checked here rather than trusted, because all
+ * three are ways a wrong preview would still look plausible:
+ *
+ *  - no profile the variant already had may disappear from the after side,
+ *  - exactly one profile is the default on each side, and
+ *  - a mirror is claimed exactly when the variant's own cost field ends up
+ *    equal to the default profile's cost after moving.
+ */
+export function matchesSetSupplierCostRequest(
+  result: CatalogSetupWriteResult,
+  request: PrepareSetSupplierCostInput
+): boolean {
+  if (result.kind !== "set_supplier_cost") return false;
+  const proposal = result.proposal;
+  if (proposal.kind !== "set_supplier_cost") return false;
+
+  const { before, after, effects } = proposal;
+  if (
+    before.variant.variant_ref.id !== request.variant_ref.id ||
+    after.variant.variant_ref.id !== request.variant_ref.id
+  ) {
+    return false;
+  }
+
+  const target = after.profiles.find(
+    (entry) => entry.profile_key === request.profile_key
+  );
+  if (
+    !target ||
+    target.label !== request.label.trim() ||
+    target.currency !== request.unit_cost.currency ||
+    !sameDecimal(target.unit_cost, request.unit_cost.amount) ||
+    target.is_default !== request.is_default
+  ) {
+    return false;
+  }
+
+  // Nothing the variant already carried may vanish from the after side.
+  const afterKeys = new Set(after.profiles.map((entry) => entry.profile_key));
+  if (before.profiles.some((entry) => !afterKeys.has(entry.profile_key))) {
+    return false;
+  }
+  if (afterKeys.size !== after.profiles.length) return false;
+
+  const defaultsBefore = before.profiles.filter((entry) => entry.is_default);
+  const defaultsAfter = after.profiles.filter((entry) => entry.is_default);
+  if (defaultsAfter.length !== 1) return false;
+  if (before.profiles.length > 0 && defaultsBefore.length !== 1) return false;
+
+  const demoted = after.profiles.filter(
+    (entry) => entry.state === "demoted"
+  ).length;
+  if (
+    effects.profiles_demoted !== (demoted > 0 ? 1 : 0) ||
+    demoted > 1 ||
+    effects.supplier_cost_profiles_written !== 1 + effects.profiles_demoted ||
+    effects.prices_changed !== 0 ||
+    effects.stock_events_recorded !== 0
+  ) {
+    return false;
+  }
+
+  // The mirror: claimed exactly when the variant's own cost field moved onto
+  // the default profile's cost. A flag that does not match the numbers beside
+  // it is the one way the two cost models silently drift again (gap #17).
+  const mirrored = effects.variant_unit_cost_mirrored;
+  const costMoved = !sameDecimal(
+    before.variant_unit_cost,
+    after.variant_unit_cost
+  );
+  if (mirrored) {
+    if (!sameDecimal(after.variant_unit_cost, defaultsAfter[0]!.unit_cost)) {
+      return false;
+    }
+  } else if (costMoved) {
+    return false;
+  }
+
+  if (proposal.evidence.length !== request.evidence.length) return false;
+  return request.evidence.every(
+    (item, index) => proposal.evidence[index]?.text === item.text
+  );
+}
+
 /** "45.0000" and "45" are the same price; string equality alone is not. */
 function sameDecimal(left: string | null, right: string | null): boolean {
   if (left === null || right === null) return left === right;
@@ -430,6 +528,28 @@ export function createCatalogSetupWriteRepository(input: {
         !parsed.success ||
         parsed.data.request_id !== read.actorContext.requestId ||
         !matchesSetPricingRequest(parsed.data, read.request)
+      ) {
+        throw new CatalogSetupWriteRepositoryError("UNAVAILABLE");
+      }
+      return Object.freeze(parsed.data);
+    },
+    async prepareSetSupplierCost(read) {
+      const response = await execute(
+        input.rpc("prepare_catalog_setup_write_as_system", {
+          ...binding(read.actorContext, "set_supplier_cost"),
+          p_kind: "set_supplier_cost",
+          p_request_id: read.actorContext.requestId,
+          p_request: read.request,
+          p_observed_at: read.observedAt,
+        }),
+        read.signal
+      );
+      if (response.error) throw normalizedError(response.error);
+      const parsed = CatalogSetupWriteResultSchema.safeParse(response.data);
+      if (
+        !parsed.success ||
+        parsed.data.request_id !== read.actorContext.requestId ||
+        !matchesSetSupplierCostRequest(parsed.data, read.request)
       ) {
         throw new CatalogSetupWriteRepositoryError("UNAVAILABLE");
       }

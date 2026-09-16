@@ -4,6 +4,7 @@ import {
   CommitCatalogSetupWriteInputSchema,
   PrepareCreateCatalogVariantInputSchema,
   PrepareSetCatalogPricingInputSchema,
+  PrepareSetSupplierCostInputSchema,
   PrepareSetVariantThresholdsInputSchema,
 } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import type {
@@ -160,6 +161,84 @@ export const PREPARE_SET_CATALOG_PRICING_CAPABILITY_DEFINITION = Object.freeze({
   },
   availability: { implementation: "available" },
   rolloutFlag: "agent_control_plane.capability.prepare_set_catalog_pricing",
+} as const satisfies ImplementationOnlyCapabilityDefinition);
+
+/**
+ * Cost is separately authorised data on every OPS surface that shows it, so the
+ * tool that writes it asks for the read authority as well: the OAuth scope the
+ * catalogue cost read asks for, and the permission the database's own
+ * `agent_catalog_setup_write_can_read` gate names for this kind. Unconditional,
+ * not behind an input selector — every request to this tool reads and writes
+ * cost, so making the authority depend on a field the caller could omit would
+ * be a way to ask for less than the tool does.
+ */
+const COST_AUTHORITY_VARIANT = Object.freeze({
+  key: "catalog_setup_write_cost_authority",
+  selector: Object.freeze({ kind: "always" as const }),
+  requiredOAuthScopes: Object.freeze(["ops.catalog_costs.read"]),
+  permissionRequirementGroups: Object.freeze([
+    Object.freeze([permission("finances.view")]),
+  ]),
+});
+
+const SUPPLIER_COST_AUTHORIZATION = Object.freeze({
+  variants: Object.freeze([
+    Object.freeze({
+      key: "catalog_setup_write_base",
+      selector: Object.freeze({ kind: "always" as const }),
+      requiredOAuthScopes: Object.freeze([
+        "ops.catalog.read",
+        "ops.catalog.prepare",
+      ]),
+      permissionRequirementGroups: BASE_PERMISSIONS,
+    }),
+    SETUP_AUTHORITY_VARIANT,
+    COST_AUTHORITY_VARIANT,
+  ]),
+});
+
+export const PREPARE_SET_SUPPLIER_COST_CAPABILITY_DEFINITION = Object.freeze({
+  name: "prepare_set_supplier_cost",
+  schemaRevision: CATALOG_SETUP_WRITE_SCHEMA_REVISION,
+  operation: "prepare",
+  writeFamily: "catalog_setup_write",
+  description:
+    "Prepare one supplier cost profile on one catalogue variant for exact operator approval inside OPS. Profiles are keyed by profile_key, not by a supplier record, so a variant can carry several rate cards at once — a standard rate and a negotiated one, say — and a variant that carries any profile carries exactly one default. Setting is_default demotes the current default in the same write; a request that would leave the variant with profiles and no default is refused. Writing a key whose profile was previously removed brings that row back, reported as revived rather than created. The cost is a decimal string of at most four fraction digits and the currency must equal the company's own currency. OPS keeps two cost models and this tool keeps them together: whenever the profile that ends up as the variant's default changes, or that default's cost changes, the variant's own cost field is set to the same number in the same write, and the preview reports that mirror on both sides. activation_rule and source are small objects OPS stores verbatim; OPS adds its own provenance under the reserved ops key. The preview lists every profile the variant has, on both sides, so the default flip is visible rather than inferred. No price moves, no stock moves, no message is sent and no accounting sync is enqueued.",
+  inputSchema: PrepareSetSupplierCostInputSchema,
+  authorization: SUPPLIER_COST_AUTHORIZATION,
+  riskTier: "high",
+  bounds: {
+    maxInputBytes: 32_768,
+    maxOutputCharacters: 48_000,
+    maxResultItems: 1,
+  },
+  evidencePolicy: {
+    input: "required",
+    output: "required",
+    maxEvidenceRefs: 3,
+    promptSafeOutput: true,
+    untrustedExternalContent: "structured_and_marked",
+  },
+  auditClass: "mutation_prepare",
+  rateLimitBucket: "prepare",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  confirmationPolicy: {
+    kind: "change_set_preview",
+    exactPreviewRequired: true,
+    expires: true,
+  },
+  idempotencyPolicy: {
+    kind: "required",
+    keyField: "idempotency_key",
+    conflictOnArgumentsHashMismatch: true,
+  },
+  availability: { implementation: "available" },
+  rolloutFlag: "agent_control_plane.capability.prepare_set_supplier_cost",
 } as const satisfies ImplementationOnlyCapabilityDefinition);
 
 export const PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_DEFINITION =
@@ -319,6 +398,7 @@ export const CATALOG_SETUP_WRITE_PREPARE_DEFINITIONS = Object.freeze([
   PREPARE_CREATE_CATALOG_VARIANT_CAPABILITY_DEFINITION,
   PREPARE_SET_VARIANT_THRESHOLDS_CAPABILITY_DEFINITION,
   PREPARE_SET_CATALOG_PRICING_CAPABILITY_DEFINITION,
+  PREPARE_SET_SUPPLIER_COST_CAPABILITY_DEFINITION,
 ]);
 
 export const CATALOG_SETUP_WRITE_DEFINITIONS = Object.freeze([

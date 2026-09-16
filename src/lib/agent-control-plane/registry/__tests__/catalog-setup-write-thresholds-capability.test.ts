@@ -34,6 +34,7 @@ describe("prepare_set_variant_thresholds on the shared manifest", () => {
       "prepare_create_catalog_variant",
       "prepare_set_variant_thresholds",
       "prepare_set_catalog_pricing",
+      "prepare_set_supplier_cost",
     ]);
     const added = CATALOG_SETUP_WRITE_CAPABILITY_MANIFEST.filter(
       (entry) =>
@@ -45,6 +46,7 @@ describe("prepare_set_variant_thresholds on the shared manifest", () => {
       "prepare_create_catalog_variant",
       "prepare_set_variant_thresholds",
       "prepare_set_catalog_pricing",
+      "prepare_set_supplier_cost",
       "commit_catalog_setup_write",
     ]);
   });
@@ -55,8 +57,9 @@ describe("prepare_set_variant_thresholds on the shared manifest", () => {
       "prepare_create_catalog_variant",
       "prepare_set_variant_thresholds",
       "prepare_set_catalog_pricing",
+      "prepare_set_supplier_cost",
     ]);
-    expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(38);
+    expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(39);
     expect(MCP_EXPOSURE_V23.toolIds).not.toContain(
       "prepare_set_variant_thresholds"
     );

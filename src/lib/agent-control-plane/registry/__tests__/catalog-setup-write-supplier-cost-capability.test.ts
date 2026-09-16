@@ -9,22 +9,24 @@ import {
 import { MCP_EXPOSURE_V23, MCP_EXPOSURE_V24 } from "../mcp-exposure-catalog";
 import { CATALOG_SETUP_WRITE_PREPARE_DEFINITIONS } from "../catalog-setup-write-capability";
 
-const FAMILY = "948ac4a0-882f-efe9-3bc4-b6f7c53fb12f";
+const VARIANT = "18234bac-442f-41e8-98e7-956c051fbf21";
 
 function input(over: Record<string, unknown> = {}) {
   return {
-    item_ref: { kind: "catalog_family", id: FAMILY },
-    sale_price: { amount: "7.50", currency: "CAD" },
+    variant_ref: { kind: "catalog_variant", id: VARIANT },
+    profile_key: "rails-direct-2026",
+    label: "Rails Direct 2026 rate card",
+    unit_cost: { amount: "18.25", currency: "CAD" },
     evidence: [
-      { kind: "operator_statement", text: "Endcap rail goes to 7.50." },
+      { kind: "operator_statement", text: "Rails Direct quoted 18.25 per LF." },
     ],
-    idempotency_key: "catalog-setup:endcap-rail-price",
+    idempotency_key: "catalog-setup:vinyl-rails-direct",
     ...over,
   };
 }
 
-describe("prepare_set_catalog_pricing on the shared manifest", () => {
-  it("is the third catalogue prepare, minted under v28 beside the first two", () => {
+describe("prepare_set_supplier_cost on the shared manifest", () => {
+  it("is the fourth catalogue prepare, minted under v28 beside the first three", () => {
     expect(
       CATALOG_SETUP_WRITE_PREPARE_DEFINITIONS.map(
         (definition) => definition.name
@@ -59,28 +61,29 @@ describe("prepare_set_catalog_pricing on the shared manifest", () => {
       "prepare_set_supplier_cost",
     ]);
     expect(MCP_EXPOSURE_V24.toolIds).toHaveLength(39);
-    expect(MCP_EXPOSURE_V23.toolIds).not.toContain(
-      "prepare_set_catalog_pricing"
-    );
-    // Money is not a new grant surface: this kind needs no scope of its own.
+    expect(MCP_EXPOSURE_V23.toolIds).not.toContain("prepare_set_supplier_cost");
+    // Cost visibility is an existing read scope, already grantable in V23.
+    expect(MCP_EXPOSURE_V24.grantableScopes).toContain("ops.catalog_costs.read");
     expect(MCP_EXPOSURE_V24.grantableScopes).toHaveLength(22);
   });
 
-  it("asks for catalogue-setup authority on top of the shared catalogue base", () => {
-    const pricing = getCatalogSetupWriteCapabilityManifestEntry(
-      "prepare_set_catalog_pricing"
+  it("asks for cost-read scope and cost-visibility permission on top of the base", () => {
+    const cost = getCatalogSetupWriteCapabilityManifestEntry(
+      "prepare_set_supplier_cost"
     );
-    const variant = getCatalogSetupWriteCapabilityManifestEntry(
-      "prepare_create_catalog_variant"
-    );
-    expect(pricing.operation).toBe("prepare");
-    expect(pricing.riskTier).toBe("high");
-    expect(pricing.annotations.readOnlyHint).toBe(false);
-    expect(pricing.auditClass).toBe("mutation_prepare");
-    expect(
-      pricing.authorization.variants[0]!.policy.requiredOAuthScopes
-    ).toEqual(variant.authorization.variants[0]!.policy.requiredOAuthScopes);
-    const declared = pricing.authorization.variants
+    expect(cost.operation).toBe("prepare");
+    expect(cost.riskTier).toBe("high");
+    expect(cost.annotations.readOnlyHint).toBe(false);
+    expect(cost.auditClass).toBe("mutation_prepare");
+    const scopes = cost.authorization.variants
+      .flatMap((entry) => entry.policy.requiredOAuthScopes)
+      .sort();
+    expect([...new Set(scopes)]).toEqual([
+      "ops.catalog.prepare",
+      "ops.catalog.read",
+      "ops.catalog_costs.read",
+    ]);
+    const declared = cost.authorization.variants
       .flatMap((entry) => entry.policy.permissionRequirementGroups)
       .flat()
       .map((requirement) => requirement.permission)
@@ -91,56 +94,57 @@ describe("prepare_set_catalog_pricing on the shared manifest", () => {
       "catalog.products.view",
       "catalog.run_setup",
       "catalog.view",
+      "finances.view",
     ]);
   });
 
-  it("never asks for stock-adjust authority, because it moves no stock", () => {
+  it("carries the cost authority unconditionally, never behind an input selector", () => {
     const resolved = resolveCatalogSetupWriteCapabilityAuthorization(
-      "prepare_set_catalog_pricing",
+      "prepare_set_supplier_cost",
       input()
     );
+    // Every request to this tool reads and writes cost, so the authority is not
+    // conditional on a field the caller could omit.
     expect(resolved.variants.map((entry) => entry.key)).toEqual([
       "catalog_setup_write_base",
       "catalog_setup_write_setup_authority",
+      "catalog_setup_write_cost_authority",
     ]);
     expect(() =>
       resolveCatalogSetupWriteCapabilityAuthorization(
-        "prepare_set_catalog_pricing",
+        "prepare_set_supplier_cost",
         input({ opening_quantity: { quantity: "12" } })
       )
     ).toThrow();
   });
 
-  it("says in the description how price resolves and that costs live elsewhere", () => {
+  it("says in the description how the one default and the mirror behave", () => {
     const description = getCatalogSetupWriteCapabilityManifestEntry(
-      "prepare_set_catalog_pricing"
+      "prepare_set_supplier_cost"
     ).description;
-    expect(description).toContain(
-      "the variant override when set, otherwise the family default"
-    );
-    expect(description).toContain("prepare_set_supplier_cost");
+    expect(description).toContain("exactly one default");
+    expect(description).toContain("demotes");
+    expect(description).toContain("revived");
     expect(description).toContain("company's own currency");
-    expect(description).toContain("clears");
-    // A pricing tool that quietly also wrote cost would be two decisions in one
-    // approval, so the description says the boundary out loud.
-    expect(description).not.toContain("unit_cost argument");
+    // Gap #17: the two cost models must not drift for anything written here.
+    expect(description).toContain("mirror");
   });
 
   it("is staged behind the same exact-preview approval as every other kind", () => {
-    const pricing = getCatalogSetupWriteCapabilityManifestEntry(
-      "prepare_set_catalog_pricing"
+    const cost = getCatalogSetupWriteCapabilityManifestEntry(
+      "prepare_set_supplier_cost"
     );
-    expect(pricing.confirmationPolicy).toMatchObject({
+    expect(cost.confirmationPolicy).toMatchObject({
       kind: "change_set_preview",
       exactPreviewRequired: true,
       expires: true,
     });
-    expect(pricing.idempotencyPolicy).toMatchObject({
+    expect(cost.idempotencyPolicy).toMatchObject({
       kind: "required",
       keyField: "idempotency_key",
       conflictOnArgumentsHashMismatch: true,
     });
-    expect(pricing.evidencePolicy.input).toBe("required");
-    expect(pricing.availability.implementation).toBe("available");
+    expect(cost.evidencePolicy.input).toBe("required");
+    expect(cost.availability.implementation).toBe("available");
   });
 });
