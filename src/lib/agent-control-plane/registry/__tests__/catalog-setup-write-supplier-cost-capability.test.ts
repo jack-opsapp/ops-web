@@ -131,6 +131,11 @@ describe("prepare_set_supplier_cost on the shared manifest", () => {
     expect(description).toContain("company's own currency");
     // Gap #17: the two cost models must not drift for anything written here.
     expect(description).toContain("mirror");
+    // ...and the mirror never converts a family costed once into one costed
+    // per variant.
+    expect(description).toContain("at the level the family already uses");
+    expect(description).toContain("never writes the family cost");
+    expect(description).not.toContain("set to the same number");
   });
 
   it("is staged behind the same exact-preview approval as every other kind", () => {

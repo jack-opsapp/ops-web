@@ -242,7 +242,10 @@ describe("catalogue setup write domain boundary", () => {
           "00000000-0000-4000-8000-000000000001";
       },
       (result: ReturnType<typeof resultFixture>) => {
-        result.proposal.after.variant.sale_price = "99.0000";
+        result.proposal.after.variant.sale_price = {
+          amount: "99.0000",
+          origin: "variant",
+        };
       },
       (result: ReturnType<typeof resultFixture>) => {
         result.proposal.after.variant.option_values.pop();
@@ -251,7 +254,10 @@ describe("catalogue setup write domain boundary", () => {
         result.proposal.after.opening_quantity = null;
       },
       (result: ReturnType<typeof resultFixture>) => {
-        result.proposal.after.variant.warning_threshold = "99";
+        result.proposal.after.variant.warning_threshold = {
+          value: "99",
+          origin: "variant",
+        };
       },
       (result: ReturnType<typeof resultFixture>) => {
         result.proposal.evidence[0]!.text = "Something else entirely";
@@ -281,8 +287,94 @@ describe("catalogue setup write domain boundary", () => {
       price_override: { amount: "45", currency: "CAD" },
     });
     const result = resultFixture(request);
-    result.proposal.after.variant.sale_price = "45.0000";
+    result.proposal.after.variant.sale_price = {
+      amount: "45.0000",
+      origin: "variant",
+    };
     expect(matchesCreateVariantRequest(result, request)).toBe(true);
+  });
+
+  it("accepts a price equal to the family default, which the new variant inherits", () => {
+    const request = requestFixture({
+      price_override: { amount: "45", currency: "CAD" },
+    });
+    const result = resultFixture(request);
+    result.proposal.before.default_price = "45.0000";
+    result.proposal.after.variant.sale_price = {
+      amount: "45.0000",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(result, request)).toBe(true);
+  });
+
+  it("refuses a new variant pinned to the family price it would inherit", () => {
+    const request = requestFixture({
+      price_override: { amount: "45", currency: "CAD" },
+    });
+    const result = resultFixture(request);
+    result.proposal.before.default_price = "45.0000";
+    // What the shipped compile staged: an override equal to the family default.
+    expect(result.proposal.after.variant.sale_price).toEqual({
+      amount: "45",
+      origin: "variant",
+    });
+    expect(matchesCreateVariantRequest(result, request)).toBe(false);
+  });
+
+  it("refuses an inherited price that is not the family's default", () => {
+    const request = requestFixture({
+      price_override: { amount: "45", currency: "CAD" },
+    });
+    const result = resultFixture(request);
+    result.proposal.before.default_price = "40.0000";
+    result.proposal.after.variant.sale_price = {
+      amount: "45.0000",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(result, request)).toBe(false);
+  });
+
+  it("accepts a requested level the new variant inherits, and refuses an unrequested one it claims", () => {
+    const request = requestFixture();
+    const inheriting = resultFixture(request);
+    inheriting.proposal.after.variant.warning_threshold = {
+      value: "30",
+      origin: "category",
+    };
+    expect(matchesCreateVariantRequest(inheriting, request)).toBe(true);
+
+    const unrequested = requestFixture({ warning_threshold: undefined });
+    delete (unrequested as Record<string, unknown>).warning_threshold;
+    const claimed = resultFixture(unrequested);
+    claimed.proposal.after.variant.warning_threshold = {
+      value: "30",
+      origin: "variant",
+    };
+    expect(matchesCreateVariantRequest(claimed, unrequested)).toBe(false);
+    const inherited = resultFixture(unrequested);
+    inherited.proposal.after.variant.warning_threshold = {
+      value: "30",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(inherited, unrequested)).toBe(true);
+  });
+
+  it("refuses a unit cost that is not the family's, because the write sets none", () => {
+    const request = requestFixture();
+    const result = resultFixture(request);
+    result.proposal.before.default_unit_cost = "8.5000";
+    // Family cost is 8.50, but the preview claims no cost at all.
+    expect(matchesCreateVariantRequest(result, request)).toBe(false);
+    result.proposal.after.variant.unit_cost = {
+      amount: "8.5000",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(result, request)).toBe(true);
+    result.proposal.after.variant.unit_cost = {
+      amount: "9.0000",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(result, request)).toBe(false);
   });
 
   it("refuses an untrusted repository or a broken clock", async () => {

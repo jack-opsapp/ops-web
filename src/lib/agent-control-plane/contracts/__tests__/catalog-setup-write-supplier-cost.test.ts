@@ -201,7 +201,7 @@ const before = {
     profile("deksmart-standard", "16.9200", true),
     profile("deksmart-condo", "15.7200", false),
   ],
-  variant_unit_cost: "16.9200",
+  variant_unit_cost: { amount: "16.9200", origin: "variant" },
 } as const;
 
 const after = {
@@ -211,7 +211,7 @@ const after = {
     profile("deksmart-condo", "15.7200", false, "unchanged"),
     profile("deksmart-standard", "16.9200", false, "demoted"),
   ],
-  variant_unit_cost: "18.2500",
+  variant_unit_cost: { amount: "18.2500", origin: "variant" },
 } as const;
 
 const effects = {
@@ -436,6 +436,44 @@ describe("set_supplier_cost preview", () => {
     ).toBe(false);
   });
 
+  it("names the level the variant's catalogue cost comes from on both sides", () => {
+    // An item-level-costed family: the variant inherits the family cost before
+    // and after, because the new default equals it.
+    const inheriting = {
+      ...preview,
+      before: { ...before, variant_unit_cost: { amount: "18.2500", origin: "family" } },
+      after: { ...after, variant_unit_cost: { amount: "18.2500", origin: "family" } },
+    };
+    const parsed = CatalogSetupWritePreviewSchema.safeParse(inheriting);
+    expect(parsed.success ? null : parsed.error.issues).toBeNull();
+    // A variant with no cost anywhere says so rather than showing a blank.
+    expect(
+      CatalogSetupWritePreviewSchema.safeParse({
+        ...preview,
+        before: { ...before, variant_unit_cost: { amount: null, origin: "none" } },
+      }).success
+    ).toBe(true);
+  });
+
+  it("refuses a bare cost number and a cost that names no real level", () => {
+    for (const cost of [
+      "18.2500",
+      null,
+      { amount: "18.2500", origin: "none" },
+      { amount: null, origin: "family" },
+      { amount: "18.2500", origin: "category" },
+      { amount: "18.2500" },
+    ]) {
+      expect(
+        CatalogSetupWritePreviewSchema.safeParse({
+          ...preview,
+          after: { ...after, variant_unit_cost: cost },
+        }).success,
+        JSON.stringify(cost)
+      ).toBe(false);
+    }
+  });
+
   it("bounds the profile list at the number a variant can sensibly carry", () => {
     const many = Array.from({ length: 33 }, (_, index) =>
       profile(`supplier-${index}`, "1.0000", index === 0, "unchanged")
@@ -475,7 +513,7 @@ describe("set_supplier_cost result and receipt", () => {
     const readback = {
       variant,
       profiles: after.profiles.map(({ state: _state, ...rest }) => rest),
-      variant_unit_cost: "18.2500",
+      variant_unit_cost: { amount: "18.2500", origin: "variant" },
     };
     const receipt = {
       ok: true,

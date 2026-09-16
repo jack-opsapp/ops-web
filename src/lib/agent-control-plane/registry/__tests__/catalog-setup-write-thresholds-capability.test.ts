@@ -121,6 +121,9 @@ describe("prepare_set_variant_thresholds on the shared manifest", () => {
     expect(description).toContain("category default");
     expect(description).toContain("variant, family, category or none");
     expect(description).toContain("at or below the warning level");
+    expect(description).toContain(
+      "a number equal to the level the variant would inherit"
+    );
   });
 
   it("is staged behind the same exact-preview approval as every other kind", () => {
