@@ -98,6 +98,19 @@ select tbl, col, count(*) as rows,
   from candidates group by 1,2 order by 1,2;
 
 \echo ''
+\echo '## 0d. before: the supplier costs that are finer than the currency minor unit'
+select id, profile_key, pg_temp.marked(label) as label, unit_cost,
+       company_id, deleted_at
+  from public.catalog_supplier_cost_profiles
+ where unit_cost is distinct from round(unit_cost, 2)
+ order by unit_cost;
+select count(*) as profiles_total,
+       count(*) filter (where unit_cost is distinct from round(unit_cost, 2)) as finer_than_a_cent,
+       count(*) filter (where unit_cost is distinct from round(unit_cost, 2)
+                          and deleted_at is null) as finer_and_live
+  from public.catalog_supplier_cost_profiles;
+
+\echo ''
 \echo '## 1. before: the sample label is unreadable to the agent read layer'
 select pg_temp.marked(label) as stored_label,
        private.agent_p2_optional_canonical_text(label, 160, 640, true) as canonical_text
@@ -240,6 +253,19 @@ select count(*) as ledger_rows,
   from private.catalog_text_repairs_20260916;
 
 \echo ''
+\echo '## 4d. after: the rounded costs, and nothing left finer than a cent'
+select ledger.row_id, ledger.before_value, ledger.after_value,
+       profile.unit_cost as stored_now
+  from private.catalog_text_repairs_20260916 ledger
+  join public.catalog_supplier_cost_profiles profile on profile.id = ledger.row_id
+ where ledger.table_name = 'catalog_supplier_cost_profiles'
+   and ledger.column_name = 'unit_cost'
+ order by ledger.before_value::numeric;
+select count(*) filter (where unit_cost is distinct from round(unit_cost, 2)
+                          and deleted_at is null) as finer_and_live_after
+  from public.catalog_supplier_cost_profiles;
+
+\echo ''
 \echo '## 4c. the sample label, and the two rows outside the cost table'
 select label, private.agent_p2_optional_canonical_text(label, 160, 640, true) as canonical_text
   from public.catalog_supplier_cost_profiles
@@ -291,9 +317,25 @@ with candidates(val) as (
 select count(*) filter (where pg_temp.repairable(val)) as still_repairable from candidates;
 
 \echo ''
+\echo '## 6b. idempotence of the cost pass: a second run would round nothing,'
+\echo '##     and re-running the rounding statement itself changes no row'
+select count(*) as still_finer_than_a_cent
+  from public.catalog_supplier_cost_profiles
+ where deleted_at is null and unit_cost is distinct from round(unit_cost, 2);
+with candidate as (
+  select id from public.catalog_supplier_cost_profiles
+   where deleted_at is null and unit_cost is not null
+     and unit_cost is distinct from round(unit_cost, 2)
+)
+select count(*) as rows_a_second_pass_would_touch from candidate;
+
+\echo ''
 \echo '## 7. after the rollback: production is untouched and the ledger is gone'
 rollback;
 select count(*) as rows_with_signature
   from public.catalog_supplier_cost_profiles
  where label ~ ('[' || chr(194) || '-' || chr(244) || '][' || chr(128) || '-' || chr(191) || ']+');
 select to_regclass('private.catalog_text_repairs_20260916') as ledger_after;
+select count(*) as costs_finer_than_a_cent_after_rollback
+  from public.catalog_supplier_cost_profiles
+ where unit_cost is distinct from round(unit_cost, 2);

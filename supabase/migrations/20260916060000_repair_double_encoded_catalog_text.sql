@@ -35,9 +35,25 @@
 -- every local row before writing this — so a second run finds nothing and
 -- changes nothing. The postflight asserts that directly.
 --
+-- AND ONE THING THAT IS NOT TEXT. The same hand-written SQL left four supplier
+-- cost profiles carrying a unit cost finer than a cent: Canpro's Glass Panel
+-- family, profile_key `vitrum-2026`, at 4.1992, 4.2804, 9.2684 and 9.7440 CAD.
+-- They are the only rows in `catalog_supplier_cost_profiles` whose cost is not
+-- exact in the currency's minor unit, and they break the same read for the same
+-- families: `private.agent_money_to_minor_units` raises
+-- `agent_money_minor_units_not_exact` rather than rounding a price nobody
+-- authorised it to round. The product decision is that costs are cents-exact,
+-- so this migration rounds every such row half-up to two decimals, for every
+-- company, and records each one in the same ledger under the column name
+-- `unit_cost`. Written here rather than in its own file because it is the same
+-- cause, the same table and the same afternoon of hand-written SQL, and an
+-- operator auditing the damage should find all of it in one ledger.
+--
 -- AUDITABLE AND REVERSIBLE. Every changed row's table, column, id, before and
 -- after go into `private.catalog_text_repairs_20260916`, which is revoked from
--- every app role. Reversing this migration is an UPDATE from that table.
+-- every app role. Reversing this migration is an UPDATE from that table. The
+-- cost rows record the numbers as the column stores them, so the before side is
+-- the exact value to write back.
 --
 -- NOT AN EFFECT CHANGE. This migration writes data. It defines no trigger and
 -- redefines none of the functions `private.agent_catalog_setup_write_effect_revision()`
@@ -94,7 +110,7 @@ revoke all on private.catalog_text_repairs_20260916 from public, anon, authentic
 create index catalog_text_repairs_20260916_target
   on private.catalog_text_repairs_20260916(table_name, column_name, row_id);
 comment on table private.catalog_text_repairs_20260916 is
-  'Audit trail for the 2026-09-16 repair of double-encoded catalogue text. Reversing the repair is an UPDATE from before_value.';
+  'Audit trail for the 2026-09-16 catalogue repair: double-encoded text, and supplier unit costs rounded to the currency minor unit (column_name = unit_cost). Reversing the repair is an UPDATE from before_value.';
 
 -- ── The repair, and the guards on it ───────────────────────────────────────
 -- Temporary: this is a one-off data repair, not a capability. Both functions
@@ -204,6 +220,56 @@ begin
 end;
 $repair$;
 
+-- ── Sub-cent supplier costs ────────────────────────────────────────────────
+-- Costs are cents-exact. A cost finer than the currency's minor unit cannot be
+-- shown by the catalogue read, cannot be paid, and was never a number anyone
+-- chose: it is arithmetic left unrounded by the loader. round(numeric, 2) is
+-- half-up in Postgres, which is the rounding the product decision names.
+--
+-- Scoped by value, not by id: any row whose cost is not already exact at two
+-- decimals, for every company, soft-deleted rows left alone. On this copy of
+-- production that is exactly the four Glass Panel rows.
+do $cost_precision$
+declare
+  v_changed integer;
+  v_row record;
+begin
+  with candidate as (
+    select id, unit_cost as before_value
+    from public.catalog_supplier_cost_profiles
+    where deleted_at is null
+      and unit_cost is not null
+      and unit_cost is distinct from pg_catalog.round(unit_cost, 2)
+  ), updated as (
+    update public.catalog_supplier_cost_profiles target
+       set unit_cost = pg_catalog.round(target.unit_cost, 2)
+      from candidate
+     where target.id = candidate.id
+    -- RETURNING on an UPDATE yields the NEW value, so the after side recorded
+    -- here is the number the column actually holds, not the number intended.
+    returning target.id, candidate.before_value, target.unit_cost as after_value
+  )
+  insert into private.catalog_text_repairs_20260916
+    (table_name, column_name, row_id, before_value, after_value)
+  select 'catalog_supplier_cost_profiles', 'unit_cost', updated.id,
+         updated.before_value::text, updated.after_value::text
+  from updated;
+  get diagnostics v_changed = row_count;
+
+  for v_row in
+    select row_id, before_value, after_value
+    from private.catalog_text_repairs_20260916
+    where table_name = 'catalog_supplier_cost_profiles' and column_name = 'unit_cost'
+    order by before_value::numeric
+  loop
+    raise notice 'catalog cost repair: % rounded % -> %',
+      v_row.row_id, v_row.before_value, v_row.after_value;
+  end loop;
+  raise notice 'catalog cost repair: % supplier unit cost(s) rounded to the currency minor unit',
+    v_changed;
+end;
+$cost_precision$;
+
 do $postflight$
 declare
   v_target record;
@@ -244,6 +310,29 @@ begin
   if v_repairable <> 0 then
     raise exception 'agent_catalog_text_repair_idempotent: % row(s) still repairable',
       v_repairable using errcode = '55000';
+  end if;
+
+  -- Idempotence for the cost pass, asserted the same way: nothing live is
+  -- finer than a cent any more, so a second run would round nothing.
+  select count(*) into v_remaining
+    from public.catalog_supplier_cost_profiles
+   where deleted_at is null
+     and unit_cost is not null
+     and unit_cost is distinct from pg_catalog.round(unit_cost, 2);
+  if v_remaining <> 0 then
+    raise exception 'agent_catalog_cost_repair_idempotent: % row(s) still finer than a cent',
+      v_remaining using errcode = '55000';
+  end if;
+  -- Rounding moves the number and nothing else: no cost may move by as much as
+  -- a cent, and none may cross to or from zero.
+  if exists (
+    select 1 from private.catalog_text_repairs_20260916
+    where table_name = 'catalog_supplier_cost_profiles' and column_name = 'unit_cost'
+      and (pg_catalog.abs(after_value::numeric - before_value::numeric) >= 0.005
+           or (before_value::numeric = 0) is distinct from (after_value::numeric = 0)
+           or after_value::numeric is distinct from pg_catalog.round(before_value::numeric, 2))
+  ) then
+    raise exception 'agent_catalog_cost_repair_moved_too_far' using errcode = '55000';
   end if;
 
   -- The ledger holds a row for every value that moved, and every one of them
