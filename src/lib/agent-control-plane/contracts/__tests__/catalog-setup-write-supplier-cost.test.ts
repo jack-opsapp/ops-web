@@ -102,6 +102,40 @@ describe("prepare_set_supplier_cost input", () => {
     }
   });
 
+  it("refuses a cost finer than the currency's own minor unit", () => {
+    // The four Glass Panel profiles that broke get_catalog_item for a whole
+    // family were written at four decimals. This tool cannot write another.
+    for (const amount of ["16.925", "4.1992", "9.744"]) {
+      expect(
+        PrepareSetSupplierCostInputSchema.safeParse(
+          input({ unit_cost: { amount, currency: "CAD" } })
+        ).success,
+        amount
+      ).toBe(false);
+    }
+    for (const amount of ["16.92", "4.20", "9.7400"]) {
+      expect(
+        PrepareSetSupplierCostInputSchema.safeParse(
+          input({ unit_cost: { amount, currency: "CAD" } })
+        ).success,
+        amount
+      ).toBe(true);
+    }
+  });
+
+  it("refuses a currency whose minor unit OPS does not know", () => {
+    expect(
+      PrepareSetSupplierCostInputSchema.safeParse(
+        input({ unit_cost: { amount: "18.25", currency: "JPY" } })
+      ).success
+    ).toBe(false);
+    expect(
+      PrepareSetSupplierCostInputSchema.safeParse(
+        input({ unit_cost: { amount: "18.25", currency: "USD" } })
+      ).success
+    ).toBe(true);
+  });
+
   it("bounds the caller's own objects and reserves the server's provenance key", () => {
     for (const bad of [
       { source: { $where: "1" } },

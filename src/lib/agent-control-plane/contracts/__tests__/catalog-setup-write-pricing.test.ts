@@ -76,6 +76,42 @@ describe("prepare_set_catalog_pricing input", () => {
     ).toBe(false);
   });
 
+  it("refuses money finer than the currency's own minor unit", () => {
+    // The catalogue read projects money in minor units and raises
+    // agent_money_minor_units_not_exact on anything finer, so a price this tool
+    // accepted at three decimals would be a price nothing could show.
+    for (const amount of ["16.925", "7.5001", "7.501"]) {
+      expect(
+        PrepareSetCatalogPricingInputSchema.safeParse(
+          input({ sale_price: { amount, currency: "CAD" } })
+        ).success,
+        amount
+      ).toBe(false);
+    }
+    // Trailing zeros are not precision: the number is still cent-exact.
+    for (const amount of ["16.92", "7.5", "7", "7.5000"]) {
+      expect(
+        PrepareSetCatalogPricingInputSchema.safeParse(
+          input({ sale_price: { amount, currency: "CAD" } })
+        ).success,
+        amount
+      ).toBe(true);
+    }
+  });
+
+  it("refuses a currency whose minor unit OPS does not know", () => {
+    expect(
+      PrepareSetCatalogPricingInputSchema.safeParse(
+        input({ sale_price: { amount: "7.50", currency: "JPY" } })
+      ).success
+    ).toBe(false);
+    expect(
+      PrepareSetCatalogPricingInputSchema.safeParse(
+        input({ sale_price: { amount: "7.50", currency: "USD" } })
+      ).success
+    ).toBe(true);
+  });
+
   it("refuses a malformed currency, an unknown key and a cost argument", () => {
     for (const bad of [
       { sale_price: { amount: "7.50", currency: "cad" } },

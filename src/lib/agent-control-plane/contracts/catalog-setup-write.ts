@@ -101,6 +101,62 @@ export const CatalogMoneySchema = z
       .describe("Must equal the company's own currency_code."),
   })
   .strict();
+
+/**
+ * How many fraction digits a currency actually has. Deliberately short: OPS
+ * companies bill in CAD or USD, and a currency this table does not name is
+ * refused rather than guessed at — a wrong minor unit is a wrong price.
+ */
+export const CATALOG_CURRENCY_MINOR_UNITS: Readonly<Record<string, number>> =
+  Object.freeze({ CAD: 2, USD: 2 });
+
+/**
+ * The fraction digits an amount actually carries. Trailing zeros are not
+ * precision: `7.5000` is the same number as `7.50`, and both are exact in a
+ * two-decimal currency.
+ */
+function significantFractionDigits(amount: string): number {
+  const dot = amount.indexOf(".");
+  if (dot === -1) return 0;
+  return amount.slice(dot + 1).replace(/0+$/, "").length;
+}
+
+/**
+ * Money at the currency's own minor unit — no finer.
+ *
+ * The catalogue read projects money in minor units and raises
+ * `agent_money_minor_units_not_exact` on a stored number that is not exact
+ * there. A write allowed to store 16.925 CAD would therefore create a row the
+ * read refuses to show, which is how four of Canpro's Glass Panel cost profiles
+ * came to break `get_catalog_item` for a whole family. The two tools that write
+ * money hold to the read's own rule, so that state cannot be created again.
+ *
+ * `CatalogMoneySchema` stays as it is for the quantities and the pre-images:
+ * OPS stores `numeric(14,4)` and projects it back at four decimal places, and
+ * this bound is on what a caller may ask to write, not on what OPS may show.
+ */
+export const CatalogMinorUnitMoneySchema = CatalogMoneySchema.superRefine(
+  (value, context) => {
+    const minorUnits = CATALOG_CURRENCY_MINOR_UNITS[value.currency];
+    if (minorUnits === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["currency"],
+        message: `Unsupported currency. OPS catalogue money is written in ${Object.keys(
+          CATALOG_CURRENCY_MINOR_UNITS
+        ).join(" or ")}.`,
+      });
+      return;
+    }
+    if (significantFractionDigits(value.amount) > minorUnits) {
+      context.addIssue({
+        code: "custom",
+        path: ["amount"],
+        message: `${value.currency} carries ${minorUnits} decimals. An amount finer than that cannot be shown or paid.`,
+      });
+    }
+  }
+);
 /** Thresholds are whole units, as OPS stores and shows them (design note 2). */
 export const CatalogWholeUnitSchema = z
   .number()
@@ -318,7 +374,7 @@ export const PrepareSetCatalogPricingInputSchema = z
       CatalogFamilyRefSchema,
       CatalogVariantRefSchema,
     ]),
-    sale_price: CatalogMoneySchema.nullable().describe(
+    sale_price: CatalogMinorUnitMoneySchema.nullable().describe(
       "Null clears the price at this level. A family ref writes the family default; a variant ref writes that variant's override. sale_price = the variant override when set, otherwise the family default."
     ),
     evidence: CatalogSetupWriteEvidenceInputSchema,
@@ -349,7 +405,7 @@ export const PrepareSetSupplierCostInputSchema = z
         "Lower-case letters, digits and hyphens, starting with a letter or digit."
       ),
     label: z.string().trim().min(1).max(160),
-    unit_cost: CatalogMoneySchema,
+    unit_cost: CatalogMinorUnitMoneySchema,
     is_default: z
       .boolean()
       .default(false)
