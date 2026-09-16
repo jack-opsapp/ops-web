@@ -5,7 +5,7 @@ import type { JournalImageAsset } from "./image-store";
 import type { JournalTrendSignalInput } from "./radar/feeds";
 import {
   isJournalRadarDegraded,
-  JOURNAL_RADAR_INTERVAL_MINUTES,
+  journalRadarDueAfter,
   type JournalRadarScan,
   type JournalRadarSourceStatus,
 } from "./radar/scan";
@@ -91,7 +91,8 @@ export interface JournalWorkerRepository {
     operator: EditorialOperator | null,
     copy: JournalImageFailedCopy
   ): Promise<"retry" | "dropped" | null>;
-  beginRadarScan(intervalMinutes: number): Promise<boolean>;
+  /** True when no scan has been recorded since `dueAfter`, and this caller now holds the day's scan. */
+  beginRadarScan(dueAfter: Date): Promise<boolean>;
   recordRadarScan(
     signals: JournalTrendSignalInput[],
     sources: JournalRadarSourceStatus[]
@@ -383,8 +384,8 @@ export type JournalRadarLaneResult =
   | { state: "failed"; code: string };
 
 /**
- * Keeps the trend radar current: at most one scan per interval, never when
- * the pipeline is off. A failed scan is left for the next tick; it never fails
+ * Keeps the trend radar current: one scan a day after 04:00 Vancouver, never
+ * when the pipeline is off. A failed scan is left for the next tick; it never fails
  * the tick itself, because publishing and photographs matter more.
  */
 export async function runJournalRadarLane(
@@ -392,7 +393,7 @@ export async function runJournalRadarLane(
   now: Date
 ): Promise<JournalRadarLaneResult> {
   try {
-    if (!(await d.repository.beginRadarScan(JOURNAL_RADAR_INTERVAL_MINUTES))) return { state: "current" };
+    if (!(await d.repository.beginRadarScan(journalRadarDueAfter(now)))) return { state: "current" };
     const scan = await d.scanRadar(now);
     const recorded = await d.repository.recordRadarScan(scan.signals, scan.sources);
     const degraded = isJournalRadarDegraded(scan.sources);

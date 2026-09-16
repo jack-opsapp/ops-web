@@ -3,8 +3,9 @@
 -- A weekly post starts from what the trades and the voices around them are
 -- talking about, not from a static backlog. OPS reads a fixed watchlist of
 -- public feeds (YouTube channels, trade news, leadership writing, an owners'
--- forum) every few hours and keeps what it saw, with the engagement numbers
--- each feed publishes. The writing routine receives those signals with its
+-- forum) once a day and keeps what it saw, with the engagement numbers each
+-- feed publishes. Once a day, not once a week: a trade news feed only lists
+-- about a day of stories, so the week is built up read by read. The writing routine receives those signals with its
 -- claim, picks the week's topic, works out the angle and the hook, and hands
 -- that pitch back to OPS before it writes a word. OPS checks the pitch against
 -- the signals it actually observed, keeps it, and gives the run a fresh lease
@@ -49,17 +50,20 @@ alter table public.journal_editorial_assignments
  add column pitches integer not null default 0 check (pitches between 0 and 3),
  add column pitched_at timestamptz;
 
--- One scan at a time, at most once per interval, never while the pipeline is
--- off. A scan that dies leaves its start mark; the next tick may begin again
--- ten minutes later.
-create function public.begin_journal_radar_scan(p_interval_minutes integer)
+-- One scan a day: the caller names the moment the day's read became due
+-- (04:00 Vancouver), and a scan already recorded since then answers false.
+-- Never while the pipeline is off. A scan that dies leaves its start mark; the
+-- next tick may begin again ten minutes later.
+create function public.begin_journal_radar_scan(p_due_after timestamptz)
 returns boolean language plpgsql security invoker set search_path = '' as $$
 declare s public.journal_editorial_settings;
 begin
- if p_interval_minutes is null or p_interval_minutes < 30 then raise exception 'Radar interval must be at least 30 minutes'; end if;
+ if p_due_after is null or p_due_after > now() + interval '1 minute' then
+  raise exception 'Radar due time must be a moment that has passed';
+ end if;
  select * into strict s from public.journal_editorial_settings where id for update;
  if s.mode = 'off' then return false; end if;
- if s.radar_scanned_at is not null and s.radar_scanned_at > now() - make_interval(mins => p_interval_minutes) then
+ if s.radar_scanned_at is not null and s.radar_scanned_at >= p_due_after then
   return false;
  end if;
  if s.radar_scan_started_at is not null and s.radar_scan_started_at > now() - interval '10 minutes'
@@ -166,13 +170,13 @@ begin
 end $$;
 
 revoke all on function
- public.begin_journal_radar_scan(integer),
+ public.begin_journal_radar_scan(timestamptz),
  public.record_journal_radar_scan(jsonb, jsonb),
  public.notify_journal_radar(text, text, boolean, text, text, text, text),
  public.pitch_journal_editorial_assignment(uuid, uuid, jsonb)
 from public, anon, authenticated;
 grant execute on function
- public.begin_journal_radar_scan(integer),
+ public.begin_journal_radar_scan(timestamptz),
  public.record_journal_radar_scan(jsonb, jsonb),
  public.notify_journal_radar(text, text, boolean, text, text, text, text),
  public.pitch_journal_editorial_assignment(uuid, uuid, jsonb)

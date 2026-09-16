@@ -317,7 +317,8 @@ describe("runJournalTick", () => {
       const repo = repository({ beginRadarScan: vi.fn(async () => true), recordRadarScan: vi.fn(async () => ({ stored: 1, pruned: 0 })) });
       const d = deps(repo, "2026-09-16T18:09:00Z");
       const result = await runJournalTick(d);
-      expect(repo.beginRadarScan).toHaveBeenCalledWith(360);
+      // 11:09 Vancouver: today's read has been due since 04:00 Vancouver.
+      expect(repo.beginRadarScan).toHaveBeenCalledWith(at("2026-09-16T11:00:00.000Z"));
       expect(d.scanRadar).toHaveBeenCalledWith(at("2026-09-16T18:09:00Z"));
       expect(repo.recordRadarScan).toHaveBeenCalledWith([radarSignal], [feed("a", true), feed("b", true), feed("c", false)]);
       expect(repo.notifyRadar).toHaveBeenCalledWith(operator, false, JOURNAL_RADAR_COPY);

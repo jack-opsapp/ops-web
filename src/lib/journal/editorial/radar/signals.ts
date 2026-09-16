@@ -1,11 +1,11 @@
 import { journalRadarSource, type JournalRadarKind, type JournalRadarSphere, JOURNAL_RADAR_SPHERES } from "./watchlist";
 
-/** What the claim offers the writer: the last two weeks, strongest first within each feed. */
-export const RADAR_CLAIM_WINDOW_DAYS = 14;
+/** What the claim offers the writer: the week's signals, strongest first within each feed. */
+export const RADAR_CLAIM_WINDOW_DAYS = 7;
 export const RADAR_CLAIM_PER_SOURCE = 6;
 export const RADAR_CLAIM_MAX = 150;
-/** A pitch may cite a signal the radar saw in the last three weeks. */
-export const RADAR_PITCH_WINDOW_DAYS = 21;
+/** A pitch may cite a signal published in the last ten days: the claim's week plus a margin for a slow run. */
+export const RADAR_PITCH_WINDOW_DAYS = 10;
 const DAY_MS = 86400000;
 
 export interface JournalTrendSignalRow {

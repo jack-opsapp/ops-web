@@ -186,8 +186,8 @@ export function createJournalWorkerRepository(): JournalWorkerRepository {
       return outcome === "retry" || outcome === "dropped" ? outcome : null;
     },
 
-    async beginRadarScan(intervalMinutes) {
-      return (await rpc<boolean>("begin_journal_radar_scan", { p_interval_minutes: intervalMinutes })) === true;
+    async beginRadarScan(dueAfter) {
+      return (await rpc<boolean>("begin_journal_radar_scan", { p_due_after: dueAfter.toISOString() })) === true;
     },
 
     async recordRadarScan(signals, sources) {

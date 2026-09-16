@@ -1,8 +1,24 @@
 import { JournalFeedError, readJournalFeed, type JournalTrendSignalInput } from "./feeds";
 import { JOURNAL_RADAR_SOURCES, type JournalRadarSource, type JournalRadarSphere } from "./watchlist";
 
-/** How long a scan stays current. The hourly tick scans when the last one is older. */
-export const JOURNAL_RADAR_INTERVAL_MINUTES = 360;
+// Vancouver adopted permanent UTC-7 in March 2026 (see worker.ts).
+const VANCOUVER_OFFSET_MS = 7 * 3600000;
+/**
+ * The radar reads once a day, on the first tick after 04:00 Vancouver: two
+ * hours before the Sunday writer runs, so its read is always that morning's.
+ * Once a day because the shortest feeds (trade news) only list about a day of
+ * stories; a single weekly read would miss most of the week.
+ */
+export const JOURNAL_RADAR_HOUR = 4;
+
+/** The moment today's read became due: the latest 04:00 Vancouver at or before `now`. */
+export function journalRadarDueAfter(now: Date): Date {
+  const local = new Date(now.getTime() - VANCOUVER_OFFSET_MS);
+  const today = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), JOURNAL_RADAR_HOUR);
+  const due = today + VANCOUVER_OFFSET_MS;
+  return new Date(due <= now.getTime() ? due : due - 86400000);
+}
+
 const SCAN_CONCURRENCY = 6;
 
 export type JournalFeedFetchCode =

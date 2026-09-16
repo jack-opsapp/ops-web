@@ -389,12 +389,14 @@ try {
   const feedStatus = (key, ok) => ({ key, name: key, sphere: "trades", ok, items: ok ? 1 : 0, code: ok ? null : "FEED_BLOCKED" });
   const record = (signals, sources) =>
     sql(`select record_journal_radar_scan('${JSON.stringify(signals).replace(/'/g, "''")}'::jsonb, '${JSON.stringify(sources)}'::jsonb)`);
-  const beginScan = (minutes = 360) => sql(`select begin_journal_radar_scan(${minutes})`);
+  // The worker passes the latest 04:00 Vancouver; the contract only needs a moment that has passed.
+  const beginScan = (dueAfter = "now() - interval '2 hours'") => sql(`select begin_journal_radar_scan(${dueAfter})`);
 
   sql("update journal_editorial_settings set mode='off', radar_scanned_at=null, radar_scan_started_at=null");
   assert.equal(beginScan(), "f", "a switched-off pipeline never scans");
   sql("update journal_editorial_settings set mode='publish'");
-  fails("select begin_journal_radar_scan(5)", /at least 30 minutes/, "the radar never scans more often than every half hour");
+  fails("select begin_journal_radar_scan(now() + interval '1 hour')", /has passed/, "a scan is never due in the future");
+  fails("select begin_journal_radar_scan(null)", /has passed/, "a scan needs its due moment");
   assert.equal(beginScan(), "t", "a radar never scanned is due");
   assert.equal(beginScan(), "f", "a scan in flight holds off a second one");
   assert.equal(
@@ -413,7 +415,7 @@ try {
     "true|3|FEED_BLOCKED",
     "each feed's outcome is kept for the Blog hub and the writer"
   );
-  assert.equal(beginScan(), "f", "a fresh radar is current for six hours");
+  assert.equal(beginScan(), "f", "a radar read since the day's due moment is current");
   const firstSeen = sql("select first_seen_at from journal_trend_signals where item_key='a1'");
   sql("select pg_sleep(0.01)");
   record([radarSignal("a1", { views: 4500, momentum: 15 })], [feedStatus("tommy-mello", true)]);
@@ -422,9 +424,9 @@ try {
     "4500|15.00|true|true",
     "a signal seen again refreshes its numbers and keeps when it was first seen"
   );
-  sql("update journal_editorial_settings set radar_scanned_at = now() - interval '7 hours', radar_scan_started_at = now() - interval '7 hours'");
-  assert.equal(beginScan(), "t", "a stale radar is due again");
-  sql("update journal_editorial_settings set radar_scanned_at = now() - interval '7 hours', radar_scan_started_at = now() - interval '11 minutes'");
+  sql("update journal_editorial_settings set radar_scanned_at = now() - interval '25 hours', radar_scan_started_at = now() - interval '25 hours'");
+  assert.equal(beginScan(), "t", "yesterday's read leaves today's due");
+  sql("update journal_editorial_settings set radar_scanned_at = now() - interval '25 hours', radar_scan_started_at = now() - interval '11 minutes'");
   assert.equal(beginScan(), "t", "a scan that died ten minutes ago no longer holds the radar");
   fails(`select record_journal_radar_scan('${JSON.stringify([radarSignal("insecure", { url: "http://www.youtube.com/watch?v=x" })])}'::jsonb, '[]'::jsonb)`, /check|violates/, "only https signals");
   fails(`select record_journal_radar_scan('{}'::jsonb, '[]'::jsonb)`, /array/, "signals arrive as an array");
@@ -483,7 +485,7 @@ try {
     fails(`set role ${role}; select request_journal_editorial_image('${id1}','x')`, /permission denied/, `${role} cannot ask for a photograph`);
     fails(`set role ${role}; select replace_journal_editorial_image('${id1}','{"url":"https://h/x.jpg"}'::jsonb)`, /permission denied/, `${role} cannot replace a photograph`);
     fails(`set role ${role}; select count(*) from journal_trend_signals`, /permission denied/, `${role} cannot read the radar`);
-    fails(`set role ${role}; select begin_journal_radar_scan(360)`, /permission denied/, `${role} cannot start a scan`);
+    fails(`set role ${role}; select begin_journal_radar_scan(now())`, /permission denied/, `${role} cannot start a scan`);
     fails(`set role ${role}; select record_journal_radar_scan('[]'::jsonb,'[]'::jsonb)`, /permission denied/, `${role} cannot write the radar`);
     fails(`set role ${role}; select notify_journal_radar('u','c',true,'t','b','/','x')`, /permission denied/, `${role} cannot raise the radar item`);
     fails(`set role ${role}; select pitch_journal_editorial_assignment('${id1}','${t1}','{}'::jsonb)`, /permission denied/, `${role} cannot pitch`);

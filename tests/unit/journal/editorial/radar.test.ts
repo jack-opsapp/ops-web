@@ -3,6 +3,7 @@ import { JournalFeedError, readJournalFeed } from "@/lib/journal/editorial/radar
 import {
   JournalFeedFetchError,
   isJournalRadarDegraded,
+  journalRadarDueAfter,
   scanJournalRadar,
 } from "@/lib/journal/editorial/radar/scan";
 import { selectClaimSignals, trendSignalRow } from "@/lib/journal/editorial/radar/signals";
@@ -221,6 +222,17 @@ describe("journal radar scan", () => {
     expect(peak).toBe(6);
   });
 
+  it("reads once a day, due from 04:00 Vancouver", () => {
+    const due = (iso: string) => journalRadarDueAfter(new Date(iso)).toISOString();
+    // Sunday 03:59 Vancouver still belongs to Saturday's read; 04:00 starts Sunday's.
+    expect(due("2026-09-20T10:59:00Z")).toBe("2026-09-19T11:00:00.000Z");
+    expect(due("2026-09-20T11:00:00Z")).toBe("2026-09-20T11:00:00.000Z");
+    // The 05:09 tick reads before the 06:04 writer run.
+    expect(due("2026-09-20T12:09:00Z")).toBe("2026-09-20T11:00:00.000Z");
+    // Late evening Vancouver is the next UTC day but the same Vancouver day.
+    expect(due("2026-09-21T05:30:00Z")).toBe("2026-09-20T11:00:00.000Z");
+  });
+
   it("calls the radar degraded only when fewer than half the feeds answer", () => {
     const status = (ok: boolean) => ({ key: "k", name: "n", sphere: "trades" as const, ok, items: 0, code: null });
     expect(isJournalRadarDegraded([status(true), status(false)])).toBe(false);
@@ -249,7 +261,7 @@ describe("journal radar claim signals", () => {
     ).toMatchObject({ views: 48210, baseline_views: 9400, momentum: 5.13, comments: null, published_at: "2026-09-10T15:00:00.000Z" });
   });
 
-  it("keeps the last two weeks, the six strongest per feed, grouped by sphere", () => {
+  it("keeps the week, the six strongest per feed, grouped by sphere", () => {
     const videos = Array.from({ length: 8 }, (_, index) =>
       signalRow({ id: `video-${index}`, momentum: index, published_at: "2026-09-12T00:00:00.000Z" })
     );
