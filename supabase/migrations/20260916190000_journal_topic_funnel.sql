@@ -5,12 +5,14 @@
 -- public feeds (YouTube channels, trade news, leadership writing, an owners'
 -- forum) once a day and keeps what it saw, with the engagement numbers each
 -- feed publishes. Once a day, not once a week: a trade news feed only lists
--- about a day of stories, so the week is built up read by read. The writing routine receives those signals with its
--- claim, picks the week's topic, works out the angle and the hook, and hands
--- that pitch back to OPS before it writes a word. OPS checks the pitch against
--- the signals it actually observed, keeps it, and gives the run a fresh lease
--- for the writing that follows. The accepted draft carries the pitch, so the
--- operator always sees why this topic and this hook.
+-- about a day of stories, so the week is built up read by read.
+--
+-- The writing routine receives those signals with its claim, picks the week's
+-- topic, the angle, the headline and the first sentence, and hands that pitch
+-- back to OPS before it writes a word. OPS checks the pitch against the
+-- signals it actually observed, keeps it, and gives the run a fresh lease for
+-- the writing that follows. The accepted draft carries the pitch, so the
+-- operator always sees why this topic and this headline.
 --
 -- Additive: one table, four settings columns, four assignment columns, four
 -- functions. Nothing existing changes.
