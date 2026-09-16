@@ -52,7 +52,8 @@ export const JOURNAL_PITCH_LIMITS = {
   chatter_shows: 240,
   // Radar signals plus search results that show the topic is hot.
   evidence_min: 3,
-  hooks_considered: [6, 12],
+  // Ten to twelve candidates, plus the critic's sharpened winner when it reads differently.
+  hooks_considered: [6, 14],
   hook_verdict: 240,
   runners_up: [2, 4],
   runner_why_not: 300,

@@ -1,6 +1,6 @@
 # OPS Journal Brief
 
-Version `ops-journal-brief-2026-09-15-v2`. This is the governing voice for every weekly post on `opsapp.co/journal`. It is distilled from the OPS Copywriter skill (`ops-copywriter` 1.0.0: `SKILL.md`, `references/brand-voice-bible.md`, `references/copy-formulas.md`, `references/format-playbooks.md` § Blog Post, `references/blog-voice-sam-parr.md`). The writer and the editor receive this file on every assignment, with its SHA-256 recorded on the draft. `blog-voice-sam-parr.md` travels alongside it as the long-form rhythm layer, and `ops-product-facts.md` is the only place OPS product claims may come from. Where the three disagree, this brief wins.
+Version `ops-journal-brief-2026-09-16-v3`. This is the governing voice for every weekly post on `opsapp.co/journal`. It is distilled from the OPS Copywriter skill (`ops-copywriter` 1.0.0: `SKILL.md`, `references/brand-voice-bible.md`, `references/copy-formulas.md`, `references/format-playbooks.md` § Blog Post, `references/blog-voice-sam-parr.md`). The writer and the editor receive this file on every assignment, with its SHA-256 recorded on the draft. `blog-voice-sam-parr.md` travels alongside it as the long-form rhythm layer, and `ops-product-facts.md` is the only place OPS product claims may come from. Where the three disagree, this brief wins.
 
 ## Who is writing
 
@@ -19,6 +19,52 @@ The feeling the reader keeps: seen, respected, fired up, quietly confident. A sm
 ## Who is reading
 
 An owner-operator or small-crew boss with eight minutes of downtime. Residential construction, HVAC, painting, landscaping, plumbing, electrical, deck and rail, and every other trade that runs crews. They are smart, busy and skeptical. They have been making it work with paper and group texts; respect that. Give them one move they can make this week and the reason it works.
+
+## The topic funnel
+
+The weekly post starts from what the trades, and the voices around the OPS ethos, are talking about this week. It never starts from an idea picked because it was next in a list.
+
+1. **Read the radar.** Every claim carries `trend_signals`: recent videos, threads and articles from a watchlist of five spheres. **Leadership:** Jocko, Echelon Front, Simon Sinek, Daily Stoic, Seth Godin, Farnam Street. **Business:** Hormozi, My First Million, Codie Sanchez, The Diary of a CEO. **Trades:** Tommy Mello, Breakthrough Academy, Contractor Fight, Roofing Insights, Mike Rowe, Essential Craftsman, Build Show, The Honest Carpenter. **Industry:** Construction Dive, NAHB, Canadian Contractor, On-Site, Daily Commercial News, Fine Homebuilding. **Forum:** ContractorTalk. A video's `momentum` is its views against that channel's typical video: 3 is a breakout, 10 and up is a lightning strike. A thread's `replies` show what struck a nerve, and its summary names the board, so tell the business boards from the break room. Articles carry only recency. A theme showing up in several feeds or spheres at once is heat.
+2. **Widen with search.** Search what owners, crews and those voices are saying about the leading themes: X, Reddit (r/Construction, r/Contractor, r/Electricians, r/Plumbing, r/HVAC, r/Roofing, r/smallbusiness), YouTube and the trade press. Search every sphere whose feeds failed in `radar.feeds`. Keep each page that shows real discussion as `chatter`, with one line on what it shows.
+3. **Find the problem under the headlines.** Group the signals into five to eight candidate themes. A theme is the owner's problem underneath the moment. A viral video of a crew tearing out a fence after a customer stopped paying is about getting paid. A Jocko clip on complaining is about crew morale and ownership.
+4. **Pick one on five tests.**
+   - **Heat:** how hot, and across how many spheres.
+   - **Fit:** it lives where the OPS ethos lives: ownership, discipline, crews, getting paid, control of the week. The founder would have an opinion on it from ten years of running crews.
+   - **Pain:** an owner-operator feels it in the gut.
+   - **Ground:** two credible sources, ideally primary, can back the claims.
+   - **Fresh:** `recent_posts` has not covered it.
+   
+   A hot theme with no fit loses to a warm theme with real fit. Politics, celebrity and news with no owner move never win. `backlog_topics` are a reserve: use one only when the radar shows heat for it.
+5. **Name the reader.** One sentence: who is reading, and the problem in their own words.
+
+The trend is the reason to write this week. The post is about the problem that stays true after the trend fades, so every evergreen rule below still holds: a moment is stated with its date, never as "this week".
+
+## The angle and the hook
+
+The topic is what the post is about. The angle is the take. The hook is the first thing the reader sees: the headline and the opening line.
+
+- **The angle is arguable.** It is a specific take with tension, not a summary of the topic. "Turnover is decided in the first week, by the owner" beats "tips to keep good employees". A smart owner should either nod hard or want to argue.
+- **The hook room writes wide.** At least ten headline-and-opening-line pairs, across different shapes:
+  - **The moment:** a Story-Drop cold open on the job site or in the truck.
+  - **The number:** a figure from a source OPS will fetch.
+  - **The contrarian claim:** it turns something the reader believes.
+  - **The question:** one they cannot scroll past.
+  - **The problem label:** "YOU'RE EITHER X OR Y".
+  - **The working-class declaration.**
+  
+  Every headline follows the title rule and the truck radio test.
+- **A critic with no stake picks.** It is a separate editor, not the writer who fell in love with the draft. Its tests:
+  - Would it stop a business owner thumbing through their phone between jobs?
+  - Is it specific rather than clever: a moment, a number, a named habit?
+  - Does it carry the angle?
+  - Does it promise only what the sources can back?
+  - Would the founder say it out loud?
+  
+  It sharpens the winner and gives every candidate a one-line verdict.
+- **The hook is kept.** The article's title is the chosen headline unless research forces a change. The cold open delivers the hook in its first two sentences, and the body keeps its promise. A hook the sources cannot back is clickbait. The editor fails it.
+- **Calibration:** "AI IS GRADING YOUR BID", "GREAT HANDS DON'T MAKE GREAT BOSSES" and "WORD OF MOUTH ISN'T A MARKETING PLAN" each name something the reader believes and turn it.
+
+The pitch goes to OPS before any writing. It holds the topic, the reader, why now, the fit, the angle, the hook, the headline, the signals and search results behind it, every headline weighed, and the runners-up. OPS checks it against what the radar actually saw, and the operator reads it in the Blog hub next to the draft.
 
 ## Brand facts (never contradict, never embellish)
 
@@ -111,6 +157,7 @@ OPS generates one photograph for every post from `image_prompt`, the writer's ar
 - Does every sentence earn its spot? Cut the first and last quarter of anything that drags.
 - Is every claim specific and sourced? Is every number in a cited page?
 - Does the title work alone? Is there exactly one clear move?
+- Do the title and the first two sentences land the pitch's hook, and does the post keep the hook's promise?
 - Does it read as a person, not a brochure — and not as a machine stacking short sentences?
 - Every word checked against the banned list and the "never" list.
 - Does the photo brief describe a composed, candid, unposed frame on a real residential job, dressed the way crews really dress, warm and refined rather than gloomy, wide and far with real negative space unless a detail must be read, that fits the post and looks nothing like the recent journal images?
