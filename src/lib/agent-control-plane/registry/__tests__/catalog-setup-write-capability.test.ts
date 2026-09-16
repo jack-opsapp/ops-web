@@ -194,5 +194,9 @@ describe("catalogue setup write manifest v28", () => {
     expect(description).toContain("family default");
     expect(description).toContain("whole units");
     expect(description).toContain("receive stock event");
+    // A value equal to what the family already answers is inherited, never
+    // pinned, and the agent has to know that before it asks.
+    expect(description).toContain("is inherited rather than set on the variant");
+    expect(description).toContain("origin");
   });
 });
