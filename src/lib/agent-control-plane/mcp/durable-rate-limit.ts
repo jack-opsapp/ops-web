@@ -3,6 +3,20 @@ export const SITE_VISIT_WORKFLOW_RATE_LIMIT_POLICY =
   "mcp-site-visit-workflow:2026-09-10.v1" as const;
 const CATALOG_PREPARE_RATE_LIMIT_POLICY =
   "mcp-catalog-prepare:2026-09-08.v1" as const;
+/**
+ * Catalogue SETUP writes get their own policy. The V19 catalogue-authoring
+ * policy above is hard-pinned to exposure v19 and to its own three capability
+ * ids; widening it would loosen a live subject-bound trial's binding.
+ */
+const CATALOG_SETUP_WRITE_PREPARE_RATE_LIMIT_POLICY =
+  "mcp-catalog-setup-write-prepare:2026-09-15.v1" as const;
+export const CATALOG_SETUP_WRITE_PREPARE_CAPABILITY_IDS = Object.freeze([
+  "prepare_create_catalog_variant",
+  "prepare_set_variant_thresholds",
+  "prepare_set_catalog_pricing",
+  "prepare_set_supplier_cost",
+  "prepare_create_catalog_option",
+] as const);
 const FINANCIAL_DOCUMENT_RATE_LIMIT_POLICY =
   "mcp-financial-document-prepare:2026-09-07.v1" as const;
 const SCHEDULE_CHANGE_PREPARE_RATE_LIMIT_POLICY =
@@ -126,6 +140,8 @@ async function consumeWithDeadline(
     const rawRequest = client.rpc(
       args.p_policy_id === SITE_VISIT_WORKFLOW_RATE_LIMIT_POLICY
         ? "consume_site_visit_workflow_rate_limit_as_system"
+        : args.p_policy_id === CATALOG_SETUP_WRITE_PREPARE_RATE_LIMIT_POLICY
+          ? "consume_catalog_setup_write_prepare_rate_limit_as_system"
         : args.p_policy_id === CATALOG_PREPARE_RATE_LIMIT_POLICY
           ? "consume_catalog_prepare_rate_limit_as_system"
           : args.p_policy_id === FINANCIAL_DOCUMENT_RATE_LIMIT_POLICY
@@ -178,6 +194,10 @@ export function createDurableMcpRateLimiter(
           input.capabilityId
         )
           ? SITE_VISIT_WORKFLOW_RATE_LIMIT_POLICY
+          : (
+                CATALOG_SETUP_WRITE_PREPARE_CAPABILITY_IDS as readonly string[]
+              ).includes(input.capabilityId)
+            ? CATALOG_SETUP_WRITE_PREPARE_RATE_LIMIT_POLICY
           : [
                 "inspect_catalog_changes",
                 "prepare_catalog_changes",

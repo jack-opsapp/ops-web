@@ -96,6 +96,10 @@ export type CapabilityAuthorizationSelector =
         | "prices"
         | "costs";
     }>
+  | Readonly<{
+      kind: "catalog_setup_write_effect";
+      effect: "opening_stock" | "supplier_cost";
+    }>
   | Readonly<{ kind: "always" }>
   | Readonly<{ kind: "input_always" }>
   | Readonly<{
@@ -463,7 +467,10 @@ function assertAuthorization(
       (variant.selector.kind === "operational_overview_component" &&
         entry.name !== "get_operational_overview") ||
       (variant.selector.kind === "work_queue_source" &&
-        entry.name !== "list_work_queue")
+        entry.name !== "list_work_queue") ||
+      (variant.selector.kind === "catalog_setup_write_effect" &&
+        !entry.name.startsWith("prepare_") &&
+        entry.writeFamily !== "catalog_setup_write")
     ) {
       throw new TypeError(
         `${entry.name}.${key} selector is not valid for this capability`
@@ -528,6 +535,11 @@ function isExactAuthorizationSelector(
           "prices",
           "costs",
         ].includes(selector.effect as string)
+      );
+    case "catalog_setup_write_effect":
+      return (
+        hasExactKeys(selector, ["kind", "effect"]) &&
+        ["opening_stock", "supplier_cost"].includes(selector.effect as string)
       );
     case "always":
     case "input_always":

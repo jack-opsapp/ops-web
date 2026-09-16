@@ -83,10 +83,10 @@ describe("catalog trial authorization", () => {
       ).acceptedLabels
     ).toHaveLength(7);
     expect(resolveActiveMcpExposure().revision).toBe(
-      "2026-09-10.mcp-exposure.v23"
+      "2026-09-15.mcp-exposure.v24"
     );
     expect(resolveActiveMcpConsentCatalog().revision).toBe(
-      "2026-09-04.mcp-consent-catalog.v9"
+      "2026-09-15.mcp-consent-catalog.v18"
     );
   });
   it.each([

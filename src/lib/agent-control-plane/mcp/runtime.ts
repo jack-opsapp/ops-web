@@ -16,6 +16,11 @@ import {
 } from "../services/customer-update/customer-update-service";
 import { createCustomerUpdateRepository } from "../services/customer-update/customer-update-repository";
 import {
+  createCatalogSetupWriteService,
+  type CatalogSetupWriteService,
+} from "../services/catalog-setup-write/catalog-setup-write-service";
+import { createCatalogSetupWriteRepository } from "../services/catalog-setup-write/catalog-setup-write-repository";
+import {
   createCustomerMessageService,
   type CustomerMessageService,
 } from "../services/customer-message/customer-message-service";
@@ -143,6 +148,7 @@ export interface McpServerRuntime {
   readonly weatherReschedule: WeatherRescheduleService;
   readonly crewCalloutRecovery: CrewCalloutRecoveryService;
   readonly customerUpdate: CustomerUpdateService;
+  readonly catalogSetupWrite: CatalogSetupWriteService;
   readonly scheduleChange: ScheduleChangeService;
   readonly financialDocument: FinancialDocumentService;
   readonly customerMessage: CustomerMessageService;
@@ -364,6 +370,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const catalogSetupWrite = createCatalogSetupWriteService({
+    repository: createCatalogSetupWriteRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
   const catalogAuthoring = createCatalogAuthoringService({
     rpc: rpcClient.rpc.bind(rpcClient),
     authorityRepository,
@@ -413,6 +425,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       crewCalloutRecovery,
       dispatchConfirmationTask,
       customerUpdate,
+      catalogSetupWrite,
       scheduleChange,
       financialDocument,
       catalogAuthoring,
@@ -431,6 +444,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     crewCalloutRecovery,
     dispatchConfirmationTask,
     customerUpdate,
+    catalogSetupWrite,
     scheduleChange,
     financialDocument,
     customerMessage,

@@ -141,6 +141,78 @@ describe("<EntityPicker>", () => {
     expect(onCreate).toHaveBeenCalledWith("Fo");
   });
 
+  describe("duplicate labels (real data: two clients named the same)", () => {
+    type Client = { id: string; name: string; email: string };
+    const DUPES: Client[] = [
+      { id: "c-a", name: "Jordan Hale", email: "jordan.hale@example.com" },
+      { id: "c-b", name: "Jordan Hale", email: "jhale.builds@example.net" },
+      { id: "c-c", name: "Priya Nand", email: "priya.nand@example.org" },
+    ];
+
+    function DupeEP({ onChange }: { onChange: (id: string | null) => void }) {
+      return (
+        <EntityPicker<Client>
+          trigger={<button type="button">Open</button>}
+          items={DUPES}
+          value={null}
+          onChange={onChange}
+          getId={(c) => c.id}
+          getLabel={(c) => c.name}
+          getDescription={(c) => c.email}
+          getKeywords={(c) => [c.email]}
+          label="Clients"
+        />
+      );
+    }
+
+    it("highlights exactly one row at a time and Enter commits that row's id", async () => {
+      const onChange = vi.fn();
+      const user = userEvent.setup();
+      render(<DupeEP onChange={onChange} />);
+      await user.click(screen.getByRole("button", { name: /open/i }));
+      await screen.findByText("jhale.builds@example.net");
+
+      // cmdk opens with the first row under the cursor; move to the second
+      // "Jordan Hale". Only that row may carry the cursor.
+      await user.keyboard("{ArrowDown}");
+      const highlighted = screen
+        .getAllByRole("option")
+        .filter((o) => o.getAttribute("data-selected") === "true");
+      expect(highlighted).toHaveLength(1);
+      expect(highlighted[0]).toHaveTextContent("jhale.builds@example.net");
+
+      await user.keyboard("{Enter}");
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith("c-b");
+    });
+
+    it("still searches by label and extra keywords, never by the id", async () => {
+      const user = userEvent.setup();
+      render(<DupeEP onChange={vi.fn()} />);
+      await user.click(screen.getByRole("button", { name: /open/i }));
+
+      await user.type(screen.getByRole("combobox"), "priya");
+      await waitFor(() =>
+        expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+          expect.stringContaining("Priya Nand"),
+        ]),
+      );
+
+      await user.clear(screen.getByRole("combobox"));
+      await user.type(screen.getByRole("combobox"), "jhale.builds");
+      await waitFor(() => {
+        const options = screen.getAllByRole("option");
+        expect(options).toHaveLength(1);
+        expect(options[0]).toHaveTextContent("jhale.builds@example.net");
+      });
+
+      // "c-b" is an id, not searchable text — it must match nothing.
+      await user.clear(screen.getByRole("combobox"));
+      await user.type(screen.getByRole("combobox"), "c-b");
+      await waitFor(() => expect(screen.queryAllByRole("option")).toHaveLength(0));
+    });
+  });
+
   it("multi: toggles ids, stays open, surfaces conflicts", async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();

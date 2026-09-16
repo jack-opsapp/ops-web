@@ -38,6 +38,7 @@ import {
   MCP_EXPOSURE_V14,
   MCP_EXPOSURE_V22,
   MCP_EXPOSURE_V23,
+  MCP_EXPOSURE_V24,
   assertMcpExposureInvariants,
   resolveActiveMcpExposure,
   resolveMcpExposureRevision,
@@ -303,12 +304,12 @@ describe("immutable MCP exposure catalogue", () => {
     );
   });
 
-  it("keeps every revision deeply frozen while referentially reusing active v23", () => {
+  it("keeps every revision deeply frozen while referentially reusing active v24", () => {
     const first = resolveActiveMcpExposure();
     const second = resolveActiveMcpExposure();
 
     expectTypeOf(resolveActiveMcpExposure).toEqualTypeOf<() => McpExposure>();
-    expect(first).toBe(MCP_EXPOSURE_V23);
+    expect(first).toBe(MCP_EXPOSURE_V24);
     expect(second).toBe(first);
     expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V1.revision]).toBe(
       MCP_EXPOSURE_V1
@@ -370,6 +371,7 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_EXPOSURE_V13.revision,
       MCP_EXPOSURE_V14.revision,
       MCP_EXPOSURE_V23.revision,
+      MCP_EXPOSURE_V24.revision,
       MCP_EXPOSURE_V22.revision,
     ]);
     for (const exposure of [
@@ -389,6 +391,7 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_EXPOSURE_V13,
       MCP_EXPOSURE_V14,
       MCP_EXPOSURE_V23,
+      MCP_EXPOSURE_V24,
       MCP_EXPOSURE_V22,
     ]) {
       expect(Object.isFrozen(exposure)).toBe(true);
@@ -406,7 +409,7 @@ describe("immutable MCP exposure catalogue", () => {
     expect(
       resolveMcpExposureRevision(MCP_EXPOSURE_CATALOG, MCP_EXPOSURE_V6.revision)
     ).toBe(MCP_EXPOSURE_V6);
-    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V23);
+    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V24);
     const entry = getPromiseRecoveryCapabilityManifestEntry(
       "check_customer_reply"
     );
@@ -462,7 +465,7 @@ describe("immutable MCP exposure catalogue", () => {
 
   it("pins inactive v3 to the single prepare-only closeout vertical", () => {
     expect(MCP_EXPOSURE_V3).toEqual(EXPECTED_EXPOSURE_V3);
-    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V23);
+    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V24);
     const entry = getInvisibleOfficeCapabilityManifestEntry(
       "prepare_day_closeout"
     );

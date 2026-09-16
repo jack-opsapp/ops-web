@@ -699,6 +699,7 @@ export function createOpsAgentP2DomainService(input: {
     return await readCatalogItem({
       authorization: authorizeGetCatalogItemRead(binding),
       repository: repositories.catalog,
+      recipeShape: options?.catalogRecipeShape ?? "v1",
       ...(options?.signal ? { signal: options.signal } : {}),
     });
   };

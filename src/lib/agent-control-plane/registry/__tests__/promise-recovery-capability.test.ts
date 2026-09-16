@@ -128,9 +128,9 @@ describe("promise-recovery capability", () => {
     expect(
       capabilityManifestRevisionForExposure(MCP_EXPOSURE_V6.revision)
     ).toBe(PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION);
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-10.mcp-exposure.v23");
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-09-15.mcp-exposure.v24");
     expect(resolveActiveMcpExposure().revision).toBe(
-      "2026-09-10.mcp-exposure.v23"
+      "2026-09-15.mcp-exposure.v24"
     );
   });
 

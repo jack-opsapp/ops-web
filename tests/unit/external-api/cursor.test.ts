@@ -28,6 +28,47 @@ const actor = {
   scopes: ["analytics.leads.read" as const],
 };
 
+/** Offset of the base64url body after the `<prefix>_<kid>_` header. */
+function sealedBodyStart(token: string): number {
+  const header = /^(?:cur|sync)_\d+_/.exec(token);
+  if (!header) throw new Error(`unexpected token shape: ${token}`);
+  return header[0].length;
+}
+
+/**
+ * Asserts a claim is unreadable from a sealed token: its JSON serialisation
+ * appears neither in the token text nor in the decoded nonce ‖ ciphertext ‖
+ * tag bytes. Matching the full `"key":"value"` fragment (never a bare short
+ * value) keeps this deterministic: a bare value like `912` shows up in random
+ * base64url text by coincidence roughly once every few hundred seals.
+ */
+function expectClaimSealed(
+  token: string,
+  claims: Record<string, unknown>,
+  key: string
+): void {
+  const fragment = JSON.stringify({ [key]: claims[key] }).slice(1, -1);
+  const packed = Buffer.from(token.slice(sealedBodyStart(token)), "base64url");
+  expect(fragment.length).toBeGreaterThanOrEqual(12);
+  expect(token).not.toContain(fragment);
+  expect(packed.includes(Buffer.from(fragment, "utf8"))).toBe(false);
+  expect(packed.toString("latin1")).not.toContain(fragment);
+}
+
+/**
+ * Flips one character in the middle of a sealed token's base64url body.
+ * The body is nonce ‖ ciphertext ‖ auth tag, so a mid-body change always
+ * alters the sealed bytes and must fail authentication. The replacement is
+ * chosen relative to the character being replaced, so the mutation can
+ * never be a no-op regardless of what the random nonce produced.
+ */
+function corruptSealedBody(token: string): string {
+  const bodyStart = sealedBodyStart(token);
+  const index = bodyStart + Math.floor((token.length - bodyStart) / 2);
+  const replacement = token[index] === "A" ? "B" : "A";
+  return `${token.slice(0, index)}${replacement}${token.slice(index + 1)}`;
+}
+
 describe("external lead feed cursors", () => {
   it("round-trips an encrypted page cursor bound to the stable snapshot", () => {
     const claims = {
@@ -48,10 +89,8 @@ describe("external lead feed cursors", () => {
 
     expect(token).toMatch(/^cur_7_[A-Za-z0-9_-]+$/);
     expect(openLeadFeedCursor(token, keyRing, now)).toEqual(claims);
-    expect(Buffer.from(token, "utf8").toString()).not.toContain(
-      actor.companyId
-    );
-    expect(token).not.toContain("912");
+    expectClaimSealed(token, claims, "companyId");
+    expectClaimSealed(token, claims, "highWater");
   });
 
   it("rejects tampering, expiry, and unavailable key versions", () => {
@@ -73,7 +112,7 @@ describe("external lead feed cursors", () => {
       keyRing
     );
     expect(() =>
-      openLeadFeedCursor(`${token.slice(0, -1)}A`, keyRing, now)
+      openLeadFeedCursor(corruptSealedBody(token), keyRing, now)
     ).toThrow(ExternalApiCursorError);
     expect(() =>
       openLeadFeedCursor(token, keyRing, new Date(now.getTime() + 2))
@@ -84,23 +123,21 @@ describe("external lead feed cursors", () => {
   });
 
   it("round-trips opaque checkpoints without a readable sequence or identity", () => {
-    const token = sealLeadSyncCheckpoint(
-      {
-        purpose: "lead_checkpoint",
-        ...actor,
-        sequence: "123456",
-        dataThrough: "2026-07-27T11:59:00.000Z",
-        issuedAt: now.getTime(),
-      },
-      keyRing
-    );
+    const claims = {
+      purpose: "lead_checkpoint" as const,
+      ...actor,
+      sequence: "123456",
+      dataThrough: "2026-07-27T11:59:00.000Z",
+      issuedAt: now.getTime(),
+    };
+    const token = sealLeadSyncCheckpoint(claims, keyRing);
     expect(token).toMatch(/^sync_7_[A-Za-z0-9_-]+$/);
     expect(openLeadSyncCheckpoint(token, keyRing)).toMatchObject({
       sequence: "123456",
       companyId: actor.companyId,
     });
-    expect(token).not.toContain("123456");
-    expect(token).not.toContain(actor.principalId);
+    expectClaimSealed(token, claims, "sequence");
+    expectClaimSealed(token, claims, "principalId");
   });
 
   it("requires an explicit exact 32-byte key ring", () => {

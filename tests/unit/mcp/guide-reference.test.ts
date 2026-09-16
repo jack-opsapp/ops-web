@@ -41,16 +41,21 @@ describe("public MCP guide reference", () => {
     expect(reference.endpoint.endsWith("/api/mcp")).toBe(true);
     expect(reference.transport).toBe("Streamable HTTP");
     expect(reference.activeExposureRevision).toBe(
-      "2026-09-04.mcp-exposure.v14"
+      "2026-09-15.mcp-exposure.v24"
     );
-    expect(reference.tools).toHaveLength(35);
-    expect(reference.scopes).toHaveLength(21);
+    expect(reference.tools).toHaveLength(40);
+    expect(reference.scopes).toHaveLength(22);
 
     expect(
       reference.tools.every(
         (tool) =>
           (tool.operation === "read" ||
-            (tool.id === "prepare_customer_update" &&
+            ((tool.id === "prepare_customer_update" ||
+              tool.id === "prepare_create_catalog_variant" ||
+              tool.id === "prepare_set_variant_thresholds" ||
+              tool.id === "prepare_set_catalog_pricing" ||
+              tool.id === "prepare_set_supplier_cost" ||
+              tool.id === "prepare_create_catalog_option") &&
               tool.operation === "prepare" &&
               !tool.annotations.readOnlyHint)) &&
           tool.availability === "available"
@@ -60,7 +65,8 @@ describe("public MCP guide reference", () => {
       reference.scopes.every(
         (scope) =>
           (scope.operation === "read" ||
-            (scope.id === "ops.customers.prepare" &&
+            ((scope.id === "ops.customers.prepare" ||
+              scope.id === "ops.catalog.prepare") &&
               scope.operation === "prepare")) &&
           scope.consentLabel.trim().length > 0
       )
@@ -179,6 +185,6 @@ describe("public MCP guide reference", () => {
         toolDescriptions: completeToolDescriptions,
         scopeConsentLabels: {},
       } satisfies PublicMcpReferenceLocalization)
-    ).toThrow(/scope consent localization.*ops.catalog.read/i);
+    ).toThrow(/scope consent localization.*ops\.catalog\.(read|prepare)/i);
   });
 });

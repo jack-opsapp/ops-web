@@ -146,6 +146,14 @@ const DETAIL_DEFINITION = {
   rolloutFlag: "agent_control_plane.capability.get_catalog_item",
 } as const as unknown as ImplementationOnlyCapabilityDefinition;
 
+/**
+ * Wording for the exposure revisions that read recipe shape v2. Held beside the
+ * manifest entry so the MCP server and the public reference cannot drift; every
+ * earlier pin keeps the manifest's own v1 description.
+ */
+export const GET_CATALOG_ITEM_RECIPE_V2_DESCRIPTION =
+  "Return one exact catalogue family or variant with safe options, selling price, stock, and separately authorized supplier costs. Each recipe line also states the variant selector that resolves it, the quantity per unit, and the product option it is scaled by when the quantity is per option count rather than per product unit. Recipe products list those options. A recipe line is the authored rule, not an order quantity." as const;
+
 export const SEARCH_CATALOG_ITEMS_CANDIDATE =
   mintP2CandidateCapability(SEARCH_DEFINITION);
 export const GET_CATALOG_ITEM_CANDIDATE =

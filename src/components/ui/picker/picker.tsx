@@ -59,6 +59,12 @@ interface PickerContentProps
   shouldFilter?: boolean;
   /** Wrap keyboard cursor at the ends. Default `true`. */
   loop?: boolean;
+  /**
+   * Custom cmdk match scorer. Omit for cmdk's default (scores an item's
+   * `value` + `keywords`). EntityPicker supplies one so rows can carry a
+   * unique id as their cmdk `value` while search still matches the label.
+   */
+  filter?: React.ComponentPropsWithoutRef<typeof CommandPrimitive>["filter"];
 }
 
 const PickerContent = React.forwardRef<
@@ -72,6 +78,7 @@ const PickerContent = React.forwardRef<
       label,
       shouldFilter = true,
       loop = true,
+      filter,
       align = "start",
       sideOffset = 6,
       className,
@@ -120,6 +127,7 @@ const PickerContent = React.forwardRef<
           label={label}
           shouldFilter={shouldFilter}
           loop={loop}
+          filter={filter}
           className={cn("flex w-full flex-col outline-none", GROUP_HEADING)}
         >
           {children}

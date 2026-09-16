@@ -176,6 +176,12 @@ export interface ImportApplyPanelProps {
   payments: number;
   /** Count of rows still flagged needs_review — any > 0 hard-blocks apply. */
   needsReviewCount: number;
+  /**
+   * Count of rows set to Link with no OPS client chosen — any > 0 hard-blocks
+   * apply (applied, the customer would be skipped and its invoices, estimates,
+   * and payments dropped).
+   */
+  linkWithoutClientCount: number;
   /** Total records written to OPS (shown on the applied state). */
   appliedCount: number;
   onApply: () => void;
@@ -217,11 +223,12 @@ export function ImportApplyPanel({
   invoices,
   payments,
   needsReviewCount,
+  linkWithoutClientCount,
   appliedCount,
   onApply,
 }: ImportApplyPanelProps) {
   const { t } = useDictionary("accounting");
-  const blocked = needsReviewCount > 0;
+  const blocked = needsReviewCount > 0 || linkWithoutClientCount > 0;
   const done = status === "applied";
   const applying = status === "applying";
   const errored = status === "error";
@@ -300,13 +307,29 @@ export function ImportApplyPanel({
           payments,
         })}
       </p>
-      {blocked && (
+      {needsReviewCount > 0 && (
         <p
           data-testid="qbo-needs-review-hint"
           className="mt-2 flex items-center gap-1.5 font-mono text-caption-sm text-rose"
         >
           <Link2Off size={12} />
-          {t("qbo.needsReviewBlock", { count: needsReviewCount })}
+          {t(needsReviewCount === 1 ? "qbo.needsReviewBlock.one" : "qbo.needsReviewBlock", {
+            count: needsReviewCount,
+          })}
+        </p>
+      )}
+      {linkWithoutClientCount > 0 && (
+        <p
+          data-testid="qbo-link-missing-client-hint"
+          className="mt-2 flex items-center gap-1.5 font-mono text-caption-sm text-rose"
+        >
+          <Link2Off size={12} />
+          {t(
+            linkWithoutClientCount === 1
+              ? "qbo.linkMissingClientBlock.one"
+              : "qbo.linkMissingClientBlock",
+            { count: linkWithoutClientCount }
+          )}
         </p>
       )}
       <div className="mt-2.5">

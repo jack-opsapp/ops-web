@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Plus } from "lucide-react";
+import { defaultFilter } from "cmdk";
 import {
   Picker,
   PickerTrigger,
@@ -92,6 +93,28 @@ interface MultiProps<T> extends EntityPickerBaseProps<T> {
 
 export type EntityPickerProps<T> = SingleProps<T> | MultiProps<T>;
 
+/** cmdk value for the leading "none" row — namespaced so no entity id can collide. */
+const NONE_ROW_VALUE = "__entity-picker-none__";
+
+/**
+ * cmdk tracks the keyboard cursor and resolves Enter by an item's `value`, so
+ * two rows sharing a value are highlighted together and Enter can commit the
+ * wrong one. Entity labels repeat in real data (two clients sharing a
+ * name), so every row's `value` is its unique id and its searchable text
+ * rides in `keywords` as `[label, ...extra]`. This scorer rebuilds cmdk's
+ * default "label + extra keywords" match from that shape, so typed search
+ * ranks exactly as it did when the label was the value — the id never matches.
+ */
+function scoreByLabelKeywords(
+  _value: string,
+  search: string,
+  keywords?: string[],
+): number {
+  if (!keywords || keywords.length === 0) return 0;
+  const [labelText, ...extra] = keywords;
+  return defaultFilter(labelText, search, extra);
+}
+
 /**
  * EntityPicker — search + single/multi select with optional avatars,
  * sub-labels, a "none" row, an inline create action, and per-row conflict
@@ -169,6 +192,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
         align={align}
         side={side}
         shouldFilter={searchable}
+        filter={scoreByLabelKeywords}
         className={contentClassName}
       >
         {searchable ? (
@@ -192,9 +216,10 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
 
           {!props.multiple && props.noneOption ? (
             <PickerItem
-              value={
-                typeof props.noneLabel === "string" ? props.noneLabel : "__none__"
-              }
+              value={NONE_ROW_VALUE}
+              keywords={[
+                typeof props.noneLabel === "string" ? props.noneLabel : "__none__",
+              ]}
               selected={singleValue == null}
               disabled={readOnly}
               onSelect={() => {
@@ -216,8 +241,8 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
             return (
               <PickerItem
                 key={id}
-                value={labelText}
-                keywords={getKeywords?.(item)}
+                value={id}
+                keywords={[labelText, ...(getKeywords?.(item) ?? [])]}
                 multiple={props.multiple}
                 selected={isSelected(id)}
                 disabled={readOnly}

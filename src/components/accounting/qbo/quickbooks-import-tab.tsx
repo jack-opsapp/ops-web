@@ -10,6 +10,9 @@ import {
   useInitiateOAuth,
 } from "@/lib/hooks/use-accounting";
 import { AccountingProvider } from "@/lib/types/pipeline";
+import { useClients } from "@/lib/hooks/use-clients";
+import { countUnresolvedDecisions } from "@/lib/api/services/qbo-apply-decisions";
+import type { LinkableClient } from "./client-link-picker";
 import {
   useStartImport,
   useImportReview,
@@ -65,6 +68,24 @@ export function QuickBooksImportTab() {
   const startImport = useStartImport();
   const applyImport = useApplyImport();
   const { data: review, isLoading, isError } = useImportReview(runId);
+
+  // Every company client, so a Link row can point at any of them — not just the
+  // importer's suggestions. Fetched once and shared by all review rows.
+  const { data: clientsData, isLoading: clientsLoading } = useClients(undefined, {
+    enabled: !!companyId && !!review,
+  });
+  const linkableClients = useMemo<LinkableClient[]>(
+    () =>
+      (clientsData?.clients ?? [])
+        .filter((c) => !c.deletedAt)
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          phoneNumber: c.phoneNumber,
+        })),
+    [clientsData]
+  );
 
   // Connection status for the run header. The owner connects QuickBooks on the
   // Sync tab; until then the Import tab shows a not-connected state.
@@ -127,6 +148,10 @@ export function QuickBooksImportTab() {
     for (const d of applyDecisions) c[d.action] += 1;
     return c;
   }, [applyDecisions]);
+
+  // Unfinished rows lock Apply: an unresolved needs_review, or a Link with no
+  // client chosen. Either would silently drop that customer's money on apply.
+  const unresolved = useMemo(() => countUnresolvedDecisions(applyDecisions), [applyDecisions]);
 
   const customersToWrite = decisionCounts.link + decisionCounts.create;
 
@@ -242,6 +267,8 @@ export function QuickBooksImportTab() {
               matches={review.matches}
               decisions={decisions}
               onDecisionChange={handleDecisionChange}
+              clients={linkableClients}
+              clientsLoading={clientsLoading}
             />
           </ReviewPanel>
 
@@ -250,7 +277,8 @@ export function QuickBooksImportTab() {
             customersToWrite={customersToWrite}
             invoices={stagedCounts.invoices}
             payments={stagedCounts.payments}
-            needsReviewCount={decisionCounts.needs_review}
+            needsReviewCount={unresolved.needsReview}
+            linkWithoutClientCount={unresolved.linkWithoutClient}
             appliedCount={appliedCount}
             onApply={handleApply}
           />

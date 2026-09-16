@@ -34,6 +34,8 @@ import { EstimateStatus } from "@/lib/types/pipeline";
 import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/types/pipeline";
 import { formatDateOnly } from "@/lib/utils/format";
 import { useDefaultTaxRate } from "@/lib/hooks";
+import { toast } from "@/components/ui/toast";
+import { getEstimateDraftBlocker } from "@/lib/estimates/estimate-draft-validation";
 
 /** Radix Select forbids an empty-string item value; this sentinel represents
  *  the optional "no project" choice and maps back to "" on change. */
@@ -119,6 +121,19 @@ export function EstimateFormModal({
   }, [estimate, loading]);
 
   const handleSubmit = () => {
+    // A product line whose required options are unanswered carries no option
+    // snapshot, and the recipe engine cannot count materials from it.
+    const blocker = getEstimateDraftBlocker(lineItems, defaultTaxRate ?? null);
+    if (blocker === "missing_required_options") {
+      toast.error(
+        t(
+          "estimates.form.requiredOptionsError",
+          "Complete the required product options.",
+        ),
+      );
+      return;
+    }
+
     const mappedLineItems: Partial<CreateLineItem>[] = lineItems.map((li, index) => {
       return {
         name: li.name,

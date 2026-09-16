@@ -17,6 +17,10 @@ const RUNTIME_PATH = join(
   process.cwd(),
   "tests/sql/agent-catalog-reads-runtime.sql"
 );
+const RECIPE_V24_MIGRATION_PATH = join(
+  process.cwd(),
+  "supabase/migrations/20260915224500_agent_catalog_recipe_read_v24.sql"
+);
 const REPLAY_PATH = join(
   process.cwd(),
   "tests/sql/agent-catalog-reads-replay-runtime.sql"
@@ -51,7 +55,7 @@ function currentBodyFromReservation(value: string) {
     '       select pg_catalog.array_agg(\n         scope.value order by scope.value collate "C"\n       )',
     1
   );
-  return replaceExactly(
+  const emptySupplierCosts = replaceExactly(
     scopeCanonical,
     `    select pg_catalog.count(*)::integer,
            coalesce(
@@ -95,6 +99,188 @@ function currentBodyFromReservation(value: string) {
     from duplicate_state duplicate
     left join cost_projection projection on true
     group by duplicate.has_duplicate;`,
+    1
+  );
+  return recipeShapeV24(emptySupplierCosts);
+}
+
+const OLD_DETAIL_ARGUMENT_TYPES =
+  "uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid," +
+  "boolean,integer,integer,integer,integer,integer,integer,integer,integer," +
+  "integer,integer,integer,integer,integer";
+const OLD_WRAPPER_ARGUMENT_TYPES =
+  "text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb," +
+  "text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer," +
+  "integer,integer,integer,integer,integer,integer";
+const SHAPE_ARGUMENT_TYPES =
+  ",text,integer,integer,integer,integer,integer,integer,integer";
+
+/**
+ * Migration 20260915223000 replaced the detail reader and its public wrapper
+ * whole rather than patching fragments, so the derivation splices the exact
+ * definitions that migration ships. Body and migration cannot drift apart.
+ */
+function migrationDefinition(name: string) {
+  const migration = read(RECIPE_V24_MIGRATION_PATH);
+  const start = migration.indexOf(`create or replace function ${name}(`);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const end = migration.indexOf("\n$function$;\n", start);
+  expect(end).toBeGreaterThan(start);
+  return migration.slice(start, end + "\n$function$;\n".length);
+}
+
+function replaceDefinition(value: string, name: string) {
+  const start = value.indexOf(`create or replace function ${name}(`);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const end = value.indexOf("\n$function$;\n", start);
+  expect(end).toBeGreaterThan(start);
+  return (
+    value.slice(0, start) +
+    migrationDefinition(name) +
+    value.slice(end + "\n$function$;\n".length)
+  );
+}
+
+function recipeShapeV24(value: string) {
+  const withDrops = replaceExactly(
+    value,
+    "create or replace function private.agent_p2_catalog_hash_ref(",
+    `-- The detail reader and its public wrapper gained the exposure-selected recipe
+-- shape. Dropping the pre-shape signatures keeps exactly one overload
+-- resolvable by name, so PostgREST can never pick a stale projection.
+drop function if exists private.agent_p2_catalog_detail_v1(
+  uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,
+  boolean,integer,integer,integer,integer,integer,integer,integer,integer,
+  integer,integer,integer,integer,integer
+);
+drop function if exists public.read_agent_catalog_item_as_system(
+  text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,
+  text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,
+  integer,integer,integer,integer,integer,integer
+);
+
+create or replace function private.agent_p2_catalog_hash_ref(`,
+    1
+  );
+  const withDetail = replaceDefinition(
+    withDrops,
+    "private.agent_p2_catalog_detail_v1"
+  );
+  const withWrapper = replaceDefinition(
+    withDetail,
+    "public.read_agent_catalog_item_as_system"
+  );
+  const withHelper = replaceExactly(
+    withWrapper,
+    "create or replace function private.agent_p2_catalog_normalized_text_v1(",
+    `-- Recipe shape v2 reports a line's authored quantity at four decimal places
+-- beside the three-decimal milliunit integer, which silently drops anything
+-- finer than a thousandth. Four decimals covers every authored quantity in
+-- production today; a finer value still returns null and fails the source
+-- check rather than being rounded into a wrong number.
+${migrationDefinition(
+      "private.agent_p2_catalog_float8_decimal4_v1"
+    )}\ncreate or replace function private.agent_p2_catalog_normalized_text_v1(`,
+    1
+  );
+  const withDetailSignatures = replaceExactly(
+    withHelper,
+    `private.agent_p2_catalog_detail_v1(${OLD_DETAIL_ARGUMENT_TYPES})`,
+    `private.agent_p2_catalog_detail_v1(${OLD_DETAIL_ARGUMENT_TYPES}${SHAPE_ARGUMENT_TYPES})`,
+    2
+  );
+  const withWrapperSignatures = replaceExactly(
+    withDetailSignatures,
+    `public.read_agent_catalog_item_as_system(${OLD_WRAPPER_ARGUMENT_TYPES})`,
+    `public.read_agent_catalog_item_as_system(${OLD_WRAPPER_ARGUMENT_TYPES}${SHAPE_ARGUMENT_TYPES})`,
+    2
+  );
+  const withWrappedSignatures = replaceExactly(
+    withWrapperSignatures,
+    `public.read_agent_catalog_item_as_system(
+  text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,
+  text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,
+  integer,integer,integer,integer,integer,integer
+) from public, anon, authenticated, service_role;`,
+    `public.read_agent_catalog_item_as_system(
+  text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,
+  text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,
+  integer,integer,integer,integer,integer,integer,
+  text,integer,integer,integer,integer,integer,integer,integer
+) from public, anon, authenticated, service_role;`,
+    1
+  );
+  const withGrant = replaceExactly(
+    withWrappedSignatures,
+    `public.read_agent_catalog_item_as_system(
+  text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,
+  text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,
+  integer,integer,integer,integer,integer,integer
+) to service_role;`,
+    `public.read_agent_catalog_item_as_system(
+  text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,
+  text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,
+  integer,integer,integer,integer,integer,integer,
+  text,integer,integer,integer,integer,integer,integer,integer
+) to service_role;`,
+    1
+  );
+  const withAclEntry = replaceExactly(
+    withGrant,
+    "    'private.agent_p2_catalog_float8_milliunits_v1(double precision)',\n",
+    "    'private.agent_p2_catalog_float8_milliunits_v1(double precision)',\n" +
+      "    'private.agent_p2_catalog_float8_decimal4_v1(double precision)',\n",
+    1
+  );
+  return replaceExactly(
+    withAclEntry,
+    `  if not exists (
+    select 1
+    from pg_catalog.pg_proc procedure
+    where procedure.oid = pg_catalog.to_regprocedure(
+      'private.agent_p2_catalog_float8_milliunits_v1(double precision)'
+    )`,
+    `  if exists (
+    select 1
+    from pg_catalog.unnest(array[
+      'private.agent_p2_catalog_float8_decimal4_v1(double precision)'
+    ]::text[]) required(signature)
+    where not exists (
+      select 1
+      from pg_catalog.pg_proc procedure
+      where procedure.oid = pg_catalog.to_regprocedure(required.signature)
+        and procedure.provolatile = 'i'
+        and procedure.proisstrict
+        and procedure.proparallel = 's'
+        and not procedure.prosecdef
+        and procedure.proconfig @> array[
+          'search_path=""', 'extra_float_digits=3'
+        ]::text[]
+        and pg_catalog.cardinality(procedure.proconfig) = 2
+        and not pg_catalog.has_function_privilege(
+          'public', procedure.oid, 'EXECUTE'
+        )
+        and not pg_catalog.has_function_privilege(
+          'anon', procedure.oid, 'EXECUTE'
+        )
+        and not pg_catalog.has_function_privilege(
+          'authenticated', procedure.oid, 'EXECUTE'
+        )
+        and not pg_catalog.has_function_privilege(
+          'service_role', procedure.oid, 'EXECUTE'
+        )
+    )
+  ) then
+    raise exception 'agent_catalog_decimal4_postflight_invalid'
+      using errcode = '55000';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_proc procedure
+    where procedure.oid = pg_catalog.to_regprocedure(
+      'private.agent_p2_catalog_float8_milliunits_v1(double precision)'
+    )`,
     1
   );
 }

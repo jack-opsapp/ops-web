@@ -19,7 +19,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MCP_EXPOSURE_V14, MCP_EXPOSURE_V22, MCP_EXPOSURE_V23 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import { MCP_EXPOSURE_V14, MCP_EXPOSURE_V22, MCP_EXPOSURE_V24 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 const APP_URL = "https://app.opsapp.co";
 
 const mocks = vi.hoisted(() => {
@@ -403,7 +403,7 @@ describe("OAuth discovery documents", () => {
   const expectedProtectedResource = {
     resource: `${config.issuer}/api/mcp`,
     authorization_servers: [config.issuer],
-    scopes_supported: [...MCP_EXPOSURE_V14.grantableScopes],
+    scopes_supported: [...MCP_EXPOSURE_V24.grantableScopes],
     bearer_methods_supported: ["header"],
     resource_name: "OPS",
   };
@@ -436,7 +436,7 @@ describe("OAuth discovery documents", () => {
       token_endpoint: config.tokenEndpoint,
       registration_endpoint: config.registrationEndpoint,
       revocation_endpoint: config.revocationEndpoint,
-      scopes_supported: [...MCP_EXPOSURE_V14.grantableScopes],
+      scopes_supported: [...MCP_EXPOSURE_V24.grantableScopes],
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
@@ -481,10 +481,10 @@ describe("POST /api/mcp/oauth/register", () => {
     expect(call.args).toEqual({
       p_client_name: "Claude",
       p_redirect_uris: [CALLBACK],
-      p_scope: MCP_EXPOSURE_V14.grantableScopes.join(" "),
-      p_scope_ceiling: [...MCP_EXPOSURE_V14.grantableScopes],
-      p_consent_catalog_revision: "2026-09-04.mcp-consent-catalog.v9",
-      p_exposure_revision: MCP_EXPOSURE_V23.revision,
+      p_scope: MCP_EXPOSURE_V24.grantableScopes.join(" "),
+      p_scope_ceiling: [...MCP_EXPOSURE_V24.grantableScopes],
+      p_consent_catalog_revision: "2026-09-15.mcp-consent-catalog.v18",
+      p_exposure_revision: MCP_EXPOSURE_V24.revision,
       p_software_id: "claude-connector",
       p_software_version: null,
     });
@@ -497,7 +497,7 @@ describe("POST /api/mcp/oauth/register", () => {
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      scope: MCP_EXPOSURE_V14.grantableScopes.join(" "),
+      scope: MCP_EXPOSURE_V24.grantableScopes.join(" "),
     });
     expect(body).not.toHaveProperty("client_secret");
     expect(JSON.stringify(body)).not.toContain("client_secret");
@@ -1014,7 +1014,7 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
     expect(rotate.args.p_presented_hash).toBe(sha256Hex(presented));
     expect(rotate.args.p_client_id).toBe(CLIENT_ID);
     expect(rotate.args.p_active_grantable_scopes).toEqual([
-      ...MCP_EXPOSURE_V14.grantableScopes,
+      ...MCP_EXPOSURE_V24.grantableScopes,
     ]);
     expect(rotate.args.p_new_access_hash).toBe(sha256Hex(body.access_token));
     expect(rotate.args.p_new_refresh_hash).toBe(sha256Hex(body.refresh_token));
@@ -1078,7 +1078,7 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
     expect(
       lastCallTo("rotate_mcp_oauth_refresh_token_as_system").args
         .p_active_grantable_scopes
-    ).toEqual([...MCP_EXPOSURE_V14.grantableScopes]);
+    ).toEqual([...MCP_EXPOSURE_V24.grantableScopes]);
     expect(state.rotatedRow.exposure_revision).toBe(
       "2026-08-22.mcp-exposure.v1"
     );

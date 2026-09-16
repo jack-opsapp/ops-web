@@ -110,6 +110,18 @@ const CAPABILITIES = {
   },
 } as const satisfies Record<string, OpsCapabilityDefinition>;
 
+/**
+ * Every capability ref OPS knows, in registry order. This is the single source
+ * of truth for the string that `catalog_product_capability_bindings.capability_key`
+ * and a `cut_plan` rule's `measure_source` must carry — hyphenated, versioned
+ * (`deck-geometry/v1`). Anything else is unreadable to the runtime that would
+ * consume the binding.
+ */
+export const OPS_CAPABILITY_REFS = Object.keys(CAPABILITIES) as [
+  keyof typeof CAPABILITIES,
+  ...(keyof typeof CAPABILITIES)[],
+];
+
 export function opsToolDefinition(ref: string): OpsToolDefinition | null {
   return Object.prototype.hasOwnProperty.call(TOOLS, ref)
     ? TOOLS[ref as keyof typeof TOOLS]

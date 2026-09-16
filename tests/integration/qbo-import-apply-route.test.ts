@@ -107,6 +107,41 @@ describe("POST /api/integrations/quickbooks/import/apply", () => {
     expect((await POST(post({ runId: "run-1", decisions: "nope" }))).status).toBe(400);
   });
 
+  it("422 for a Link with no client or an unresolved needs_review — run untouched, nothing applied", async () => {
+    const { POST } = await import("@/app/api/integrations/quickbooks/import/apply/route");
+    const res = await POST(
+      post({
+        runId: "run-1",
+        decisions: [
+          { customer_qb_id: "QB-OK", action: "link", client_id: "client-1" },
+          { customer_qb_id: "QB-NO-CLIENT", action: "link" },
+          { customer_qb_id: "QB-REVIEW", action: "needs_review" },
+          { customer_qb_id: "QB-NEW", action: "create" },
+        ],
+      })
+    );
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.code).toBe("unresolved_decisions");
+    expect(body.unresolved).toEqual([
+      { customer_qb_id: "QB-NO-CLIENT", reason: "link_without_client" },
+      { customer_qb_id: "QB-REVIEW", reason: "needs_review" },
+    ]);
+    expect(runUpdate).not.toHaveBeenCalled();
+    expect(notificationInsert).not.toHaveBeenCalled();
+    expect(afterMock).not.toHaveBeenCalled();
+    expect(applyImport).not.toHaveBeenCalled();
+  });
+
+  it("still checks permission before judging decisions (403 wins over 422)", async () => {
+    checkPermissionById.mockResolvedValue(false);
+    const { POST } = await import("@/app/api/integrations/quickbooks/import/apply/route");
+    const res = await POST(
+      post({ runId: "run-1", decisions: [{ customer_qb_id: "QB-NO-CLIENT", action: "link" }] })
+    );
+    expect(res.status).toBe(403);
+  });
+
   it("accepts (202), marks the run applying, and opens a persistent rail notification", async () => {
     const { POST } = await import("@/app/api/integrations/quickbooks/import/apply/route");
     const res = await POST(post({
