@@ -226,7 +226,15 @@ describe("weekly post panel", () => {
       "href",
       "https://www.reddit.com/r/Construction/comments/abc/"
     );
+    expect(screen.getByText("SIGNALS · 4 · SEARCH · 1")).toBeInTheDocument();
+    expect(screen.getByText("SEARCH · reddit.com")).toBeInTheDocument();
     expect(screen.getByText("HEADLINES WEIGHED · 2 · TOPICS PASSED OVER · 1")).toBeInTheDocument();
+    // The evidence and the alternatives wait one click deeper; the take and the hook do not.
+    const [evidence, alternativesBox] = Array.from(why.querySelectorAll("details"));
+    expect(evidence).not.toHaveAttribute("open");
+    expect(alternativesBox).not.toHaveAttribute("open");
+    expect(evidence.contains(screen.getByRole("link", { name: "Why your best tech quits" }))).toBe(true);
+    expect(why.querySelector("details")?.compareDocumentPosition(screen.getByText(pitch.hook)) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     // The alternatives name only the headlines that lost.
     expect(screen.getByText("THE FIRST WEEK DECIDES WHO STAYS")).toBeInTheDocument();
     expect(screen.queryAllByText("YOUR NEW GUY QUIT BEFORE LUNCH")).toHaveLength(0);

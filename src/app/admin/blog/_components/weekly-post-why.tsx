@@ -35,6 +35,29 @@ export interface WeeklyPitch {
 const MONO_LABEL = "font-mono text-micro uppercase tracking-authority text-text-tertiary";
 const META = "font-mono text-micro uppercase tracking-[0.12em] text-text-tertiary";
 const LINK = "font-mohave text-body text-text-secondary underline hover:text-text";
+const SUMMARY = `${META} cursor-pointer list-none select-none hover:text-text-secondary focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent [&::-webkit-details-marker]:hidden`;
+
+function Marker() {
+  return (
+    <>
+      <span aria-hidden="true" className="inline-block w-[16px] group-open:hidden">
+        +
+      </span>
+      <span aria-hidden="true" className="hidden w-[16px] group-open:inline-block">
+        −
+      </span>
+    </>
+  );
+}
+
+/** Where a search result ran, so a discussion reads as Reddit or trade press at a glance. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
 
 const count = new Intl.NumberFormat("en-US");
 const multiple = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
@@ -56,8 +79,9 @@ export function signalMetric(signal: WeeklySignal, t: (key: string, fallback: st
 
 /**
  * Why this topic and this hook, read by the operator before PUBLISH NOW: the
- * topic and why it is hot, the take, the opening line, what people were
- * talking about, and — one click deeper — the headlines and topics it beat.
+ * topic and why it is hot, the take and the opening line up front; the signals
+ * and search results behind the heat, and the headlines and topics it beat,
+ * one click deeper each.
  */
 export function WeeklyPostWhy({ pitch }: { pitch: WeeklyPitch }) {
   const { t } = useDictionary("admin-blog");
@@ -82,13 +106,21 @@ export function WeeklyPostWhy({ pitch }: { pitch: WeeklyPitch }) {
       </dl>
 
       {(pitch.signals.length > 0 || pitch.chatter.length > 0) && (
-        <div className="flex flex-col gap-[8px]">
-          <p className={MONO_LABEL}>{t("weekly.why.signals", "// SIGNALS")}</p>
-          <ul className="flex flex-col gap-[8px]">
+        <details className="group">
+          <summary className={SUMMARY}>
+            <Marker />
+            {[
+              pitch.signals.length ? `${t("weekly.why.signals", "SIGNALS")} · ${pitch.signals.length}` : null,
+              pitch.chatter.length ? `${t("weekly.why.search", "SEARCH")} · ${pitch.chatter.length}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </summary>
+          <ul className="flex flex-col gap-[12px] pl-[16px] pt-[12px]">
             {pitch.signals.map((signal) => {
               const metric = signalMetric(signal, t);
               return (
-                <li key={signal.id} className="flex flex-wrap items-baseline gap-x-[12px] gap-y-[2px]">
+                <li key={signal.id} className="flex flex-col gap-[2px]">
                   <span className={META}>{[signal.source, metric].filter(Boolean).join(" · ")}</span>
                   <a href={signal.url} target="_blank" rel="noreferrer" className={LINK}>
                     {signal.title}
@@ -97,39 +129,34 @@ export function WeeklyPostWhy({ pitch }: { pitch: WeeklyPitch }) {
               );
             })}
             {pitch.chatter.map((entry) => (
-              <li key={entry.url} className="flex flex-wrap items-baseline gap-x-[12px] gap-y-[2px]">
-                <span className={META}>{t("weekly.why.search", "SEARCH")}</span>
+              <li key={entry.url} className="flex flex-col gap-[2px]">
+                <span className={META}>{`${t("weekly.why.search", "SEARCH")} · ${hostOf(entry.url)}`}</span>
                 <a href={entry.url} target="_blank" rel="noreferrer" className={LINK}>
                   {entry.shows}
                 </a>
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
 
-      <details className="group flex flex-col">
-        <summary className={`${META} cursor-pointer list-none select-none hover:text-text-secondary focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent [&::-webkit-details-marker]:hidden`}>
-          <span aria-hidden="true" className="inline-block w-[16px] group-open:hidden">
-            +
-          </span>
-          <span aria-hidden="true" className="hidden w-[16px] group-open:inline-block">
-            −
-          </span>
+      <details className="group">
+        <summary className={SUMMARY}>
+          <Marker />
           {`${t("weekly.why.hooksWeighed", "HEADLINES WEIGHED")} · ${pitch.hooks_considered.length} · ${t("weekly.why.runnersUp", "TOPICS PASSED OVER")} · ${pitch.runners_up.length}`}
         </summary>
-        <div className="flex flex-col gap-[16px] pt-[12px]">
-          <ul className="flex flex-col gap-[8px]">
+        <div className="flex flex-col gap-[16px] pl-[16px] pt-[12px]">
+          <ul className="flex flex-col gap-[12px]">
             {alternatives.map((entry) => (
-              <li key={entry.headline} className="flex flex-col">
+              <li key={entry.headline} className="flex flex-col gap-[2px]">
                 <span className="font-mohave text-body text-text">{entry.headline}</span>
                 <span className="font-mohave text-body-sm text-text-tertiary">{entry.verdict}</span>
               </li>
             ))}
           </ul>
-          <ul className="flex flex-col gap-[8px]">
+          <ul className="flex flex-col gap-[12px]">
             {pitch.runners_up.map((entry) => (
-              <li key={entry.topic} className="flex flex-col">
+              <li key={entry.topic} className="flex flex-col gap-[2px]">
                 <span className="font-mohave text-body text-text-secondary">{entry.topic}</span>
                 <span className="font-mohave text-body-sm text-text-tertiary">{entry.why_not}</span>
               </li>
