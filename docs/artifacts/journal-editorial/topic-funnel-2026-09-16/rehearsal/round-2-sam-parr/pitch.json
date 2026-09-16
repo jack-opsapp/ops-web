@@ -1,0 +1,205 @@
+{
+  "topic": "Getting paid is decided at signing: a written payment schedule tied to finished work and signed change orders, so a job never ends in a teardown.",
+  "reader": "An owner-operator running a small residential crew (fences, decks, roofs, remodels) who finished the work and watched the last payment stall: I did the job, he's got the fence, and I'm the one chasing him.",
+  "why_now": "On 2026-09-13 a Joliet, Illinois fence crew posted video of themselves tearing out a fence they had installed after the homeowner allegedly refused to pay, and national press carried it. The Roofing Insights repost is running at about 450 times that channel's typical video, the biggest spike on the radar. The same stretch shows how wide the money problem runs: a Breakthrough Academy class on why skilled landscapers run out of cash broke out, and a ContractorTalk business-board thread on margin erosion drew 44 replies, while rates rose and builder confidence fell.",
+  "signals": [
+    "ae8f9061-96a7-48d7-a4d2-4f57b2cde0e7",
+    "20dea61d-f8fc-454e-8e04-50b0a4fd5c13",
+    "c7abaf7e-1caa-46c9-be04-84ea98811f0f",
+    "3ae80021-5670-404f-95be-2ad219988375",
+    "dfd64c46-0538-47d9-9340-e16e357d8baa",
+    "a1b13254-f8c9-4194-9805-e3a9d8ec6c0d"
+  ],
+  "chatter": [
+    {
+      "url": "https://www.newsweek.com/contractor-tears-down-fence-customer-threatens-ice-refuses-pay-12446121",
+      "shows": "National press picked up the fence teardown, so the moment reached well beyond the trades."
+    },
+    {
+      "url": "https://www.ibtimes.co.uk/illinois-fence-company-removes-fence-over-alleged-nonpayment-1819648",
+      "shows": "Names the Joliet fence company and dates the video to 2026-09-13."
+    },
+    {
+      "url": "https://forums.mikeholt.com/threads/when-a-customer-wont-pay-what-do-you-do.25757/post-405111",
+      "shows": "Electricians have argued about customers who will not pay for years: the pain is evergreen."
+    },
+    {
+      "url": "https://www.rocketlawyer.com/q-and-a/answer/can-i-sue-a-homeowner-who-wont-pay-for-my-renovation-work",
+      "shows": "Owners asking whether they can sue a homeowner who will not pay, answered with the contract and the paper trail."
+    },
+    {
+      "url": "https://www.fgllegal.com/blog/2026/06/change-order-dispute-middle-of-project/",
+      "shows": "Change-order disputes mid-project are where many final-payment fights start."
+    }
+  ],
+  "ethos": "Getting paid is ownership of the paper, not luck. Ten years in deck and rail is the same backyard, fixed-structure work as fencing, where the crew's leverage ends when the last board goes up.",
+  "angle": "Whether you get the last payment is decided the day the contract is signed, not the day you finish the job.",
+  "hook": "Pull out your last contract and check two things: what finished work each payment is tied to, and what happens when the client wants extras.",
+  "headline": "WHAT TO PUT IN YOUR CONTRACT SO YOU GET PAID",
+  "hooks_considered": [
+    {
+      "headline": "HOW TO STOP CHASING CLIENTS FOR THE LAST PAYMENT",
+      "hook": "The job is done, the client loves it, and the last payment is stuck behind a string of excuses and a phone that goes straight to voicemail.",
+      "verdict": "Tied for most clicks and clear, but all three readers expected steps for collecting a stalled bill; the article sets the terms at signing, so the promise drifts from what it delivers.",
+      "clicks": 3
+    },
+    {
+      "headline": "GETTING PAID IS DECIDED WHEN THE CONTRACT IS SIGNED",
+      "hook": "It feels like the fight over the last payment starts on the final day of the job, but it was settled long before that, the day you and the client signed the paper.",
+      "verdict": "Plain and states the angle exactly, but no reader picked it; it reads as a claim rather than something an owner can use.",
+      "clicks": 0
+    },
+    {
+      "headline": "TIE EVERY PAYMENT TO FINISHED WORK",
+      "hook": "There is a way to set up a job so you are not waiting on most of the money at the very end, and it has nothing to do with a bigger deposit.",
+      "verdict": "Clear command that names the core move, but no clicks, and it covers only half the article, leaving out change orders.",
+      "clicks": 0
+    },
+    {
+      "headline": "NO EXTRA WORK WITHOUT A SIGNED CHANGE ORDER",
+      "hook": "The client walks out onto the half-built deck and asks, \"While you're here, can you add a step down to the patio?\"",
+      "verdict": "Plain rule, but zero clicks, and it promises only the change-order half; the payment schedule, the main move, goes missing.",
+      "clicks": 0
+    },
+    {
+      "headline": "WRITE THE PAYMENT SCHEDULE BEFORE THE WORK STARTS",
+      "hook": "Before the first board is cut, a single page decides whether the last payment shows up when it should or turns into a string of reminder texts.",
+      "verdict": "Plain and on-message, but no reader chose it; it reads like a chore and says nothing about getting paid or change orders.",
+      "clicks": 0
+    },
+    {
+      "headline": "WHY THE LAST PAYMENT STALLS AFTER THE JOB IS DONE",
+      "hook": "The moment the last board goes up, the client has everything they hired you to build, and you have a bill they can pay whenever they feel like it.",
+      "verdict": "Clear, but no clicks; it promises a diagnosis while the weight of the article is the fix set up at signing.",
+      "clicks": 0
+    },
+    {
+      "headline": "WHAT THE VIRAL FENCE TEARDOWN TEACHES ABOUT GETTING PAID",
+      "hook": "On September 13, 2026, a fence crew in Joliet, Illinois posted video of themselves pulling out a fence they had just put in, saying the homeowner refused to pay.",
+      "verdict": "All three readers flagged it as confusing; it leans on a news moment a stranger may not know, and it dates once the video fades.",
+      "clicks": 0
+    },
+    {
+      "headline": "HOW TO GET PAID WITHOUT TEARING OUT YOUR WORK",
+      "hook": "What do you do when the job is finished, the client won't pay, and the only move you can think of is taking your work back?",
+      "verdict": "Two readers found it confusing and none clicked; tearing out work only makes sense after the Joliet story, and it brushes against self-help removal.",
+      "clicks": 0
+    },
+    {
+      "headline": "YOUR CONTRACT DECIDES IF YOU GET THE LAST PAYMENT",
+      "hook": "When a client stops answering about the last payment, what do you actually have in writing that says they owe it, and when?",
+      "verdict": "Plain and close to the angle, but zero clicks; the winner says the same thing as a usable promise readers wanted.",
+      "clicks": 0
+    },
+    {
+      "headline": "WHAT TO PUT IN YOUR CONTRACT SO YOU GET PAID",
+      "hook": "Pull out the last contract you signed and look for when each payment is due, what finished work it's tied to, and what happens when the client asks for something extra.",
+      "verdict": "Won: tied for most clicks, and all three readers expected the contract lines that set when each payment is due, which is the article. Plain, confused no one, clear of recent titles.",
+      "clicks": 3
+    },
+    {
+      "headline": "THE PAPER TRAIL THAT GETS YOU PAID",
+      "hook": "Ask a lawyer whether you can sue a homeowner who won't pay, and the answer starts with what you can prove: the contract, the photos and the texts.",
+      "verdict": "No clicks; a paper trail points to proving a debt after the fact, not setting payment terms before the job starts.",
+      "clicks": 0
+    },
+    {
+      "headline": "DON'T LET THE CLIENT DECIDE WHEN YOU GET PAID",
+      "hook": "If your paperwork just says \"balance due on completion,\" the client gets to decide what completion means and when it happened.",
+      "verdict": "Plain with a real gap, but no reader chose it; it names the problem without saying the fix sits in the contract.",
+      "clicks": 0
+    },
+    {
+      "headline": "A BIGGER DEPOSIT WON'T PROTECT YOUR LAST PAYMENT",
+      "hook": "Taking more money up front sounds like the fix, but California caps down payments on home improvement jobs, and a big deposit does nothing for the money you're owed at the end.",
+      "verdict": "One click and the expectation fits one section, but it frames the post around a myth instead of the setup the article teaches.",
+      "clicks": 1
+    },
+    {
+      "headline": "UNSIGNED CHANGE ORDERS PUT YOUR LAST PAYMENT AT RISK",
+      "hook": "Plenty of fights over the final payment don't start at the end of the job at all; they start in the middle, with a quick yes to extra work that nobody wrote down.",
+      "verdict": "Clear, but zero clicks, and it covers only the change-order half of the article.",
+      "clicks": 0
+    },
+    {
+      "headline": "TIRED OF CHASING THE LAST PAYMENT? START WITH THE CONTRACT",
+      "hook": "How many times have you finished a job and then spent weeks sending polite texts about the money?",
+      "verdict": "Plain and on the angle, but no clicks; the question opener spends words, and the winner makes the same promise more directly.",
+      "clicks": 0
+    },
+    {
+      "headline": "YOU FINISHED THE JOB. WHY ARE YOU STILL CHASING MONEY?",
+      "hook": "After ten years in deck and rail, we know when a job turns risky: the day the last board goes up and the client already has everything they wanted.",
+      "verdict": "One click, but two sentences read like an ad, and the reader expected why clients stall more than the contract setup the article teaches.",
+      "clicks": 1
+    },
+    {
+      "headline": "WHEN CLIENT CASH GETS TIGHT, PROTECT YOUR FINAL PAYMENT",
+      "hook": "On September 16, 2026, the Federal Reserve raised rates to 3.75\u20134%, so here is a fair question for any owner with jobs on the board: when a client's money gets tight, which payment do they hold back first?",
+      "verdict": "No clicks; it hangs the post on tight client cash and interest rates, a peg that fades, when the article is about contract terms.",
+      "clicks": 0
+    },
+    {
+      "headline": "GETTING PAID STARTS BEFORE THE WORK DOES",
+      "hook": "The best time to settle the last payment is at the kitchen table, before anyone picks up a tool, while you and the client are both still excited about the job.",
+      "verdict": "Plain and true to the angle, but zero clicks; too general to tell a stranger the article is about what goes in the contract.",
+      "clicks": 0
+    },
+    {
+      "headline": "MAKE THE MONEY MOVE AS THE WORK GETS DONE",
+      "hook": "Picture a job where the client pays as each stage is finished, so by the time you pack up the truck, only the last small piece is left to collect.",
+      "verdict": "All three readers found it confusing; it reads as a slogan that needs the article to make sense.",
+      "clicks": 0
+    },
+    {
+      "headline": "HOW TO WRITE A PAYMENT SCHEDULE TIED TO FINISHED WORK",
+      "hook": "California's state licensing board requires a home improvement payment schedule to spell out each phase of the work and the payment tied to it, and that rule is a good model even if you never work there.",
+      "verdict": "Accurate how-to, but no clicks; it sounds like paperwork instead of getting paid, and it skips change orders.",
+      "clicks": 0
+    },
+    {
+      "headline": "SOME STATES REQUIRE A WRITTEN CONTRACT. EVERY JOB NEEDS ONE",
+      "hook": "Illinois requires a signed written contract before any home repair or remodeling job over $1,000, and the reason to write one goes well beyond keeping the state happy.",
+      "verdict": "No clicks; it leads with the law and reads like a compliance notice instead of a way to get paid.",
+      "clicks": 0
+    },
+    {
+      "headline": "DON'T LEAVE THE LAST PAYMENT ON A HANDSHAKE",
+      "hook": "A handshake feels like trust on the first day of a job, but on the last day it is just your word against the client's.",
+      "verdict": "Plain and close to the angle, but no reader chose it; it warns against handshakes without promising what to put in writing.",
+      "clicks": 0
+    },
+    {
+      "headline": "HOW SMALL CREWS PROTECT THE MONEY BEFORE THE JOB STARTS",
+      "hook": "A small crew can do everything right on the build and still come up short on cash if the paper signed before day one never said when the money moves.",
+      "verdict": "On-message but no clicks; protecting the money is vaguer than naming the contract and getting paid.",
+      "clicks": 0
+    },
+    {
+      "headline": "TEARING OUT A FENCE IS NOT A PAYMENT PLAN",
+      "hook": "When a Joliet, Illinois fence crew tore out a fence in September 2026 over a bill the homeowner allegedly refused to pay, the comments split between calling it payback and calling it a legal line crossed.",
+      "verdict": "One click, but two readers found it confusing; it is a saying that needs the Joliet story, the clever line the guide rules out.",
+      "clicks": 1
+    },
+    {
+      "headline": "WHY SMALL CREWS GET STUCK CHASING THE FINAL PAYMENT",
+      "hook": "Electricians have a long-running thread on the Mike Holt forums about customers who won't pay, which tells you this problem is not about one bad client.",
+      "verdict": "Clear, but zero clicks; it promises the why, while the value of the article is the setup that prevents the chase.",
+      "clicks": 0
+    }
+  ],
+  "runners_up": [
+    {
+      "topic": "The new hands: training apprentices who don't look like they used to",
+      "why_not": "Broad but warm across every sphere; a stalled payment hurts sooner than a hiring trend. The strongest reserve for a later week."
+    },
+    {
+      "topic": "The owner is the bottleneck: the 80-hour week",
+      "why_not": "Heat spread across generic creator content with no trades moment, and no agency source on owners' hours."
+    },
+    {
+      "topic": "Culture follows the owner: the crew complains because the boss does",
+      "why_not": "The hottest signals sit in one sphere with no trades or forum echo, no primary data, and it sits close to two August posts."
+    }
+  ]
+}

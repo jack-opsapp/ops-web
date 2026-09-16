@@ -1,0 +1,132 @@
+{
+  "headline": "WHAT TO PUT IN YOUR CONTRACT SO YOU GET PAID",
+  "first_sentence": "Pull out your last contract and check two things: what finished work each payment is tied to, and what happens when the client wants extras.",
+  "angle": "Whether you get the last payment is decided the day the contract is signed, not the day you finish the job.",
+  "verdicts": [
+    {
+      "headline": "HOW TO STOP CHASING CLIENTS FOR THE LAST PAYMENT",
+      "clicks": 3,
+      "verdict": "Tied for most clicks and clear, but all three readers expected steps for collecting a stalled bill; the article sets the terms at signing, so the promise drifts from what it delivers."
+    },
+    {
+      "headline": "GETTING PAID IS DECIDED WHEN THE CONTRACT IS SIGNED",
+      "clicks": 0,
+      "verdict": "Plain and states the angle exactly, but no reader picked it; it reads as a claim rather than something an owner can use."
+    },
+    {
+      "headline": "TIE EVERY PAYMENT TO FINISHED WORK",
+      "clicks": 0,
+      "verdict": "Clear command that names the core move, but no clicks, and it covers only half the article, leaving out change orders."
+    },
+    {
+      "headline": "NO EXTRA WORK WITHOUT A SIGNED CHANGE ORDER",
+      "clicks": 0,
+      "verdict": "Plain rule, but zero clicks, and it promises only the change-order half; the payment schedule, the main move, goes missing."
+    },
+    {
+      "headline": "WRITE THE PAYMENT SCHEDULE BEFORE THE WORK STARTS",
+      "clicks": 0,
+      "verdict": "Plain and on-message, but no reader chose it; it reads like a chore and says nothing about getting paid or change orders."
+    },
+    {
+      "headline": "WHY THE LAST PAYMENT STALLS AFTER THE JOB IS DONE",
+      "clicks": 0,
+      "verdict": "Clear, but no clicks; it promises a diagnosis while the weight of the article is the fix set up at signing."
+    },
+    {
+      "headline": "WHAT THE VIRAL FENCE TEARDOWN TEACHES ABOUT GETTING PAID",
+      "clicks": 0,
+      "verdict": "All three readers flagged it as confusing; it leans on a news moment a stranger may not know, and it dates once the video fades."
+    },
+    {
+      "headline": "HOW TO GET PAID WITHOUT TEARING OUT YOUR WORK",
+      "clicks": 0,
+      "verdict": "Two readers found it confusing and none clicked; tearing out work only makes sense after the Joliet story, and it brushes against self-help removal."
+    },
+    {
+      "headline": "YOUR CONTRACT DECIDES IF YOU GET THE LAST PAYMENT",
+      "clicks": 0,
+      "verdict": "Plain and close to the angle, but zero clicks; the winner says the same thing as a usable promise readers wanted."
+    },
+    {
+      "headline": "WHAT TO PUT IN YOUR CONTRACT SO YOU GET PAID",
+      "clicks": 3,
+      "verdict": "Won: tied for most clicks, and all three readers expected the contract lines that set when each payment is due, which is the article. Plain, confused no one, clear of recent titles."
+    },
+    {
+      "headline": "THE PAPER TRAIL THAT GETS YOU PAID",
+      "clicks": 0,
+      "verdict": "No clicks; a paper trail points to proving a debt after the fact, not setting payment terms before the job starts."
+    },
+    {
+      "headline": "DON'T LET THE CLIENT DECIDE WHEN YOU GET PAID",
+      "clicks": 0,
+      "verdict": "Plain with a real gap, but no reader chose it; it names the problem without saying the fix sits in the contract."
+    },
+    {
+      "headline": "A BIGGER DEPOSIT WON'T PROTECT YOUR LAST PAYMENT",
+      "clicks": 1,
+      "verdict": "One click and the expectation fits one section, but it frames the post around a myth instead of the setup the article teaches."
+    },
+    {
+      "headline": "UNSIGNED CHANGE ORDERS PUT YOUR LAST PAYMENT AT RISK",
+      "clicks": 0,
+      "verdict": "Clear, but zero clicks, and it covers only the change-order half of the article."
+    },
+    {
+      "headline": "TIRED OF CHASING THE LAST PAYMENT? START WITH THE CONTRACT",
+      "clicks": 0,
+      "verdict": "Plain and on the angle, but no clicks; the question opener spends words, and the winner makes the same promise more directly."
+    },
+    {
+      "headline": "YOU FINISHED THE JOB. WHY ARE YOU STILL CHASING MONEY?",
+      "clicks": 1,
+      "verdict": "One click, but two sentences read like an ad, and the reader expected why clients stall more than the contract setup the article teaches."
+    },
+    {
+      "headline": "WHEN CLIENT CASH GETS TIGHT, PROTECT YOUR FINAL PAYMENT",
+      "clicks": 0,
+      "verdict": "No clicks; it hangs the post on tight client cash and interest rates, a peg that fades, when the article is about contract terms."
+    },
+    {
+      "headline": "GETTING PAID STARTS BEFORE THE WORK DOES",
+      "clicks": 0,
+      "verdict": "Plain and true to the angle, but zero clicks; too general to tell a stranger the article is about what goes in the contract."
+    },
+    {
+      "headline": "MAKE THE MONEY MOVE AS THE WORK GETS DONE",
+      "clicks": 0,
+      "verdict": "All three readers found it confusing; it reads as a slogan that needs the article to make sense."
+    },
+    {
+      "headline": "HOW TO WRITE A PAYMENT SCHEDULE TIED TO FINISHED WORK",
+      "clicks": 0,
+      "verdict": "Accurate how-to, but no clicks; it sounds like paperwork instead of getting paid, and it skips change orders."
+    },
+    {
+      "headline": "SOME STATES REQUIRE A WRITTEN CONTRACT. EVERY JOB NEEDS ONE",
+      "clicks": 0,
+      "verdict": "No clicks; it leads with the law and reads like a compliance notice instead of a way to get paid."
+    },
+    {
+      "headline": "DON'T LEAVE THE LAST PAYMENT ON A HANDSHAKE",
+      "clicks": 0,
+      "verdict": "Plain and close to the angle, but no reader chose it; it warns against handshakes without promising what to put in writing."
+    },
+    {
+      "headline": "HOW SMALL CREWS PROTECT THE MONEY BEFORE THE JOB STARTS",
+      "clicks": 0,
+      "verdict": "On-message but no clicks; protecting the money is vaguer than naming the contract and getting paid."
+    },
+    {
+      "headline": "TEARING OUT A FENCE IS NOT A PAYMENT PLAN",
+      "clicks": 1,
+      "verdict": "One click, but two readers found it confusing; it is a saying that needs the Joliet story, the clever line the guide rules out."
+    },
+    {
+      "headline": "WHY SMALL CREWS GET STUCK CHASING THE FINAL PAYMENT",
+      "clicks": 0,
+      "verdict": "Clear, but zero clicks; it promises the why, while the value of the article is the setup that prevents the chase."
+    }
+  ]
+}
