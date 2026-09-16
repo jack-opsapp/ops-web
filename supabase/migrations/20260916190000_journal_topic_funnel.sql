@@ -14,7 +14,7 @@
 -- the writing that follows. The accepted draft carries the pitch, so the
 -- operator always sees why this topic and this headline.
 --
--- Additive: one table, four settings columns, four assignment columns, four
+-- Additive: one table, three settings columns, four assignment columns, four
 -- functions. Nothing existing changes.
 
 create table public.journal_trend_signals (
