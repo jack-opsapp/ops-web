@@ -94,11 +94,13 @@ function resultFixture(
   over: {
     beforeProfiles?: unknown[];
     afterProfiles?: unknown[];
-    beforeCost?: string | null;
-    afterCost?: string | null;
+    beforeCost?: [string | null, string];
+    afterCost?: [string | null, string];
     effects?: Record<string, unknown>;
   } = {}
 ): SupplierCostResult {
+  const resolved = ([amount, origin]: [string | null, string]) =>
+    ({ amount, origin }) as never;
   const variant = {
     variant_ref: { kind: "catalog_variant", id: VARIANT_ID },
     value_labels: ["Boardwalk", "60mil Smooth"],
@@ -110,7 +112,7 @@ function resultFixture(
       profile("deksmart-standard", "16.9200", true),
       profile("deksmart-condo", "15.7200", false),
     ]) as never,
-    variant_unit_cost: over.beforeCost === undefined ? "16.9200" : over.beforeCost,
+    variant_unit_cost: resolved(over.beforeCost ?? ["16.9200", "variant"]),
   };
   const after = {
     variant,
@@ -119,7 +121,7 @@ function resultFixture(
       profile("deksmart-condo", "15.7200", false, "unchanged"),
       profile("rails-direct-2026", "18.2500", false, "created"),
     ]) as never,
-    variant_unit_cost: over.afterCost === undefined ? "16.9200" : over.afterCost,
+    variant_unit_cost: resolved(over.afterCost ?? ["16.9200", "variant"]),
   };
   return {
     contract_version: "2026-08-07.v1",
@@ -396,7 +398,7 @@ describe("supplier cost request/preview matcher", () => {
         profile("deksmart-condo", "15.7200", false, "unchanged"),
         profile("deksmart-standard", "16.9200", false, "demoted"),
       ],
-      afterCost: "18.2500",
+      afterCost: ["18.2500", "variant"],
       effects: {
         supplier_cost_profiles_written: 2,
         profiles_created: 0,
@@ -407,6 +409,61 @@ describe("supplier cost request/preview matcher", () => {
       },
     });
     expect(matchesSetSupplierCostRequest(result, request)).toBe(true);
+  });
+
+  const promotion = {
+    afterProfiles: [
+      profile("rails-direct-2026", "18.2500", true, "promoted"),
+      profile("deksmart-condo", "15.7200", false, "unchanged"),
+      profile("deksmart-standard", "16.9200", false, "demoted"),
+    ],
+    effects: {
+      supplier_cost_profiles_written: 2,
+      profiles_created: 0,
+      profiles_promoted: 1,
+      profiles_demoted: 1,
+      profiles_updated: 1,
+      variant_unit_cost_mirrored: true,
+    },
+  };
+
+  it("accepts a mirror that keeps an item-level-costed variant inheriting the family cost", () => {
+    const request = requestFixture({ is_default: true });
+    const result = resultFixture(request, {
+      ...promotion,
+      beforeCost: ["18.2500", "family"],
+      afterCost: ["18.2500", "family"],
+    });
+    expect(matchesSetSupplierCostRequest(result, request)).toBe(true);
+  });
+
+  it("accepts a mirror that clears a variant's own cost back onto the family's", () => {
+    const request = requestFixture({ is_default: true });
+    const result = resultFixture(request, {
+      ...promotion,
+      beforeCost: ["16.9200", "variant"],
+      afterCost: ["18.2500", "family"],
+    });
+    expect(matchesSetSupplierCostRequest(result, request)).toBe(true);
+  });
+
+  it("refuses a mirror that pins the variant to the cost it already inherits", () => {
+    const request = requestFixture({ is_default: true });
+    const result = resultFixture(request, {
+      ...promotion,
+      beforeCost: ["18.2500", "family"],
+      afterCost: ["18.2500", "variant"],
+    });
+    expect(matchesSetSupplierCostRequest(result, request)).toBe(false);
+  });
+
+  it("refuses a cost level that moves without a mirror", () => {
+    const request = requestFixture();
+    const result = resultFixture(request, {
+      beforeCost: ["16.9200", "variant"],
+      afterCost: ["16.9200", "family"],
+    });
+    expect(matchesSetSupplierCostRequest(result, request)).toBe(false);
   });
 
   it("accepts a revived profile", () => {
@@ -431,7 +488,7 @@ describe("supplier cost request/preview matcher", () => {
         profile("deksmart-standard", "16.9200", false, "demoted"),
       ],
       // The default moved to 18.25 but the variant's own cost stayed at 16.92.
-      afterCost: "16.9200",
+      afterCost: ["16.9200", "variant"],
       effects: {
         supplier_cost_profiles_written: 2,
         profiles_created: 0,

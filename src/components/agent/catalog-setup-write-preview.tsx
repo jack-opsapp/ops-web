@@ -118,10 +118,17 @@ export function CatalogSetupWritePreview({ proposal }: { proposal: unknown }) {
 
 /**
  * The new row is the short list of fields that can hurt: what it is, what it
- * sells for and where that price comes from, what it costs, when it warns, and
- * how much stock arrives with it. An unset field reads as an em dash rather
- * than disappearing, because an absent threshold and a zero threshold are
- * different answers.
+ * sells for, what it costs, when it warns, and how much stock arrives with it.
+ * An unset field reads as an em dash rather than disappearing, because an
+ * absent threshold and a zero threshold are different answers.
+ *
+ * Every value that can come from the family carries the level it comes from,
+ * in the same "value · level" sentence the edits use. A new variant is written
+ * at the level the family already answers, so a price the operator gave that
+ * equals the family's reads "from the family default" — and that is the
+ * difference between a variant a later family change reaches and one it does
+ * not. When anything is inherited, one line says what that means; when
+ * nothing is, the line is not there.
  */
 function CreateVariantBody({
   preview,
@@ -133,6 +140,11 @@ function CreateVariantBody({
   t: Translate;
 }) {
   const { before, after } = preview;
+  const leveled = (
+    text: string | null,
+    origin: "variant" | "family" | "category" | "none"
+  ) =>
+    text === null ? null : `${text} · ${t(`catalogSetupWrite.origin.${origin}`)}`;
   const money = (amount: string | null) => {
     if (amount === null) return null;
     const value = Number.parseFloat(amount);
@@ -149,32 +161,46 @@ function CreateVariantBody({
     }
   };
 
-  const identity = after.variant.option_values
-    .map((entry) => entry.value)
-    .join(" / ");
+  const { variant } = after;
+  const identity = variant.option_values.map((entry) => entry.value).join(" / ");
   const rows: Array<[string, string | null, boolean]> = [
     ["identity", identity, false],
-    ["sku", after.variant.sku, true],
+    ["sku", variant.sku, true],
     [
       "salePrice",
-      money(after.variant.sale_price) === null
-        ? null
-        : `${money(after.variant.sale_price)} · ${t(
-            after.variant.sale_price_source === "variant_override"
-              ? "catalogSetupWrite.priceOwn"
-              : "catalogSetupWrite.priceInherited"
-          )}`,
+      leveled(money(variant.sale_price.amount), variant.sale_price.origin),
       true,
     ],
-    ["unitCost", money(after.variant.unit_cost), true],
-    ["warning", after.variant.warning_threshold, true],
-    ["critical", after.variant.critical_threshold, true],
+    [
+      "unitCost",
+      leveled(money(variant.unit_cost.amount), variant.unit_cost.origin),
+      true,
+    ],
+    [
+      "warning",
+      leveled(variant.warning_threshold.value, variant.warning_threshold.origin),
+      true,
+    ],
+    [
+      "critical",
+      leveled(
+        variant.critical_threshold.value,
+        variant.critical_threshold.origin
+      ),
+      true,
+    ],
     [
       "openingStock",
       after.opening_quantity === null ? null : after.opening_quantity.quantity,
       true,
     ],
   ];
+  const inherits = [
+    variant.sale_price.origin,
+    variant.unit_cost.origin,
+    variant.warning_threshold.origin,
+    variant.critical_threshold.origin,
+  ].some((origin) => origin === "family" || origin === "category");
 
   return (
     <>
@@ -208,6 +234,12 @@ function CreateVariantBody({
           </div>
         ))}
       </dl>
+
+      {inherits && (
+        <p className="font-mohave text-body-sm text-text-3">
+          {t("catalogSetupWrite.inheritedNote")}
+        </p>
+      )}
 
       {after.opening_quantity !== null && (
         <p className="font-mohave text-body-sm text-text-3">
@@ -304,6 +336,12 @@ function SetThresholdsBody({
  * be able to see all eleven. A variant landing on no price at all is the loudest
  * outcome here, so it is called out above the list and reads as an em dash
  * inside it — an unpriced variant does not quietly disappear from the table.
+ *
+ * A family change has a second half: the variants carrying a price of their
+ * own, which it does not reach. They are listed below the ones it moves, with
+ * the price each keeps, and only when there are any. One of those prices can
+ * equal the new family price — it looks like it follows the family and will
+ * not — so that row is marked, and one line says what the mark means.
  */
 function SetPricingBody({
   preview,
@@ -339,6 +377,8 @@ function SetPricingBody({
   const losingPrice = rows.filter(
     (row) => row.variant.sale_price === null && row.past?.sale_price !== null
   ).length;
+  const shadowing = after.shadowing_variants;
+  const sameAsFamily = shadowing.some((variant) => variant.redundant);
 
   return (
     <>
@@ -420,6 +460,41 @@ function SetPricingBody({
           </ul>
         )}
       </div>
+
+      {shadowing.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-mono text-micro uppercase tracking-authority text-text-3">
+            {t("catalogSetupWrite.shadowing")}
+            <span className="text-text-mute">{" :: "}</span>
+            <span className="tabular-nums">{shadowing.length}</span>
+          </h4>
+          <ul className="max-h-64 divide-y divide-border-subtle overflow-y-auto border-t border-border-subtle scrollbar-hide">
+            {shadowing.map((variant) => (
+              <li
+                key={variant.variant_ref.id}
+                className="flex items-baseline justify-between gap-3 py-2"
+              >
+                <span className="min-w-0 break-words font-mohave text-body-sm text-text">
+                  {variant.value_labels.join(" / ") || "—"}
+                  {variant.redundant && (
+                    <span className="ml-2 border border-border-subtle px-1 font-mono text-micro uppercase tracking-authority text-text-2">
+                      {t("catalogSetupWrite.sameAsFamily")}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 font-mono tabular-nums text-body-sm text-text">
+                  {money(variant.price_override)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {sameAsFamily && (
+            <p className="font-mohave text-body-sm text-text-3">
+              {t("catalogSetupWrite.sameAsFamilyNote")}
+            </p>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -432,10 +507,13 @@ function SetPricingBody({
  * the DEFAULT marker sits on the row that will carry it, and the row losing it
  * says so.
  *
- * Above the sheet is the one number that leaves this table. `unit_cost_override`
- * is the simple cost field the rest of OPS reads, and it follows the default
- * profile — so it is shown now/after, in the same idiom as a threshold or a
- * price, rather than buried as an effect counter.
+ * Above the sheet is the one number that leaves this table: the catalogue cost
+ * the rest of OPS reads, which follows the default profile. It is shown
+ * now/after with the level it comes from, in the same idiom as a threshold or
+ * a price, rather than buried as an effect counter — because a family costed
+ * once keeps its variants inheriting when the default equals the family cost,
+ * and "8.50 · from the family default" is a different answer from "8.50 · set
+ * on this variant".
  *
  * A row whose stored text OPS will not display keeps its key, its cost and its
  * default flag and says its text was withheld. Dropping such a row would hide a
@@ -497,16 +575,22 @@ function SetSupplierCostBody({
                 {t("catalogSetupWrite.now")}{" "}
               </span>
               <span className="font-mono tabular-nums">
-                {money(before.variant_unit_cost) ?? "—"}
+                {money(before.variant_unit_cost.amount) ?? "—"}
               </span>
+              {before.variant_unit_cost.amount === null
+                ? ""
+                : ` · ${t(`catalogSetupWrite.origin.${before.variant_unit_cost.origin}`)}`}
             </p>
             <p className="break-words font-mohave text-body-sm text-text">
               <span className="font-mono text-micro">
                 {t("catalogSetupWrite.after")}{" "}
               </span>
               <span className="font-mono tabular-nums">
-                {money(after.variant_unit_cost) ?? "—"}
+                {money(after.variant_unit_cost.amount) ?? "—"}
               </span>
+              {after.variant_unit_cost.amount === null
+                ? ""
+                : ` · ${t(`catalogSetupWrite.origin.${after.variant_unit_cost.origin}`)}`}
             </p>
           </dd>
         </div>

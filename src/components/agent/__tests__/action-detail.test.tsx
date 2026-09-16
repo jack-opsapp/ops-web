@@ -219,12 +219,62 @@ describe("catalogue setup write exact approval", () => {
   it("shows an unset field as an em dash rather than hiding it", () => {
     const result = catalogSetupWriteFixture();
     result.proposal.after.variant.sku = null;
-    result.proposal.after.variant.unit_cost = null;
+    result.proposal.after.variant.unit_cost = { amount: null, origin: "none" };
     renderDetail({
       actionType: "approve_catalog_setup_write",
       actionData: { proposal: result.proposal },
     });
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("reads a new variant's own values as its own, and says nothing about inheriting", () => {
+    const result = catalogSetupWriteFixture();
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal: result.proposal },
+    });
+    // Price, warning and critical are all set on the variant in this fixture.
+    expect(
+      screen.getAllByText(/catalogSetupWrite.origin.variant/)
+    ).toHaveLength(3);
+    expect(screen.queryByText(/catalogSetupWrite.inheritedNote/)).toBeNull();
+  });
+
+  it("reads each value a new variant inherits with the level it comes from, and says why", () => {
+    const result = catalogSetupWriteFixture();
+    result.proposal.before.default_price = "15.0000";
+    result.proposal.before.default_unit_cost = "8.5000";
+    result.proposal.after.variant.sale_price = {
+      amount: "15.0000",
+      origin: "family",
+    };
+    result.proposal.after.variant.unit_cost = {
+      amount: "8.5000",
+      origin: "family",
+    };
+    result.proposal.after.variant.warning_threshold = {
+      value: "30",
+      origin: "category",
+    };
+    result.proposal.after.variant.critical_threshold = {
+      value: "10",
+      origin: "family",
+    };
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal: result.proposal },
+    });
+    expect(screen.getAllByText(/catalogSetupWrite.origin.family/)).toHaveLength(
+      3
+    );
+    expect(
+      screen.getAllByText(/catalogSetupWrite.origin.category/)
+    ).toHaveLength(1);
+    expect(screen.queryByText(/catalogSetupWrite.origin.variant/)).toBeNull();
+    expect(screen.getByText("30 · catalogSetupWrite.origin.category")).toBeInTheDocument();
+    expect(
+      screen.getByText("catalogSetupWrite.inheritedNote")
+    ).toBeInTheDocument();
   });
 
   it("disables approval when the displayed preview is invalid or expired", () => {
@@ -358,6 +408,8 @@ describe("catalogue setup write exact approval", () => {
     expect(
       screen.getByText(/catalogSetupWrite.pricingEffects/)
     ).toBeInTheDocument();
+    // Every variant follows the family here, so nothing is listed as held back.
+    expect(screen.queryByText(/catalogSetupWrite.shadowing/)).toBeNull();
     // This kind never claims the create kind's stock sentence.
     expect(screen.queryByText(/catalogSetupWrite.openingStockNote/)).toBeNull();
     fireEvent.click(
@@ -396,6 +448,42 @@ describe("catalogue setup write exact approval", () => {
     ).toBeInTheDocument();
     // An unpriced variant reads as an em dash, never as a missing row.
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("lists the variants a family price does not reach, and marks an own price equal to it", () => {
+    const proposal = pricingProposal();
+    const sides = proposal as unknown as {
+      before: { shadowing_variants: unknown[] };
+      after: { shadowing_variants: unknown[] };
+    };
+    const own = (label: string, id: string, price: string, redundant: boolean) => ({
+      variant_ref: { kind: "catalog_variant", id },
+      value_labels: [label],
+      price_override: price,
+      redundant,
+    });
+    sides.before.shadowing_variants = [
+      own("White", "7d82d8e3-b62b-4a6c-85cc-ee02642b99c6", "7.5000", false),
+      own("Grey", "7d82d8e3-b62b-4a6c-85cc-ee02642b99c7", "9.0000", false),
+    ];
+    sides.after.shadowing_variants = [
+      own("White", "7d82d8e3-b62b-4a6c-85cc-ee02642b99c6", "7.5000", true),
+      own("Grey", "7d82d8e3-b62b-4a6c-85cc-ee02642b99c7", "9.0000", false),
+    ];
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal },
+    });
+    expect(
+      screen.getByText("catalogSetupWrite.shadowing")
+    ).toBeInTheDocument();
+    expect(screen.getByText("White")).toBeInTheDocument();
+    expect(screen.getByText("Grey")).toBeInTheDocument();
+    // Only the own price that now equals the family price is marked.
+    expect(screen.getAllByText("catalogSetupWrite.sameAsFamily")).toHaveLength(1);
+    expect(
+      screen.getByText("catalogSetupWrite.sameAsFamilyNote")
+    ).toBeInTheDocument();
   });
 
   it("refuses a price preview whose origin and amount disagree", () => {
@@ -448,10 +536,13 @@ describe("catalogue setup write exact approval", () => {
     expect(
       screen.getByText(/catalogSetupWrite.profileState.demoted/)
     ).toBeInTheDocument();
-    // The number the rest of OPS reads is shown now/after.
+    // The number the rest of OPS reads is shown now/after, with its level.
     expect(
       screen.getByText("catalogSetupWrite.variantCost")
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/catalogSetupWrite.origin.variant/)
+    ).toHaveLength(2);
     expect(
       screen.getByText(/catalogSetupWrite.variantCostNote/)
     ).toBeInTheDocument();
@@ -465,6 +556,24 @@ describe("catalogue setup write exact approval", () => {
       preview_sha256: `sha256:${"1".repeat(64)}`,
       change_set_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
     });
+  });
+
+  it("reads a catalogue cost the variant inherits from its family as the family's", () => {
+    const proposal = supplierCostProposal();
+    const sides = proposal as unknown as {
+      before: { variant_unit_cost: unknown };
+      after: { variant_unit_cost: unknown };
+    };
+    sides.before.variant_unit_cost = { amount: "18.2500", origin: "family" };
+    sides.after.variant_unit_cost = { amount: "18.2500", origin: "family" };
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal },
+    });
+    expect(
+      screen.getAllByText(/catalogSetupWrite.origin.family/)
+    ).toHaveLength(2);
+    expect(screen.queryByText(/catalogSetupWrite.origin.variant/)).toBeNull();
   });
 
   it("says a row's text was withheld rather than dropping the row", () => {
@@ -642,7 +751,7 @@ function supplierCostProposal() {
         profile("deksmart-standard", "16.9200", true, null),
         profile("deksmart-condo", "15.7200", false, "Deksmart condo rate"),
       ],
-      variant_unit_cost: "16.9200",
+      variant_unit_cost: { amount: "16.9200", origin: "variant" },
     },
     after: {
       variant,
@@ -663,7 +772,7 @@ function supplierCostProposal() {
         ),
         profile("deksmart-standard", "16.9200", false, null, "demoted"),
       ],
-      variant_unit_cost: "18.2500",
+      variant_unit_cost: { amount: "18.2500", origin: "variant" },
     },
     effects: {
       variants_created: 0,
@@ -728,6 +837,7 @@ function pricingProposal() {
         variant("7d82d8e3-b62b-4a6c-85cc-ee02642b99c4", "Black", "6.0000"),
         variant("7d82d8e3-b62b-4a6c-85cc-ee02642b99c5", "Sand", "6.0000"),
       ],
+      shadowing_variants: [],
     },
     after: {
       target,
@@ -736,6 +846,7 @@ function pricingProposal() {
         variant("7d82d8e3-b62b-4a6c-85cc-ee02642b99c4", "Black", "7.5000"),
         variant("7d82d8e3-b62b-4a6c-85cc-ee02642b99c5", "Sand", "7.5000"),
       ],
+      shadowing_variants: [],
     },
     effects: {
       variants_created: 0,

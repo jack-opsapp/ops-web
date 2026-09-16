@@ -72,10 +72,17 @@ export function requestFixture(
   } as PrepareCreateCatalogVariantInput;
 }
 
+/** The Vinyl family carries no price of its own unless a test gives it one. */
+export const FAMILY_DEFAULT_PRICE_WHEN_UNPRICED_REQUEST = "45.0000";
+
 export function resultFixture(
   request: PrepareCreateCatalogVariantInput = requestFixture()
 ): CreateVariantResultFixture {
   const opening = request.opening_quantity;
+  const level = (value: number | undefined) =>
+    value === undefined
+      ? { value: null, origin: "none" as const }
+      : { value: String(value), origin: "variant" as const };
   const variant = {
     option_values: request.option_values.map((entry, index) => ({
       option_ref: entry.option_ref,
@@ -84,19 +91,15 @@ export function resultFixture(
       value: index === 0 ? "Boardwalk" : "60mil Smooth",
     })),
     sku: request.sku ?? null,
-    sale_price: request.price_override?.amount ?? null,
-    sale_price_source: (request.price_override
-      ? "variant_override"
-      : "family_default") as "variant_override" | "family_default",
-    unit_cost: null,
-    warning_threshold:
-      request.warning_threshold === undefined
-        ? null
-        : String(request.warning_threshold),
-    critical_threshold:
-      request.critical_threshold === undefined
-        ? null
-        : String(request.critical_threshold),
+    sale_price: request.price_override
+      ? { amount: request.price_override.amount, origin: "variant" as const }
+      : {
+          amount: FAMILY_DEFAULT_PRICE_WHEN_UNPRICED_REQUEST,
+          origin: "family" as const,
+        },
+    unit_cost: { amount: null, origin: "none" as const },
+    warning_threshold: level(request.warning_threshold),
+    critical_threshold: level(request.critical_threshold),
     quantity: opening?.quantity ?? "0",
     is_active: true as const,
     stock_units: opening ? 1 : 0,
@@ -125,7 +128,9 @@ export function resultFixture(
       },
       before: {
         variant_count: 15,
-        default_price: null,
+        default_price: request.price_override
+          ? null
+          : FAMILY_DEFAULT_PRICE_WHEN_UNPRICED_REQUEST,
         default_unit_cost: null,
         existing_value_sets: ["Antique Beige / 60mil Smooth"],
         existing_value_sets_truncated: false,

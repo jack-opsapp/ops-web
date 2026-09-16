@@ -337,11 +337,10 @@ describe("catalogue setup write preview, result and receipt", () => {
       },
     ],
     sku: null,
-    sale_price: "45.0000",
-    sale_price_source: "variant_override",
-    unit_cost: null,
-    warning_threshold: "30",
-    critical_threshold: "12",
+    sale_price: { amount: "45.0000", origin: "variant" },
+    unit_cost: { amount: null, origin: "none" },
+    warning_threshold: { value: "30", origin: "variant" },
+    critical_threshold: { value: "12", origin: "variant" },
     quantity: "12",
     is_active: true,
     stock_units: 1,
@@ -397,6 +396,68 @@ describe("catalogue setup write preview, result and receipt", () => {
 
   it("parses the create_variant preview the database builds", () => {
     expect(CatalogSetupWritePreviewSchema.safeParse(preview).success).toBe(true);
+  });
+
+  it("shows a new variant that inherits every value, with the level each comes from", () => {
+    const inheriting = {
+      ...preview,
+      after: {
+        ...preview.after,
+        variant: {
+          ...projection,
+          sale_price: { amount: "15.0000", origin: "family" },
+          unit_cost: { amount: "8.5000", origin: "family" },
+          warning_threshold: { value: "30", origin: "category" },
+          critical_threshold: { value: "10", origin: "family" },
+        },
+      },
+    };
+    const parsed = CatalogSetupWritePreviewSchema.safeParse(inheriting);
+    expect(parsed.success ? null : parsed.error.issues).toBeNull();
+  });
+
+  it("refuses the bare numbers that could not say which level a value comes from", () => {
+    for (const bare of [
+      { sale_price: "45.0000", sale_price_source: "variant_override" },
+      { unit_cost: null },
+      { warning_threshold: "30" },
+      { critical_threshold: null },
+    ]) {
+      expect(
+        CatalogSetupWritePreviewSchema.safeParse({
+          ...preview,
+          after: {
+            ...preview.after,
+            variant: { ...projection, ...bare },
+          },
+        }).success,
+        JSON.stringify(bare)
+      ).toBe(false);
+    }
+  });
+
+  it("refuses a value without a level, a level without a value, and a cost the variant cannot carry", () => {
+    for (const drift of [
+      { sale_price: { amount: "45.0000", origin: "none" } },
+      { sale_price: { amount: null, origin: "family" } },
+      { sale_price: { amount: "45.0000", origin: "category" } },
+      { unit_cost: { amount: "8.5000", origin: "none" } },
+      { warning_threshold: { value: null, origin: "category" } },
+      { critical_threshold: { value: "12", origin: "none" } },
+      // A new variant is never given a cost of its own: the write carries none.
+      { unit_cost: { amount: "8.5000", origin: "variant" } },
+    ]) {
+      expect(
+        CatalogSetupWritePreviewSchema.safeParse({
+          ...preview,
+          after: {
+            ...preview.after,
+            variant: { ...projection, ...drift },
+          },
+        }).success,
+        JSON.stringify(drift)
+      ).toBe(false);
+    }
   });
 
   it("refuses a preview that claims a message or an accounting sync", () => {

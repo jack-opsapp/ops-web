@@ -31,8 +31,10 @@ function createVariantReceipt() {
 /**
  * The fixture is the literal jsonb `public.prepare_catalog_setup_write_as_system`
  * and `public.commit_catalog_setup_write_as_actor` returned against a local copy
- * of production structure and Canpro's real catalogue, captured by
- * `docs/artifacts/mcp-catalog-setup-writes/create-variant-proof.sql`.
+ * of production structure and Canpro's real catalogue, first captured by
+ * `docs/artifacts/mcp-catalog-setup-writes/create-variant-proof.sql` and
+ * re-captured after the override-level migration by
+ * `docs/artifacts/mcp-catalog-setup-writes/live-fixture-capture.sql`.
  *
  * Every other test in this vertical mocks the database, which proves nothing
  * about the shape the database actually emits. This one closes that gap: if the
@@ -63,17 +65,29 @@ describe("catalogue setup write live database shape", () => {
     expect(result.proposal.effects.stock_units_created).toBe(1);
     expect(result.proposal.effects.messages_sent).toBe(0);
     expect(result.proposal.effects.accounting_sync_enqueued).toBe(0);
-    // The family has no default price, so the variant carries its own.
+    // The family has no default price, so the variant carries its own — and
+    // the preview says which level the price is at, not just the number.
     expect(result.proposal.before.default_price).toBeNull();
-    expect(result.proposal.after.variant.sale_price_source).toBe(
-      "variant_override"
-    );
-    expect(result.proposal.after.variant.sale_price).toBe("45.0000");
-    // catalog_setup_save cannot write a variant unit cost, so it reads unset.
-    expect(result.proposal.after.variant.unit_cost).toBeNull();
-    // Thresholds are whole units, as OPS stores and shows them.
-    expect(result.proposal.after.variant.warning_threshold).toBe("30");
-    expect(result.proposal.after.variant.critical_threshold).toBe("12");
+    expect(result.proposal.after.variant.sale_price).toEqual({
+      amount: "45.0000",
+      origin: "variant",
+    });
+    // Vinyl carries no family cost and the write sets none on the variant.
+    expect(result.proposal.after.variant.unit_cost).toEqual({
+      amount: null,
+      origin: "none",
+    });
+    // Thresholds are whole units, as OPS stores and shows them, with the level
+    // they resolve at: Vinyl has no family or category level, so they are the
+    // variant's own.
+    expect(result.proposal.after.variant.warning_threshold).toEqual({
+      value: "30",
+      origin: "variant",
+    });
+    expect(result.proposal.after.variant.critical_threshold).toEqual({
+      value: "12",
+      origin: "variant",
+    });
   });
 
   it("reads back exactly what the approved preview predicted", () => {
@@ -98,7 +112,7 @@ describe("catalogue setup write live database shape", () => {
         })
       ),
       price_override: {
-        amount: result.proposal.after.variant.sale_price!,
+        amount: result.proposal.after.variant.sale_price.amount!,
         currency: result.proposal.after.currency,
       },
       warning_threshold: 30,

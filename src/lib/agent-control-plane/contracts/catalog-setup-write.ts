@@ -264,10 +264,14 @@ export const PrepareCreateCatalogVariantInputSchema = z
       ),
     sku: z.string().trim().min(1).max(80).optional(),
     price_override: CatalogMinorUnitMoneySchema.optional().describe(
-      "Required when the family has no default price. sale_price = price_override, else the family default."
+      "Required when the family has no default price. sale_price = price_override, else the family default. A price equal to the family default is not set on the variant: it inherits, and follows the next family price change."
     ),
-    warning_threshold: CatalogWholeUnitSchema.optional(),
-    critical_threshold: CatalogWholeUnitSchema.optional(),
+    warning_threshold: CatalogWholeUnitSchema.optional().describe(
+      "Whole units. A level equal to the one the variant would inherit (family default, else category default) is not set on the variant: it inherits."
+    ),
+    critical_threshold: CatalogWholeUnitSchema.optional().describe(
+      "Whole units. A level equal to the one the variant would inherit (family default, else category default) is not set on the variant: it inherits."
+    ),
     opening_quantity: z
       .object({
         quantity: CatalogDecimalSchema,
@@ -326,10 +330,10 @@ export const PrepareSetVariantThresholdsInputSchema = z
   .object({
     variant_ref: CatalogVariantRefSchema,
     warning_threshold: ThresholdArgumentSchema.optional().describe(
-      "Whole units. Null clears the variant's own warning threshold so the family or category default applies."
+      "Whole units. Null clears the variant's own warning threshold so the family or category default applies. A number equal to that inherited level also leaves the variant inheriting, clearing its own level if it had one."
     ),
     critical_threshold: ThresholdArgumentSchema.optional().describe(
-      "Whole units. Null clears the variant's own critical threshold so the family or category default applies."
+      "Whole units. Null clears the variant's own critical threshold so the family or category default applies. A number equal to that inherited level also leaves the variant inheriting, clearing its own level if it had one."
     ),
     evidence: CatalogSetupWriteEvidenceInputSchema,
     idempotency_key: Key,
@@ -378,7 +382,7 @@ export const PrepareSetCatalogPricingInputSchema = z
       CatalogVariantRefSchema,
     ]),
     sale_price: CatalogMinorUnitMoneySchema.nullable().describe(
-      "Null clears the price at this level. A family ref writes the family default; a variant ref writes that variant's override. sale_price = the variant override when set, otherwise the family default."
+      "Null clears the price at this level. A family ref writes the family default and never a variant override. A variant ref writes that variant's override when the amount differs from the family default; an amount equal to the family default leaves the variant inheriting, clearing its override if it had one. sale_price = the variant override when set, otherwise the family default."
     ),
     evidence: CatalogSetupWriteEvidenceInputSchema,
     idempotency_key: Key,
@@ -544,9 +548,9 @@ export const CatalogSetupWriteThresholdEffectsSchema = z
  * A pricing write moves exactly one level: a family default or one variant's
  * override, never both. `prices_changed` counts the variants whose RESOLVED
  * sale price moves, which is not the same as the field that was written —
- * pinning a variant to the number it already inherited writes a row and moves
- * no price, and clearing a family default moves every variant that had none of
- * its own.
+ * clearing a variant's own price that already equalled its family price writes
+ * a row and moves no price, and clearing a family default moves every variant
+ * that had none of its own.
  */
 export const CatalogSetupWritePricingEffectsSchema = z
   .object({
@@ -652,26 +656,6 @@ const ResolvedOptionValueSchema = z
   .strict();
 
 /**
- * The exact shape both sides of the commit compare: the preview predicts it
- * from the request, and the receipt reads it back from the created row.
- */
-export const CatalogVariantProjectionSchema = z
-  .object({
-    option_values: z.array(ResolvedOptionValueSchema).min(1).max(32),
-    sku: z.string().min(1).nullable(),
-    sale_price: CatalogDecimalSchema.nullable(),
-    sale_price_source: z.enum(["variant_override", "family_default", "unset"]),
-    unit_cost: CatalogDecimalSchema.nullable(),
-    warning_threshold: z.string().regex(/^(0|[1-9][0-9]*)$/).nullable(),
-    critical_threshold: z.string().regex(/^(0|[1-9][0-9]*)$/).nullable(),
-    quantity: CatalogDecimalSchema,
-    is_active: z.literal(true),
-    stock_units: z.number().int().min(0),
-    stock_events: z.number().int().min(0),
-  })
-  .strict();
-
-/**
  * Where an effective threshold came from, named exactly as `get_catalog_item`
  * names it: the variant's own value, else the family default, else the category
  * default, else nothing is tracked at all.
@@ -700,6 +684,59 @@ export const CatalogResolvedThresholdSchema = z
     (threshold) => (threshold.origin === "none") === (threshold.value === null),
     { message: "An origin of none means no value, and a value names its level." }
   );
+
+/**
+ * Where a price or a cost comes from: the variant's own term, else the family
+ * default, else there is none. Money has no category level.
+ */
+export const CatalogAmountOriginSchema = z.enum(["variant", "family", "none"]);
+
+/**
+ * A price or cost as the catalogue resolves it, with the level that supplies
+ * it. The level is the part a bare number hides: 15.00 set on a variant stops
+ * following the family, and 15.00 inherited from it does not, so an operator
+ * approving either has to be able to tell which one they are looking at.
+ */
+export const CatalogResolvedAmountSchema = z
+  .object({
+    amount: CatalogDecimalSchema.nullable(),
+    origin: CatalogAmountOriginSchema,
+  })
+  .strict()
+  .refine((resolved) => (resolved.origin === "none") === (resolved.amount === null), {
+    message: "An origin of none means no amount, and an amount names its level.",
+  });
+
+/**
+ * The exact shape both sides of the commit compare: the preview predicts it
+ * from the request, and the receipt reads it back from the created row.
+ *
+ * Every value that resolves through the family carries its level. A new
+ * variant is written at the level the family already answers — a price or a
+ * threshold equal to what it would inherit is not set on the variant — so the
+ * preview says "15.00, from the family" rather than a bare 15.00, and a level
+ * the variant inherits reads as that level instead of as "not tracked".
+ */
+export const CatalogVariantProjectionSchema = z
+  .object({
+    option_values: z.array(ResolvedOptionValueSchema).min(1).max(32),
+    sku: z.string().min(1).nullable(),
+    sale_price: CatalogResolvedAmountSchema,
+    unit_cost: CatalogResolvedAmountSchema.refine(
+      (cost) => cost.origin !== "variant",
+      {
+        message:
+          "A new variant carries no cost of its own; its cost can only come from the family.",
+      }
+    ),
+    warning_threshold: CatalogResolvedThresholdSchema,
+    critical_threshold: CatalogResolvedThresholdSchema,
+    quantity: CatalogDecimalSchema,
+    is_active: z.literal(true),
+    stock_units: z.number().int().min(0),
+    stock_events: z.number().int().min(0),
+  })
+  .strict();
 
 export const CatalogVariantThresholdProjectionSchema = z
   .object({
@@ -752,13 +789,34 @@ const AffectedVariantSchema = z
   );
 
 /**
+ * A variant carrying a price of its own, which a family default therefore does
+ * not reach. `redundant` is true when that own price EQUALS the family default
+ * on this side of the change: it changes nothing today, but it will keep the
+ * variant where it is the next time the family price moves. It is information
+ * for the operator — no write clears it, because clearing it would move a
+ * variant nobody asked to move.
+ */
+const ShadowingVariantSchema = z
+  .object({
+    variant_ref: CatalogVariantRefSchema,
+    value_labels: z.array(z.string().min(1)).max(32),
+    price_override: CatalogDecimalSchema,
+    redundant: z.boolean(),
+  })
+  .strict();
+
+/**
  * Both sides of a pricing change read the same way: what this thing sells for
  * now, and what it will sell for. `affected_variants` is every variant whose
  * RESOLVED sale price the write touches — for a family that is every variant
  * carrying no override of its own, and a variant whose price becomes null
  * appears with origin `none` rather than disappearing.
  *
- * The list is bounded rather than truncated. A truncated list of prices is a
+ * `shadowing_variants` is the other half of a family change: every active
+ * variant carrying its own price, which the new default will not reach. A
+ * variant target has no such half, so its list is always empty.
+ *
+ * Both lists are bounded rather than truncated. A truncated list of prices is a
  * preview an operator cannot approve honestly.
  */
 export const CatalogPricingProjectionSchema = z
@@ -775,8 +833,18 @@ export const CatalogPricingProjectionSchema = z
       .strict(),
     price: CatalogResolvedPriceSchema,
     affected_variants: z.array(AffectedVariantSchema).max(128),
+    shadowing_variants: z.array(ShadowingVariantSchema).max(128),
   })
-  .strict();
+  .strict()
+  .refine(
+    (projection) =>
+      projection.target.item_ref.kind === "catalog_family" ||
+      projection.shadowing_variants.length === 0,
+    {
+      message:
+        "Only a family default can be shadowed; a variant target lists no shadowing variants.",
+    }
+  );
 
 /**
  * What this approval does to one profile row. `unchanged` is carried rather than
@@ -845,9 +913,15 @@ const SupplierCostVariantSchema = z
 
 /**
  * Both sides carry EVERY profile the variant has, so the default flip is legible
- * at a glance rather than a diff the operator has to compute. `variant_unit_cost`
- * is the variant's own cost field — the simple model that job costing reads —
- * shown on both sides because promoting a profile moves it (gap #17).
+ * at a glance rather than a diff the operator has to compute.
+ *
+ * `variant_unit_cost` is the variant's catalogue cost as the catalogue resolves
+ * it — its own `unit_cost_override`, else the family's `default_unit_cost` —
+ * with the level that supplies it, shown on both sides because promoting a
+ * profile moves it (gap #17). The mirror writes the default profile's cost at
+ * the level the family already uses: a family costed once keeps its variants
+ * inheriting when the new default equals the family cost, so the answer can be
+ * "8.50, from the family" on both sides of a real change.
  */
 export const CatalogSupplierCostProjectionSchema = z
   .object({
@@ -858,7 +932,7 @@ export const CatalogSupplierCostProjectionSchema = z
       .refine(exactlyOneDefault, {
         message: "A variant carrying profiles carries exactly one default.",
       }),
-    variant_unit_cost: CatalogDecimalSchema.nullable(),
+    variant_unit_cost: CatalogResolvedAmountSchema,
   })
   .strict();
 
@@ -872,7 +946,7 @@ export const CatalogSupplierCostPlanSchema = z
       .refine(exactlyOneDefault, {
         message: "A variant carrying profiles carries exactly one default.",
       }),
-    variant_unit_cost: CatalogDecimalSchema.nullable(),
+    variant_unit_cost: CatalogResolvedAmountSchema,
   })
   .strict();
 

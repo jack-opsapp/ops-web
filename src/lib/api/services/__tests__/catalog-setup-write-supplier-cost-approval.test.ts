@@ -69,7 +69,7 @@ const readback = {
     profile("rails-direct-2026", "18.2500", true),
     profile("deksmart-standard", "16.9200", false),
   ],
-  variant_unit_cost: "18.2500",
+  variant_unit_cost: { amount: "18.2500", origin: "variant" },
 } as const;
 
 function receipt(replayed = false) {
@@ -211,6 +211,7 @@ describe("supplier cost approval boundary", () => {
           },
           price: { amount: "7.5000", currency: "CAD", origin: "family" },
           affected_variants: [],
+          shadowing_variants: [],
         },
       },
       // One row written, plus the current default when promoting demotes it.
