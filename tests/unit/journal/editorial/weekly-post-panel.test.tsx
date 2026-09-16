@@ -243,7 +243,7 @@ describe("weekly post panel", () => {
     expect(evidence).not.toHaveAttribute("open");
     expect(alternativesBox).not.toHaveAttribute("open");
     expect(evidence.contains(screen.getByRole("link", { name: "Why your best tech quits" }))).toBe(true);
-    expect(why.querySelector("details")?.compareDocumentPosition(screen.getByText(pitch.hook)) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(evidence.compareDocumentPosition(screen.getByText(pitch.hook)) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     // The alternatives name only the headlines that lost.
 
     expect(within(why).queryAllByText("YOUR NEW GUY QUIT BEFORE LUNCH")).toHaveLength(0);
