@@ -21,6 +21,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { AccountingTokenService } from "./accounting-token-service";
 import { QuickBooksPullService } from "./quickbooks-pull-service";
+import { findUnresolvedDecisions, unresolvedDecisionsMessage } from "./qbo-apply-decisions";
 import {
   normalizeCustomer,
   normalizeInvoice,
@@ -964,6 +965,17 @@ export class QuickBooksImportService {
     connectionId: string | null,
     decisions: QboApplyDecision[]
   ): Promise<QboApplyResult> {
+    // ── Refuse unfinished decisions before any write ───────────────────────
+    // A Link with no client, or an unresolved needs_review, resolves to a
+    // skip — and a skipped customer's estimates, invoices, lines, and payments
+    // are dropped. The apply route already rejects these (422); this is the
+    // engine's own floor for every other caller. Throwing here marks the run
+    // `error` via applyImport's guard with nothing written.
+    const unresolved = findUnresolvedDecisions(decisions);
+    if (unresolved.length > 0) {
+      throw new Error(unresolvedDecisionsMessage(unresolved));
+    }
+
     // ── Load all staged rows for this run ──────────────────────────────────
     const { data: stagedCustomers } = await sb
       .from("qbo_staging_customers").select("*").eq("run_id", runId);
@@ -1012,18 +1024,32 @@ export class QuickBooksImportService {
       const action = decision?.action ?? "skip";
       const customerDeletedAt = cust.active === false ? nowIso : null;
 
-      if (action === "skip" || action === "needs_review") {
+      if (action === "skip") {
         clientIdByCustomerQbId.set(cust.qb_id as string, null);
         result.clientsSkipped++;
         continue;
       }
 
+      if (action === "needs_review") {
+        // Unreachable past the guard at the top of this method; an unresolved
+        // review must never fall through to create (or quietly skip).
+        throw new Error(
+          unresolvedDecisionsMessage([
+            { customer_qb_id: cust.qb_id as string, reason: "needs_review" },
+          ])
+        );
+      }
+
       if (action === "link") {
         const clientId = decision?.client_id;
         if (!clientId) {
-          clientIdByCustomerQbId.set(cust.qb_id as string, null);
-          result.clientsSkipped++;
-          continue;
+          // Unreachable past the guard at the top of this method; kept as a
+          // hard stop so a future refactor can never reintroduce a silent skip.
+          throw new Error(
+            unresolvedDecisionsMessage([
+              { customer_qb_id: cust.qb_id as string, reason: "link_without_client" },
+            ])
+          );
         }
         // C4: the link target MUST belong to this company. Verify ownership
         // before writing — a decision referencing another tenant's client id

@@ -434,6 +434,46 @@ describe("QuickBooksImportService.applyImport", () => {
     expect(supabase.__db.payments).toHaveLength(0);
   });
 
+  describe("refuses unfinished customer decisions — a customer's money is never silently dropped", () => {
+    it("a Link with no OPS client fails the run with nothing written (it used to skip the customer)", async () => {
+      const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+      const svc = new QuickBooksImportService(supabase);
+      await expect(
+        svc.applyImport(RUN_ID, [{ customer_qb_id: "QB-CUST-1", action: "link" }])
+      ).rejects.toThrow(/link with no OPS client: QB-CUST-1/);
+      const run = supabase.__db.qbo_import_runs.find((r: Row) => r.id === RUN_ID);
+      expect(run.status).toBe("error");
+      expect(run.error).toMatch(/Nothing was written/);
+      expect(supabase.__db.clients).toHaveLength(0);
+      expect(supabase.__db.estimates).toHaveLength(0);
+      expect(supabase.__db.invoices).toHaveLength(0);
+      expect(supabase.__db.line_items).toHaveLength(0);
+      expect(supabase.__db.payments).toHaveLength(0);
+    });
+
+    it("a blank client id counts as no client", async () => {
+      const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+      const svc = new QuickBooksImportService(supabase);
+      await expect(
+        svc.applyImport(RUN_ID, [{ customer_qb_id: "QB-CUST-1", action: "link", client_id: "  " }])
+      ).rejects.toThrow(/link with no OPS client/);
+      expect(supabase.__db.invoices).toHaveLength(0);
+    });
+
+    it("an unresolved needs_review fails the run with nothing written — never falls through to create", async () => {
+      const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+      const svc = new QuickBooksImportService(supabase);
+      await expect(
+        svc.applyImport(RUN_ID, [{ customer_qb_id: "QB-CUST-1", action: "needs_review" }])
+      ).rejects.toThrow(/needs review: QB-CUST-1/);
+      const run = supabase.__db.qbo_import_runs.find((r: Row) => r.id === RUN_ID);
+      expect(run.status).toBe("error");
+      expect(supabase.__db.clients).toHaveLength(0);
+      expect(supabase.__db.invoices).toHaveLength(0);
+      expect(supabase.__db.payments).toHaveLength(0);
+    });
+  });
+
   it("aborts the run (status=error) and throws when a live-table write fails — no false success", async () => {
     // Regression for the prod 42P10 bug: a failed write must NOT be swallowed
     // and reported as a successful 'applied' run. Inject a write failure on the
