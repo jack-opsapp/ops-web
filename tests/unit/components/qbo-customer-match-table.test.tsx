@@ -8,6 +8,16 @@ vi.mock("@/i18n/client", () => ({
 
 import { CustomerMatchTable } from "@/components/accounting/qbo/customer-match-table";
 import type { QboCustomerMatch } from "@/lib/types/qbo-import";
+import type { LinkableClient } from "@/components/accounting/qbo/client-link-picker";
+
+// Every OPS client in the company. The Link picker searches all of them —
+// not just the importer's suggested candidates.
+const CLIENTS: LinkableClient[] = [
+  { id: "c-1", name: "Acme Decks", email: "office@acmedecks.ca", phoneNumber: null },
+  { id: "c-2", name: "Rowan Pike", email: null, phoneNumber: "250-555-0199" },
+  { id: "c-3", name: "Harbourline Rail", email: "office@harbourline.example", phoneNumber: null },
+  { id: "c-9", name: "Cascade Concrete", email: null, phoneNumber: null },
+];
 
 // QboCustomerMatch carries displayName (the QB customer's DisplayName, joined
 // from staging by getImportReview). The name column renders companyName ??
@@ -90,7 +100,7 @@ describe("CustomerMatchTable", () => {
   it("does not offer needs_review as a selectable action", async () => {
     const user = userEvent.setup();
     render(
-      <CustomerMatchTable matches={[companyMatch]} decisions={{}} onDecisionChange={vi.fn()} />
+      <CustomerMatchTable matches={[companyMatch]} decisions={{}} onDecisionChange={vi.fn()} clients={CLIENTS} />
     );
     await user.click(screen.getByTestId("match-action-QB-CO"));
     const options = screen.getAllByRole("option").map((o) => o.textContent);
@@ -100,7 +110,7 @@ describe("CustomerMatchTable", () => {
 
   it("shows the contact name as a sub-line for company customers", () => {
     render(
-      <CustomerMatchTable matches={[companyMatch]} decisions={{}} onDecisionChange={vi.fn()} />
+      <CustomerMatchTable matches={[companyMatch]} decisions={{}} onDecisionChange={vi.fn()} clients={CLIENTS} />
     );
     expect(screen.getByText("Acme Corp")).toBeInTheDocument();
     expect(screen.getByText(/John Smith/)).toBeInTheDocument();
@@ -108,7 +118,7 @@ describe("CustomerMatchTable", () => {
 
   it("renders one row per match with confidence + basis", () => {
     render(
-      <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} />
+      <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} clients={CLIENTS} />
     );
     expect(screen.getByText("Sonnenschein Family Store")).toBeInTheDocument();
     expect(screen.getByText("Adwin Ko")).toBeInTheDocument();
@@ -123,7 +133,7 @@ describe("CustomerMatchTable", () => {
   it("labels an exact-match candidate by basis, never as a percentage", async () => {
     const user = userEvent.setup();
     render(
-      <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} />
+      <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} clients={CLIENTS} />
     );
     // QB1 is a link row → the candidate picker is present. Open it.
     await user.click(screen.getByTestId("match-candidate-QB1"));
@@ -139,7 +149,7 @@ describe("CustomerMatchTable", () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
-      <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={onChange} />
+      <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={onChange} clients={CLIENTS} />
     );
     await user.click(screen.getByTestId("match-action-QB2"));
     await user.click(screen.getByRole("option", { name: "qbo.action.skip" }));
@@ -148,15 +158,144 @@ describe("CustomerMatchTable", () => {
 
   it("shows the candidate picker for link rows only", () => {
     render(
-      <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} />
+      <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} clients={CLIENTS} />
     );
     expect(screen.getByTestId("match-candidate-QB1")).toBeInTheDocument();
     expect(screen.queryByTestId("match-candidate-QB2")).not.toBeInTheDocument();
   });
 
+  describe("Link picker — every company client, not just suggestions", () => {
+    it("lists the importer's suggestions first, then every other client A–Z", async () => {
+      const user = userEvent.setup();
+      render(
+        <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} clients={CLIENTS} />
+      );
+      await user.click(screen.getByTestId("match-candidate-QB1"));
+      const options = screen.getAllByRole("option").map((o) => o.textContent ?? "");
+      expect(options).toHaveLength(5);
+      expect(options[0]).toContain("qbo.candidate.none");
+      expect(options[1]).toContain("Acme Decks");
+      expect(options[1]).toContain("qbo.candidate.qualifier.email");
+      expect(options[2]).toContain("Cascade Concrete");
+      expect(options[3]).toContain("Harbourline Rail");
+      expect(options[4]).toContain("Rowan Pike");
+    });
+
+    it("links a customer to a client the importer never suggested", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <CustomerMatchTable
+          matches={matches}
+          // QB2 had no suggestion (proposed create); the operator switched it to Link.
+          decisions={{ QB2: { action: "link" } }}
+          onDecisionChange={onChange}
+          clients={CLIENTS}
+        />
+      );
+      await user.click(screen.getByTestId("match-candidate-QB2"));
+      await user.type(screen.getByTestId("match-candidate-search-QB2"), "pike");
+      await user.click(await screen.findByRole("option", { name: /Rowan Pike/ }));
+      expect(onChange).toHaveBeenCalledWith("QB2", { action: "link", client_id: "c-2" });
+    });
+
+    it("searches client email and phone, not only the name", async () => {
+      const user = userEvent.setup();
+      render(
+        <CustomerMatchTable
+          matches={matches}
+          decisions={{ QB2: { action: "link" } }}
+          onDecisionChange={vi.fn()}
+          clients={CLIENTS}
+        />
+      );
+      await user.click(screen.getByTestId("match-candidate-QB2"));
+      const search = screen.getByTestId("match-candidate-search-QB2");
+
+      await user.type(search, "office@harbourline");
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+        expect.stringContaining("Harbourline Rail"),
+      ]);
+
+      await user.clear(search);
+      await user.type(search, "555-0199");
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+        expect.stringContaining("Rowan Pike"),
+      ]);
+    });
+
+    it("shows the chosen client's name on the row once picked", () => {
+      render(
+        <CustomerMatchTable
+          matches={matches}
+          decisions={{ QB2: { action: "link", client_id: "c-3" } }}
+          onDecisionChange={vi.fn()}
+          clients={CLIENTS}
+        />
+      );
+      expect(screen.getByTestId("match-candidate-QB2")).toHaveTextContent("Harbourline Rail");
+    });
+  });
+
+  it("picking a client on a needs_review row resolves it to a Link to that client", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <CustomerMatchTable
+        matches={[needsReviewMatch]}
+        decisions={{}}
+        onDecisionChange={onChange}
+        clients={CLIENTS}
+      />
+    );
+    await user.click(screen.getByTestId("match-candidate-QB-NR"));
+    await user.click(await screen.findByRole("option", { name: /Cascade Concrete/ }));
+    expect(onChange).toHaveBeenCalledWith("QB-NR", { action: "link", client_id: "c-9" });
+  });
+
+  it("clearing the client never silently changes the row's decision", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <CustomerMatchTable
+        matches={matches}
+        decisions={{}}
+        onDecisionChange={onChange}
+        clients={CLIENTS}
+      />
+    );
+    await user.click(screen.getByTestId("match-candidate-QB1"));
+    await user.click(await screen.findByRole("option", { name: /qbo.candidate.none/ }));
+    expect(onChange).toHaveBeenCalledWith("QB1", { action: "link", client_id: undefined });
+  });
+
+  it("blocks a Link row with no client chosen, and clears once a client is picked", () => {
+    const { rerender } = render(
+      <CustomerMatchTable
+        matches={matches}
+        decisions={{ QB2: { action: "link" } }}
+        onDecisionChange={vi.fn()}
+        clients={CLIENTS}
+      />
+    );
+    const row = () => screen.getByTestId("match-row-QB2");
+    expect(row()).toHaveAttribute("data-blocking", "true");
+    expect(row().className).toContain("bg-rose-soft");
+
+    rerender(
+      <CustomerMatchTable
+        matches={matches}
+        decisions={{ QB2: { action: "link", client_id: "c-2" } }}
+        onDecisionChange={vi.fn()}
+        clients={CLIENTS}
+      />
+    );
+    expect(row()).not.toHaveAttribute("data-blocking");
+  });
+
   it("gives an unresolved needs_review row the blocking (rose) treatment", () => {
     render(
-      <CustomerMatchTable matches={[needsReviewMatch]} decisions={{}} onDecisionChange={vi.fn()} />
+      <CustomerMatchTable matches={[needsReviewMatch]} decisions={{}} onDecisionChange={vi.fn()} clients={CLIENTS} />
     );
     const row = screen.getByTestId("match-row-QB-NR");
     expect(row).toHaveAttribute("data-blocking", "true");

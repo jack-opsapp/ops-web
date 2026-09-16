@@ -15,8 +15,9 @@ import type {
   MatchAction,
   MatchConfidence,
   QboCustomerMatch,
-  QboMatchCandidate,
 } from "@/lib/types/qbo-import";
+import { isUnresolvedDecision } from "@/lib/api/services/qbo-apply-decisions";
+import { ClientLinkPicker, type LinkableClient } from "./client-link-picker";
 
 export interface RowDecision {
   action: MatchAction;
@@ -27,10 +28,6 @@ export interface RowDecision {
 // the operator must resolve it to link/create/skip. It shows as the current value
 // (disabled) when proposed, but is not an option the operator can pick.
 const SELECTABLE_ACTIONS: MatchAction[] = ["link", "create", "skip"];
-
-// Radix Select forbids an empty-string item value; this sentinel maps to
-// "no OPS client selected" and is normalised back to `undefined` on change.
-const NO_CLIENT = "__none__";
 
 // Confidence → earth-tone tag (DESIGN.md § earth-tone semantics): olive = strong,
 // tan = attention, rose = weak. Color always ships with the text label (a11y).
@@ -56,23 +53,6 @@ function resolveDecision(
   );
 }
 
-/**
- * The match-quality qualifier for a candidate option. Exact matches carry no
- * similarity score (it arrives null and coerces to 0), so a percentage is
- * meaningless for them — show the basis instead ("email match" / "exact match").
- * Only a real fuzzy score (0 < score ≤ 1) renders a percentage. Returns null
- * when there is nothing honest to show (never a misleading "0%").
- */
-function candidateQualifier(
-  c: QboMatchCandidate,
-  t: (key: string) => string
-): string | null {
-  if (c.basis === "email") return t("qbo.candidate.qualifier.email");
-  if (c.basis === "name_exact") return t("qbo.candidate.qualifier.exact");
-  if (c.basis === "name_fuzzy" && c.score > 0) return `${Math.round(c.score * 100)}%`;
-  return null;
-}
-
 function ColumnHead({ children }: { children: React.ReactNode }) {
   return (
     <span
@@ -88,10 +68,15 @@ export function CustomerMatchTable({
   matches,
   decisions,
   onDecisionChange,
+  clients,
+  clientsLoading = false,
 }: {
   matches: QboCustomerMatch[];
   decisions: Record<string, RowDecision>;
   onDecisionChange: (qbId: string, decision: RowDecision) => void;
+  /** Every OPS client in the company — the Link picker searches all of them. */
+  clients: LinkableClient[];
+  clientsLoading?: boolean;
 }) {
   const { t } = useDictionary("accounting");
 
@@ -116,9 +101,10 @@ export function CustomerMatchTable({
             const decision = resolveDecision(m, decisions);
             const showPicker =
               decision.action === "link" || decision.action === "needs_review";
-            // needs_review is the one blocking state — it stops Apply, so it must
-            // be the loudest thing in the row (bug: blockers weren't surfaced).
-            const isBlocking = decision.action === "needs_review";
+            // Blocking rows stop Apply, so they must be the loudest thing in the
+            // row: an unresolved needs_review, or a Link with no client chosen
+            // (applied, it would drop this customer's invoices and payments).
+            const isBlocking = isUnresolvedDecision(decision);
 
             return (
               <div
@@ -211,48 +197,25 @@ export function CustomerMatchTable({
                   </Select>
                 </div>
 
-                {/* OPS client (candidate picker) */}
+                {/* OPS client (searches every company client) */}
                 <div role="cell" className="min-w-0">
                   {showPicker ? (
-                    <Select
-                      value={decision.client_id ?? NO_CLIENT}
-                      onValueChange={(value) =>
+                    <ClientLinkPicker
+                      customerQbId={m.customerQbId}
+                      value={decision.client_id}
+                      candidates={m.candidates}
+                      clients={clients}
+                      clientsLoading={clientsLoading}
+                      onChange={(clientId) =>
                         onDecisionChange(m.customerQbId, {
-                          action: decision.action,
-                          client_id: value === NO_CLIENT ? undefined : value,
+                          // Choosing a client IS the decision: on a needs_review
+                          // row it resolves to Link. Clearing never changes the
+                          // action — a Link with no client stays visibly blocked.
+                          action: clientId ? "link" : decision.action,
+                          client_id: clientId,
                         })
                       }
-                    >
-                      <SelectTrigger
-                        data-testid={`match-candidate-${m.customerQbId}`}
-                        className="font-mono text-caption"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NO_CLIENT}>
-                          {t("qbo.candidate.none")}
-                        </SelectItem>
-                        {m.candidates.map((c) => {
-                          const qualifier = candidateQualifier(c, t);
-                          return (
-                            <SelectItem key={c.clientId} value={c.clientId}>
-                              <span className="font-mohave">
-                                {c.name ?? c.clientId}
-                              </span>
-                              {qualifier && (
-                                <>
-                                  <span className="text-text-mute"> · </span>
-                                  <span className="font-mono text-caption-sm text-text-3">
-                                    {qualifier}
-                                  </span>
-                                </>
-                              )}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
+                    />
                   ) : (
                     <span className="font-mono text-micro text-text-mute">—</span>
                   )}

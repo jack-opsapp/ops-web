@@ -24,6 +24,7 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { QuickBooksImportService } from "@/lib/api/services/quickbooks-import-service";
 import { MATCH_ACTIONS, type QboApplyDecision, type MatchAction } from "@/lib/types/qbo-import";
+import { findUnresolvedDecisions } from "@/lib/api/services/qbo-apply-decisions";
 
 const MATCH_ACTION_SET = new Set<string>(MATCH_ACTIONS);
 
@@ -102,6 +103,22 @@ export async function POST(request: NextRequest) {
     }
     if ((run.company_id as string) !== companyId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // An unfinished decision (Link with no client, unresolved needs_review)
+    // would apply as a skip and drop that customer's invoices, estimates, and
+    // payments without a trace. Refuse the whole apply before the run is
+    // touched — the operator finishes the review, then applies.
+    const unresolved = findUnresolvedDecisions(decisions);
+    if (unresolved.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Finish every customer decision before applying",
+          code: "unresolved_decisions",
+          unresolved,
+        },
+        { status: 422 }
+      );
     }
 
     const service = new QuickBooksImportService(supabase);
