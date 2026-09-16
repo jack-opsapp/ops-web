@@ -1,0 +1,205 @@
+{
+  "topic": "Getting paid is decided at signing: a written payment schedule tied to finished work and signed change orders, so a job never ends in a teardown.",
+  "reader": "An owner-operator running a small residential crew (fences, decks, roofs, remodels) who finished the work and watched the last payment stall: I did the job, he's got the fence, and I'm the one chasing him.",
+  "why_now": "On 2026-09-13 a Joliet, Illinois fence crew posted video of themselves tearing out a fence they had installed after the homeowner allegedly refused to pay, and national press carried it. The Roofing Insights repost is running at about 450 times that channel's typical video, the biggest spike on the radar. The same stretch shows how wide the money problem runs: a Breakthrough Academy class on why skilled landscapers run out of cash broke out, and a ContractorTalk business-board thread on margin erosion drew 44 replies, while rates rose and builder confidence fell.",
+  "ethos": "Getting paid is ownership of the paper, not luck. Ten years in deck and rail is the same backyard, fixed-structure work as fencing, where the crew's leverage ends when the last board goes up.",
+  "angle": "A crew's pull on the money shrinks with every finished phase, so the last payment is decided at signing: each payment tied in writing to a named, finished phase, and nothing extra built without a signed change order. A bigger deposit isn't the fix. The schedule is.",
+  "hook": "The last post is plumb, the gate swings clean, and the homeowner who used to text you every morning has gone quiet. That balance was decided before the first post hole, at his kitchen table, when he signed a page with a total at the bottom and not one line tying the money to finished work.",
+  "headline": "THE LAST PAYMENT IS DECIDED BEFORE THE FIRST POST HOLE",
+  "signals": [
+    {
+      "id": "ae8f9061-96a7-48d7-a4d2-4f57b2cde0e7",
+      "sphere": "trades",
+      "source": "Roofing Insights",
+      "kind": "video",
+      "title": "Contractor Removes Fence After Customer Payment Dispute",
+      "url": "https://www.youtube.com/shorts/C7mHhY4WMMA",
+      "summary": "A contractor removes a fence following a heated payment dispute with a homeowner. This footage captures the fallout when a job goes south, leaving both parties in an aggressive confrontation over unpaid work. Watching this breakdown highlights why clear contracts and upfront…",
+      "published_at": "2026-09-14T20:38:53.000Z",
+      "age_days": 2,
+      "views": 924604,
+      "typical_views": 2056,
+      "momentum": 449.71,
+      "replies": null
+    },
+    {
+      "id": "20dea61d-f8fc-454e-8e04-50b0a4fd5c13",
+      "sphere": "trades",
+      "source": "Breakthrough Academy",
+      "kind": "video",
+      "title": "Why skilled landscapers run out of cash (and what to do about it)",
+      "url": "https://www.youtube.com/watch?v=qy1vCyEu3lE",
+      "summary": "Take Control of Your Cash Flow Revenue is growing, jobs are coming in—but where is all the cash going? In this free web class from Breakthrough Academy, we’ll break down practical strategies contractors can use to gain better visibility into their finances, improve cash flow,…",
+      "published_at": "2026-09-09T07:06:03.000Z",
+      "age_days": 7.6,
+      "views": 380,
+      "typical_views": 124,
+      "momentum": 3.06,
+      "replies": null
+    },
+    {
+      "id": "c7abaf7e-1caa-46c9-be04-84ea98811f0f",
+      "sphere": "forum",
+      "source": "ContractorTalk",
+      "kind": "thread",
+      "title": "Margin erosion",
+      "url": "https://www.contractortalk.com/threads/margin-erosion.464367/",
+      "summary": "General Contractor Discussion Forum · Hey I’m 20 and just learning the business side. How do you guys currently track and protect your jobs margins after a project starts. I’m curious how some of you handle things like, labor hours vs original estimate, material price changes,…",
+      "published_at": "2026-09-10T20:19:09.000Z",
+      "age_days": 6,
+      "views": null,
+      "typical_views": null,
+      "momentum": null,
+      "replies": 44
+    },
+    {
+      "id": "3ae80021-5670-404f-95be-2ad219988375",
+      "sphere": "industry",
+      "source": "Construction Dive",
+      "kind": "article",
+      "title": "Fed raises rates but construction has a bigger problem",
+      "url": "https://www.constructiondive.com/news/fed-raises-rates-construction-inflation-september-2026/830559/",
+      "summary": "Higher rates could force owners to delay or outright abandon projects, said Michael Guckes, chief economist at ConstructConnect, a commercial construction data provider.",
+      "published_at": "2026-09-16T18:07:44.000Z",
+      "age_days": 0.1,
+      "views": null,
+      "typical_views": null,
+      "momentum": null,
+      "replies": null
+    },
+    {
+      "id": "dfd64c46-0538-47d9-9340-e16e357d8baa",
+      "sphere": "industry",
+      "source": "Eye on Housing",
+      "kind": "article",
+      "title": "With Inflation Uptick, Fed Hikes and Signals More to Come",
+      "url": "https://eyeonhousing.org/2026/09/with-inflation-uptick-fed-hikes-and-signals-more-to-come/",
+      "summary": "The Federal Reserve raised the federal funds rate by 25 basis points at the conclusion of its September policy meeting, bringing the target range to 3.75% to 4%. The decision comes amid renewed inflation concerns and an increase in long-term interest rates. Notably, the…",
+      "published_at": "2026-09-16T20:48:16.000Z",
+      "age_days": 0,
+      "views": null,
+      "typical_views": null,
+      "momentum": null,
+      "replies": 0
+    },
+    {
+      "id": "a1b13254-f8c9-4194-9805-e3a9d8ec6c0d",
+      "sphere": "industry",
+      "source": "NAHB Now",
+      "kind": "article",
+      "title": "Builder Sentiment Falls on Higher Interest Rates and Costs",
+      "url": "https://www.nahb.org/news-and-economics/press-releases/2026/09/builder-sentiment-falls-on-higher-interest-rates-and-costs",
+      "summary": "Builder confidence in the market for newly built single-family homes fell three points to 32 in September, according to the NAHB/Wells Fargo Housing Market Index (HMI) released today.",
+      "published_at": "2026-09-16T14:00:00.000Z",
+      "age_days": 0.3,
+      "views": null,
+      "typical_views": null,
+      "momentum": null,
+      "replies": null
+    }
+  ],
+  "chatter": [
+    {
+      "url": "https://www.newsweek.com/contractor-tears-down-fence-customer-threatens-ice-refuses-pay-12446121",
+      "shows": "National press picked up the fence teardown, so the moment reached well beyond the trades."
+    },
+    {
+      "url": "https://www.ibtimes.co.uk/illinois-fence-company-removes-fence-over-alleged-nonpayment-1819648",
+      "shows": "Names the Joliet fence company and dates the video to 2026-09-13."
+    },
+    {
+      "url": "https://forums.mikeholt.com/threads/when-a-customer-wont-pay-what-do-you-do.25757/post-405111",
+      "shows": "Electricians have argued about customers who will not pay for years: the pain is evergreen."
+    },
+    {
+      "url": "https://www.rocketlawyer.com/q-and-a/answer/can-i-sue-a-homeowner-who-wont-pay-for-my-renovation-work",
+      "shows": "Owners asking whether they can sue a homeowner who will not pay, answered with the contract and the paper trail."
+    },
+    {
+      "url": "https://www.fgllegal.com/blog/2026/06/change-order-dispute-middle-of-project/",
+      "shows": "Change-order disputes mid-project are where many final-payment fights start."
+    }
+  ],
+  "hooks_considered": [
+    {
+      "headline": "THE JOB WAS LOST AT THE KITCHEN TABLE",
+      "hook": "The homeowner signs at the kitchen table with the coffee still warm: one page, a total at the bottom, nothing about when the money moves. Weeks later, when the balance stalls, that page is all the crew has, and it doesn't say a word about when they get paid.",
+      "verdict": "Right moment, right turn, but \"the job was lost\" reads like a lost bid, not a stalled payment, so the headline blurs the angle. Its kitchen-table image now carries the winner's hook."
+    },
+    {
+      "headline": "THE LAST POST IS SET AND HE STOPPED ANSWERING",
+      "hook": "The last post is plumb, the gate swings clean, and the homeowner who used to text you every morning has gone quiet. You did the job, he's got the fence, and you're the one sitting in the truck chasing him.",
+      "verdict": "The hardest gut stop on the list, in the reader's own words, but it is all pain and no take: nothing says the fix lives at signing. Its opening moment now leads the winner's hook."
+    },
+    {
+      "headline": "17 MILLION VIEWS ON A TEARDOWN NOBODY SHOULD NEED",
+      "hook": "On September 13, 2026, a Joliet, Illinois fence crew posted video of themselves tearing out a fence they had installed, after the homeowner allegedly refused to pay, and news coverage put the original past 17 million views. That is a lot of people watching the last resort, and very few asking how the job got there.",
+      "verdict": "Its number is a viral view count from secondary press, not a source OPS should rest a title on, it dates the post to one September 2026 video, and it leads with the crowbar instead of the fix."
+    },
+    {
+      "headline": "THE $1,000 RULE EVERY CREW SHOULD STEAL",
+      "hook": "In Illinois, the state attorney general says home repair or remodeling work over $1,000 needs a signed written contract before it starts. That's the law in one state. It belongs in every truck in every state, because when the last payment stalls, the first thing anyone asks to see is the contract.",
+      "verdict": "A real primary-source number, but it is one state's rule about having a written contract, not about when the money moves, so most readers get a rule that isn't theirs and the schedule goes unnamed."
+    },
+    {
+      "headline": "THE FINAL PAYMENT IS DECIDED BEFORE THE FIRST HOLE",
+      "hook": "Collections feels like a back-office chore that starts when an invoice goes past due. It doesn't. It starts at signing, when the payment schedule either ties the money to finished phases or leaves the timing up to the client.",
+      "verdict": "Winner: the only headline that states the whole angle in a foreman's words, on a real job-site moment, with no claim the sources can't back and nothing that dates. Sharpened to \"last payment\" and \"first post hole\"."
+    },
+    {
+      "headline": "A BIGGER DEPOSIT WON'T GET YOU PAID",
+      "hook": "After a client stiffs you, the gut says take half up front next time. In California, the state licensing board caps down payments on home improvement jobs, and progress payments can't get ahead of the work done and the materials delivered, which tells you where the protection really lives.",
+      "verdict": "The best belief-turn in the room and grounded in California's deposit cap, but it attacks the wrong fix without naming the right one, and \"won't get you paid\" overstates it. Its tension moved into the winner's angle."
+    },
+    {
+      "headline": "WOULD YOU TEAR OUT A FENCE TO GET PAID?",
+      "hook": "On September 13, 2026, a fence crew in Joliet, Illinois posted video of themselves tearing out a fence they had installed after the homeowner allegedly refused to pay. The comments turned into a fight over justice versus a lawsuit, and that's the wrong fight: the one worth having happens at the kitchen table, before the first post goes in.",
+      "verdict": "Stops the thumb, but it reopens the justice-versus-lawsuit fight the post means to leave, edges toward endorsing self-help removal, and ties the title to one viral video."
+    },
+    {
+      "headline": "WHAT DOES YOUR CONTRACT SAY ABOUT THE LAST PAYMENT?",
+      "hook": "Pull out the last contract you signed and find the line that says when the final payment is due and what has to be finished to trigger it. If all it gives you is a total, the client decides when you get paid.",
+      "verdict": "Specific and useful, it sends the owner straight to the paperwork, but it reads like a lawyer's newsletter and lacks the gut stop a busy owner needs between jobs."
+    },
+    {
+      "headline": "YOU'RE EITHER PAID BY THE PHASE OR CHASING THE BALANCE",
+      "hook": "There are two ways a backyard job ends. The client pays for each phase as it's finished and nothing big is riding on the last day, or the crew hands over the whole thing and spends weeks texting about the balance.",
+      "verdict": "Carries the angle, but \"paid by the phase\" is office talk, and the either-or shape echoes \"COUNT THE HOURS OR COUNT THE LOSSES\" from 2026-09-15."
+    },
+    {
+      "headline": "YOU'RE EITHER WRITING CHANGE ORDERS OR GIVING WORK AWAY",
+      "hook": "The homeowner walks out mid-build and asks if the gate can go a little wider while you're there. You say sure, nobody writes it down, and when the invoice lands higher than the quote, that one word is the whole argument.",
+      "verdict": "The wider-gate moment is sharp, but change orders are half the move, so this sells a narrower post, and the either-or shape repeats the 2026-09-15 title."
+    },
+    {
+      "headline": "FINISHED WORK DESERVES A FINISHED PAYMENT",
+      "hook": "Every post set plumb and every board run straight is a promise kept by a crew that showed up before sunrise. A written payment schedule is how the client keeps theirs.",
+      "verdict": "A bumper sticker: wordplay with no moment, number or mechanism, and nothing a skeptical owner would stop to argue with."
+    },
+    {
+      "headline": "NO CREW SHOULD HAVE TO BEG FOR EARNED MONEY",
+      "hook": "Nobody got into the trades to be a debt collector. You show up in the dark, you build it right, and the money you earned should move without a single begging text.",
+      "verdict": "Heart without a take. Every owner agrees and nobody learns where the fix lives, so it fails specific over clever and carries no angle."
+    },
+    {
+      "headline": "THE LAST PAYMENT IS DECIDED BEFORE THE FIRST POST HOLE",
+      "hook": "The last post is plumb, the gate swings clean, and the homeowner who used to text you every morning has gone quiet. That balance was decided before the first post hole, at his kitchen table, when he signed a page with a total at the bottom and not one line tying the money to finished work.",
+      "verdict": "The critic's sharpened winner: the whole angle in a foreman's words, on a real job-site moment, with nothing the sources cannot back and nothing that dates."
+    }
+  ],
+  "runners_up": [
+    {
+      "topic": "The new hands: training apprentices who don't look like they used to",
+      "why_not": "Broad but warm across every sphere; a stalled payment hurts sooner than a hiring trend. The strongest reserve for a later week."
+    },
+    {
+      "topic": "The owner is the bottleneck: the 80-hour week",
+      "why_not": "Heat spread across generic creator content with no trades moment, and no agency source on owners' hours."
+    },
+    {
+      "topic": "Culture follows the owner: the crew complains because the boss does",
+      "why_not": "The hottest signals sit in one sphere with no trades or forum echo, no primary data, and it sits close to two August posts."
+    }
+  ],
+  "radar_scanned_at": "2026-09-16T20:55:48.563Z"
+}
