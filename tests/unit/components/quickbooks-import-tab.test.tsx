@@ -35,6 +35,21 @@ vi.mock("@/lib/hooks/use-accounting", () => ({
   }),
   useInitiateOAuth: () => ({ mutate: initiateMutate, isPending: false }),
 }));
+// Every company client — the Link picker searches all of them.
+vi.mock("@/lib/hooks/use-clients", () => ({
+  useClients: () => ({
+    data: {
+      clients: [
+        { id: "c-1", name: "Acme", email: "office@acme.ca", phoneNumber: null, deletedAt: null },
+        { id: "c-2", name: "Rowan Pike", email: null, phoneNumber: null, deletedAt: null },
+        { id: "c-gone", name: "Deleted Client", email: null, phoneNumber: null, deletedAt: new Date("2026-04-26") },
+      ],
+      remaining: 0,
+      count: 3,
+    },
+    isLoading: false,
+  }),
+}));
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: () => ({ company: { id: "a612edc0-5c18-4c4d-af97-55b9410dd077" } }),
 }));
@@ -187,6 +202,45 @@ describe("QuickBooksImportTab", () => {
     await user.click(screen.getByRole("option", { name: "qbo.action.skip" }));
     expect(screen.getByRole("button", { name: /qbo.apply.all/ })).toBeEnabled();
     expect(screen.queryByTestId("qbo-needs-review-hint")).not.toBeInTheDocument();
+  });
+
+  it("disables APPLY while a Link row has no client, then enables it once a client is picked", async () => {
+    const user = userEvent.setup();
+    reviewData = review;
+    render(<QuickBooksImportTab />);
+    expect(screen.getByRole("button", { name: /qbo.apply.all/ })).toBeEnabled();
+
+    // Clear the suggested client off the Link row → APPLY blocked + hint shown.
+    await user.click(screen.getByTestId("match-candidate-QB1"));
+    await user.click(await screen.findByRole("option", { name: /qbo.candidate.none/ }));
+    expect(screen.getByRole("button", { name: /qbo.apply.all/ })).toBeDisabled();
+    expect(screen.getByTestId("qbo-link-missing-client-hint")).toHaveTextContent(
+      "qbo.linkMissingClientBlock"
+    );
+    expect(screen.getByTestId("match-row-QB1")).toHaveAttribute("data-blocking", "true");
+
+    // Pick a client the importer never suggested → APPLY enabled, hint gone.
+    await user.click(screen.getByTestId("match-candidate-QB1"));
+    await user.click(await screen.findByRole("option", { name: /Rowan Pike/ }));
+    expect(screen.getByRole("button", { name: /qbo.apply.all/ })).toBeEnabled();
+    expect(screen.queryByTestId("qbo-link-missing-client-hint")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /qbo.apply.all/ }));
+    await waitFor(() =>
+      expect(applyMutate).toHaveBeenCalledWith({
+        runId: "run-1",
+        decisions: [{ customer_qb_id: "QB1", action: "link", client_id: "c-2" }],
+      })
+    );
+  });
+
+  it("never offers a deleted client in the Link picker", async () => {
+    const user = userEvent.setup();
+    reviewData = review;
+    render(<QuickBooksImportTab />);
+    await user.click(screen.getByTestId("match-candidate-QB1"));
+    await screen.findByRole("option", { name: /Rowan Pike/ });
+    expect(screen.queryByRole("option", { name: /Deleted Client/ })).not.toBeInTheDocument();
   });
 
   it("starts a pull when the CTA is clicked", async () => {
