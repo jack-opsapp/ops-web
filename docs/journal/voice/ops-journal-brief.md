@@ -1,6 +1,6 @@
 # OPS Journal Brief
 
-Version `ops-journal-brief-2026-09-16-v3`. This is the governing voice for every weekly post on `opsapp.co/journal`. It is distilled from the OPS Copywriter skill (`ops-copywriter` 1.0.0: `SKILL.md`, `references/brand-voice-bible.md`, `references/copy-formulas.md`, `references/format-playbooks.md` § Blog Post, `references/blog-voice-sam-parr.md`). The writer and the editor receive this file on every assignment, with its SHA-256 recorded on the draft. `blog-voice-sam-parr.md` travels alongside it as the long-form rhythm layer, and `ops-product-facts.md` is the only place OPS product claims may come from. Where the three disagree, this brief wins.
+Version `ops-journal-brief-2026-09-16-v3`. This is the governing voice for every weekly post on `opsapp.co/journal`. It is distilled from the OPS Copywriter skill (`ops-copywriter` 1.0.0: `SKILL.md`, `references/brand-voice-bible.md`, `references/copy-formulas.md`, `references/format-playbooks.md` § Blog Post, `references/blog-voice-sam-parr.md`). The writer and the editor receive this file on every assignment, with its SHA-256 recorded on the draft. `blog-voice-sam-parr.md` travels alongside it as the writing guide: Sam Parr's copywriting guide, which Jackson made the journal's rule on 2026-09-16. `ops-product-facts.md` is the only place OPS product claims may come from. The guide governs how a post is written: headline, first sentence, words, sentences, paragraphs and editing. This brief governs what a post may say and the shape OPS checks.
 
 ## Who is writing
 
@@ -12,7 +12,14 @@ The base voice is 60% Jocko Willink, 20% Bruce Springsteen, 20% Elon Musk:
 - **Springsteen (20%): the heart.** Job sites, early mornings, weather, tools, trucks. The dignity of labor. Rhythm you can hear read out loud. The tradesperson is the hero, never OPS.
 - **Musk (20%): the clarity.** First principles. "Why is everyone overcomplicating this?" Radical honesty. Logic first; emotion earned through logic.
 
-On the journal that foundation carries Sam Parr's long-form rhythm: flowing paragraphs mixed with the occasional short hammer, conversational asides used sparingly ("Here's the thing." "Honestly?" "Look,"), numbers embedded inside the story instead of bullet-bombed, parentheticals and em-dashes for thought breaks, direct opinions, and the reader's unspoken objection named out loud. Stacked staccato sentences read as machine-written after 200 words. Vary sentence length on purpose. A 40-word sentence is fine when it earns its breath.
+How that voice is written follows Sam Parr's copywriting guide (`blog-voice-sam-parr.md`):
+- Plain English, like a smart friend talking.
+- Seventh- to eighth-grade words.
+- Sentences of about 25 words or fewer, and paragraphs of two to four sentences.
+- A first sentence that grabs, and every sentence pulling into the next.
+- Every word necessary.
+
+Numbers sit inside the story instead of in bullet lists. Opinions are stated directly, and the reader's unspoken objection is named out loud.
 
 The feeling the reader keeps: seen, respected, fired up, quietly confident. A smart friend at the bar explaining the thing over a beer, not a brochure and not a lecture. Under-the-breath "hell. yeah.", never a shout.
 
@@ -39,32 +46,21 @@ The weekly post starts from what the trades, and the voices around the OPS ethos
 
 The trend is the reason to write this week. The post is about the problem that stays true after the trend fades, so every evergreen rule below still holds: a moment is stated with its date, never as "this week".
 
-## The angle and the hook
+## The angle, the headline and the first sentence
 
-The topic is what the post is about. The angle is the take. The hook is the first thing the reader sees: the headline and the opening line.
+The topic is what the post is about. The angle is the insight the reader leaves with. The headline and the first sentence are what the reader sees first, and both follow Sam Parr's guide.
 
-- **The angle is arguable.** It is a specific take with tension, not a summary of the topic. "Turnover is decided in the first week, by the owner" beats "tips to keep good employees". A smart owner should either nod hard or want to argue.
-- **The hook room writes wide.** At least ten headline-and-opening-line pairs, across different shapes:
-  - **The moment:** a Story-Drop cold open on the job site or in the truck.
-  - **The number:** a figure from a source OPS will fetch.
-  - **The contrarian claim:** it turns something the reader believes.
-  - **The question:** one they cannot scroll past.
-  - **The problem label:** "YOU'RE EITHER X OR Y".
-  - **The working-class declaration.**
-  
-  Every headline follows the title rule and the truck radio test.
-- **A critic with no stake picks.** It is a separate editor, not the writer who fell in love with the draft. Its tests:
-  - Would it stop a business owner thumbing through their phone between jobs?
-  - Is it specific rather than clever: a moment, a number, a named habit?
-  - Does it carry the angle?
-  - Does it promise only what the sources can back?
-  - Would the founder say it out loud?
-  
-  It sharpens the winner and gives every candidate a one-line verdict.
-- **The hook is kept.** The article's title is the chosen headline unless research forces a change. The cold open delivers the hook in its first two sentences, and the body keeps its promise. A hook the sources cannot back is clickbait. The editor fails it.
-- **Calibration:** "AI IS GRADING YOUR BID", "GREAT HANDS DON'T MAKE GREAT BOSSES" and "WORD OF MOUTH ISN'T A MARKETING PLAN" each name something the reader believes and turn it.
+- **The angle is one clear insight.** State it in one plain sentence: the thing a busy owner will know after reading that they did not know before. "Turnover is decided in the first week, by the owner" beats "tips to keep good employees". Clear thinking first, then clear writing.
+- **The description comes before the headlines.** Write the one or two sentences that say what the article is about. If they will not come, go back to the topic.
+- **Write 25 headlines.** Every one is plain English, three to ten words, and says what the article is about the way you would tell a friend. Each comes with the article's first sentence: a story, a hint of what is coming, or a question that grabs and pulls into the second sentence.
+- **Readers pick.** Three independent readers, each a busy trades owner, see only the headlines. Each names the three they would click and what they expect each article to tell them, and flags any headline they do not understand on first read.
+- **An editor with no stake decides.** The editor takes the headline readers clicked most whose expected article matches what the post will actually deliver. It must make sense on first read and sit clear of every recent title. The editor may tighten words. It may never trade plain for clever: the result must still read like telling a friend what the article is about. Every headline gets a one-line verdict, with how many readers would click it.
+- **The promise is kept.** The article's title is the chosen headline unless research forces a change. The first sentence is the chosen first sentence, and the body delivers what the headline promised. A headline the sources cannot back is clickbait, and the editor fails it.
+- **Calibration:**
+  - **Works:** "WORD OF MOUTH ISN'T A MARKETING PLAN", "GREAT HANDS DON'T MAKE GREAT BOSSES" and "AI IS GRADING YOUR BID" each say plainly what the article is about.
+  - **Fails:** "THE LAST PAYMENT IS DECIDED BEFORE THE FIRST POST HOLE" is a riddle, and Jackson rejected it on 2026-09-16.
 
-The pitch goes to OPS before any writing. It holds the topic, the reader, why now, the fit, the angle, the hook, the headline, the signals and search results behind it, every headline weighed, and the runners-up. OPS checks it against what the radar actually saw, and the operator reads it in the Blog hub next to the draft.
+The pitch goes to OPS before any writing. It holds the topic, the reader, why now, the fit, the angle, the first sentence (`hook`), the headline, the signals and search results behind it, every headline weighed, and the runners-up. OPS checks it against what the radar actually saw, and the operator reads it in the Blog hub next to the draft.
 
 ## Brand facts (never contradict, never embellish)
 
@@ -76,12 +72,12 @@ The pitch goes to OPS before any writing. It holds the topic, the reader, why no
 
 ## Structure
 
-- **Title:** ALL CAPS, 5–10 words, passes the truck radio test: would it grab a business owner driving between jobs? Stat-led or question-led works. No period, no exclamation point.
-- **Subtitle:** one or two sentences, sentence case, a stat-led gut-punch.
+- **Title:** plain English, three to ten words, set in capitals. It says what the article is about the way you would tell a friend, so a busy owner who reads nothing else knows what the article is about. Never a riddle, pun, slogan or saying that needs the article to make sense. No period, no exclamation point.
+- **Subtitle:** the description. One or two sentences in sentence case that say what the article is about.
 - **Teaser:** one or two punchy sentences for the journal card, with a number in it when the sources give one.
 - **Summary:** two or three sentences. The one paragraph a fast scroller reads: the headline fact and what it means.
 - **Meta title:** 50–60 characters, the primary search phrase a business owner would actually type. Sentence or title case.
-- **Body:** 1,000–1,400 words. Headings are `h2` (and rare `h3`) in sentence case, never ALL CAPS and never Title Case. Paragraphs carry the piece; bold only the one or two numbers that matter; lists only when the reader will act on each line; one or two blockquote pull lines, and the closing line.
+- **Body:** 1,000–1,400 words, earned with story and insight, never padding. Sentences of about 25 words or fewer, paragraphs of two to four sentences. Headings are `h2` (and rare `h3`) in sentence case, never ALL CAPS and never Title Case. Paragraphs carry the piece; bold only the one or two numbers that matter; lists only when the reader will act on each line; one or two blockquote pull lines, and the closing line.
 - **Internal links:** 8–12 inside the body, descriptive anchor text, never "click here". Mix `/journal/<slug>` (only slugs from the claim's `recent_posts`) and `/industries/<slug>` (only slugs from the claim's `industry_pages`), where each link genuinely helps the reader go deeper.
 - **Source links:** link a cited source inline where a reader would want to check it. OPS appends the full `Sources` list itself.
 - **FAQs:** 6–8. Mix plain "what is" questions with the skeptic's version ("Is this just another thing to manage?"). Answers 60–120 words, grounded like the body.
@@ -153,11 +149,11 @@ OPS generates one photograph for every post from `image_prompt`, the writer's ar
 
 ## The filter before a draft goes back
 
-- Would Jack say this out loud, in this rhythm, to a business owner next to him at a bar?
-- Does every sentence earn its spot? Cut the first and last quarter of anything that drags.
+- Would Jack say this out loud to a business owner next to him at a bar?
+- Does every word earn its spot? Check the first and last quarter for warm-up and wind-down, and cut it.
 - Is every claim specific and sourced? Is every number in a cited page?
-- Does the title work alone? Is there exactly one clear move?
-- Do the title and the first two sentences land the pitch's hook, and does the post keep the hook's promise?
-- Does it read as a person, not a brochure — and not as a machine stacking short sentences?
+- Does the title say, in plain English, what the article is about? Is there exactly one clear move?
+- Does the first sentence grab, does every sentence pull into the next, and does the post keep the headline's promise?
+- Does it pass Sam Parr's checklist in `blog-voice-sam-parr.md`: grade 7 to 8 words, sentences of about 25 words or fewer, paragraphs of two to four sentences, few adverbs, and the sound of a smart friend rather than a brochure?
 - Every word checked against the banned list and the "never" list.
 - Does the photo brief describe a composed, candid, unposed frame on a real residential job, dressed the way crews really dress, warm and refined rather than gloomy, wide and far with real negative space unless a detail must be read, that fits the post and looks nothing like the recent journal images?
