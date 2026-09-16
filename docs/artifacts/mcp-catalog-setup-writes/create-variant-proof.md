@@ -2,7 +2,7 @@
 
 Migrations proved, in order:
 
-1. `supabase/migrations/20260915223000_agent_catalog_recipe_read_v24.sql` (task 6)
+1. `supabase/migrations/20260915224500_agent_catalog_recipe_read_v24.sql` (task 6)
 2. `supabase/migrations/20260916010000_agent_catalog_setup_write_variant.sql` (this task)
 
 Database: a local PostgreSQL 17 copy of production structure plus Canpro Deck

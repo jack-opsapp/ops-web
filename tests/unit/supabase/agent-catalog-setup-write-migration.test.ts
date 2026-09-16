@@ -34,7 +34,7 @@ describe("catalogue setup writes staged behind operator approval", () => {
     expect(migrationNames).toEqual([
       "20260916010000_agent_catalog_setup_write_variant.sql",
     ]);
-    expect(migrationNames[0]! > "20260915223000").toBe(true);
+    expect(migrationNames[0]! > "20260915224500").toBe(true);
     expect(MIGRATION.trimStart().startsWith("--")).toBe(true);
     expect(MIGRATION).toContain("\nbegin;\n");
     expect(MIGRATION.trim().endsWith("commit;")).toBe(true);

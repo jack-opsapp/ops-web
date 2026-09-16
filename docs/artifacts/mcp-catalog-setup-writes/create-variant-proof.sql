@@ -4,7 +4,7 @@
 -- whole run is one transaction that ends in rollback. Produce the bodies with:
 --
 --   sed -e 's/^begin;$/-- begin/' -e 's/^commit;$/-- commit/' \
---     supabase/migrations/20260915223000_agent_catalog_recipe_read_v24.sql > /tmp/t6.sql
+--     supabase/migrations/20260915224500_agent_catalog_recipe_read_v24.sql > /tmp/t6.sql
 --   sed -e 's/^begin;$/-- begin/' -e 's/^commit;$/-- commit/' \
 --     supabase/migrations/20260916010000_agent_catalog_setup_write_variant.sql > /tmp/csw.sql
 --

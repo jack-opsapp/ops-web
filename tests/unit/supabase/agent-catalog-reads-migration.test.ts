@@ -19,7 +19,7 @@ const RUNTIME_PATH = join(
 );
 const RECIPE_V24_MIGRATION_PATH = join(
   process.cwd(),
-  "supabase/migrations/20260915223000_agent_catalog_recipe_read_v24.sql"
+  "supabase/migrations/20260915224500_agent_catalog_recipe_read_v24.sql"
 );
 const REPLAY_PATH = join(
   process.cwd(),

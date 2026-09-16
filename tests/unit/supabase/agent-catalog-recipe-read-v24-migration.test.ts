@@ -34,9 +34,18 @@ const V24 = "2026-09-15.mcp-exposure.v24";
 describe("catalogue recipe read v2 under exposure V24", () => {
   it("ships exactly one transactional migration ordered after the recipe fix", () => {
     expect(migrationNames).toEqual([
-      "20260915223000_agent_catalog_recipe_read_v24.sql",
+      "20260915224500_agent_catalog_recipe_read_v24.sql",
     ]);
-    expect(migrationNames[0]! > "20260915221000").toBe(true);
+    expect(migrationNames[0]! > "20260915223000").toBe(true);
+    // A version prefix is a primary key in the migration ledger, and `main`
+    // already carries 20260915223000 for the recipe resolver patch. Two files
+    // under one version is a tooling failure, not a style question.
+    const version = migrationNames[0]!.slice(0, 14);
+    expect(
+      readdirSync(join(process.cwd(), "supabase/migrations")).filter((name) =>
+        name.startsWith(`${version}_`)
+      )
+    ).toEqual([migrationNames[0]]);
     expect(MIGRATION.trim().endsWith("commit;")).toBe(true);
   });
 

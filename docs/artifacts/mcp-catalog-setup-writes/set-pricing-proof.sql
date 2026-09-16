@@ -4,7 +4,7 @@
 -- the whole run is one transaction that ends in rollback. Produce the bodies
 -- with:
 --
---   for f in 20260915223000_agent_catalog_recipe_read_v24 \
+--   for f in 20260915224500_agent_catalog_recipe_read_v24 \
 --            20260916010000_agent_catalog_setup_write_variant \
 --            20260916020000_agent_catalog_setup_write_thresholds \
 --            20260916030000_agent_catalog_setup_write_pricing; do
@@ -13,7 +13,7 @@
 --   done
 --
 --   psql "host=127.0.0.1 port=55432 user=postgres dbname=postgres" \
---     -v task6_migration=/tmp/m_20260915223000_agent_catalog_recipe_read_v24.sql \
+--     -v task6_migration=/tmp/m_20260915224500_agent_catalog_recipe_read_v24.sql \
 --     -v catalog_setup_write_migration=/tmp/m_20260916010000_agent_catalog_setup_write_variant.sql \
 --     -v thresholds_migration=/tmp/m_20260916020000_agent_catalog_setup_write_thresholds.sql \
 --     -v pricing_migration=/tmp/m_20260916030000_agent_catalog_setup_write_pricing.sql \

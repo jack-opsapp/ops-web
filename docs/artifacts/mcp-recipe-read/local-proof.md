@@ -1,6 +1,6 @@
 # Local SQL proof — catalogue recipe read v2 under exposure V24
 
-Migration proved: `supabase/migrations/20260915223000_agent_catalog_recipe_read_v24.sql`
+Migration proved: `supabase/migrations/20260915224500_agent_catalog_recipe_read_v24.sql`
 
 Database: a local PostgreSQL 17 copy of production structure plus Canpro Deck
 and Rail's real catalogue (company `a612edc0-5c18-4c4d-af97-55b9410dd077`,
@@ -60,7 +60,7 @@ SELECT 3
 (3 rows)
 
 
-## 2. applying supabase/migrations/20260915223000_agent_catalog_recipe_read_v24.sql
+## 2. applying supabase/migrations/20260915224500_agent_catalog_recipe_read_v24.sql
 SET
 SET
 DO
