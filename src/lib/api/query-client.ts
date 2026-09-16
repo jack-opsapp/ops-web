@@ -182,6 +182,9 @@ export const queryKeys = {
       [...queryKeys.projects.all, "tableTeamMembers", companyId] as const,
     tablePhotos: (projectId: string) =>
       [...queryKeys.projects.all, "tablePhotos", projectId] as const,
+    /** Deck designs carried into the job by `deck_designs.project_id`. */
+    deckDesigns: (projectId: string) =>
+      [...queryKeys.projects.all, "deckDesigns", projectId] as const,
     details: () => [...queryKeys.projects.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.projects.details(), id] as const,
   },
@@ -233,6 +236,9 @@ export const queryKeys = {
     /** Company-wide lead-deck markers — the board's scan-level read. */
     deckMarkers: () =>
       [...queryKeys.opportunities.all, "deckDesigns", "markers"] as const,
+    /** One design's complete drawing — the fullscreen viewer's read. */
+    deckDrawing: (designId: string) =>
+      [...queryKeys.opportunities.all, "deckDesigns", "drawing", designId] as const,
   },
 
   // Tasks
