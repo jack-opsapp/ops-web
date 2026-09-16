@@ -65,6 +65,9 @@ describe("journal radar watchlist", () => {
     expect(new Set(JOURNAL_RADAR_SOURCES.map((source) => source.sphere))).toEqual(
       new Set(["leadership", "business", "trades", "industry", "forum"])
     );
+    expect(JOURNAL_RADAR_SOURCES.map((source) => source.format === "youtube")).toHaveLength(26);
+    expect(JOURNAL_RADAR_SOURCES.filter((source) => source.format === "youtube")).toHaveLength(16);
+    expect(JOURNAL_RADAR_SOURCES.filter((source) => source.kind === "thread")).toHaveLength(1);
     expect(journalRadarSource("jocko-podcast")?.name).toBe("Jocko Podcast");
     expect(journalRadarSource("missing")).toBeNull();
   });
