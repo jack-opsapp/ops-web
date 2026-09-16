@@ -12,6 +12,8 @@ import {
 } from "./image";
 import { storeJournalImage } from "./image-store";
 import { sendJournalNewsletter } from "./newsletter";
+import { journalFeedFetcher } from "./radar/fetch";
+import { scanJournalRadar } from "./radar/scan";
 import { fulfilJournalImageRequest, runJournalTick, type JournalTickDependencies } from "./worker";
 import { createJournalWorkerRepository } from "./worker-repository";
 
@@ -67,6 +69,7 @@ function dependencies(): JournalTickDependencies {
     imageReadable: imageIsPublic,
     sendNewsletter: sendJournalNewsletter,
     newToken: () => randomUUID(),
+    scanRadar: (now) => scanJournalRadar(journalFeedFetcher(), now),
   };
 }
 

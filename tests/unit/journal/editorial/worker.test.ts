@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   JOURNAL_IMAGE_FAILED_COPY,
+  JOURNAL_RADAR_COPY,
   JOURNAL_STALL_COPY,
   clampToLiveWindow,
   computeJournalPublishAt,
@@ -66,9 +67,28 @@ function repository(overrides: Partial<JournalWorkerRepository> = {}): JournalWo
     listImageRequests: vi.fn(async () => []),
     replaceImage: vi.fn(async () => "published"),
     failImage: vi.fn(async () => "retry" as const),
+    beginRadarScan: vi.fn(async () => false),
+    recordRadarScan: vi.fn(async () => ({ stored: 0, pruned: 0 })),
+    notifyRadar: vi.fn(async () => "clear"),
     ...overrides,
   };
 }
+
+const feed = (key: string, ok: boolean) => ({ key, name: key, sphere: "trades" as const, ok, items: ok ? 4 : 0, code: ok ? null : "FEED_BLOCKED" });
+const radarSignal = {
+  source_key: "tommy-mello",
+  sphere: "trades" as const,
+  kind: "video" as const,
+  item_key: "yt:abc",
+  url: "https://www.youtube.com/watch?v=abc",
+  title: "Why your best tech quits",
+  summary: null,
+  published_at: "2026-09-12T12:00:00.000Z",
+  views: 900,
+  baseline_views: 300,
+  momentum: 3,
+  comments: null,
+};
 
 const asset = {
   url: "https://ops-app-files-prod.s3.us-west-2.amazonaws.com/blog/weekly/2026-09-14-0123456789abcdef.jpg",
@@ -102,6 +122,7 @@ function deps(repo: JournalWorkerRepository, now: string, overrides: Partial<Jou
     imageReadable: vi.fn(async () => true),
     sendNewsletter: vi.fn(async () => ({ sent: 13, failed: 0 })),
     newToken: () => "33333333-3333-4333-8333-333333333333",
+    scanRadar: vi.fn(async () => ({ signals: [radarSignal], sources: [feed("a", true), feed("b", true), feed("c", false)] })),
     ...overrides,
   };
 }
@@ -181,12 +202,13 @@ describe("runJournalTick", () => {
       listDrafted: track("drafted", []),
       listImageRequests: track("image requests", []),
       listDue: track("due", []),
+      beginRadarScan: track("radar", false),
       listUndelivered: track("undelivered", []),
       checkStall: track("stall", false),
       resolveStall: track("resolve", 0),
     });
     const result = await runJournalTick(deps(repo, "2026-09-11T13:09:00Z"));
-    expect(order).toEqual(["recover", "discover", "drafted", "image requests", "due", "undelivered", "stall", "resolve"]);
+    expect(order).toEqual(["recover", "discover", "drafted", "image requests", "due", "radar", "undelivered", "stall", "resolve"]);
     expect(result.state).toBe("discovered");
     expect(repo.checkStall).toHaveBeenCalledWith(operator, JOURNAL_STALL_COPY, 12);
   });
@@ -288,6 +310,62 @@ describe("runJournalTick", () => {
     await runJournalTick(deps(silent, "2026-09-13T14:09:00Z", { operator: null }));
     expect(silent.deliver).not.toHaveBeenCalled();
     expect(silent.checkStall).not.toHaveBeenCalled();
+  });
+
+  describe("radar lane", () => {
+    it("scans when the radar is due, keeps what it saw and clears the degraded item", async () => {
+      const repo = repository({ beginRadarScan: vi.fn(async () => true), recordRadarScan: vi.fn(async () => ({ stored: 1, pruned: 0 })) });
+      const d = deps(repo, "2026-09-16T18:09:00Z");
+      const result = await runJournalTick(d);
+      expect(repo.beginRadarScan).toHaveBeenCalledWith(360);
+      expect(d.scanRadar).toHaveBeenCalledWith(at("2026-09-16T18:09:00Z"));
+      expect(repo.recordRadarScan).toHaveBeenCalledWith([radarSignal], [feed("a", true), feed("b", true), feed("c", false)]);
+      expect(repo.notifyRadar).toHaveBeenCalledWith(operator, false, JOURNAL_RADAR_COPY);
+      expect(result.radar).toEqual({ state: "scanned", ok: 2, total: 3, stored: 1, degraded: false });
+    });
+
+    it("raises the degraded item when fewer than half the feeds answer", async () => {
+      const repo = repository({ beginRadarScan: vi.fn(async () => true) });
+      const d = deps(repo, "2026-09-16T18:09:00Z", {
+        scanRadar: vi.fn(async () => ({ signals: [], sources: [feed("a", true), feed("b", false), feed("c", false)] })),
+      });
+      const result = await runJournalTick(d);
+      expect(repo.notifyRadar).toHaveBeenCalledWith(operator, true, JOURNAL_RADAR_COPY);
+      expect(result.radar).toMatchObject({ state: "scanned", degraded: true });
+      expect(JOURNAL_RADAR_COPY.title).toBe("JOURNAL RADAR DEGRADED");
+      expect(JOURNAL_RADAR_COPY.body).not.toMatch(/!|contractor/i);
+    });
+
+    it("leaves a current radar alone", async () => {
+      const repo = repository();
+      const d = deps(repo, "2026-09-16T18:09:00Z");
+      expect((await runJournalTick(d)).radar).toEqual({ state: "current" });
+      expect(d.scanRadar).not.toHaveBeenCalled();
+    });
+
+    it("waits for a tick that made no photograph", async () => {
+      const repo = repository({ listDrafted: vi.fn(async () => [row()]), beginRadarScan: vi.fn(async () => true) });
+      const d = deps(repo, "2026-09-13T14:09:00Z");
+      expect((await runJournalTick(d)).radar).toEqual({ state: "deferred" });
+      expect(repo.beginRadarScan).not.toHaveBeenCalled();
+    });
+
+    it("never fails the tick when the scan fails, and tells nobody without a recipient", async () => {
+      const repo = repository({
+        beginRadarScan: vi.fn(async () => true),
+        listDue: vi.fn(async () => [row({ state: "scheduled" })]),
+      });
+      const failing = deps(repo, "2026-09-16T18:09:00Z", { scanRadar: vi.fn(async () => { throw new Error("RADAR_DOWN"); }) });
+      const result = await runJournalTick(failing);
+      expect(result.radar).toEqual({ state: "failed", code: "RADAR_DOWN" });
+      expect(result.published).toEqual(["a1"]);
+      expect(repo.recordRadarScan).not.toHaveBeenCalled();
+
+      const quiet = repository({ beginRadarScan: vi.fn(async () => true) });
+      await runJournalTick(deps(quiet, "2026-09-16T18:09:00Z", { operator: null }));
+      expect(quiet.recordRadarScan).toHaveBeenCalled();
+      expect(quiet.notifyRadar).not.toHaveBeenCalled();
+    });
   });
 
   describe("newsletter lane", () => {

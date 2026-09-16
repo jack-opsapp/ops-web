@@ -186,6 +186,31 @@ export function createJournalWorkerRepository(): JournalWorkerRepository {
       return outcome === "retry" || outcome === "dropped" ? outcome : null;
     },
 
+    async beginRadarScan(intervalMinutes) {
+      return (await rpc<boolean>("begin_journal_radar_scan", { p_interval_minutes: intervalMinutes })) === true;
+    },
+
+    async recordRadarScan(signals, sources) {
+      const result = await rpc<{ stored?: number; pruned?: number }>("record_journal_radar_scan", {
+        p_signals: signals,
+        p_sources: sources,
+      });
+      return { stored: Number(result?.stored ?? 0), pruned: Number(result?.pruned ?? 0) };
+    },
+
+    async notifyRadar(operator, degraded, copy) {
+      const outcome = await rpc<string>("notify_journal_radar", {
+        p_user_id: operator.userId,
+        p_company_id: operator.companyId,
+        p_degraded: degraded,
+        p_title: copy.title,
+        p_body: copy.body,
+        p_action_url: copy.actionUrl,
+        p_action_label: copy.actionLabel,
+      });
+      return typeof outcome === "string" ? outcome : "skipped";
+    },
+
     async newsletterEnabled() {
       const { data, error } = await db
         .from("app_settings")

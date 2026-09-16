@@ -2,6 +2,13 @@ import type { EditorialOperator } from "../../social/editorial/worker";
 import type { JournalMode, JournalPackage } from "./handoff";
 import type { GeneratedJournalImage } from "./image";
 import type { JournalImageAsset } from "./image-store";
+import type { JournalTrendSignalInput } from "./radar/feeds";
+import {
+  isJournalRadarDegraded,
+  JOURNAL_RADAR_INTERVAL_MINUTES,
+  type JournalRadarScan,
+  type JournalRadarSourceStatus,
+} from "./radar/scan";
 
 export interface JournalWorkerRow {
   id: string;
@@ -50,6 +57,13 @@ export interface JournalImageFailedCopy {
   body: string;
 }
 
+export interface JournalRadarCopy {
+  title: string;
+  body: string;
+  actionUrl: string;
+  actionLabel: string;
+}
+
 export type JournalImageResult =
   | { state: "scheduled" | "published"; url: string }
   | { code: string; retry: boolean };
@@ -77,6 +91,12 @@ export interface JournalWorkerRepository {
     operator: EditorialOperator | null,
     copy: JournalImageFailedCopy
   ): Promise<"retry" | "dropped" | null>;
+  beginRadarScan(intervalMinutes: number): Promise<boolean>;
+  recordRadarScan(
+    signals: JournalTrendSignalInput[],
+    sources: JournalRadarSourceStatus[]
+  ): Promise<{ stored: number; pruned: number }>;
+  notifyRadar(operator: EditorialOperator, degraded: boolean, copy: JournalRadarCopy): Promise<string>;
   newsletterEnabled(): Promise<boolean>;
   listNewsletterCandidates(since: Date): Promise<JournalWorkerRow[]>;
   claimNewsletter(id: string, token: string): Promise<boolean>;
@@ -94,6 +114,8 @@ export interface JournalTickDependencies {
   imageReadable: (url: string) => Promise<boolean>;
   sendNewsletter: (blogId: string) => Promise<{ sent: number; failed: number }>;
   newToken: () => string;
+  /** Reads the trend radar's watchlist feeds. */
+  scanRadar: (now: Date) => Promise<JournalRadarScan>;
 }
 
 // Vancouver adopted permanent UTC-7 in March 2026, so the offset is a constant
@@ -179,6 +201,13 @@ const BLOCKED_FALLBACK = "The post stopped before going live. Open the Blog hub 
 export const JOURNAL_STALL_COPY: JournalStallCopy = {
   title: "JOURNAL WRITER STALLED",
   body: "Monday's post has no draft yet. Check the OPS Journal routine at claude.ai.",
+  actionUrl: "/admin/blog",
+  actionLabel: "OPEN BLOG",
+};
+
+export const JOURNAL_RADAR_COPY: JournalRadarCopy = {
+  title: "JOURNAL RADAR DEGRADED",
+  body: "Fewer than half the trend feeds answered. The writer picks topics from search until they recover.",
   actionUrl: "/admin/blog",
   actionLabel: "OPEN BLOG",
 };
@@ -348,6 +377,38 @@ async function newsletterLane(d: JournalTickDependencies, now: Date) {
   return { sent, skipped };
 }
 
+export type JournalRadarLaneResult =
+  | { state: "current" }
+  | { state: "scanned"; ok: number; total: number; stored: number; degraded: boolean }
+  | { state: "failed"; code: string };
+
+/**
+ * Keeps the trend radar current: at most one scan per interval, never when
+ * the pipeline is off. A failed scan is left for the next tick; it never fails
+ * the tick itself, because publishing and photographs matter more.
+ */
+export async function runJournalRadarLane(
+  d: Pick<JournalTickDependencies, "repository" | "scanRadar" | "operator">,
+  now: Date
+): Promise<JournalRadarLaneResult> {
+  try {
+    if (!(await d.repository.beginRadarScan(JOURNAL_RADAR_INTERVAL_MINUTES))) return { state: "current" };
+    const scan = await d.scanRadar(now);
+    const recorded = await d.repository.recordRadarScan(scan.signals, scan.sources);
+    const degraded = isJournalRadarDegraded(scan.sources);
+    if (d.operator) await d.repository.notifyRadar(d.operator, degraded, JOURNAL_RADAR_COPY);
+    return {
+      state: "scanned",
+      ok: scan.sources.filter((source) => source.ok).length,
+      total: scan.sources.length,
+      stored: recorded.stored,
+      degraded,
+    };
+  } catch (error) {
+    return { state: "failed", code: codeOf(error, "RADAR_FAILED") };
+  }
+}
+
 export async function runJournalTick(d: JournalTickDependencies) {
   const now = d.now();
   await d.repository.recover();
@@ -384,6 +445,10 @@ export async function runJournalTick(d: JournalTickDependencies) {
 
   const newsletter = await newsletterLane(d, now);
 
+  // The radar waits for a quiet tick: a photograph can take two minutes of the five.
+  const radar: JournalRadarLaneResult | { state: "deferred" } =
+    drafted.length + images.replaced + images.failed === 0 ? await runJournalRadarLane(d, now) : { state: "deferred" };
+
   let notified = 0;
   if (d.operator) {
     for (const row of await d.repository.listUndelivered(10)) {
@@ -404,6 +469,7 @@ export async function runJournalTick(d: JournalTickDependencies) {
     published,
     held,
     newsletter,
+    radar,
     notified,
   };
 }
