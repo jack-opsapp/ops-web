@@ -25,6 +25,7 @@ import {
   BellPlus,
   MessageSquareReply,
   HardHat,
+  PackagePlus,
 } from "lucide-react";
 import type {
   AgentActionPriority,
@@ -65,6 +66,7 @@ export const ACTION_TYPE_ICONS: Record<
   approve_site_visit_changes: FileText,
   approve_financial_document: FileText,
   approve_customer_update: FileText,
+  approve_catalog_setup_write: PackagePlus,
   send_customer_follow_up: MailCheck,
 };
 

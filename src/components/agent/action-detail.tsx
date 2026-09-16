@@ -8,6 +8,8 @@ import { FinancialDocumentPreview } from "./financial-document-preview";
 import { FinancialDocumentPreviewSchema } from "@/lib/agent-control-plane/contracts/financial-document";
 import { ScheduleChangePreview } from "./schedule-change-preview";
 import { ScheduleChangePreviewSchema } from "@/lib/agent-control-plane/contracts/schedule-change";
+import { CatalogSetupWritePreview } from "./catalog-setup-write-preview";
+import { CatalogSetupWritePreviewSchema } from "@/lib/agent-control-plane/contracts/catalog-setup-write";
 import { CustomerUpdatePreview } from "./customer-update-preview";
 import { CustomerMessagePreview } from "./customer-message-preview";
 import { CustomerUpdatePreviewSchema } from "@/lib/agent-control-plane/contracts/customer-update";
@@ -551,6 +553,15 @@ export const ActionDetail = memo(function ActionDetail({
     customerPreview !== null &&
     (!customerPreview.success ||
       new Date(customerPreview.data.expires_at).getTime() <= Date.now());
+  const catalogSetupWritePreview =
+    action.actionType === "approve_catalog_setup_write"
+      ? CatalogSetupWritePreviewSchema.safeParse(action.actionData.proposal)
+      : null;
+  const catalogSetupWritePreviewInvalid =
+    catalogSetupWritePreview !== null &&
+    (!catalogSetupWritePreview.success ||
+      new Date(catalogSetupWritePreview.data.expires_at).getTime() <=
+        Date.now());
   const customerMessagePreview =
     action.actionType === "send_customer_follow_up"
       ? CustomerMessagePreviewSchema.safeParse(action.actionData.proposal)
@@ -610,6 +621,21 @@ export const ActionDetail = memo(function ActionDetail({
     }
     if (action.actionType === "approve_schedule_change") {
       const preview = ScheduleChangePreviewSchema.safeParse(
+        action.actionData.proposal
+      );
+      if (
+        !preview.success ||
+        new Date(preview.data.expires_at).getTime() <= Date.now()
+      )
+        return;
+      onApprove(action.id, {
+        preview_sha256: action.actionData.preview_sha256,
+        change_set_id: action.actionData.change_set_id,
+      });
+      return;
+    }
+    if (action.actionType === "approve_catalog_setup_write") {
+      const preview = CatalogSetupWritePreviewSchema.safeParse(
         action.actionData.proposal
       );
       if (
@@ -1205,6 +1231,9 @@ export const ActionDetail = memo(function ActionDetail({
         )}
         {action.actionType === "approve_customer_update" && (
           <CustomerUpdatePreview proposal={action.actionData.proposal} />
+        )}
+        {action.actionType === "approve_catalog_setup_write" && (
+          <CatalogSetupWritePreview proposal={action.actionData.proposal} />
         )}
         {action.actionType === "send_customer_follow_up" && (
           <CustomerMessagePreview proposal={action.actionData.proposal} />
@@ -3134,6 +3163,7 @@ export const ActionDetail = memo(function ActionDetail({
           !isCollectionsDraft &&
           !isDispatchConfirmation &&
           action.actionType !== "approve_catalog_changes" &&
+          action.actionType !== "approve_catalog_setup_write" &&
           action.actionType !== "approve_site_visit_changes" &&
           !isPending && (
             <div>
@@ -3185,6 +3215,7 @@ export const ActionDetail = memo(function ActionDetail({
                 financialPreviewInvalid ||
                 schedulePreviewInvalid ||
                 customerPreviewInvalid ||
+                catalogSetupWritePreviewInvalid ||
                 customerMessagePreviewInvalid
               }
             >
@@ -3194,7 +3225,9 @@ export const ActionDetail = memo(function ActionDetail({
                   ? t("financialDocument.approve")
                   : action.actionType === "approve_schedule_change"
                     ? t("scheduleChange.approve")
-                    : action.actionType === "approve_customer_update"
+                    : action.actionType === "approve_catalog_setup_write"
+                      ? t("catalogSetupWrite.save")
+                      : action.actionType === "approve_customer_update"
                       ? t("customerUpdate.save")
                       : action.actionType === "send_customer_follow_up"
                         ? t("customerMessage.send")

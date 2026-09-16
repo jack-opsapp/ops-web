@@ -178,6 +178,78 @@ describe("ActionDetail", () => {
   });
 });
 
+import { resultFixture as catalogSetupWriteFixture } from "@/lib/agent-control-plane/services/catalog-setup-write/__tests__/fixtures";
+describe("catalogue setup write exact approval", () => {
+  it("renders the family, the new variant's money and stock, and the operator's own words", () => {
+    const result = catalogSetupWriteFixture();
+    const approve = vi.fn();
+    render(
+      <ActionDetail
+        action={make({
+          actionType: "approve_catalog_setup_write",
+          actionData: {
+            proposal: result.proposal,
+            preview_sha256: result.preview_sha256,
+            change_set_id: result.change_set_id,
+          },
+        })}
+        onApprove={approve}
+        onReject={() => {}}
+        t={(k) => k}
+      />
+    );
+    expect(screen.getAllByText(/Vinyl/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Boardwalk / 60mil Smooth")).toBeInTheDocument();
+    expect(
+      screen.getByText(result.proposal.evidence[0]!.text)
+    ).toBeInTheDocument();
+    // Opening stock is shown as what it is: a recorded receipt, not a count.
+    expect(
+      screen.getByText(/catalogSetupWrite.openingStockNote/)
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    );
+    expect(approve).toHaveBeenCalledWith("action-1", {
+      preview_sha256: result.preview_sha256,
+      change_set_id: result.change_set_id,
+    });
+  });
+
+  it("shows an unset field as an em dash rather than hiding it", () => {
+    const result = catalogSetupWriteFixture();
+    result.proposal.after.variant.sku = null;
+    result.proposal.after.variant.unit_cost = null;
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal: result.proposal },
+    });
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("disables approval when the displayed preview is invalid or expired", () => {
+    const result = catalogSetupWriteFixture();
+    result.proposal.expires_at = "2000-01-01T00:00:00.000Z";
+    const { unmount } = renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal: result.proposal },
+    });
+    expect(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    ).toBeDisabled();
+    unmount();
+    renderDetail({
+      actionType: "approve_catalog_setup_write",
+      actionData: { proposal: {} },
+    });
+    expect(
+      screen.getByRole("button", { name: "catalogSetupWrite.save" })
+    ).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "catalogSetupWrite.invalid"
+    );
+  });
+});
 import { resultFixture } from "@/lib/agent-control-plane/services/customer-update/__tests__/fixtures";
 describe("customer update exact approval", () => {
   it("renders literal evidence and submits the displayed seal without proposed edits", () => {
