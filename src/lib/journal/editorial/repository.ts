@@ -6,9 +6,19 @@ import type {
   JournalMode,
   JournalSourceRecord,
 } from "./handoff";
+import type { JournalRadarSourceStatus } from "./radar/scan";
+import {
+  RADAR_CLAIM_WINDOW_DAYS,
+  RADAR_PITCH_WINDOW_DAYS,
+  selectClaimSignals,
+  trendSignalRow,
+} from "./radar/signals";
 
 const assignmentFields =
-  "id,identity,slot_date,slot_at,mode,state,attempts,submissions,claim_token,lease_until,title,package";
+  "id,identity,slot_date,slot_at,mode,state,attempts,submissions,claim_token,lease_until,title,package,pitch,pitch_claim_token";
+const signalFields =
+  "id,source_key,sphere,kind,url,title,summary,published_at,views,baseline_views,momentum,comments";
+const DAY_MS = 86400000;
 const sourceFields =
   "id,url,final_url,content_type,title,site_name,published_hint,modified_hint,text,truncated,fetched_at";
 
@@ -55,6 +65,19 @@ export function createJournalRepository(): JournalHandoffRepository {
     return (data ?? []).map((row) => ({ id: String(row.id), topic: String(row.topic) }));
   }
 
+  async function radarSettings() {
+    const { data, error } = await db
+      .from("journal_editorial_settings")
+      .select("radar_scanned_at,radar_sources")
+      .eq("id", true)
+      .single();
+    if (error) throw error;
+    return {
+      scanned_at: typeof data.radar_scanned_at === "string" ? new Date(data.radar_scanned_at).toISOString() : null,
+      sources: (Array.isArray(data.radar_sources) ? data.radar_sources : []) as JournalRadarSourceStatus[],
+    };
+  }
+
   async function maxSources() {
     const { data, error } = await db
       .from("journal_editorial_settings")
@@ -96,7 +119,8 @@ export function createJournalRepository(): JournalHandoffRepository {
     },
 
     async claimContext(assignmentId) {
-      const [live, cats, topics, fetched, max] = await Promise.all([
+      const now = new Date();
+      const [live, cats, topics, fetched, max, radar, signals] = await Promise.all([
         db
           .from("blog_posts")
           .select("slug,title,published_at,summary,category_id,image_prompt")
@@ -112,9 +136,17 @@ export function createJournalRepository(): JournalHandoffRepository {
           .eq("assignment_id", assignmentId)
           .order("fetched_at", { ascending: true }),
         maxSources(),
+        radarSettings(),
+        db
+          .from("journal_trend_signals")
+          .select(signalFields)
+          .gte("published_at", new Date(now.getTime() - RADAR_CLAIM_WINDOW_DAYS * DAY_MS).toISOString())
+          .order("published_at", { ascending: false })
+          .limit(1000),
       ]);
       if (live.error) throw live.error;
       if (fetched.error) throw fetched.error;
+      if (signals.error) throw signals.error;
       const bySlug = new Map(cats.map((category) => [category.id, category.slug]));
       return {
         recentPosts: (live.data ?? []).map((row) => ({
@@ -139,7 +171,61 @@ export function createJournalRepository(): JournalHandoffRepository {
           title: typeof row.title === "string" ? row.title : null,
         })),
         maxSources: max,
+        trendSignals: selectClaimSignals(
+          (signals.data ?? []).map((row) => trendSignalRow(row as Record<string, unknown>)),
+          now
+        ),
+        radar,
       };
+    },
+
+    async pitchContext(signalIds) {
+      const now = new Date();
+      const [cited, available, radar, posts] = await Promise.all([
+        signalIds.length
+          ? db.from("journal_trend_signals").select(signalFields).in("id", signalIds)
+          : Promise.resolve({ data: [], error: null }),
+        db
+          .from("journal_trend_signals")
+          .select("id", { count: "exact", head: true })
+          .gte("published_at", new Date(now.getTime() - RADAR_PITCH_WINDOW_DAYS * DAY_MS).toISOString()),
+        radarSettings(),
+        db
+          .from("blog_posts")
+          .select("title,published_at")
+          .eq("is_live", true)
+          .gte("published_at", new Date(now.getTime() - 366 * DAY_MS).toISOString())
+          .lte("published_at", now.toISOString())
+          .limit(1000),
+      ]);
+      for (const result of [cited, available, posts]) if (result.error) throw result.error;
+      return {
+        signals: new Map(
+          (cited.data ?? []).map((row) => {
+            const signal = trendSignalRow(row as Record<string, unknown>);
+            return [signal.id, signal] as const;
+          })
+        ),
+        radarSignalsAvailable: available.count ?? 0,
+        radarScannedAt: radar.scanned_at,
+        livePosts: (posts.data ?? []).map((row) => ({
+          title: String(row.title),
+          published_at: String(row.published_at),
+        })),
+      };
+    },
+
+    async storePitch(id, token, pitch) {
+      const { data, error } = await db.rpc("pitch_journal_editorial_assignment", {
+        p_id: id,
+        p_token: token,
+        p_pitch: pitch,
+      });
+      if (error) throw error;
+      const result = (data ?? {}) as { state?: string; lease_until?: string; code?: string };
+      if (result.state === "pitched" && result.lease_until)
+        return { state: "pitched", lease_until: new Date(result.lease_until).toISOString() };
+      return { code: result.code ?? "CLAIM_NOT_OWNED" };
     },
 
     async policyContext(assignmentId) {

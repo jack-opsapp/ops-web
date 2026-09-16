@@ -2,6 +2,8 @@ import {
   JOURNAL_INDUSTRY_SLUGS,
   type JournalPolicyContext,
 } from "@/lib/journal/editorial/policy";
+import type { JournalPitchContext } from "@/lib/journal/editorial/pitch";
+import type { JournalTrendSignalRow } from "@/lib/journal/editorial/radar/signals";
 
 export const SOURCE_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const SOURCE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -133,6 +135,103 @@ export const validEditor = {
   useful: true,
   on_voice: true,
   structured: true,
+  hooked: true,
   reason: "approved",
   notes: "Grounded and on voice.",
 };
+
+export const SIGNAL_VIDEO = "5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a5a";
+export const SIGNAL_THREAD = "6b6b6b6b-6b6b-46b6-86b6-6b6b6b6b6b6b";
+export const SIGNAL_NEWS = "7c7c7c7c-7c7c-47c7-87c7-7c7c7c7c7c7c";
+
+/** One radar row the way the repository hands it over. */
+export function signalRow(overrides: Partial<JournalTrendSignalRow> = {}): JournalTrendSignalRow {
+  return {
+    id: SIGNAL_VIDEO,
+    source_key: "tommy-mello",
+    sphere: "trades",
+    kind: "video",
+    url: "https://www.youtube.com/watch?v=abc123",
+    title: "Why your best tech quits in the first year",
+    summary: "Retention starts on day one.",
+    published_at: "2026-09-10T15:00:00.000Z",
+    views: 48210,
+    baseline_views: 9400,
+    momentum: 5.13,
+    comments: null,
+    ...overrides,
+  };
+}
+
+export const radarRows: JournalTrendSignalRow[] = [
+  signalRow(),
+  signalRow({
+    id: SIGNAL_THREAD,
+    source_key: "contractortalk",
+    sphere: "forum",
+    kind: "thread",
+    url: "https://www.contractortalk.com/threads/new-guy-walked-off.464700/",
+    title: "New guy walked off the job at lunch",
+    summary: null,
+    published_at: "2026-09-12T18:00:00.000Z",
+    views: null,
+    baseline_views: null,
+    momentum: null,
+    comments: 41,
+  }),
+  signalRow({
+    id: SIGNAL_NEWS,
+    source_key: "construction-dive",
+    sphere: "industry",
+    kind: "article",
+    url: "https://www.constructiondive.com/news/labor-shortage-2026/",
+    title: "Residential builders report longer hiring times",
+    summary: "Survey of builders.",
+    published_at: "2026-09-11T12:00:00.000Z",
+    views: null,
+    baseline_views: null,
+    momentum: null,
+    comments: null,
+  }),
+];
+
+export function pitchContext(overrides: Partial<Omit<JournalPitchContext, "now">> = {}): Omit<JournalPitchContext, "now"> {
+  return {
+    signals: new Map(radarRows.map((row) => [row.id, row])),
+    radarSignalsAvailable: 120,
+    radarScannedAt: "2026-09-13T12:09:00.000Z",
+    livePosts: policyContext.livePosts,
+    ...overrides,
+  };
+}
+
+/** A pitch that passes every deterministic check against pitchContext. */
+export function validPitch(overrides: Record<string, unknown> = {}) {
+  return {
+    topic: "Why new hires quit in the first ninety days",
+    reader: "An owner with four trucks who hired two helpers in the spring and lost both by August.",
+    why_now:
+      "A Tommy Mello video on first-year turnover is running five times his typical views, a ContractorTalk thread about a new guy walking off drew 41 replies, and builders report longer hiring times.",
+    signals: [SIGNAL_VIDEO, SIGNAL_THREAD, SIGNAL_NEWS],
+    chatter: [
+      { url: "https://www.reddit.com/r/Construction/comments/abc/first_week/", shows: "Owners trading stories about helpers who never came back after day three." },
+    ],
+    ethos: "Ownership: the crew you keep is a leadership result, not luck.",
+    angle: "Turnover is decided in the first week, by the owner, before the new hire ever touches a tool.",
+    hook: "He showed up at 6:40, carried lumber until noon, and never came back from lunch.",
+    headline: "YOUR NEW GUY QUIT BEFORE LUNCH",
+    hooks_considered: [
+      ["YOUR NEW GUY QUIT BEFORE LUNCH", "Chosen: a moment every owner has lived."],
+      ["THE FIRST WEEK DECIDES WHO STAYS", "Clear, but it tells the ending."],
+      ["STOP HIRING HELPERS YOU WILL LOSE", "Too scolding."],
+      ["NINETY DAYS TO KEEP A GOOD HAND", "Flat."],
+      ["NOBODY QUITS THE WORK. THEY QUIT THE WEEK", "Clever, not concrete."],
+      ["WHY YOUR BEST HIRE WALKS BY FRIDAY", "Close second."],
+    ].map(([headline, verdict]) => ({ headline, hook: "A new hire leaves on day one.", verdict })),
+    runners_up: [
+      { topic: "Pricing small repair jobs", why_not: "Covered in July." },
+      { topic: "Rates and the spring backlog", why_not: "News peg, thin on owner moves." },
+    ],
+    ...overrides,
+  };
+}

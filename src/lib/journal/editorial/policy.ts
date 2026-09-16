@@ -237,6 +237,42 @@ export function normalizeForMatch(value: string): string {
     .toLowerCase();
 }
 
+/** The brand-voice rules every public line obeys: banned words, the audience word, no shouting, no hedging. */
+export function journalVoiceIssues(entries: ReadonlyArray<readonly [string, string]>): JournalDraftIssue[] {
+  const issues: JournalDraftIssue[] = [];
+  for (const [path, value] of entries) {
+    const banned = BANNED_PATTERN.exec(value);
+    if (banned) issues.push({ path, message: `banned word "${banned[0]}"` });
+    if (CONTRACTOR.test(value))
+      issues.push({ path, message: `"contractor" is banned; say subtrades, the trades, crews, owner-operators or business owners` });
+    if (value.includes("!")) issues.push({ path, message: "no exclamation points" });
+    if (EMOJI.test(value)) issues.push({ path, message: "no emoji" });
+    if (HASHTAG.test(value)) issues.push({ path, message: "no hashtags" });
+    const hedge = HEDGES.exec(value);
+    if (hedge) issues.push({ path, message: `hedge "${hedge[0]}"` });
+  }
+  return issues;
+}
+
+/** Relative time words that make an evergreen line go stale. */
+export function journalStaleIssues(entries: ReadonlyArray<readonly [string, string]>): JournalDraftIssue[] {
+  return entries.flatMap(([path, value]) => {
+    const match = STALE.exec(value);
+    return match ? [{ path, message: `"${match[0]}" goes stale; use a date or cut it` }] : [];
+  });
+}
+
+/** The journal title rule: ALL CAPS, 5–10 words, no closing period or exclamation point. */
+export function journalTitleIssue(path: string, title: string): JournalDraftIssue | null {
+  const words = wordsOf(title).length;
+  if (title === title.toUpperCase() && words >= L.title_words[0] && words <= L.title_words[1] && !/[.!]$/.test(title))
+    return null;
+  return {
+    path,
+    message: `ALL CAPS, ${L.title_words[0]}–${L.title_words[1]} words, no closing period (got ${words} words)`,
+  };
+}
+
 function numbersIn(value: string): string[] {
   return (value.match(NUMBER) ?? []).map((token) => token.replace(/,/g, ""));
 }
@@ -323,19 +359,8 @@ export function prepareJournalDraft(
   if (markupIssues.length) fail("MARKUP_INVALID", markupIssues);
 
   // --- title and metadata ---------------------------------------------------
-  const titleWords = wordsOf(c.title).length;
-  if (
-    c.title !== c.title.toUpperCase() ||
-    titleWords < L.title_words[0] ||
-    titleWords > L.title_words[1] ||
-    /[.!]$/.test(c.title)
-  )
-    fail("TITLE_FORMAT", [
-      {
-        path: "title",
-        message: `ALL CAPS, ${L.title_words[0]}–${L.title_words[1]} words, no closing period (got ${titleWords} words)`,
-      },
-    ]);
+  const titleIssue = journalTitleIssue("title", c.title);
+  if (titleIssue) fail("TITLE_FORMAT", [titleIssue]);
   if (c.meta_title.length < L.meta_title[0] || c.meta_title.length > L.meta_title[1])
     fail("META_TITLE_LENGTH", [
       {
@@ -415,26 +440,12 @@ export function prepareJournalDraft(
     ...plainFields,
     ...rendered.plain.map((value, index): [string, string] => [`body.${index}`, value]),
   ];
-  const voiceIssues: JournalDraftIssue[] = [];
-  for (const [path, value] of publicText) {
-    const banned = BANNED_PATTERN.exec(value);
-    if (banned) voiceIssues.push({ path, message: `banned word "${banned[0]}"` });
-    if (CONTRACTOR.test(value))
-      voiceIssues.push({ path, message: `"contractor" is banned; say subtrades, the trades, crews, owner-operators or business owners` });
-    if (value.includes("!")) voiceIssues.push({ path, message: "no exclamation points" });
-    if (EMOJI.test(value)) voiceIssues.push({ path, message: "no emoji" });
-    if (HASHTAG.test(value)) voiceIssues.push({ path, message: "no hashtags" });
-    const hedge = HEDGES.exec(value);
-    if (hedge) voiceIssues.push({ path, message: `hedge "${hedge[0]}"` });
-  }
+  const voiceIssues = journalVoiceIssues(publicText);
   if (/^ai\b/i.test(c.title.trim()) || /^ai\b/i.test(rendered.plain[0].trim()))
     voiceIssues.push({ path: "title", message: "never lead with AI" });
   if (voiceIssues.length) fail("VOICE_REJECTED", voiceIssues);
 
-  const staleIssues = publicText.flatMap(([path, value]) => {
-    const match = STALE.exec(value);
-    return match ? [{ path, message: `"${match[0]}" goes stale; use a date or cut it` }] : [];
-  });
+  const staleIssues = journalStaleIssues(publicText);
   if (staleIssues.length) fail("STALE_FRAMING", staleIssues);
 
   // --- originality ------------------------------------------------------------

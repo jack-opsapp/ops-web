@@ -3,7 +3,7 @@ import { z } from "zod";
 // Bumped whenever the writing instructions or the accepted shape change, and
 // stamped onto every package so a draft can always be traced to the brief that
 // produced it.
-export const JOURNAL_BRIEF_VERSION = "ops-journal-2026-09-15-v2";
+export const JOURNAL_BRIEF_VERSION = "ops-journal-2026-09-16-v3";
 
 // Mirrors the candidate schema in policy.ts. The routine has no access to this
 // codebase, so the accepted shape travels with every claim.
@@ -37,6 +37,27 @@ export const JOURNAL_LIMITS = {
   recent_images: 8,
 } as const;
 
+// The pitch: the week's topic, why now, the angle and the hook, handed to OPS
+// before a word of the article is written. Mirrors pitch.ts.
+export const JOURNAL_PITCH_LIMITS = {
+  topic: 200,
+  reader: 400,
+  why_now: 800,
+  ethos: 400,
+  angle: 300,
+  hook: 400,
+  headline: 80,
+  signals: [0, 12],
+  chatter: [0, 8],
+  chatter_shows: 240,
+  // Radar signals plus search results that show the topic is hot.
+  evidence_min: 3,
+  hooks_considered: [6, 12],
+  hook_verdict: 240,
+  runners_up: [2, 4],
+  runner_why_not: 300,
+} as const;
+
 export const JOURNAL_FORMAT = {
   block_types: ["p", "h2", "h3", "blockquote", "ul", "ol"],
   inline_markup: ["**bold**", "*italic*", "[label](url)"],
@@ -55,12 +76,16 @@ export const journalEditorSchema = z
     useful: z.boolean(),
     on_voice: z.boolean(),
     structured: z.boolean(),
+    // The title and cold open deliver the pitch's hook: a business owner
+    // scrolling past would stop, and the post keeps the hook's promise.
+    hooked: z.boolean(),
     reason: z.enum([
       "approved",
       "unsupported_claim",
       "stale",
       "duplicate",
       "weak_copy",
+      "weak_hook",
       "off_voice",
       "structure",
     ]),
@@ -79,6 +104,7 @@ export function isJournalApproved(review: JournalEditorReview): boolean {
     review.useful &&
     review.on_voice &&
     review.structured &&
+    review.hooked &&
     review.reason === "approved"
   );
 }

@@ -37,6 +37,7 @@ describe("journal voice document bundling", () => {
   it("finds the routes that read the journal voice documents", () => {
     expect(readerRoutes.map(routePath).sort()).toEqual([
       "/api/internal/journal/editorial/assignments/[id]/draft",
+      "/api/internal/journal/editorial/assignments/[id]/pitch",
       "/api/internal/journal/editorial/assignments/[id]/release",
       "/api/internal/journal/editorial/assignments/[id]/sources",
       "/api/internal/journal/editorial/claim",

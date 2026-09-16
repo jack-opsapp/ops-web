@@ -21,6 +21,9 @@ const baseNextConfig: NextConfig = {
     "/api/internal/journal/editorial/assignments/[id]/sources": [
       "./docs/journal/voice/*.md",
     ],
+    "/api/internal/journal/editorial/assignments/[id]/pitch": [
+      "./docs/journal/voice/*.md",
+    ],
     "/api/internal/journal/editorial/assignments/[id]/draft": [
       "./docs/journal/voice/*.md",
     ],

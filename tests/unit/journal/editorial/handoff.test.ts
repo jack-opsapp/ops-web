@@ -10,13 +10,27 @@ import {
   type JournalSourceRecord,
   type JournalSourceSnapshotInput,
 } from "@/lib/journal/editorial/handoff";
-import { policyContext, validCandidate, validEditor } from "./fixtures";
+import { prepareJournalPitch, type JournalPitch } from "@/lib/journal/editorial/pitch";
+import { selectClaimSignals } from "@/lib/journal/editorial/radar/signals";
+import {
+  SIGNAL_NEWS,
+  SIGNAL_THREAD,
+  SIGNAL_VIDEO,
+  pitchContext,
+  policyContext,
+  radarRows,
+  validCandidate,
+  validEditor,
+  validPitch,
+} from "./fixtures";
 
 const TOKEN = "t".repeat(48);
 const CLAIM = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
 const ASSIGNMENT = "99999999-9999-4999-8999-999999999999";
 const NOW = new Date("2026-09-13T13:30:00Z");
+
+const storedPitch: JournalPitch = prepareJournalPitch(validPitch(), { ...pitchContext(), now: NOW });
 
 const reference = (name: string) => ({
   path: `docs/journal/voice/${name}`,
@@ -38,6 +52,8 @@ function assignment(overrides: Partial<JournalAssignmentRecord> = {}): JournalAs
     lease_until: "2026-09-13T14:30:00.000Z",
     title: null,
     package: null,
+    pitch: storedPitch,
+    pitch_claim_token: CLAIM,
     ...overrides,
   };
 }
@@ -88,6 +104,14 @@ function repository(overrides: Partial<JournalHandoffRepository> = {}): JournalH
       categories: [{ id: "c1", slug: "operations", name: "Operations" }],
       fetchedSources: [],
       maxSources: 24,
+      trendSignals: selectClaimSignals(radarRows, NOW),
+      radar: {
+        scanned_at: "2026-09-13T12:09:00.000Z",
+        sources: [
+          { key: "tommy-mello", name: "Tommy Mello", sphere: "trades" as const, ok: true, items: 9, code: null },
+          { key: "hbr", name: "HBR", sphere: "leadership" as const, ok: false, items: 0, code: "FEED_BLOCKED" },
+        ],
+      },
     })),
     policyContext: vi.fn(async () => ({
       sources: policyContext.sources,
@@ -96,6 +120,8 @@ function repository(overrides: Partial<JournalHandoffRepository> = {}): JournalH
       categories: policyContext.categories,
       backlogTopicIds: policyContext.backlogTopicIds,
     })),
+    pitchContext: vi.fn(async () => pitchContext()),
+    storePitch: vi.fn(async () => ({ state: "pitched" as const, lease_until: "2026-09-13T14:30:00.000Z" })),
     findSource: vi.fn(async () => null),
     countClaimSources: vi.fn(async () => 0),
     maxSources: vi.fn(async () => 24),
@@ -179,7 +205,7 @@ describe("journal handoff", () => {
         attempts_remaining: 2,
         claim_token: CLAIM,
         max_sources: 24,
-        brief_version: "ops-journal-2026-09-15-v2",
+        brief_version: "ops-journal-2026-09-16-v3",
       });
       expect(body.assignment.brief.sha256).toHaveLength(64);
       expect(body.assignment.guide.path).toBe("docs/journal/voice/blog-voice-sam-parr.md");
@@ -191,6 +217,74 @@ describe("journal handoff", () => {
       expect(body.assignment.recent_images[0]).toEqual({ title: "POST 0", image_prompt: "A different trades scene number 0." });
       expect(body.assignment.limits.image_prompt).toEqual([120, 1500]);
       expect(JSON.stringify(body)).not.toMatch(/service_role|SUPABASE|AWS_|Bearer/);
+    });
+
+    it("hands the writer the radar: what feeds answered and the strongest signals, by sphere", async () => {
+      const body = await (await handlers(repository()).claim(post({ worker: "cse_1" }))).json();
+      expect(body.assignment.radar.scanned_at).toBe("2026-09-13T12:09:00.000Z");
+      expect(body.assignment.radar.feeds).toEqual([
+        { key: "tommy-mello", name: "Tommy Mello", sphere: "trades", ok: true, items: 9, code: null },
+        { key: "hbr", name: "HBR", sphere: "leadership", ok: false, items: 0, code: "FEED_BLOCKED" },
+      ]);
+      expect(Object.keys(body.assignment.radar.spheres)).toEqual(["leadership", "business", "trades", "industry", "forum"]);
+      expect(body.assignment.trend_signals.map((signal: { id: string }) => signal.id)).toEqual([SIGNAL_VIDEO, SIGNAL_NEWS, SIGNAL_THREAD]);
+      expect(body.assignment.trend_signals[0]).toMatchObject({
+        source: "Tommy Mello",
+        kind: "video",
+        views: 48210,
+        typical_views: 9400,
+        momentum: 5.13,
+        age_days: 2.9,
+      });
+      expect(body.assignment.pitch_limits).toMatchObject({ evidence_min: 3, hooks_considered: [6, 12], runners_up: [2, 4] });
+    });
+  });
+
+  describe("pitch", () => {
+    const pitchRequest = (pitch: unknown = validPitch(), claim = CLAIM) => post({ claim_token: claim, pitch });
+
+    it("only serves the live claim", async () => {
+      const h = handlers(repository());
+      expect((await h.pitch(pitchRequest(validPitch(), OTHER), ASSIGNMENT)).status).toBe(409);
+      const expired = handlers(repository({ findAssignment: vi.fn(async () => assignment({ lease_until: "2026-09-13T13:00:00.000Z" })) }));
+      expect((await expired.pitch(pitchRequest(), ASSIGNMENT)).status).toBe(409);
+    });
+
+    it("keeps the pitch with the radar signals it cited frozen as seen, and returns the renewed lease", async () => {
+      const repo = repository();
+      const response = await handlers(repo).pitch(pitchRequest(), ASSIGNMENT);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        state: "pitched",
+        lease_until: "2026-09-13T14:30:00.000Z",
+        headline: "YOUR NEW GUY QUIT BEFORE LUNCH",
+      });
+      expect(repo.pitchContext).toHaveBeenCalledWith([SIGNAL_VIDEO, SIGNAL_THREAD, SIGNAL_NEWS]);
+      const [, token, stored] = (repo.storePitch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(token).toBe(CLAIM);
+      expect(stored.signals.map((signal: { id: string; source: string }) => [signal.id, signal.source])).toEqual([
+        [SIGNAL_VIDEO, "Tommy Mello"],
+        [SIGNAL_THREAD, "ContractorTalk"],
+        [SIGNAL_NEWS, "Construction Dive"],
+      ]);
+      expect(stored.radar_scanned_at).toBe("2026-09-13T12:09:00.000Z");
+    });
+
+    it("returns a fixable code with the exact issues and records the rejection", async () => {
+      const repo = repository({ pitchContext: vi.fn(async () => pitchContext({ signals: new Map() })) });
+      const response = await handlers(repo).pitch(pitchRequest(), ASSIGNMENT);
+      expect(response.status).toBe(422);
+      const body = await response.json();
+      expect(body.code).toBe("PITCH_SIGNAL_UNKNOWN");
+      expect(body.issues[0].path).toBe("signals.0");
+      expect(repo.storePitch).not.toHaveBeenCalled();
+      expect(repo.recordAttempt).toHaveBeenCalledWith(ASSIGNMENT, CLAIM, expect.objectContaining({ event: "pitch_rejected", code: "PITCH_SIGNAL_UNKNOWN" }));
+    });
+
+    it("stops at three pitches on one claim", async () => {
+      const response = await handlers(repository({ storePitch: vi.fn(async () => ({ code: "PITCH_LIMIT" })) })).pitch(pitchRequest(), ASSIGNMENT);
+      expect(response.status).toBe(429);
+      expect(await response.json()).toEqual({ code: "PITCH_LIMIT" });
     });
   });
 
@@ -271,7 +365,8 @@ describe("journal handoff", () => {
       });
       const [, , state, code, pack, slug, title] = (repo.finishAssignment as ReturnType<typeof vi.fn>).mock.calls[0];
       expect([state, code, slug, title]).toEqual(["drafted", null, "the-first-call-decides-the-week", "THE FIRST CALL DECIDES THE WHOLE WEEK"]);
-      expect(pack.brief_version).toBe("ops-journal-2026-09-15-v2");
+      expect(pack.brief_version).toBe("ops-journal-2026-09-16-v3");
+      expect(pack.pitch).toEqual(storedPitch);
       expect(pack.references.map((entry: { path: string }) => entry.path)).toEqual([
         "docs/journal/voice/ops-journal-brief.md",
         "docs/journal/voice/blog-voice-sam-parr.md",
@@ -279,6 +374,24 @@ describe("journal handoff", () => {
       ]);
       expect(pack.html).toContain("<h2>Sources</h2>");
       expect(pack.review.reason).toBe("approved");
+    });
+
+    it("refuses a draft without this claim's own pitch", async () => {
+      for (const overrides of [{ pitch: null, pitch_claim_token: null }, { pitch_claim_token: OTHER }]) {
+        const repo = repository({ findAssignment: vi.fn(async () => assignment(overrides)) });
+        const response = await handlers(repo).draft(draftRequest(), ASSIGNMENT);
+        expect(response.status).toBe(422);
+        expect((await response.json()).code).toBe("PITCH_MISSING");
+        expect(repo.recordAttempt).not.toHaveBeenCalled();
+        expect(repo.finishAssignment).not.toHaveBeenCalled();
+      }
+    });
+
+    it("sends a draft that does not land its hook back to the queue", async () => {
+      const repo = repository();
+      const response = await handlers(repo).draft(draftRequest({ editor: { ...validEditor, approved: false, hooked: false, reason: "weak_hook" } }), ASSIGNMENT);
+      expect(await response.json()).toEqual({ state: "rejected", attempts_remaining: 2 });
+      expect(repo.finishAssignment).toHaveBeenCalledWith(ASSIGNMENT, CLAIM, "queued", "EDITOR_REJECTED", null, null, null);
     });
 
     it("reads back an accepted draft on a retried call", async () => {

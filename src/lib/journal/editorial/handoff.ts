@@ -6,9 +6,11 @@ import {
   JOURNAL_BRIEF_VERSION,
   JOURNAL_FORMAT,
   JOURNAL_LIMITS,
+  JOURNAL_PITCH_LIMITS,
   isJournalApproved,
   journalEditorSchema,
 } from "./brief";
+import { JournalPitchError, prepareJournalPitch, type JournalPitch, type JournalPitchContext } from "./pitch";
 import {
   JOURNAL_INDUSTRY_SLUGS,
   JournalDraftError,
@@ -16,6 +18,9 @@ import {
   type JournalPolicyContext,
   type PreparedJournalDraft,
 } from "./policy";
+import type { JournalRadarSourceStatus } from "./radar/scan";
+import type { JournalClaimSignal } from "./radar/signals";
+import { JOURNAL_RADAR_SPHERE_NOTES } from "./radar/watchlist";
 import type { JournalReference } from "./voice";
 
 const BODY_LIMIT_BYTES = 200_000;
@@ -38,6 +43,9 @@ export interface JournalAssignmentRecord {
   lease_until: string | null;
   title: string | null;
   package: JournalPackage | null;
+  /** The pitch this claim handed back, valid only while pitch_claim_token is the claim's token. */
+  pitch: JournalPitch | null;
+  pitch_claim_token: string | null;
 }
 
 export interface JournalPackage extends PreparedJournalDraft {
@@ -45,6 +53,8 @@ export interface JournalPackage extends PreparedJournalDraft {
   usage: unknown[];
   references: Array<{ path: string; sha256: string }>;
   brief_version: string;
+  /** Why this topic and this hook. Absent only on drafts made before the topic funnel. */
+  pitch?: JournalPitch;
 }
 
 /** What OPS keeps of one fetched page, and what the routine reads back. */
@@ -91,6 +101,9 @@ export interface JournalClaimContext {
   categories: Array<{ id: string; slug: string; name: string }>;
   fetchedSources: Array<{ id: string; url: string; title: string | null }>;
   maxSources: number;
+  /** What the trades and the voices around them are talking about, strongest first. */
+  trendSignals: JournalClaimSignal[];
+  radar: { scanned_at: string | null; sources: JournalRadarSourceStatus[] };
 }
 
 export interface JournalHandoffRepository {
@@ -101,6 +114,12 @@ export interface JournalHandoffRepository {
   policyContext(
     assignmentId: string
   ): Promise<Omit<JournalPolicyContext, "productFacts" | "industrySlugs" | "now">>;
+  pitchContext(signalIds: string[]): Promise<Omit<JournalPitchContext, "now">>;
+  storePitch(
+    id: string,
+    token: string,
+    pitch: JournalPitch
+  ): Promise<{ state: "pitched"; lease_until: string } | { code: string }>;
   findSource(assignmentId: string, url: string): Promise<JournalSourceRecord | null>;
   countClaimSources(assignmentId: string, token: string): Promise<number>;
   maxSources(): Promise<number>;
@@ -160,6 +179,7 @@ const usageSchema = z
       .strict()
   )
   .max(12);
+const pitchBodySchema = z.object({ claim_token: z.string().uuid(), pitch: z.unknown() }).strict();
 const releaseBodySchema = z
   .object({
     claim_token: z.string().uuid(),
@@ -286,6 +306,13 @@ export function createJournalHandoffHandlers(d: JournalHandoffDependencies) {
         industry_pages: JOURNAL_INDUSTRY_SLUGS.map((slug) => `/industries/${slug}`),
         recent_posts: context.recentPosts.slice(0, RECENT_POSTS),
         backlog_topics: context.backlogTopics,
+        radar: {
+          scanned_at: context.radar.scanned_at,
+          spheres: JOURNAL_RADAR_SPHERE_NOTES,
+          feeds: context.radar.sources,
+        },
+        trend_signals: context.trendSignals,
+        pitch_limits: JOURNAL_PITCH_LIMITS,
         recent_images: context.recentImages.slice(0, JOURNAL_LIMITS.recent_images),
         fetched_sources: context.fetchedSources,
         brief,
@@ -358,6 +385,45 @@ export function createJournalHandoffHandlers(d: JournalHandoffDependencies) {
     return json(sourcePayload(record, stored.existing));
   }
 
+  async function pitch(request: NextRequest, id: string): Promise<NextResponse> {
+    const denied = guard(request);
+    if (denied) return denied;
+    const body = await readBody(request);
+    if ("response" in body) return body.response;
+    const now = d.now();
+    const owned = await loadOwned(id, body.value, now);
+    if ("response" in owned) return owned.response;
+    const parsed = pitchBodySchema.safeParse(body.value);
+    if (!parsed.success) return schemaInvalid(parsed.error);
+
+    const raw = parsed.data.pitch as { signals?: unknown } | null;
+    const signalIds = Array.isArray(raw?.signals)
+      ? raw.signals.filter((value): value is string => uuidSchema.safeParse(value).success).slice(0, 50)
+      : [];
+    let prepared: JournalPitch;
+    try {
+      prepared = prepareJournalPitch(parsed.data.pitch, {
+        ...(await repository.pitchContext(signalIds)),
+        now,
+      });
+    } catch (error) {
+      if (error instanceof JournalPitchError) {
+        await repository.recordAttempt(owned.assignment.id, owned.token, {
+          event: "pitch_rejected",
+          code: error.code,
+          issues: error.issues.slice(0, 5),
+          at: now.toISOString(),
+        });
+        return json({ error: "PITCH_REJECTED", code: error.code, issues: error.issues }, 422);
+      }
+      throw error;
+    }
+    const stored = await repository.storePitch(owned.assignment.id, owned.token, prepared);
+    if ("code" in stored)
+      return json({ code: stored.code }, stored.code === "PITCH_LIMIT" ? 429 : 409);
+    return json({ state: "pitched", lease_until: stored.lease_until, headline: prepared.headline });
+  }
+
   async function draft(request: NextRequest, id: string): Promise<NextResponse> {
     const denied = guard(request);
     if (denied) return denied;
@@ -378,6 +444,18 @@ export function createJournalHandoffHandlers(d: JournalHandoffDependencies) {
     if ("response" in owned) return owned.response;
     const { assignment } = owned;
     const claimToken = owned.token;
+
+    // The topic, the angle and the hook are decided before the writing, and
+    // only this claim's own pitch counts.
+    if (!assignment.pitch || assignment.pitch_claim_token !== claimToken)
+      return json(
+        {
+          error: "DRAFT_REJECTED",
+          code: "PITCH_MISSING",
+          issues: [{ path: "pitch", message: "POST this claim's pitch to /pitch before the draft" }],
+        },
+        422
+      );
 
     if (assignment.submissions >= MAX_SUBMISSIONS_PER_CLAIM) {
       await repository.finishAssignment(assignment.id, claimToken, "queued", "SUBMISSIONS_EXHAUSTED", null, null, null);
@@ -436,6 +514,7 @@ export function createJournalHandoffHandlers(d: JournalHandoffDependencies) {
       usage: usage.data,
       references: [brief, guide, facts].map(({ path, sha256 }) => ({ path, sha256 })),
       brief_version: JOURNAL_BRIEF_VERSION,
+      pitch: assignment.pitch,
     };
     const finalState = await repository.finishAssignment(
       assignment.id,
@@ -495,5 +574,5 @@ export function createJournalHandoffHandlers(d: JournalHandoffDependencies) {
     return json({ state: finalState, code });
   }
 
-  return { claim, source, draft, release };
+  return { claim, source, pitch, draft, release };
 }
