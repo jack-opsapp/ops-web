@@ -53,23 +53,23 @@ export function DeckDesignRow({
       className={cn(
         "group flex w-full items-center gap-2.5 rounded px-1.5 py-1.5 text-left",
         "transition-colors duration-150 hover:bg-surface-hover",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+        "focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent",
       )}
     >
       <DeckGlyph model={model} thumbnailUrl={design.thumbnailUrl} />
 
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="min-w-0 truncate font-mohave text-[14px] text-text-2 transition-colors group-hover:text-text">
+        <span className="min-w-0 truncate font-mohave text-caption text-text-2 transition-colors group-hover:text-text">
           {design.title}
         </span>
-        <span className="font-mono text-[11px] tabular-nums text-text-mute [font-feature-settings:'tnum'_1,'zero'_1]">
+        <span className="font-mono text-micro tabular-nums text-text-mute [font-feature-settings:'tnum'_1,'zero'_1]">
           {meta}
         </span>
       </span>
 
       <Maximize2
-        className="h-3 w-3 shrink-0 text-text-mute transition-colors group-hover:text-text-2"
-        strokeWidth={1.75}
+        className="h-icon-16 w-icon-16 shrink-0 text-text-mute transition-colors group-hover:text-text-2"
+        strokeWidth={1.5}
       />
     </button>
   );
@@ -89,7 +89,7 @@ function DeckGlyph({
       ) : thumbnailUrl ? (
         <img src={thumbnailUrl} alt="" className="h-full w-full object-contain" />
       ) : (
-        <PencilRuler className="h-4 w-4 text-text-3" strokeWidth={1.75} />
+        <PencilRuler className="h-icon-20 w-icon-20 text-text-3" strokeWidth={1.5} />
       )}
     </span>
   );

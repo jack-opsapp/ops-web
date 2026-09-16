@@ -33,19 +33,54 @@ import {
 import type { DeckDrawing, DeckLevelColor } from "@/lib/deck/drawing-data";
 
 /**
- * Monochrome, with the level's own colour washed in at low alpha when a design
- * has more than one level — the same rule the 2D plan follows, so a level looks
- * like itself in both views. The hexes are the design system's steel accent and
- * earth tones; there is no fourth colour to invent.
+ * Three.js materials cannot read a CSS variable, so the palette is READ OUT of
+ * the design system at mount instead of being retyped here. That matters for
+ * more than tidiness: a company can override the accent at runtime
+ * (`--ops-accent-rgb`), and a hardcoded steel blue would quietly show the
+ * wrong brand on the one surface that could not follow it.
+ *
+ * The fallbacks are the spec values, used only where there is no document to
+ * read (SSR, tests).
  */
-const LEVEL_TINT: Record<DeckLevelColor, string> = {
-  blue: "#6F94B0",
-  green: "#9DB582",
-  amber: "#C4A868",
-};
-const BOARD_GREY = "#8A8A8A";
-const FRAME_GREY = "#6A6A6A";
-const GROUND_GREY = "#121214";
+const TOKEN_FALLBACKS = {
+  accent: "#6F94B0",
+  olive: "#9DB582",
+  tan: "#C4A868",
+  board: "#8A8A8A", // --text-3
+  frame: "#6A6A6A", // --text-mute
+} as const;
+
+function readToken(styles: CSSStyleDeclaration | null, name: string): string | null {
+  const raw = styles?.getPropertyValue(name).trim();
+  return raw ? raw : null;
+}
+
+function usePalette() {
+  return useMemo(() => {
+    const styles =
+      typeof window === "undefined"
+        ? null
+        : window.getComputedStyle(document.documentElement);
+    // The accent is stored as space-separated RGB channels so it can be
+    // alpha-composited in CSS; Three needs a colour string either way.
+    const accentChannels = readToken(styles, "--ops-accent-rgb");
+    const accent =
+      (accentChannels && `rgb(${accentChannels.replace(/\s+/g, ", ")})`) ??
+      readToken(styles, "--ops-accent") ??
+      TOKEN_FALLBACKS.accent;
+
+    const tint: Record<DeckLevelColor, string> = {
+      blue: accent,
+      green: readToken(styles, "--olive") ?? TOKEN_FALLBACKS.olive,
+      amber: readToken(styles, "--tan") ?? TOKEN_FALLBACKS.tan,
+    };
+    return {
+      tint,
+      board: readToken(styles, "--text-3") ?? TOKEN_FALLBACKS.board,
+      frame: readToken(styles, "--text-mute") ?? TOKEN_FALLBACKS.frame,
+    };
+  }, []);
+}
 
 function slabShape(slab: SceneDeckSlab): THREE.Shape {
   const shape = new THREE.Shape();
@@ -106,7 +141,15 @@ function Bar({
   );
 }
 
-function LevelMeshes({ level, tint }: { level: SceneLevel; tint: string | null }) {
+function LevelMeshes({
+  level,
+  tint,
+  palette,
+}: {
+  level: SceneLevel;
+  tint: string | null;
+  palette: { board: string; frame: string };
+}) {
   return (
     <group>
       {level.decks.map((slab) => (
@@ -120,7 +163,7 @@ function LevelMeshes({ level, tint }: { level: SceneLevel; tint: string | null }
           <extrudeGeometry
             args={[slabShape(slab), { depth: slab.thickness, bevelEnabled: false }]}
           />
-          <meshLambertMaterial color={tint ?? BOARD_GREY} />
+          <meshLambertMaterial color={tint ?? palette.board} />
         </mesh>
       ))}
 
@@ -132,7 +175,7 @@ function LevelMeshes({ level, tint }: { level: SceneLevel; tint: string | null }
           top={beam.top}
           depth={beam.depth}
           thickness={0.125}
-          color={FRAME_GREY}
+          color={palette.frame}
         />
       ))}
 
@@ -144,7 +187,7 @@ function LevelMeshes({ level, tint }: { level: SceneLevel; tint: string | null }
           top={wall.base + wall.height}
           depth={wall.height}
           thickness={0.5}
-          color={FRAME_GREY}
+          color={palette.frame}
           opacity={0.35}
         />
       ))}
@@ -152,7 +195,7 @@ function LevelMeshes({ level, tint }: { level: SceneLevel; tint: string | null }
       {level.posts.map((post) => (
         <mesh key={post.id} position={[post.at[0], post.height / 2, post.at[1]]}>
           <boxGeometry args={[post.size, post.height, post.size]} />
-          <meshLambertMaterial color={FRAME_GREY} />
+          <meshLambertMaterial color={palette.frame} />
         </mesh>
       ))}
 
@@ -165,7 +208,7 @@ function LevelMeshes({ level, tint }: { level: SceneLevel; tint: string | null }
             top={tread.top}
             depth={0.125}
             thickness={10 / 12}
-            color={BOARD_GREY}
+            color={palette.board}
           />
         )),
       )}
@@ -184,6 +227,7 @@ export function DeckScene3D({
     () => buildScenePlan(drawing, isolatedLevelId),
     [drawing, isolatedLevelId],
   );
+  const palette = usePalette();
 
   const [cx, cy, cz] = plan.focus.center;
   const reach = plan.focus.radius * 2.6;
@@ -205,18 +249,14 @@ export function DeckScene3D({
       <ambientLight intensity={1.1} />
       <directionalLight position={[reach, reach * 1.5, reach * 0.5]} intensity={1.6} />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, -0.02, cz]}>
-        <planeGeometry args={[reach * 8, reach * 8]} />
-        <meshBasicMaterial color={GROUND_GREY} />
-      </mesh>
-
       {plan.levels.map((level) => (
         <LevelMeshes
           key={level.id}
           level={level}
+          palette={palette}
           tint={
             drawing.isMultiLevel && level.colorKey
-              ? LEVEL_TINT[level.colorKey]
+              ? palette.tint[level.colorKey]
               : null
           }
         />

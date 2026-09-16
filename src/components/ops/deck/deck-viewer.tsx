@@ -359,7 +359,7 @@ export function DeckViewer({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[3000] flex flex-col bg-background"
+      className="fixed inset-0 z-modal flex flex-col bg-background"
     >
       {/* ── Top bar: what this is, and the two ways to leave it ── */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-glass-dense px-2 py-1">
@@ -388,7 +388,7 @@ export function DeckViewer({
               aria-checked={mode === option}
               onClick={() => setMode(option)}
               className={cn(
-                "min-w-[40px] px-1 font-mono text-micro uppercase tracking-authority",
+                "min-w-control-40 px-1 font-mono text-micro uppercase tracking-authority",
                 "rounded-bar transition-colors duration-150",
                 mode === option
                   ? "bg-surface-active text-text"
@@ -403,7 +403,7 @@ export function DeckViewer({
         <RailButton
           label={t("deck.viewer.close", "Close")}
           onClick={onClose}
-          icon={<X className="h-icon-16 w-icon-16" strokeWidth={1.75} />}
+          icon={<X className="h-icon-16 w-icon-16" strokeWidth={1.5} />}
           dimmed={dragging}
         />
       </div>
@@ -457,14 +457,14 @@ export function DeckViewer({
             <RailButton
               label={t("deck.viewer.fitAria", "Fit drawing to screen")}
               onClick={fit}
-              icon={<Maximize className="h-icon-16 w-icon-16" strokeWidth={1.75} />}
+              icon={<Maximize className="h-icon-16 w-icon-16" strokeWidth={1.5} />}
               dimmed={dragging}
             />
             <RailButton
               label={t("deck.viewer.measureAria", "Measure a run")}
               onClick={toggleMeasure}
               pressed={measuring}
-              icon={<Ruler className="h-icon-16 w-icon-16" strokeWidth={1.75} />}
+              icon={<Ruler className="h-icon-16 w-icon-16" strokeWidth={1.5} />}
               dimmed={dragging}
             />
             <RailButton
@@ -474,7 +474,7 @@ export function DeckViewer({
               )}
               onClick={() => setShowLabels((current) => !current)}
               pressed={showLabels}
-              icon={<Tag className="h-icon-16 w-icon-16" strokeWidth={1.75} />}
+              icon={<Tag className="h-icon-16 w-icon-16" strokeWidth={1.5} />}
               dimmed={dragging}
             />
             {drawing!.isMultiLevel && (
@@ -482,7 +482,7 @@ export function DeckViewer({
                 label={t("deck.viewer.levelsAria", "Isolate one level")}
                 onClick={cycleLevels}
                 pressed={isolatedIndex !== null}
-                icon={<Layers className="h-icon-16 w-icon-16" strokeWidth={1.75} />}
+                icon={<Layers className="h-icon-16 w-icon-16" strokeWidth={1.5} />}
                 dimmed={dragging}
               />
             )}
@@ -542,7 +542,7 @@ export function DeckViewer({
                 onClick={() => setMeasure(undoMeasurePoint)}
                 className="text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-focus focus-visible:ring-ops-accent"
               >
-              <Undo2 className="h-icon-16 w-icon-16" strokeWidth={1.75} />
+              <Undo2 className="h-icon-16 w-icon-16" strokeWidth={1.5} />
             </button>
           </motion.div>
         )}
@@ -623,7 +623,7 @@ function EmptyPane({
         {children}
       </span>
       {detail && (
-        <span className="max-w-[320px] font-mohave text-caption text-text-mute">
+        <span className="max-w-content-label font-mohave text-caption text-text-mute">
           {detail}
         </span>
       )}
