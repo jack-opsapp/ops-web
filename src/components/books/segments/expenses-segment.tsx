@@ -394,9 +394,19 @@ export function ExpensesSegment({
   // ── Keyboard nav — ↑/↓ across visible rows, Esc clears ─────────────────────
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (bulkKind) return; // the dialog owns keys while open
+      // Any open dialog or menu (e.g. the recurring reimbursement editor and its
+      // month picker) owns the keyboard — arrows must never move the selection
+      // behind it.
+      if (
+        target.closest?.('[role="dialog"], [role="listbox"], [role="menu"]') ||
+        document.querySelector('[role="dialog"][data-state="open"]')
+      ) {
+        return;
+      }
 
       if (e.key === "Escape") {
         e.preventDefault();
