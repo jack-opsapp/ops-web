@@ -22,6 +22,7 @@ import {
   CalendarX,
   AlarmClock,
   Circle,
+  Repeat,
   type LucideIcon,
 } from "lucide-react";
 import type { NotificationType } from "@/lib/api/services/notification-service";
@@ -79,6 +80,9 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   expense_submitted: { label: "EXPENSE", icon: "receipt", tone: "attn" },
   expense_approved: { label: "EXP", icon: "receipt-text", tone: "ambient" },
   expense_paid: { label: "PAID", icon: "receipt-text", tone: "ambient" },
+  // Database-dispatched when the office adds, changes, ends, skips or removes a
+  // fixed monthly amount paid with a crew member's expenses.
+  expense_recurring: { label: "RECURRING", icon: "repeat", tone: "ambient" },
   duplicates_found: { label: "DUPES", icon: "copy", tone: "critical" },
   duplicates_merged: {
     label: "MERGED",
@@ -173,6 +177,7 @@ const LUCIDE_REGISTRY: Record<string, LucideIcon> = {
   layers: Layers,
   "list-checks": ListChecks,
   "calendar-x": CalendarX,
+  repeat: Repeat,
 };
 
 export function lucideIconFromName(name: string): LucideIcon {

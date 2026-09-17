@@ -56,6 +56,13 @@ vi.mock("@/lib/hooks", () => ({
   useUnflagExpense: () => ({ mutate: unflagMutate, isPending: false }),
   useEarlyClearLine: () => ({ mutate: earlyClearMutate, isPending: false }),
   useRejectWithRevisions: () => ({ mutate: rejectMutate, isPending: false }),
+  useExpenseBatches: () => ({ data: [] }),
+  useRecurringReimbursements: () => ({ data: undefined }),
+  useSkipRecurringLine: () => ({ mutate: vi.fn(), isPending: false, variables: undefined }),
+  useRestoreRecurringLine: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+vi.mock("@/components/expenses/recurring-reimbursement-dialog", () => ({
+  RecurringReimbursementDialog: () => <div data-testid="recurring-reimbursement-dialog" />,
 }));
 
 // Heavy children — stub to inert markers so this is a footer/state-machine test.

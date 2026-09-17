@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState, memo, useMemo, type MouseEvent } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Minus, X, Flag, Check, Send, ArrowUpRight, Camera } from "lucide-react";
+import { Minus, X, Flag, Check, Send, ArrowUpRight, Camera, Repeat } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -24,6 +24,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   isBatchReviewable,
+  isRecurringLine,
   BATCH_STATUS_DISPLAY,
   BATCH_STATUS_COLOR,
   type ExpenseBatch,
@@ -78,7 +79,7 @@ interface ExpenseRowProps {
   t: (key: string) => string | undefined;
 }
 
-function ExpenseRow({
+export function ExpenseRow({
   expense,
   canApprove,
   isReviewable,
@@ -95,12 +96,26 @@ function ExpenseRow({
   const isFlagged = !!expense.flaggedBy;
   const isFlaggingThis = flaggingId === expense.id;
   const hasReceipt = !!expense.receiptImageUrl;
+  // Office-filed monthly reimbursement: no receipt to chase, nothing to flag.
+  // It changes from its setup in the expense console.
+  const recurring = isRecurringLine(expense);
 
   return (
     <div className="py-1.5 border-b border-[rgba(255,255,255,0.04)] last:border-b-0">
       <div className="flex items-start gap-2">
+        {/* Recurring mark */}
+        {recurring && (
+          <div
+            title={t("batchPopover.recurring") ?? "Recurring reimbursement"}
+            aria-label={t("batchPopover.recurring") ?? "Recurring reimbursement"}
+            className="shrink-0 w-[40px] h-[50px] rounded-bar border border-line flex items-center justify-center"
+          >
+            <Repeat aria-hidden className="w-4 h-4 text-text-3" />
+          </div>
+        )}
+
         {/* Receipt thumbnail */}
-        {(hasReceipt || requireReceipt) && (
+        {!recurring && (hasReceipt || requireReceipt) && (
           <div
             className={cn(
               "shrink-0 w-[40px] h-[50px] rounded-bar overflow-hidden",
@@ -147,7 +162,7 @@ function ExpenseRow({
         </span>
 
         {/* Flag toggle — reviewer mode only */}
-        {canApprove && isReviewable && (
+        {canApprove && isReviewable && !recurring && (
           <button
             onClick={() => {
               if (isFlagged) {
@@ -170,7 +185,7 @@ function ExpenseRow({
       </div>
 
       {/* Flag comment input */}
-      {canApprove && isReviewable && isFlaggingThis && !isFlagged && (
+      {canApprove && isReviewable && !recurring && isFlaggingThis && !isFlagged && (
         <div className="mt-1.5 flex items-center gap-1">
           <input
             type="text"
@@ -215,7 +230,7 @@ function ExpenseRow({
 
 // ── Summary Tab ──
 
-function SummaryTab({
+export function SummaryTab({
   expenses,
   requireReceipt,
   t,
@@ -227,20 +242,26 @@ function SummaryTab({
   const categoryData = useMemo(() => {
     const catMap = new Map<string, number>();
     let total = 0;
-    let withReceipt = 0;
 
     for (const e of expenses) {
       const cat = e.categoryName ?? "Other";
       catMap.set(cat, (catMap.get(cat) ?? 0) + e.amount);
       total += e.amount;
-      if (e.receiptImageUrl) withReceipt++;
     }
 
     const entries = Array.from(catMap.entries())
       .map(([name, amount]) => ({ name, amount, pct: total > 0 ? (amount / total) * 100 : 0 }))
       .sort((a, b) => b.amount - a.amount);
 
-    return { categories: entries, total, receiptCount: withReceipt, expenseCount: expenses.length };
+    // Coverage counts only the lines that need a receipt — the same rule as
+    // the header bar, so a recurring reimbursement never reads as missing.
+    const compliance = computeBatchCompliance(expenses);
+    return {
+      categories: entries,
+      total,
+      receiptCount: compliance.receiptsTotal - compliance.receiptsMissing,
+      expenseCount: compliance.receiptsTotal,
+    };
   }, [expenses]);
 
   const maxAmount = categoryData.categories[0]?.amount ?? 1;
@@ -277,7 +298,7 @@ function SummaryTab({
       </div>
 
       {/* Receipt coverage */}
-      {requireReceipt && (() => {
+      {requireReceipt && categoryData.expenseCount > 0 && (() => {
         const missing = categoryData.expenseCount - categoryData.receiptCount;
         const rcColor = receiptComplianceColor(missing, categoryData.expenseCount);
         const colorToken = rcColor === "error" ? WT.error : rcColor === "warning" ? WT.warning : WT.success;
@@ -597,8 +618,10 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           )}
         </div>
 
-        {/* Row 3: Receipt compliance bar — only when requireReceiptPhoto */}
-        {requireReceipt && compliance && (() => {
+        {/* Row 3: Receipt compliance bar — only when requireReceiptPhoto and
+            the batch holds a line that needs one (a recurring reimbursement
+            alone needs no receipt). */}
+        {requireReceipt && compliance && compliance.receiptsTotal > 0 && (() => {
           const rcColor = receiptComplianceColor(compliance.receiptsMissing, compliance.receiptsTotal);
           const colorToken = rcColor === "error" ? WT.error : rcColor === "warning" ? WT.warning : WT.success;
           return (

@@ -119,6 +119,8 @@ export interface ExpenseBatch {
   reimbursementAmount?: number | null;
   parentBatchId: string | null;
   amendmentNumber: number;
+  /** Per-job envelopes are scoped to one job; calendar envelopes are null. */
+  scopeProjectId?: string | null;
   reviewNotes: string | null;
   /** When the operator recorded a crew payout. Company-funded envelopes need no payout. */
   paidAt: string | null;
@@ -167,6 +169,10 @@ export interface ExpenseLineItem {
   flagComment: string | null;
   flaggedBy: string | null;
   flaggedAt: string | null;
+  /** Set on the monthly line a recurring reimbursement files. Office-owned. */
+  recurringReimbursementId?: string | null;
+  /** First day of the month a recurring reimbursement line pays for. */
+  recurringPeriod?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -177,6 +183,66 @@ export interface ExpenseLineItem {
   projectId?: string | null;
   // App-level join from projects.title via the allocation's project_id
   projectName?: string | null;
+}
+
+/** One month's line as returned by the recurring reimbursement commands. */
+export interface RecurringLineSummary {
+  expenseId: string;
+  /** First day of the month the line pays for. */
+  period: string;
+  batchId: string | null;
+  status: string;
+  amount: number;
+  /** Skipped months (and every month of a deleted setup) stay as tombstones. */
+  deleted: boolean;
+}
+
+/**
+ * A fixed monthly amount the office pays a crew member with their expenses —
+ * e.g. a vehicle advertising reimbursement. Maps to
+ * `expense_recurring_reimbursements`; written only through its RPCs.
+ */
+export interface ExpenseRecurringReimbursement {
+  id: string;
+  companyId: string;
+  /** The crew member paid. */
+  userId: string;
+  name: string;
+  amount: number;
+  currency: string;
+  categoryId: string | null;
+  firstPeriod: string;
+  /** Last month paid; null while it runs indefinitely. */
+  lastPeriod: string | null;
+  /** First month the database has not yet considered. */
+  nextPeriod: string;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  /** Optimistic-concurrency token for every command. */
+  updatedAt: string;
+  deletedAt: string | null;
+  lines: RecurringLineSummary[];
+
+  // Populated by app-level join
+  person?: ExpenseBatchUser | null;
+  categoryName?: string | null;
+}
+
+/** Everything the console needs to manage a company's recurring reimbursements. */
+export interface RecurringReimbursementsSnapshot {
+  setups: ExpenseRecurringReimbursement[];
+  /** Company currency — the database files every new setup in it. */
+  currency: string;
+  /** Company time zone — months follow the company's calendar. */
+  timeZone: string | null;
+}
+
+/** Whether a line was filed by a recurring reimbursement rather than a receipt. */
+export function isRecurringLine(
+  line: Pick<ExpenseLineItem, "recurringReimbursementId">
+): boolean {
+  return !!line.recurringReimbursementId;
 }
 
 /** Auto-approve rule configuration */

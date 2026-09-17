@@ -877,6 +877,7 @@ describe("company data manifest — strategy integrity", () => {
         // Referential integrity — surviving tombstones still point at these.
         "expense_batches",
         "expense_categories",
+        "expense_recurring_reimbursements",
         // Financial and audit obligations that outlive the account.
         "audit_log",
         "billing_events",

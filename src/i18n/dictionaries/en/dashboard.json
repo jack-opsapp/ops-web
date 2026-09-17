@@ -790,6 +790,7 @@
   "batchPopover.untitled": "Untitled",
   "batchPopover.haveReceipts": "have receipts",
   "batchPopover.missingReceipts": "missing receipts",
+  "batchPopover.recurring": "Recurring reimbursement",
   "batchPopover.due": "DUE",
   "batchPopover.overdue": "OVERDUE",
 
