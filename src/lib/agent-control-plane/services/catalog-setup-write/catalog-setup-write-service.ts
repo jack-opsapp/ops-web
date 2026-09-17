@@ -48,6 +48,7 @@ export class CatalogSetupWritePrepareError extends Error {
     | "CONFLICT"
     | "DUPLICATE"
     | "INVALID_ARGUMENT"
+    | "NO_CHANGE"
     | "POLICY_UNAVAILABLE"
     | "STALE_CONTEXT"
     | "TEMPORARILY_UNAVAILABLE";
@@ -62,6 +63,8 @@ export class CatalogSetupWritePrepareError extends Error {
       DUPLICATE:
         "A variant with those option values already exists on this family.",
       INVALID_ARGUMENT: "The catalogue change request is invalid.",
+      NO_CHANGE:
+        "The catalogue already has these values, so nothing was staged. The request was understood; do not retry it.",
       POLICY_UNAVAILABLE:
         "Catalogue changes are not turned on for this company yet.",
       STALE_CONTEXT:
@@ -78,6 +81,7 @@ export class CatalogSetupWritePrepareError extends Error {
   toAgentError() {
     if (
       this.code === "INVALID_ARGUMENT" ||
+      this.code === "NO_CHANGE" ||
       this.code === "CONFLICT" ||
       this.code === "DUPLICATE"
     ) {
@@ -96,7 +100,9 @@ export class CatalogSetupWritePrepareError extends Error {
                   ? "CATALOG_SETUP_WRITE_IDEMPOTENCY_CONFLICT"
                   : this.code === "DUPLICATE"
                     ? "CATALOG_SETUP_VARIANT_EXISTS"
-                    : "CATALOG_SETUP_WRITE_INPUT_INVALID",
+                    : this.code === "NO_CHANGE"
+                      ? "CATALOG_SETUP_NO_CHANGE"
+                      : "CATALOG_SETUP_WRITE_INPUT_INVALID",
               message: this.message,
             },
           ],
@@ -240,7 +246,9 @@ export function createCatalogSetupWriteService(input: {
       }
       if (error instanceof CatalogSetupWriteRepositoryError) {
         const code =
-          error.code === "CONFLICT" || error.code === "DUPLICATE"
+          error.code === "CONFLICT" ||
+          error.code === "DUPLICATE" ||
+          error.code === "NO_CHANGE"
             ? error.code
             : error.code === "INVALID"
               ? "INVALID_ARGUMENT"

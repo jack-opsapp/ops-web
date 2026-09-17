@@ -289,7 +289,7 @@ describe("prepare_set_supplier_cost domain boundary", () => {
         message: "CATALOG_SETUP_NO_CHANGE",
         code: "INVALID_ARGUMENT",
         retryable: false,
-        issue: "CATALOG_SETUP_WRITE_INPUT_INVALID",
+        issue: "CATALOG_SETUP_NO_CHANGE",
       },
       {
         message: "CATALOG_SETUP_PROFILES_TOO_MANY",
