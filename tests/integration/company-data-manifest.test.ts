@@ -132,6 +132,22 @@ function readFinalMigrationFunction(name: string): string {
   return latest;
 }
 
+/**
+ * Just the final function definition — from its CREATE through the closing
+ * dollar quote — so an assertion cannot pass on a neighbouring function that
+ * the same migration file defines next.
+ */
+function readFinalMigrationFunctionDefinition(name: string): string {
+  const source = readFinalMigrationFunction(name);
+  const opening = source.match(/\bas\s+(\$[a-z_]*\$)/i);
+  expect(opening, `no dollar-quoted body found for ${name}`).not.toBeNull();
+  const tag = opening![1];
+  const bodyStart = opening!.index! + opening![0].length;
+  const bodyEnd = source.indexOf(tag, bodyStart);
+  expect(bodyEnd, `unterminated body for ${name}`).toBeGreaterThan(bodyStart);
+  return source.slice(0, bodyEnd + tag.length);
+}
+
 describe("company data manifest — PRIMARY guard: the live in-scope snapshot", () => {
   const manifestTables = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
   const outOfScope = new Set(OUT_OF_SCOPE_TABLES.map((e) => e.table));
@@ -498,6 +514,36 @@ describe("company data purge — side-effect delivery ordering", () => {
       tables.indexOf("user_permission_overrides")
     );
     expect(deliveryIndex).toBeGreaterThan(tables.indexOf("users"));
+  });
+});
+
+/**
+ * Account closure runs public.purge_company_data inside the API's own session:
+ * PostgREST logs in as authenticator — never postgres — and the function clears
+ * request.jwt.claims for its transaction. Every expense authority trigger the
+ * closure fires must read empty claims as internal maintenance, or closing a
+ * company with an expense, an allocation or a recurring line is refused with
+ * 42501 and rolled back (the 2026-09-15 and 2026-09-17 triggers were).
+ */
+describe("company data purge — expense authority honours account closure", () => {
+  const EMPTY_CLAIMS_ARE_MAINTENANCE =
+    "coalesce(current_setting('request.jwt.claims',true),'')=''";
+
+  it.each([
+    "private.enforce_expense_accounting_authority",
+    "private.enforce_expense_accounting_related_authority",
+    "private.enforce_expense_recurring_line_authority",
+    "private.enforce_expense_edit_authority",
+  ])("%s treats empty claims as maintenance", (name) => {
+    const definition = readFinalMigrationFunctionDefinition(name).toLowerCase();
+    expect(definition).toContain(EMPTY_CLAIMS_ARE_MAINTENANCE);
+  });
+
+  it("keeps clearing the claims inside the closure transaction itself", () => {
+    const definition = readFinalMigrationFunctionDefinition(
+      "public.purge_company_data"
+    ).toLowerCase();
+    expect(definition).toContain("set_config('request.jwt.claims', '', true)");
   });
 });
 
