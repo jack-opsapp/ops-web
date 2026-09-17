@@ -10,8 +10,11 @@
  *
  * Default-value interpretation depends on kind:
  *   - SELECT  → option-value id (pick from existing values)
- *   - INTEGER → numeric string
  *   - BOOLEAN → "true" | "false"
+ *   - INTEGER → none. A count is job geometry (end posts, corners): the
+ *     estimate editors never fill one from the catalogue and acceptance
+ *     refuses a blank one, so the form offers no default and saving a count
+ *     option clears any it still carries.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -125,7 +128,7 @@ export function ProductOptionFormDialog({
       affectsPrice,
       affectsRecipe,
       required,
-      defaultValue: defaultValue.trim() || null,
+      defaultValue: kind === "integer" ? null : defaultValue.trim() || null,
       optionDefaultSource: optionDefaultSource.trim() || null,
     };
 
@@ -220,45 +223,42 @@ export function ProductOptionFormDialog({
             </div>
           </FormField>
 
-          {/* Default value */}
-          <FormField
-            label="DEFAULT VALUE"
-            hint={defaultHint(kind)}
-          >
-            {kind === "boolean" ? (
-              <select
-                value={defaultValue}
-                onChange={(e) => setDefaultValue(e.target.value)}
-                className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
-              >
-                <option value="">— none —</option>
-                <option value="true">TRUE</option>
-                <option value="false">FALSE</option>
-              </select>
-            ) : kind === "select" && isEdit ? (
-              <select
-                value={defaultValue}
-                onChange={(e) => setDefaultValue(e.target.value)}
-                className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
-              >
-                <option value="">— none —</option>
-                {ownValues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.value}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <Input
-                value={defaultValue}
-                onChange={(e) => setDefaultValue(e.target.value)}
-                placeholder={
-                  kind === "integer" ? "e.g. 1" : "e.g. concrete"
-                }
-                type={kind === "integer" ? "number" : "text"}
-              />
-            )}
-          </FormField>
+          {/* Default value — never for an integer count */}
+          {kind !== "integer" && (
+            <FormField label="DEFAULT VALUE" hint={defaultHint(kind)}>
+              {kind === "boolean" ? (
+                <select
+                  value={defaultValue}
+                  onChange={(e) => setDefaultValue(e.target.value)}
+                  className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+                >
+                  <option value="">— none —</option>
+                  <option value="true">TRUE</option>
+                  <option value="false">FALSE</option>
+                </select>
+              ) : kind === "select" && isEdit ? (
+                <select
+                  value={defaultValue}
+                  onChange={(e) => setDefaultValue(e.target.value)}
+                  className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+                >
+                  <option value="">— none —</option>
+                  {ownValues.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.value}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  value={defaultValue}
+                  onChange={(e) => setDefaultValue(e.target.value)}
+                  placeholder="e.g. concrete"
+                  type="text"
+                />
+              )}
+            </FormField>
+          )}
 
           {/* Default source (advanced) */}
           <FormField
@@ -361,12 +361,10 @@ function ToggleField({
   );
 }
 
-function defaultHint(kind: ProductOptionKind): string {
+function defaultHint(kind: Exclude<ProductOptionKind, "integer">): string {
   switch (kind) {
     case "select":
       return "[CHOOSE FROM ALLOWED VALUES — ADD VALUES BELOW]";
-    case "integer":
-      return "[NUMERIC DEFAULT — E.G. 1]";
     case "boolean":
       return "[TRUE OR FALSE]";
   }
