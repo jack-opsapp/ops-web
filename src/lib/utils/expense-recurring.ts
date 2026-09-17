@@ -116,6 +116,49 @@ export function formatRecurringMoney(amount: number, currency: string | null | u
   }).format(amount);
 }
 
+// ─── Input ────────────────────────────────────────────────────────────────────
+
+/**
+ * The money shapes people type on any keyboard. A comma or period with one or
+ * two final digits is the decimal mark (the decimal key on a French Canadian
+ * keypad is a comma); a comma or period between groups of three digits groups
+ * thousands. Anything else is refused rather than guessed — `35,50` is never
+ * read as 3,550. Same rules as the iOS `ExpenseRecurring.parseAmount`.
+ */
+const AMOUNT_SHAPES: { pattern: RegExp; grouping: string | null; decimal: string | null }[] = [
+  { pattern: /^[0-9]+$/, grouping: null, decimal: null },
+  { pattern: /^[0-9]+\.[0-9]{1,2}$/, grouping: null, decimal: "." },
+  { pattern: /^[0-9]+,[0-9]{1,2}$/, grouping: null, decimal: "," },
+  { pattern: /^[0-9]{1,3}(,[0-9]{3})+$/, grouping: ",", decimal: null },
+  { pattern: /^[0-9]{1,3}(,[0-9]{3})+\.[0-9]{1,2}$/, grouping: ",", decimal: "." },
+  { pattern: /^[0-9]{1,3}(\.[0-9]{3})+,[0-9]{1,2}$/, grouping: ".", decimal: "," },
+];
+
+/**
+ * Typed money → amount: `350`, `350.5`, `35,50`, `1,234.56`, `1 234,56` and
+ * `1.234,56` all read as written. Null unless the amount is positive, has at
+ * most two decimals, and is no larger than the database allows.
+ */
+export function parseRecurringAmount(raw: string): number | null {
+  const text = raw.replace(/[$\s\u00A0\u202F]/g, "");
+  const shape = AMOUNT_SHAPES.find((s) => s.pattern.test(text));
+  if (!shape) return null;
+  let canonical = text;
+  if (shape.grouping) canonical = canonical.split(shape.grouping).join("");
+  if (shape.decimal && shape.decimal !== ".") canonical = canonical.replace(shape.decimal, ".");
+  const value = Number(canonical);
+  if (!Number.isFinite(value) || value <= 0 || value > 10000) return null;
+  return value;
+}
+
+/**
+ * The database refuses anyone but an admin a recurring reimbursement for
+ * themselves, so that choice is never offered.
+ */
+export function canSetUpRecurringFor(personId: string, actor: { id: string | null | undefined; isAdmin: boolean }): boolean {
+  return actor.isAdmin || personId !== actor.id;
+}
+
 // ─── Placement preview ────────────────────────────────────────────────────────
 
 export interface PlacementPreview {

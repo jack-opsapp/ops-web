@@ -54,6 +54,7 @@ import {
   latestFiledPeriod,
   monthOptions,
   monthStart,
+  parseRecurringAmount,
   placementPreview,
   recurringErrorKey,
 } from "@/lib/utils/expense-recurring";
@@ -81,15 +82,6 @@ const LABEL = "block font-mono text-micro uppercase tracking-wider text-text-3";
 const TABULAR = { fontFeatureSettings: '"tnum" 1, "zero" 1' } as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Parses typed money. Null when it is not a positive amount with at most two decimals. */
-function parseAmount(raw: string): number | null {
-  const cleaned = raw.replace(/[$,\s]/g, "");
-  if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null;
-  const value = Number(cleaned);
-  if (!Number.isFinite(value) || value <= 0 || value > 10000) return null;
-  return value;
-}
 
 function listMonths(months: string[]): string {
   return months.map(formatRecurringMonth).join(", ");
@@ -152,7 +144,7 @@ export function RecurringReimbursementDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed only on open / subject change
   }, [open, mode.kind === "edit" ? mode.setup.id : mode.person?.id, mode.kind === "create" ? mode.firstPeriod : null]);
 
-  const amount = parseAmount(amountText);
+  const amount = parseRecurringAmount(amountText);
   const trimmedName = name.trim();
   const nameValid = trimmedName.length > 0 && trimmedName.length <= 80;
 
@@ -363,7 +355,7 @@ export function RecurringReimbursementDialog({
                       }
                       onChange={(e) => setAmountText(e.target.value)}
                       onBlur={() => {
-                        const parsed = parseAmount(amountText);
+                        const parsed = parseRecurringAmount(amountText);
                         if (parsed != null) setAmountText(parsed.toFixed(2));
                       }}
                       // The 36px control ladder (DESIGN.md §9 inputs), level with the month select.

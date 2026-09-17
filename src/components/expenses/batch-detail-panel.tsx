@@ -54,7 +54,12 @@ import {
   type ExpenseLineItem,
   type ExpenseRecurringReimbursement,
 } from "@/lib/types/expense-approval";
-import { formatRecurringMonth, recurringErrorKey } from "@/lib/utils/expense-recurring";
+import {
+  canSetUpRecurringFor,
+  formatRecurringMonth,
+  recurringErrorKey,
+} from "@/lib/utils/expense-recurring";
+import { isAdminBypass } from "@/lib/permissions/resolve";
 import { BatchLineTable } from "./batch-line-table";
 import {
   RecurringReimbursementDialog,
@@ -88,8 +93,14 @@ export function BatchDetailPanel({
   const { t } = useDictionary("books");
   const { locale } = useLocale();
   const numLocale = getDateLocale(locale);
-  const { currentUser } = useAuthStore();
+  const { currentUser, company } = useAuthStore();
   const userId = currentUser?.id ?? "";
+  const isAdmin = currentUser
+    ? isAdminBypass(
+        { id: currentUser.id, isCompanyAdmin: currentUser.isCompanyAdmin },
+        company ? { accountHolderId: company.accountHolderId, adminIds: company.adminIds } : null
+      )
+    : false;
 
   const { data: expenses = [], isLoading } = useBatchExpenses(batch.id);
 
@@ -445,8 +456,13 @@ export function BatchDetailPanel({
               }
             />
 
-            {/* Rare, person-level setup — a quiet action, never prime space */}
-            {canReview && !paid && batch.submittedBy && (
+            {/* Rare, person-level setup — a quiet action, never prime space.
+                Not on an approver's own batch unless they are an admin: the
+                database refuses anyone else a reimbursement for themselves. */}
+            {canReview &&
+              !paid &&
+              batch.submittedBy &&
+              canSetUpRecurringFor(batch.submittedBy, { id: userId, isAdmin }) && (
               <div className="px-3 py-2">
                 <button
                   type="button"

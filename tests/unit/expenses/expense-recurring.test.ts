@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   addMonths,
   canDeleteRecurring,
+  canSetUpRecurringFor,
   currentMonthIn,
   endMonthOptions,
   formatRecurringMoney,
@@ -10,6 +11,7 @@ import {
   monthOptions,
   monthStart,
   monthsBetween,
+  parseRecurringAmount,
   placementPreview,
   recurringErrorKey,
   type RecurringLineSummary,
@@ -109,6 +111,42 @@ describe("formatting", () => {
     expect(formatRecurringMoney(1234.5, "USD")).toBe("$1,234.50");
     expect(formatRecurringMoney(85, null)).toBe("$85.00");
     expect(formatRecurringMoney(40, "EUR")).toBe("€40.00");
+  });
+});
+
+describe("amount input", () => {
+  it("accepts what the database accepts", () => {
+    expect(parseRecurringAmount("350")).toBe(350);
+    expect(parseRecurringAmount("350.5")).toBe(350.5);
+    expect(parseRecurringAmount("$1,234.56")).toBe(1234.56);
+    expect(parseRecurringAmount(" 0.01 ")).toBe(0.01);
+    expect(parseRecurringAmount("10000")).toBe(10000);
+  });
+
+  it("reads the decimal key of any keyboard, never 35,50 as 3,550", () => {
+    expect(parseRecurringAmount("35,50")).toBe(35.5);
+    expect(parseRecurringAmount("0,5")).toBe(0.5);
+    expect(parseRecurringAmount("1,23")).toBe(1.23);
+    expect(parseRecurringAmount("1 234,56")).toBe(1234.56);
+    expect(parseRecurringAmount("1\u202F234,56")).toBe(1234.56);
+    expect(parseRecurringAmount("1.234,56")).toBe(1234.56);
+    expect(parseRecurringAmount("1,234")).toBe(1234);
+    expect(parseRecurringAmount("9,999.99")).toBe(9999.99);
+  });
+
+  it.each(["", "0", "0.00", "10000.01", "12.345", "-5", "12.3.4", "abc", "1,2345", "350.", ",50", "1.234", "12,34,56", "1,234,567"])(
+    "refuses %j",
+    (raw) => {
+      expect(parseRecurringAmount(raw)).toBeNull();
+    }
+  );
+});
+
+describe("who can receive one", () => {
+  it("never offers a non-admin a reimbursement for themselves", () => {
+    expect(canSetUpRecurringFor("matt", { id: "jackson", isAdmin: false })).toBe(true);
+    expect(canSetUpRecurringFor("jackson", { id: "jackson", isAdmin: false })).toBe(false);
+    expect(canSetUpRecurringFor("jackson", { id: "jackson", isAdmin: true })).toBe(true);
   });
 });
 

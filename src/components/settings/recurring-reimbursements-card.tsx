@@ -15,6 +15,8 @@ import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { isAdminBypass } from "@/lib/permissions/resolve";
 import {
   useExpenseBatches,
   useRecurringReimbursements,
@@ -22,6 +24,7 @@ import {
 } from "@/lib/hooks";
 import type { ExpenseRecurringReimbursement } from "@/lib/types/expense-approval";
 import {
+  canSetUpRecurringFor,
   currentMonthIn,
   formatRecurringMoney,
   formatRecurringMonth,
@@ -45,7 +48,21 @@ export function RecurringReimbursementsCard() {
   const { data, isLoading } = useRecurringReimbursements();
   const { data: batches = [] } = useExpenseBatches();
   const { data: team } = useTeamMembers();
+  const { currentUser, company } = useAuthStore();
   const [dialog, setDialog] = useState<RecurringDialogMode | null>(null);
+
+  const actor = useMemo(
+    () => ({
+      id: currentUser?.id ?? null,
+      isAdmin: currentUser
+        ? isAdminBypass(
+            { id: currentUser.id, isCompanyAdmin: currentUser.isCompanyAdmin },
+            company ? { accountHolderId: company.accountHolderId, adminIds: company.adminIds } : null
+          )
+        : false,
+    }),
+    [currentUser, company]
+  );
 
   const currentMonth = currentMonthIn(data?.timeZone ?? null);
   const setups = useMemo(
@@ -69,13 +86,13 @@ export function RecurringReimbursementsCard() {
   const people = useMemo<RecurringPerson[]>(
     () =>
       (team?.users ?? [])
-        .filter((u) => u.isActive !== false && !u.deletedAt)
+        .filter((u) => u.isActive !== false && !u.deletedAt && canSetUpRecurringFor(u.id, actor))
         .map((u) => ({
           id: u.id,
           name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email || "—",
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [team]
+    [team, actor]
   );
 
   if (!canManage) return null;
