@@ -141,7 +141,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-09-04";
+export const MANIFEST_VERSION = "2026-09-17";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -2168,6 +2168,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
       "Soft-deleted expenses and recurring_expenses still reference their category; purging categories would break those surviving tombstones. Retained so the expense history stays readable.",
   },
   {
+    table: "expense_recurring_reimbursements",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: true,
+    deleteStrategy: "retain",
+    export: true,
+    reason:
+      "Soft-deleted expense lines keep a foreign key to the recurring reimbursement that filed them; purging the setup would break those surviving tombstones. Retained so the reimbursement history stays readable. Inert after closure: the monthly generator skips deleted companies and inactive people.",
+  },
+  {
     table: "expense_settings",
     scope: "company",
     companyColumn: "company_id",
@@ -3090,7 +3101,11 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
   },
 ];
 
-export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [];
+export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
+  // Created by 20260917030000_expense_recurring_reimbursements.sql; drop once
+  // database.types.ts is regenerated.
+  "expense_recurring_reimbursements",
+];
 
 export const OUT_OF_SCOPE_TABLES: readonly OutOfScopeEntry[] = [
   {

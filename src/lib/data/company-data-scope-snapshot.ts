@@ -350,7 +350,11 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
 ];
 
 /** Company-scoped tables created by checked-in migrations not yet applied live. */
-export const STAGED_IN_SCOPE_MIGRATION_TABLES: readonly string[] = [];
+export const STAGED_IN_SCOPE_MIGRATION_TABLES: readonly string[] = [
+  // 20260917030000_expense_recurring_reimbursements.sql — move into
+  // IN_SCOPE_SNAPSHOT at the next full live-snapshot regeneration.
+  "expense_recurring_reimbursements",
+];
 
 /**
  * Tables hanging off Supabase Auth identities rather than `public.users`.
