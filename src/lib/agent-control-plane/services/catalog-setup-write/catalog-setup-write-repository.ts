@@ -38,7 +38,8 @@ export class CatalogSetupWriteRepositoryError extends Error {
     | "POLICY"
     | "STALE"
     | "UNAVAILABLE"
-    | "INVALID";
+    | "INVALID"
+    | "NO_CHANGE";
   constructor(code: CatalogSetupWriteRepositoryError["code"], cause?: unknown) {
     super(
       code === "CONFLICT"
@@ -51,7 +52,9 @@ export class CatalogSetupWriteRepositoryError extends Error {
               ? "The family, authority or grant changed"
               : code === "INVALID"
                 ? "The catalogue write request is invalid"
-                : "The catalogue write proposal is unavailable",
+                : code === "NO_CHANGE"
+                  ? "The catalogue already holds the requested values"
+                  : "The catalogue write proposal is unavailable",
       { cause }
     );
     this.name = "CatalogSetupWriteRepositoryError";
@@ -88,6 +91,11 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_VARIANT_NOT_FOUND")
   )
     return new CatalogSetupWriteRepositoryError("STALE", error);
+  // A request the database understood and found already true is not a
+  // malformed request. It gets its own answer so an agent stops instead of
+  // reshaping and retrying a request the tool handled correctly.
+  if (message.startsWith("CATALOG_SETUP_NO_CHANGE"))
+    return new CatalogSetupWriteRepositoryError("NO_CHANGE", error);
   if (
     message.startsWith("CATALOG_SETUP_WRITE_INPUT_INVALID") ||
     message.startsWith("CATALOG_SETUP_PRICE_REQUIRED") ||
@@ -96,7 +104,6 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_VARIANT_SET_AMBIGUOUS") ||
     message.startsWith("CATALOG_SETUP_THRESHOLDS_INVALID") ||
     message.startsWith("CATALOG_SETUP_THRESHOLDS_NOT_WHOLE") ||
-    message.startsWith("CATALOG_SETUP_NO_CHANGE") ||
     message.startsWith("CATALOG_SETUP_AFFECTED_VARIANTS_TOO_MANY") ||
     message.startsWith("CATALOG_SETUP_PRICE_") ||
     message.startsWith("CATALOG_SETUP_DEFAULT_REQUIRED") ||

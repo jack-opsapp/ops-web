@@ -303,7 +303,7 @@ describe("prepare_set_catalog_pricing domain boundary", () => {
         message: "CATALOG_SETUP_NO_CHANGE",
         code: "INVALID_ARGUMENT",
         retryable: false,
-        issue: "CATALOG_SETUP_WRITE_INPUT_INVALID",
+        issue: "CATALOG_SETUP_NO_CHANGE",
       },
       {
         message: "CATALOG_SETUP_AFFECTED_VARIANTS_TOO_MANY",

@@ -201,6 +201,15 @@ describe("catalogue setup write domain boundary", () => {
         issue: "CATALOG_SETUP_WRITE_IDEMPOTENCY_CONFLICT",
       },
       {
+        // A request that would change nothing is a correct request, not a
+        // malformed one. The consumer is an agent: told "invalid", it reshapes
+        // and retries a request the tool already handled correctly.
+        message: "CATALOG_SETUP_NO_CHANGE",
+        code: "INVALID_ARGUMENT",
+        retryable: false,
+        issue: "CATALOG_SETUP_NO_CHANGE",
+      },
+      {
         message: "CATALOG_SETUP_WRITE_GRANT_STALE_OR_DENIED",
         code: "TEMPORARILY_UNAVAILABLE",
         retryable: true,
@@ -232,6 +241,29 @@ describe("catalogue setup write domain boundary", () => {
         });
       }
     }
+  });
+
+  it("tells the agent a no-op request was understood and nothing was staged", async () => {
+    const { actor, authorityClient } = await actorFixture();
+    const rpc = vi.fn<CatalogSetupWriteRpcClient["rpc"]>(() =>
+      Promise.resolve({
+        data: null,
+        error: { code: "22023", message: "CATALOG_SETUP_NO_CHANGE" },
+      })
+    );
+    const response = await service(rpc, authorityClient.repository)
+      .prepareCreateCatalogVariant(actor, requestFixture())
+      .catch((error: CatalogSetupWritePrepareError) => error.toAgentError());
+    expect(response).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      retryable: false,
+      details: { field_issues: [{ path: ["input"], code: "CATALOG_SETUP_NO_CHANGE" }] },
+    });
+    const message = (response as { message: string }).message;
+    // The words an agent acts on: already in place, nothing staged, do not retry.
+    expect(message).toMatch(/already/i);
+    expect(message).toMatch(/nothing was staged/i);
+    expect(message).not.toMatch(/invalid/i);
   });
 
   it("refuses a proposal that does not describe the request that was sent", async () => {
