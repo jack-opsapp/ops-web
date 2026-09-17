@@ -119,6 +119,8 @@ export interface ExpenseBatch {
   reimbursementAmount?: number | null;
   parentBatchId: string | null;
   amendmentNumber: number;
+  /** Per-job envelopes are scoped to one job; calendar envelopes are null. */
+  scopeProjectId?: string | null;
   reviewNotes: string | null;
   /** When the operator recorded a crew payout. Company-funded envelopes need no payout. */
   paidAt: string | null;
