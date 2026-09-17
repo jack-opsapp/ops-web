@@ -21,6 +21,16 @@ const MAX_BYTES = 8 * 1024 * 1024;
 const RASTER_W = 380;
 const RASTER_H = 148;
 
+/**
+ * A missing logo is survivable but never silent: a company's document quietly
+ * losing its branding is the kind of thing nobody reports and nobody can
+ * diagnose later. Always leaves a greppable server line.
+ */
+function warn(reason: string, url: string): null {
+  console.warn(`[expenses/export] logo skipped — ${reason} (${url})`);
+  return null;
+}
+
 export async function fetchExportLogo(url: string | null): Promise<WorkbookLogo | null> {
   if (!url) return null;
 
@@ -40,7 +50,7 @@ export async function fetchExportLogo(url: string | null): Promise<WorkbookLogo 
       redirect: "follow",
     }).finally(() => clearTimeout(timeout));
 
-    if (!response.ok) return null;
+    if (!response.ok) return warn(`logo fetch returned ${response.status}`, url);
 
     const declared = Number(response.headers.get("content-length") ?? 0);
     if (declared > MAX_BYTES) return null;
@@ -59,7 +69,7 @@ export async function fetchExportLogo(url: string | null): Promise<WorkbookLogo 
       .toBuffer();
 
     return { buffer: png, extension: "png" };
-  } catch {
-    return null;
+  } catch (error) {
+    return warn(error instanceof Error ? error.message : "logo fetch failed", url);
   }
 }

@@ -38,11 +38,18 @@ const SIZE_VALUE = 12;
 const SIZE_BODY = 10;
 const SIZE_LABEL = 9;
 
-const COLUMN_WIDTHS = [12, 30, 34, 22, 26, 14];
+const COLUMN_WIDTHS = [14, 36, 34, 22, 24, 13];
 const COL_COUNT = COLUMN_WIDTHS.length;
 const COL_COST = 6;
 
-const LOGO_MAX_W = 190;
+/**
+ * The logo lives in column A and must never spill into the company name beside
+ * it. A wide lockup is therefore bounded by the column, not by the page: a
+ * smaller mark reads as deliberate, a mark sitting on top of the company name
+ * reads as broken. (Caught by a real wide-banner logo overrunning a square
+ * logo's layout.) Column A is ~103px at width 14 — 95 leaves a gutter.
+ */
+const LOGO_MAX_W = 95;
 const LOGO_MAX_H = 74;
 /** Rows the logo needs to sit in without overlapping the block beneath it. */
 const LOGO_ROWS = 4;
@@ -144,7 +151,7 @@ function intrinsicSize(logo: WorkbookLogo): { width: number; height: number } | 
   return null;
 }
 
-function fittedSize(logo: WorkbookLogo): { width: number; height: number } {
+export function fittedSize(logo: WorkbookLogo): { width: number; height: number } {
   const intrinsic = intrinsicSize(logo);
   if (!intrinsic || intrinsic.width <= 0 || intrinsic.height <= 0) {
     return { width: LOGO_MAX_H, height: LOGO_MAX_H };
@@ -224,9 +231,12 @@ function writeMasthead(
   });
   mergeAcross(ws, start, textCol, 4);
 
-  doc.company.contactLines.forEach((contactLine, index) => {
+  const detailLines = [doc.company.address, doc.company.contactLine].filter(
+    (v): v is string => !!v
+  );
+  detailLines.forEach((detail, index) => {
     const row = start + 1 + index;
-    writeText(ws, row, textCol, contactLine, { size: SIZE_LABEL, color: MUTED });
+    writeText(ws, row, textCol, detail, { size: SIZE_LABEL, color: MUTED });
     mergeAcross(ws, row, textCol, 4);
   });
 
@@ -240,7 +250,7 @@ function writeMasthead(
   mergeAcross(ws, start, 5, COL_COUNT);
   ws.getRow(start).height = 30;
 
-  const textRows = 1 + doc.company.contactLines.length;
+  const textRows = 1 + detailLines.length;
   const usedRows = logo ? Math.max(textRows, LOGO_ROWS) : textRows;
 
   if (logo) {
@@ -354,7 +364,8 @@ function writeLineRow(
   dateCell.alignment = { vertical: "middle", horizontal: "left" };
 
   values.forEach((value, index) => {
-    writeText(ws, rowIndex, index + 2, value, { color });
+    const cell = writeText(ws, rowIndex, index + 2, value, { color });
+    cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   });
 
   const costCell = ws.getCell(rowIndex, COL_COST);

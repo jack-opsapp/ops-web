@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
-import { writeExpenseWorkbook, contrastTextFor, currencyNumberFormat } from "../expense-workbook";
+import {
+  writeExpenseWorkbook,
+  contrastTextFor,
+  currencyNumberFormat,
+  fittedSize,
+} from "../expense-workbook";
 import {
   buildExpenseExportDocument,
   DEFAULT_EXPORT_LABELS,
@@ -105,6 +110,46 @@ describe("contrast", () => {
   it("puts dark text on a light brand colour so the header stays readable", () => {
     expect(contrastTextFor("#F2C94C")).toBe("FF1A1A1A");
     expect(contrastTextFor("#FFFFFF")).toBe("FF1A1A1A");
+  });
+});
+
+describe("logo sizing", () => {
+  /** A PNG header is enough — fittedSize only reads the IHDR dimensions. */
+  function png(width: number, height: number) {
+    const buffer = Buffer.alloc(24);
+    buffer.writeUInt32BE(width, 16);
+    buffer.writeUInt32BE(height, 20);
+    return { buffer, extension: "png" as const };
+  }
+
+  it("keeps a wide banner logo inside its column instead of over the company name", () => {
+    // The real defect: a 1000x300 lockup rendered ~190px wide and covered the
+    // company name, while a square logo fitted and hid the bug.
+    const size = fittedSize(png(1000, 300));
+    expect(size.width).toBeLessThanOrEqual(95);
+    expect(size.height).toBeLessThanOrEqual(74);
+  });
+
+  it("bounds a tall logo by height", () => {
+    const size = fittedSize(png(300, 1000));
+    expect(size.height).toBeLessThanOrEqual(74);
+    expect(size.width).toBeLessThanOrEqual(95);
+  });
+
+  it("preserves aspect ratio rather than squashing the mark", () => {
+    const size = fittedSize(png(1000, 250));
+    expect(size.width / size.height).toBeCloseTo(4, 1);
+  });
+
+  it("never enlarges a logo that is already small", () => {
+    const size = fittedSize(png(40, 20));
+    expect(size).toEqual({ width: 40, height: 20 });
+  });
+
+  it("falls back to a square when the bytes cannot be measured", () => {
+    const size = fittedSize({ buffer: Buffer.alloc(4), extension: "png" });
+    expect(size.width).toBe(size.height);
+    expect(size.height).toBeLessThanOrEqual(74);
   });
 });
 
@@ -285,12 +330,12 @@ describe("the written workbook", () => {
     expect(lean.rowCount).toBe(full.rowCount - 1);
   });
 
-  it("gets shorter when a company has fewer contact details", async () => {
+  it("gets shorter when a company has no address to print", async () => {
     const base = doc();
-    const lean = { ...base, company: { ...base.company, contactLines: ["(555) 010-4477"] } };
+    const lean = { ...base, company: { ...base.company, address: null } };
     const fullWs = (await reopen(await writeExpenseWorkbook(base, null))).worksheets[0];
     const leanWs = (await reopen(await writeExpenseWorkbook(lean, null))).worksheets[0];
-    expect(leanWs.rowCount).toBe(fullWs.rowCount - 3);
+    expect(leanWs.rowCount).toBe(fullWs.rowCount - 1);
   });
 
   it("greys a rejected line and still shows what it cost", async () => {
