@@ -27,6 +27,7 @@ export type NotificationType =
   | "expense_submitted"
   | "expense_approved"
   | "expense_paid"
+  | "expense_recurring"
   | "duplicates_found"
   | "duplicates_merged"
   | "data_review_resolved"

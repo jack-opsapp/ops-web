@@ -53,6 +53,7 @@ function getTypeLabel(type: NotificationType): string {
     case "task_completed": return "Task Done";
     case "expense_submitted": return "Expense";
     case "expense_approved": return "Approved";
+    case "expense_recurring": return "Recurring";
     case "pipeline_complete": return "Pipeline";
     case "gmail_sync": return "Gmail Sync";
     case "mention": return "Mention";
