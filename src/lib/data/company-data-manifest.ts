@@ -65,7 +65,7 @@
  *
  * ── Derived from the live schema ───────────────────────────────────────────
  * Classification was derived against prod (`ijeekuhbatykdomumfjx`) on
- * 2026-09-04. Three queries reproduce it:
+ * 2026-09-04 and refreshed on 2026-09-17. Three queries reproduce it:
  *
  *   -- 1. every company-scoped base table, its tenant column type, and whether
  *   --    it can be tombstoned at all
@@ -84,9 +84,9 @@
  *   -- 3. blocking (NO ACTION / RESTRICT) foreign keys between them, which fix
  *   --    the deletion order and expose the two mutual cycles
  *
- * At the time of writing that is 267 in-scope tables — 228 carrying
- * `company_id` and 39 reaching one by foreign key — plus the `companies` row
- * itself, and 5 auth-identity tables declared out of scope.
+ * As of 2026-09-17 that is 282 in-scope tables — 241 carrying `company_id` and
+ * 41 reaching one by foreign key — plus the `companies` row itself, and 5
+ * auth-identity tables declared out of scope.
  *
  * ── How to classify a new table ────────────────────────────────────────────
  * `export: true`  — the customer's own business records: jobs, tasks, clients,
@@ -134,14 +134,28 @@
  * `FK_CYCLE_BREAKERS` nulls the nullable side of each cycle first — on rows
  * that are about to be deleted anyway — which turns each cycle into a chain.
  *
+ * Side effects fix order too, not only foreign keys. Tombstoning an approved
+ * expense appends reversal or review rows to `expense_accounting_events`, and
+ * deleting expense allocations queues deferred accounting captures, so the
+ * event ledger is purged after `expenses`; its `purge_company_rows` call runs
+ * those captures and erases `private.expense_accounting_state` before the
+ * ledger. `expense_accounting_postings` reference `accounting_connections` and
+ * `accounting_sync_queue` with no delete action (and deleting a connection
+ * cascades into its queue), so postings and the connection-bound expense
+ * accounting tables are purged before both.
+ *
  * Verified 2026-07-29: with this classification, zero surviving rows anywhere
  * in `public` hold a blocking foreign key into a table this manifest purges.
  *
  * NEVER import this from client-side code.
  */
 
-/** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-09-17";
+/**
+ * Bumped whenever the classification changes. Emitted in both route payloads.
+ * A further change on the same day appends `.2`, `.3`, … so every export and
+ * deletion receipt names exactly the classification it used.
+ */
+export const MANIFEST_VERSION = "2026-09-17.2";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -243,7 +257,7 @@ export const COMPANY_DATA_PURGE_FUNCTION = "purge_company_data";
  *
  * ── Why these exist ────────────────────────────────────────────────────────
  * Classification in this manifest says what a table IS. It says nothing about
- * whether the deleting role may touch it. Forty-two live `public` base tables
+ * whether the deleting role may touch it. Forty-four live `public` base tables
  * withhold from `service_role` at least one privilege the cascade needs.
  * A rehearsal of the cascade against a disposable
  * prod tenant died at
@@ -487,6 +501,16 @@ export const DEFINER_PURGED_TABLES: readonly DefinerPurgedEntry[] = [
     table: "supplier_bill_intake_events",
     reason:
       "service_role may SELECT but not DELETE the append-only supplier-bill intake event ledger. Purging it also erases the matching private prepared-write intents.",
+  },
+  {
+    table: "expense_accounting_postings",
+    reason:
+      "service_role may SELECT but not DELETE the frozen expense provider postings. Purged through purge_company_rows before accounting_sync_queue and accounting_connections, which they reference with no delete action.",
+  },
+  {
+    table: "expense_accounting_events",
+    reason:
+      "service_role may SELECT but not DELETE the append-only expense accounting event ledger. Purged through purge_company_rows after expenses are tombstoned; the same call runs pending allocation captures and erases the matching private.expense_accounting_state rows first.",
   },
 ];
 
@@ -868,6 +892,39 @@ export const PARENT_SCOPED_DATA: readonly ParentScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: true,
+  },
+  {
+    table: "tryops_demo_bindings",
+    scope: "parent",
+    parentTable: "users",
+    parentColumn: "actor_id",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Try OPS sample-demo attribution binding for the signed-up owner — OPS marketing-measurement machinery keyed to the user, not the company's business record.",
+  },
+  {
+    table: "tryops_health_notifications",
+    scope: "parent",
+    parentTable: "notifications",
+    parentColumn: "notification_id",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Try OPS experiment-health delivery receipt for the OPS platform alert rail. It references its notification with no delete action, so it is erased with that notification or the notification purge would be refused. Rows not yet delivered reference no notification and belong to no company.",
+  },
+  {
+    table: "tryops_signup_bindings",
+    scope: "parent",
+    parentTable: "users",
+    parentColumn: "actor_id",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Try OPS experiment signup binding — OPS marketing-measurement machinery keyed to the signed-up user. Its company_id stays null until the trial attaches, so it is reached through the company's users rather than company_id.",
   },
   {
     table: "user_roles",
@@ -1469,6 +1526,72 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     reason: "Idempotency records for the estimate-to-job accept RPC.",
   },
   {
+    table: "expense_accounting_category_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Accounting-provider expense account mapping bookkeeping, bound to one accounting connection. Purged before accounting_connections.",
+  },
+  {
+    table: "expense_accounting_payee_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Accounting-provider employee mapping bookkeeping, bound to one accounting connection. Purged before accounting_connections.",
+  },
+  {
+    table: "expense_accounting_postings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Frozen accounting-provider posting payloads and provider ids — synchronization bookkeeping, not the books of record. Purged before accounting_sync_queue and accounting_connections, which it references with no delete action.",
+  },
+  {
+    table: "expense_accounting_project_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Accounting-provider project mapping bookkeeping, bound to one accounting connection. Purged before accounting_connections.",
+  },
+  {
+    table: "expense_accounting_settings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Accounting-provider expense posting configuration (provider account ids per connection) — provider bookkeeping bound to one accounting connection. Purged before accounting_connections.",
+  },
+  {
+    table: "expense_accounting_tax_mappings",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Accounting-provider tax-code mapping bookkeeping, bound to one accounting connection. Purged before accounting_connections.",
+  },
+  {
     table: "accounting_category_mappings",
     scope: "company",
     companyColumn: "company_id",
@@ -1545,6 +1668,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     deleteStrategy: "hard",
     export: false,
     reason: "OPS-side feature flag overrides, not customer data.",
+  },
+  {
+    table: "ads_conversion_events",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Google Ads conversion upload outbox — OPS marketing measurement, not customer data. Closure removes queued conversions so none is sent for a closed account.",
   },
   {
     table: "agent_actions",
@@ -2195,6 +2329,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: true,
     deleteStrategy: "soft",
     export: true,
+  },
+  {
+    table: "expense_accounting_events",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Append-only expense accounting posting ledger — machinery that drives provider postings from expenses, which are exported themselves. Purged after expenses, because tombstoning an approved expense appends reversal and review events.",
   },
   {
     table: "feature_requests",
@@ -3004,6 +3149,39 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     reason: "Trial notification bookkeeping.",
   },
   {
+    table: "tryops_demo_trials",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Try OPS sample-demo trial link — OPS marketing measurement, not customer data.",
+  },
+  {
+    table: "tryops_outcomes",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Try OPS experiment milestones for this company — OPS experiment measurement, not customer data.",
+  },
+  {
+    table: "tryops_trial_links",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Try OPS experiment trial attachment — OPS experiment measurement, not customer data.",
+  },
+  {
     table: "unanswered_lead_local_draft_generation_claims",
     scope: "company",
     companyColumn: "company_id",
@@ -3102,9 +3280,28 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
 ];
 
 export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
-  // Created by 20260917030000_expense_recurring_reimbursements.sql; drop once
-  // database.types.ts is regenerated.
+  // Live in production and in IN_SCOPE_SNAPSHOT, but not yet in
+  // database.types.ts. Drop each once the types are regenerated.
+  // Ledger 20260909023503 ads_conversion_outbox.
+  "ads_conversion_events",
+  // Ledger 20260915062403 expense_release_atomic.
+  "expense_accounting_category_mappings",
+  "expense_accounting_events",
+  "expense_accounting_payee_mappings",
+  "expense_accounting_postings",
+  "expense_accounting_project_mappings",
+  "expense_accounting_settings",
+  "expense_accounting_tax_mappings",
+  // Created by 20260917030000_expense_recurring_reimbursements.sql.
   "expense_recurring_reimbursements",
+  // Ledger 20260915032402 tryops_demo_funnel.
+  "tryops_demo_bindings",
+  "tryops_demo_trials",
+  // Ledger 20260914222840 tryops_trustworthy_experiments.
+  "tryops_health_notifications",
+  "tryops_outcomes",
+  "tryops_signup_bindings",
+  "tryops_trial_links",
 ];
 
 export const OUT_OF_SCOPE_TABLES: readonly OutOfScopeEntry[] = [

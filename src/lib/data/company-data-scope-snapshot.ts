@@ -62,9 +62,13 @@
  *     AND con.confrelid::regclass::text = 'auth.users'
  *   -- minus anything already in IN_SCOPE_SNAPSHOT
  *
- * Verified against prod 2026-09-04: 267 in scope and
- * 5 auth-identity tables. The live snapshot includes the normalized
- * site-visit packet tables and the company-owned site_visit_types settings table.
+ * Verified against prod 2026-09-17: 282 in scope (241 carrying `company_id`,
+ * 41 reaching one by foreign key) and 5 auth-identity tables. The live
+ * snapshot includes the normalized site-visit packet tables, the company-owned
+ * site_visit_types settings table, the seven expense accounting tables and
+ * expense_recurring_reimbursements, the Google Ads conversion outbox, and the
+ * six Try OPS experiment and demo tables that reach a company, a user or a
+ * notification.
  * The tenant row `companies` is deliberately absent — it carries no
  * `company_id` and no foreign key into scope, so no query can derive it; the
  * manifest adds it explicitly as the root.
@@ -91,6 +95,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "activities",
   "activity_comments",
   "admin_feature_overrides",
+  "ads_conversion_events",
   "agent_actions",
   "agent_control_plane_tenant_roots",
   "agent_knowledge_graph",
@@ -175,11 +180,19 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "email_thread_category_corrections",
   "email_threads",
   "estimates",
+  "expense_accounting_category_mappings",
+  "expense_accounting_events",
+  "expense_accounting_payee_mappings",
+  "expense_accounting_postings",
+  "expense_accounting_project_mappings",
+  "expense_accounting_settings",
+  "expense_accounting_tax_mappings",
   "expense_auto_approve_rule_members",
   "expense_auto_approve_rules",
   "expense_batches",
   "expense_categories",
   "expense_project_allocations",
+  "expense_recurring_reimbursements",
   "expense_settings",
   "expenses",
   "feature_requests",
@@ -336,6 +349,12 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "touchpoints",
   "trial_attributions",
   "trial_expiry_notifications",
+  "tryops_demo_bindings",
+  "tryops_demo_trials",
+  "tryops_health_notifications",
+  "tryops_outcomes",
+  "tryops_signup_bindings",
+  "tryops_trial_links",
   "unanswered_lead_local_draft_generation_claims",
   "unanswered_lead_message_projections",
   "unassigned_lead_assignment_deliveries",
@@ -350,11 +369,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
 ];
 
 /** Company-scoped tables created by checked-in migrations not yet applied live. */
-export const STAGED_IN_SCOPE_MIGRATION_TABLES: readonly string[] = [
-  // 20260917030000_expense_recurring_reimbursements.sql — move into
-  // IN_SCOPE_SNAPSHOT at the next full live-snapshot regeneration.
-  "expense_recurring_reimbursements",
-];
+export const STAGED_IN_SCOPE_MIGRATION_TABLES: readonly string[] = [];
 
 /**
  * Tables hanging off Supabase Auth identities rather than `public.users`.

@@ -48,15 +48,19 @@
  *   ORDER BY t.table_name;
  *
  * The complement — every table the role CAN read and delete — is deliberately
- * not stored: it is 287 names that carry no information the guard uses, and a
+ * not stored: it is 376 names that carry no information the guard uses, and a
  * transcription slip in it would fail the suite for a table that is perfectly
  * healthy. Blocked is the exceptional, load-bearing state, so blocked is what
  * is checked in.
  *
- * Verified against prod 2026-09-04: 374 base tables in `public` —
- * 332 fully available to `service_role` and 42 blocked (listed below).
+ * Verified against prod 2026-09-17: 420 base tables in `public` —
+ * 376 fully available to `service_role` and 44 blocked (listed below).
  * `calendar_feed_tokens`, `google_calendar_sync_queue`, `meeting_proposals`,
  * and `site_visit_types` are fully available for account export and closure.
+ * The two expense accounting ledgers, `expense_accounting_events` and
+ * `expense_accounting_postings`, grant `service_role` SELECT only; the five
+ * connection-bound expense accounting mapping and settings tables are fully
+ * available.
  * RLS is not part of this picture: `service_role` carries BYPASSRLS, so table
  * privileges are the only gate.
  */
@@ -173,6 +177,18 @@ export const SERVICE_ROLE_BLOCKED_TABLES: readonly ServiceRolePrivileges[] = [
   },
   {
     table: "email_signatures",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "expense_accounting_events",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "expense_accounting_postings",
     select: true,
     update: false,
     delete: false,
