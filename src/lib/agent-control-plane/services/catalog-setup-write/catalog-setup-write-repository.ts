@@ -38,7 +38,8 @@ export class CatalogSetupWriteRepositoryError extends Error {
     | "POLICY"
     | "STALE"
     | "UNAVAILABLE"
-    | "INVALID";
+    | "INVALID"
+    | "NO_CHANGE";
   constructor(code: CatalogSetupWriteRepositoryError["code"], cause?: unknown) {
     super(
       code === "CONFLICT"
@@ -51,7 +52,9 @@ export class CatalogSetupWriteRepositoryError extends Error {
               ? "The family, authority or grant changed"
               : code === "INVALID"
                 ? "The catalogue write request is invalid"
-                : "The catalogue write proposal is unavailable",
+                : code === "NO_CHANGE"
+                  ? "The catalogue already holds the requested values"
+                  : "The catalogue write proposal is unavailable",
       { cause }
     );
     this.name = "CatalogSetupWriteRepositoryError";
@@ -88,6 +91,11 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_VARIANT_NOT_FOUND")
   )
     return new CatalogSetupWriteRepositoryError("STALE", error);
+  // A request the database understood and found already true is not a
+  // malformed request. It gets its own answer so an agent stops instead of
+  // reshaping and retrying a request the tool handled correctly.
+  if (message.startsWith("CATALOG_SETUP_NO_CHANGE"))
+    return new CatalogSetupWriteRepositoryError("NO_CHANGE", error);
   if (
     message.startsWith("CATALOG_SETUP_WRITE_INPUT_INVALID") ||
     message.startsWith("CATALOG_SETUP_PRICE_REQUIRED") ||
@@ -96,7 +104,6 @@ function normalizedError(error: unknown): CatalogSetupWriteRepositoryError {
     message.startsWith("CATALOG_SETUP_VARIANT_SET_AMBIGUOUS") ||
     message.startsWith("CATALOG_SETUP_THRESHOLDS_INVALID") ||
     message.startsWith("CATALOG_SETUP_THRESHOLDS_NOT_WHOLE") ||
-    message.startsWith("CATALOG_SETUP_NO_CHANGE") ||
     message.startsWith("CATALOG_SETUP_AFFECTED_VARIANTS_TOO_MANY") ||
     message.startsWith("CATALOG_SETUP_PRICE_") ||
     message.startsWith("CATALOG_SETUP_DEFAULT_REQUIRED") ||
@@ -204,29 +211,58 @@ export function matchesCreateVariantRequest(
   }
 
   if (proposal.after.variant.sku !== (request.sku ?? null)) return false;
+
+  // The price resolves to what was asked for, AT THE LEVEL THE FAMILY ALREADY
+  // ANSWERS: a requested price equal to the family default is inherited, never
+  // pinned onto the new variant, and a price inherited from the family is the
+  // family's own default and nothing else.
+  const salePrice = proposal.after.variant.sale_price;
+  const familyPrice = proposal.before.default_price;
   if (request.price_override) {
+    const requested = request.price_override.amount;
     if (
       proposal.after.currency !== request.price_override.currency ||
-      proposal.after.variant.sale_price_source !== "variant_override" ||
-      !sameDecimal(
-        proposal.after.variant.sale_price,
-        request.price_override.amount
-      )
+      !sameDecimal(salePrice.amount, requested)
     ) {
       return false;
     }
-  } else if (proposal.after.variant.sale_price_source !== "family_default") {
+    if (salePrice.origin === "family") {
+      if (!sameDecimal(familyPrice, requested)) return false;
+    } else if (salePrice.origin === "variant") {
+      if (familyPrice !== null && sameDecimal(familyPrice, requested)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  } else if (
+    salePrice.origin !== "family" ||
+    !sameDecimal(salePrice.amount, familyPrice)
+  ) {
     return false;
   }
 
+  // The write never gives a new variant a cost of its own, so its cost is the
+  // family's — or none, and it says which.
+  const unitCost = proposal.after.variant.unit_cost;
+  if (
+    unitCost.origin === "variant" ||
+    !sameDecimal(unitCost.amount, proposal.before.default_unit_cost)
+  ) {
+    return false;
+  }
+
+  // A requested level resolves to that number, on the variant or inherited
+  // from the family or category when it equals what they answer. A level the
+  // request never named is never the variant's own.
   for (const [field, value] of [
     ["warning_threshold", request.warning_threshold],
     ["critical_threshold", request.critical_threshold],
   ] as const) {
-    const previewedValue = proposal.after.variant[field];
+    const previewed = proposal.after.variant[field];
     if (value === undefined) {
-      if (previewedValue !== null) return false;
-    } else if (previewedValue !== String(value)) return false;
+      if (previewed.origin === "variant") return false;
+    } else if (previewed.value !== String(value)) return false;
   }
 
   const opening = request.opening_quantity;
@@ -283,6 +319,14 @@ export function matchesSetThresholdsRequest(
   ] as const) {
     const before = proposal.before[side];
     const after = proposal.after[side];
+    if (
+      !keepsInheritedLevel(
+        { resolved: before.value, origin: before.origin },
+        { resolved: after.value, origin: after.origin }
+      )
+    ) {
+      return false;
+    }
     if (!Object.prototype.hasOwnProperty.call(request, field)) {
       if (after.value !== before.value || after.origin !== before.origin)
         return false;
@@ -292,7 +336,9 @@ export function matchesSetThresholdsRequest(
     if (requested === null || requested === undefined) {
       // Cleared: the variant may no longer be the origin of this level.
       if (after.origin === "variant") return false;
-    } else if (after.origin !== "variant" || after.value !== String(requested)) {
+    } else if (after.value !== String(requested)) {
+      // A number resolves to that number — as the variant's own level, or
+      // inherited when the family or category already answers it.
       return false;
     }
     if (after.value !== before.value || after.origin !== before.origin) {
@@ -315,6 +361,34 @@ export function matchesSetThresholdsRequest(
   );
 }
 
+/**
+ * A variant-level write moves the variant's own term and nothing above it, so
+ * whatever the variant inherits is the same answer on both sides of the
+ * preview. When the before side is NOT the variant's own value, it IS that
+ * inherited answer — and then:
+ *
+ *  - an after side that is also inherited must be exactly that answer, and
+ *  - an after side on the variant must differ from it, because a variant term
+ *    equal to what the variant inherits is a level change nobody asked for:
+ *    the variant would stop following its family.
+ *
+ * When the before side is the variant's own value the preview cannot show what
+ * it would inherit, so nothing more is checkable here; the database refuses the
+ * commit if the write would pin an inherited value regardless.
+ */
+function keepsInheritedLevel(
+  before: { readonly resolved: string | null; readonly origin: string },
+  after: { readonly resolved: string | null; readonly origin: string }
+): boolean {
+  if (before.origin === "variant") return true;
+  if (after.origin === "variant") {
+    return !sameDecimal(after.resolved, before.resolved);
+  }
+  return (
+    after.origin === before.origin &&
+    sameDecimal(after.resolved, before.resolved)
+  );
+}
 
 /**
  * A pricing preview must describe this item, this amount, this currency, and
@@ -342,20 +416,34 @@ export function matchesSetPricingRequest(
   }
 
   const requested = request.sale_price;
+  const isFamily = request.item_ref.kind === "catalog_family";
   if (requested === null) {
     // Cleared: the level the ref names carries nothing of its own any more, so
     // the answer is either the level above or no price at all.
     if (after.price.origin === levelFor(request.item_ref.kind)) return false;
-    if (request.item_ref.kind === "catalog_family" && after.price.amount !== null)
-      return false;
+    if (isFamily && after.price.amount !== null) return false;
   } else {
     if (
       after.price.currency !== requested.currency ||
-      after.price.origin !== levelFor(request.item_ref.kind) ||
       !sameDecimal(after.price.amount, requested.amount)
     ) {
       return false;
     }
+    // A family ref writes the family default. A variant ref lands on the
+    // variant, or — when the amount equals the family default — on the family
+    // the variant goes on inheriting from.
+    if (isFamily ? after.price.origin !== "family" : after.price.origin === "none") {
+      return false;
+    }
+  }
+  if (
+    !isFamily &&
+    !keepsInheritedLevel(
+      { resolved: before.price.amount, origin: before.price.origin },
+      { resolved: after.price.amount, origin: after.price.origin }
+    )
+  ) {
+    return false;
   }
   if (before.price.currency !== after.price.currency) return false;
 
@@ -376,7 +464,37 @@ export function matchesSetPricingRequest(
   }
   if (proposal.effects.prices_changed !== moved) return false;
 
-  const expectedFamily = request.item_ref.kind === "catalog_family" ? 1 : 0;
+  // The variants a family default does not reach. A family write moves no
+  // variant row, so the list is the same variants carrying the same prices on
+  // both sides, none of them among the variants the default does reach; and
+  // `redundant` is exactly "this variant's own price equals the default on
+  // this side". A variant target shadows nothing.
+  const beforeShadowing = before.shadowing_variants;
+  const afterShadowing = after.shadowing_variants;
+  if (!isFamily && (beforeShadowing.length > 0 || afterShadowing.length > 0)) {
+    return false;
+  }
+  if (beforeShadowing.length !== afterShadowing.length) return false;
+  const reached = new Set(afterRows.map((row) => row.variant_ref.id));
+  for (let index = 0; index < afterShadowing.length; index += 1) {
+    const past = beforeShadowing[index]!;
+    const next = afterShadowing[index]!;
+    if (
+      past.variant_ref.id !== next.variant_ref.id ||
+      reached.has(next.variant_ref.id) ||
+      !sameDecimal(past.price_override, next.price_override) ||
+      past.redundant !==
+        (before.price.amount !== null &&
+          sameDecimal(past.price_override, before.price.amount)) ||
+      next.redundant !==
+        (after.price.amount !== null &&
+          sameDecimal(next.price_override, after.price.amount))
+    ) {
+      return false;
+    }
+  }
+
+  const expectedFamily = isFamily ? 1 : 0;
   if (
     proposal.effects.families_updated !== expectedFamily ||
     proposal.effects.variants_updated !== 1 - expectedFamily ||
@@ -463,19 +581,35 @@ export function matchesSetSupplierCostRequest(
     return false;
   }
 
-  // The mirror: claimed exactly when the variant's own cost field moved onto
-  // the default profile's cost. A flag that does not match the numbers beside
-  // it is the one way the two cost models silently drift again (gap #17).
+  // The mirror: when claimed, the variant's catalogue cost resolves to the
+  // default profile's cost — on the variant's own term, or inherited from the
+  // family when the family cost already equals it. When not claimed, the cost
+  // and its level stay exactly where they were. A flag that does not match the
+  // numbers beside it is the one way the two cost models silently drift again
+  // (gap #17), and a cost pinned onto the variant at the value it already
+  // inherits is the level change the database refuses to commit.
   const mirrored = effects.variant_unit_cost_mirrored;
-  const costMoved = !sameDecimal(
-    before.variant_unit_cost,
-    after.variant_unit_cost
-  );
+  const costBefore = before.variant_unit_cost;
+  const costAfter = after.variant_unit_cost;
+  if (
+    !keepsInheritedLevel(
+      { resolved: costBefore.amount, origin: costBefore.origin },
+      { resolved: costAfter.amount, origin: costAfter.origin }
+    )
+  ) {
+    return false;
+  }
   if (mirrored) {
-    if (!sameDecimal(after.variant_unit_cost, defaultsAfter[0]!.unit_cost)) {
+    if (
+      costAfter.origin === "none" ||
+      !sameDecimal(costAfter.amount, defaultsAfter[0]!.unit_cost)
+    ) {
       return false;
     }
-  } else if (costMoved) {
+  } else if (
+    costAfter.origin !== costBefore.origin ||
+    !sameDecimal(costAfter.amount, costBefore.amount)
+  ) {
     return false;
   }
 

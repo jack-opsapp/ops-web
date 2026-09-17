@@ -259,7 +259,7 @@ describe("prepare_set_variant_thresholds domain boundary", () => {
         message: "CATALOG_SETUP_NO_CHANGE",
         code: "INVALID_ARGUMENT",
         retryable: false,
-        issue: "CATALOG_SETUP_WRITE_INPUT_INVALID",
+        issue: "CATALOG_SETUP_NO_CHANGE",
       },
       {
         message: "CATALOG_SETUP_THRESHOLDS_NOT_WHOLE",
@@ -312,7 +312,8 @@ describe("prepare_set_variant_thresholds domain boundary", () => {
         result.proposal.after.warning = level(99, "variant");
       },
       (result) => {
-        // The level was asked for on the variant; inheriting it is not that.
+        // Nothing was inherited before the write, and a thresholds write moves
+        // no family or category level, so nothing can be inherited after it.
         result.proposal.after.warning = level(24, "family");
       },
       (result) => {
@@ -382,6 +383,66 @@ describe("thresholds request/preview matcher", () => {
       changed: 1,
     });
     expect(matchesSetThresholdsRequest(result, request)).toBe(false);
+  });
+
+  it("accepts a number equal to the inherited level, which clears the variant's own", () => {
+    const request = requestFixture({ critical_threshold: undefined });
+    delete (request as Record<string, unknown>).critical_threshold;
+    const result = resultFixture(request, {
+      beforeWarning: [24, "variant"],
+      beforeCritical: [6, "variant"],
+      afterWarning: [24, "category"],
+      afterCritical: [6, "variant"],
+      changed: 1,
+    });
+    expect(matchesSetThresholdsRequest(result, request)).toBe(true);
+  });
+
+  it("accepts a level that already inherits beside one that moves", () => {
+    const request = requestFixture({ warning_threshold: 10, critical_threshold: 6 });
+    const result = resultFixture(request, {
+      beforeWarning: [10, "family"],
+      beforeCritical: [null, "none"],
+      afterWarning: [10, "family"],
+      afterCritical: [6, "variant"],
+      changed: 1,
+    });
+    expect(matchesSetThresholdsRequest(result, request)).toBe(true);
+  });
+
+  it("refuses a preview that pins a number the variant already inherits", () => {
+    const request = requestFixture({ critical_threshold: undefined, warning_threshold: 10 });
+    delete (request as Record<string, unknown>).critical_threshold;
+    const result = resultFixture(request, {
+      beforeWarning: [10, "category"],
+      beforeCritical: [null, "none"],
+      afterWarning: [10, "variant"],
+      afterCritical: [null, "none"],
+      changed: 1,
+    });
+    expect(matchesSetThresholdsRequest(result, request)).toBe(false);
+  });
+
+  it("refuses an inherited level that is not the one inherited before the write", () => {
+    const request = requestFixture({ critical_threshold: undefined, warning_threshold: 12 });
+    delete (request as Record<string, unknown>).critical_threshold;
+    for (const [beforeWarning, afterWarning] of [
+      [[10, "family"], [12, "family"]],
+      [[10, "family"], [12, "category"]],
+      [[null, "none"], [12, "category"]],
+    ] as const) {
+      const result = resultFixture(request, {
+        beforeWarning: [...beforeWarning] as [number | null, string],
+        beforeCritical: [null, "none"],
+        afterWarning: [...afterWarning] as [number | null, string],
+        afterCritical: [null, "none"],
+        changed: 1,
+      });
+      expect(
+        matchesSetThresholdsRequest(result, request),
+        JSON.stringify([beforeWarning, afterWarning])
+      ).toBe(false);
+    }
   });
 
   it("refuses a preview of the wrong kind outright", () => {

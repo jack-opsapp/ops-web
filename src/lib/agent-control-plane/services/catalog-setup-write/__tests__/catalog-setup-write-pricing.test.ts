@@ -33,6 +33,7 @@ import {
 
 const VARIANT_ID = "411f89c9-d2a1-44a8-8377-6c11a098f0f7";
 const SIBLING_ID = "44b1f59c-250e-464b-bc52-3e8d7e1e90ae";
+const OTHER_ID = "2c7cdf44-3473-499b-b086-73737505a565";
 
 /** The full permission set these money kinds need, including setup authority. */
 const PRICING_PERMISSIONS = [
@@ -77,6 +78,15 @@ function variantRow(id: string, salePrice: string | null, origin: string) {
   } as never;
 }
 
+function shadowRow(id: string, priceOverride: string, redundant: boolean) {
+  return {
+    variant_ref: { kind: "catalog_variant", id },
+    value_labels: ["White"],
+    price_override: priceOverride,
+    redundant,
+  } as never;
+}
+
 function resultFixture(
   request: PrepareSetCatalogPricingInput = requestFixture(),
   over: {
@@ -84,6 +94,8 @@ function resultFixture(
     afterPrice?: [string | null, string];
     beforeVariants?: unknown[];
     afterVariants?: unknown[];
+    beforeShadowing?: unknown[];
+    afterShadowing?: unknown[];
     familiesUpdated?: 0 | 1;
     variantsUpdated?: 0 | 1;
     pricesChanged?: number;
@@ -111,6 +123,7 @@ function resultFixture(
     affected_variants: (over.beforeVariants ?? [
       variantRow(VARIANT_ID, "6.0000", "family"),
     ]) as never,
+    shadowing_variants: (over.beforeShadowing ?? []) as never,
   };
   const after = {
     target,
@@ -124,6 +137,7 @@ function resultFixture(
     affected_variants: (over.afterVariants ?? [
       variantRow(VARIANT_ID, afterAmount, afterAmount === null ? "none" : "family"),
     ]) as never,
+    shadowing_variants: (over.afterShadowing ?? []) as never,
   };
   return {
     contract_version: "2026-08-07.v1",
@@ -289,7 +303,7 @@ describe("prepare_set_catalog_pricing domain boundary", () => {
         message: "CATALOG_SETUP_NO_CHANGE",
         code: "INVALID_ARGUMENT",
         retryable: false,
-        issue: "CATALOG_SETUP_WRITE_INPUT_INVALID",
+        issue: "CATALOG_SETUP_NO_CHANGE",
       },
       {
         message: "CATALOG_SETUP_AFFECTED_VARIANTS_TOO_MANY",
@@ -407,7 +421,9 @@ describe("pricing request/preview matcher", () => {
     expect(matchesSetPricingRequest(result, request)).toBe(true);
   });
 
-  it("accepts a variant override that pins the number it already inherited", () => {
+  it("refuses a variant override that pins the number it already inherited", () => {
+    // What the shipped compile staged, and what no approval may carry now: a
+    // variant set to its own family price stops following the family.
     const request = requestFixture({
       item_ref: { kind: "catalog_variant", id: VARIANT_ID },
       sale_price: { amount: "6", currency: "CAD" },
@@ -419,7 +435,97 @@ describe("pricing request/preview matcher", () => {
       afterVariants: [variantRow(VARIANT_ID, "6.0000", "variant")],
       pricesChanged: 0,
     });
+    expect(matchesSetPricingRequest(result, request)).toBe(false);
+  });
+
+  it("accepts a variant price equal to the family default, which clears its override", () => {
+    const request = requestFixture({
+      item_ref: { kind: "catalog_variant", id: VARIANT_ID },
+      sale_price: { amount: "6", currency: "CAD" },
+    });
+    const result = resultFixture(request, {
+      beforePrice: ["9.0000", "variant"],
+      afterPrice: ["6.0000", "family"],
+      beforeVariants: [variantRow(VARIANT_ID, "9.0000", "variant")],
+      afterVariants: [variantRow(VARIANT_ID, "6.0000", "family")],
+      pricesChanged: 1,
+    });
     expect(matchesSetPricingRequest(result, request)).toBe(true);
+  });
+
+  it("refuses a variant price that lands on no level, or on the family at a different amount", () => {
+    const request = requestFixture({
+      item_ref: { kind: "catalog_variant", id: VARIANT_ID },
+      sale_price: { amount: "6", currency: "CAD" },
+    });
+    for (const afterPrice of [
+      ["6.0000", "none"],
+      ["5.0000", "family"],
+    ] as const) {
+      const result = resultFixture(request, {
+        beforePrice: ["9.0000", "variant"],
+        afterPrice: [...afterPrice] as [string | null, string],
+        beforeVariants: [variantRow(VARIANT_ID, "9.0000", "variant")],
+        afterVariants: [variantRow(VARIANT_ID, afterPrice[0], afterPrice[1])],
+        pricesChanged: 1,
+      });
+      expect(matchesSetPricingRequest(result, request), afterPrice.join()).toBe(
+        false
+      );
+    }
+  });
+
+  it("accepts a family default whose shadowing variants keep their own prices", () => {
+    const request = requestFixture();
+    const result = resultFixture(request, {
+      beforeShadowing: [
+        shadowRow(SIBLING_ID, "7.5000", false),
+        shadowRow(OTHER_ID, "6.0000", true),
+      ],
+      afterShadowing: [
+        shadowRow(SIBLING_ID, "7.5000", true),
+        shadowRow(OTHER_ID, "6.0000", false),
+      ],
+    });
+    expect(matchesSetPricingRequest(result, request)).toBe(true);
+  });
+
+  it("refuses a shadowing list that moves, mislabels redundancy or overlaps the affected rows", () => {
+    const request = requestFixture();
+    const cases: Array<{ before: unknown[]; after: unknown[] }> = [
+      // A shadowing variant cannot move in a family write.
+      {
+        before: [shadowRow(SIBLING_ID, "7.5000", false)],
+        after: [shadowRow(SIBLING_ID, "8.0000", false)],
+      },
+      // Nor appear or disappear.
+      { before: [shadowRow(SIBLING_ID, "7.5000", false)], after: [] },
+      // Its own price equals the new default: that is redundant, and it must say so.
+      {
+        before: [shadowRow(SIBLING_ID, "7.5000", false)],
+        after: [shadowRow(SIBLING_ID, "7.5000", false)],
+      },
+      // And a price that differs from the old default was never redundant.
+      {
+        before: [shadowRow(SIBLING_ID, "7.5000", true)],
+        after: [shadowRow(SIBLING_ID, "7.5000", true)],
+      },
+      // A variant cannot both follow the default and shadow it.
+      {
+        before: [shadowRow(VARIANT_ID, "6.0000", true)],
+        after: [shadowRow(VARIANT_ID, "6.0000", false)],
+      },
+    ];
+    for (const { before, after } of cases) {
+      const result = resultFixture(request, {
+        beforeShadowing: before,
+        afterShadowing: after,
+      });
+      expect(
+        matchesSetPricingRequest(result, request),
+        JSON.stringify({ before, after })
+      ).toBe(false);
+    }
   });
 
   it("refuses a preview whose price count disagrees with its own variant rows", () => {

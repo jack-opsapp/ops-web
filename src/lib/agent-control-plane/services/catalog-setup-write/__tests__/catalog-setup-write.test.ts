@@ -201,6 +201,15 @@ describe("catalogue setup write domain boundary", () => {
         issue: "CATALOG_SETUP_WRITE_IDEMPOTENCY_CONFLICT",
       },
       {
+        // A request that would change nothing is a correct request, not a
+        // malformed one. The consumer is an agent: told "invalid", it reshapes
+        // and retries a request the tool already handled correctly.
+        message: "CATALOG_SETUP_NO_CHANGE",
+        code: "INVALID_ARGUMENT",
+        retryable: false,
+        issue: "CATALOG_SETUP_NO_CHANGE",
+      },
+      {
         message: "CATALOG_SETUP_WRITE_GRANT_STALE_OR_DENIED",
         code: "TEMPORARILY_UNAVAILABLE",
         retryable: true,
@@ -234,6 +243,29 @@ describe("catalogue setup write domain boundary", () => {
     }
   });
 
+  it("tells the agent a no-op request was understood and nothing was staged", async () => {
+    const { actor, authorityClient } = await actorFixture();
+    const rpc = vi.fn<CatalogSetupWriteRpcClient["rpc"]>(() =>
+      Promise.resolve({
+        data: null,
+        error: { code: "22023", message: "CATALOG_SETUP_NO_CHANGE" },
+      })
+    );
+    const response = await service(rpc, authorityClient.repository)
+      .prepareCreateCatalogVariant(actor, requestFixture())
+      .catch((error: CatalogSetupWritePrepareError) => error.toAgentError());
+    expect(response).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      retryable: false,
+      details: { field_issues: [{ path: ["input"], code: "CATALOG_SETUP_NO_CHANGE" }] },
+    });
+    const message = (response as { message: string }).message;
+    // The words an agent acts on: already in place, nothing staged, do not retry.
+    expect(message).toMatch(/already/i);
+    expect(message).toMatch(/nothing was staged/i);
+    expect(message).not.toMatch(/invalid/i);
+  });
+
   it("refuses a proposal that does not describe the request that was sent", async () => {
     const request = requestFixture();
     const substitutions = [
@@ -242,7 +274,10 @@ describe("catalogue setup write domain boundary", () => {
           "00000000-0000-4000-8000-000000000001";
       },
       (result: ReturnType<typeof resultFixture>) => {
-        result.proposal.after.variant.sale_price = "99.0000";
+        result.proposal.after.variant.sale_price = {
+          amount: "99.0000",
+          origin: "variant",
+        };
       },
       (result: ReturnType<typeof resultFixture>) => {
         result.proposal.after.variant.option_values.pop();
@@ -251,7 +286,10 @@ describe("catalogue setup write domain boundary", () => {
         result.proposal.after.opening_quantity = null;
       },
       (result: ReturnType<typeof resultFixture>) => {
-        result.proposal.after.variant.warning_threshold = "99";
+        result.proposal.after.variant.warning_threshold = {
+          value: "99",
+          origin: "variant",
+        };
       },
       (result: ReturnType<typeof resultFixture>) => {
         result.proposal.evidence[0]!.text = "Something else entirely";
@@ -281,8 +319,94 @@ describe("catalogue setup write domain boundary", () => {
       price_override: { amount: "45", currency: "CAD" },
     });
     const result = resultFixture(request);
-    result.proposal.after.variant.sale_price = "45.0000";
+    result.proposal.after.variant.sale_price = {
+      amount: "45.0000",
+      origin: "variant",
+    };
     expect(matchesCreateVariantRequest(result, request)).toBe(true);
+  });
+
+  it("accepts a price equal to the family default, which the new variant inherits", () => {
+    const request = requestFixture({
+      price_override: { amount: "45", currency: "CAD" },
+    });
+    const result = resultFixture(request);
+    result.proposal.before.default_price = "45.0000";
+    result.proposal.after.variant.sale_price = {
+      amount: "45.0000",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(result, request)).toBe(true);
+  });
+
+  it("refuses a new variant pinned to the family price it would inherit", () => {
+    const request = requestFixture({
+      price_override: { amount: "45", currency: "CAD" },
+    });
+    const result = resultFixture(request);
+    result.proposal.before.default_price = "45.0000";
+    // What the shipped compile staged: an override equal to the family default.
+    expect(result.proposal.after.variant.sale_price).toEqual({
+      amount: "45",
+      origin: "variant",
+    });
+    expect(matchesCreateVariantRequest(result, request)).toBe(false);
+  });
+
+  it("refuses an inherited price that is not the family's default", () => {
+    const request = requestFixture({
+      price_override: { amount: "45", currency: "CAD" },
+    });
+    const result = resultFixture(request);
+    result.proposal.before.default_price = "40.0000";
+    result.proposal.after.variant.sale_price = {
+      amount: "45.0000",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(result, request)).toBe(false);
+  });
+
+  it("accepts a requested level the new variant inherits, and refuses an unrequested one it claims", () => {
+    const request = requestFixture();
+    const inheriting = resultFixture(request);
+    inheriting.proposal.after.variant.warning_threshold = {
+      value: "30",
+      origin: "category",
+    };
+    expect(matchesCreateVariantRequest(inheriting, request)).toBe(true);
+
+    const unrequested = requestFixture({ warning_threshold: undefined });
+    delete (unrequested as Record<string, unknown>).warning_threshold;
+    const claimed = resultFixture(unrequested);
+    claimed.proposal.after.variant.warning_threshold = {
+      value: "30",
+      origin: "variant",
+    };
+    expect(matchesCreateVariantRequest(claimed, unrequested)).toBe(false);
+    const inherited = resultFixture(unrequested);
+    inherited.proposal.after.variant.warning_threshold = {
+      value: "30",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(inherited, unrequested)).toBe(true);
+  });
+
+  it("refuses a unit cost that is not the family's, because the write sets none", () => {
+    const request = requestFixture();
+    const result = resultFixture(request);
+    result.proposal.before.default_unit_cost = "8.5000";
+    // Family cost is 8.50, but the preview claims no cost at all.
+    expect(matchesCreateVariantRequest(result, request)).toBe(false);
+    result.proposal.after.variant.unit_cost = {
+      amount: "8.5000",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(result, request)).toBe(true);
+    result.proposal.after.variant.unit_cost = {
+      amount: "9.0000",
+      origin: "family",
+    };
+    expect(matchesCreateVariantRequest(result, request)).toBe(false);
   });
 
   it("refuses an untrusted repository or a broken clock", async () => {

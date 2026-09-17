@@ -144,6 +144,14 @@ const before = {
       sale_price_origin: "family",
     },
   ],
+  shadowing_variants: [
+    {
+      variant_ref: { kind: "catalog_variant", id: OTHER_VARIANT },
+      value_labels: ["White"],
+      price_override: "7.5000",
+      redundant: false,
+    },
+  ],
 } as const;
 
 const after = {
@@ -155,6 +163,15 @@ const after = {
       value_labels: ["Black"],
       sale_price: "7.5000",
       sale_price_origin: "family",
+    },
+  ],
+  // The same variant, which now carries the very price the family moves to.
+  shadowing_variants: [
+    {
+      variant_ref: { kind: "catalog_variant", id: OTHER_VARIANT },
+      value_labels: ["White"],
+      price_override: "7.5000",
+      redundant: true,
     },
   ],
 } as const;
@@ -278,6 +295,92 @@ describe("set_pricing preview", () => {
       CatalogSetupWritePreviewSchema.safeParse({
         ...preview,
         effects: { ...effects, families_updated: 0 },
+      }).success
+    ).toBe(false);
+  });
+
+  it("lists every variant whose own price the family default does not reach", () => {
+    const parsed = CatalogSetupWritePreviewSchema.safeParse(preview);
+    expect(parsed.success ? null : parsed.error.issues).toBeNull();
+    const proposal = parsed.success ? parsed.data : null;
+    expect(proposal?.kind === "set_pricing" && proposal.after.shadowing_variants)
+      .toEqual([
+        {
+          variant_ref: { kind: "catalog_variant", id: OTHER_VARIANT },
+          value_labels: ["White"],
+          price_override: "7.5000",
+          redundant: true,
+        },
+      ]);
+    // Without the list a family price preview hides the variants it cannot move.
+    const { shadowing_variants: _dropped, ...silent } = after;
+    expect(
+      CatalogSetupWritePreviewSchema.safeParse({ ...preview, after: silent })
+        .success
+    ).toBe(false);
+  });
+
+  it("refuses a shadowing entry that carries no price of its own or no redundancy flag", () => {
+    for (const drift of [
+      { price_override: null },
+      { redundant: "yes" },
+      { sale_price_origin: "variant" },
+    ]) {
+      expect(
+        CatalogSetupWritePreviewSchema.safeParse({
+          ...preview,
+          after: {
+            ...after,
+            shadowing_variants: [{ ...after.shadowing_variants[0], ...drift }],
+          },
+        }).success,
+        JSON.stringify(drift)
+      ).toBe(false);
+    }
+  });
+
+  it("keeps the shadowing list empty when the target is a single variant", () => {
+    const variantTarget = {
+      item_ref: { kind: "catalog_variant", id: VARIANT },
+      name: "Endcap rail",
+      value_labels: ["Black"],
+    } as const;
+    const variantPreview = {
+      ...preview,
+      before: { ...before, target: variantTarget, shadowing_variants: [] },
+      after: {
+        ...after,
+        target: variantTarget,
+        price: { amount: "7.5000", currency: "CAD", origin: "variant" },
+        shadowing_variants: [],
+      },
+      effects: { ...effects, families_updated: 0, variants_updated: 1 },
+    };
+    const parsed = CatalogSetupWritePreviewSchema.safeParse(variantPreview);
+    expect(parsed.success ? null : parsed.error.issues).toBeNull();
+    expect(
+      CatalogSetupWritePreviewSchema.safeParse({
+        ...variantPreview,
+        after: { ...variantPreview.after, shadowing_variants: after.shadowing_variants },
+      }).success
+    ).toBe(false);
+  });
+
+  it("bounds the shadowing list rather than truncating it", () => {
+    const many = Array.from({ length: 129 }, (_, index) => ({
+      ...after.shadowing_variants[0],
+      variant_ref: {
+        kind: "catalog_variant" as const,
+        id: `${OTHER_VARIANT.slice(0, 30)}${index.toString(16).padStart(6, "0")}`.slice(
+          0,
+          36
+        ),
+      },
+    }));
+    expect(
+      CatalogSetupWritePreviewSchema.safeParse({
+        ...preview,
+        after: { ...after, shadowing_variants: many },
       }).success
     ).toBe(false);
   });

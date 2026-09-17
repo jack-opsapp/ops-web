@@ -95,3 +95,88 @@ Before this row exists every catalogue `prepare_*` tool answers `CATALOG_SETUP_W
 ## Rollback
 
 Code: revert the merge commit; the database accepts V23 and V24 side by side. Database: delete the seal row to deactivate; the write tables and functions are inert without it. The text repair is reversible row by row from `private.catalog_text_repairs_20260916`.
+
+---
+
+# Follow-up release — writes keep the family's level
+
+Branch `fix/catalog-override-level`. Four writers turned a value equal to what a variant already inherits into a variant override (set_pricing on a variant, set_thresholds, create_variant, and the supplier-cost mirror, which also ignored `catalog_items.default_unit_cost`). The fix aims every mirrored value at the level the family already uses, shows that level in every preview, lists the variants a family price does not reach, and makes the commit refuse any write that creates a redundant override (`CATALOG_SETUP_OVERRIDE_LEVEL_CHANGED`). Proof: `override-level-proof.md`.
+
+## Order
+
+1. **Preconditions** (read-only): production carries `20260916080000_align_variant_unit_cost_override_to_default_profile.sql` (PR #128), and the nine bodies this migration replaces plus the eight it relies on still carry the fingerprints in section 2 of the original runbook above, and `public.catalog_setup_save` is `f5c4630d0282d999b5b691c22b63d84a`. The migration asserts all of these itself and aborts with `agent_catalog_setup_override_level_source_drift` on any mismatch.
+2. **Migration** `20260916090000_agent_catalog_setup_write_override_level.sql`. From the moment it commits the installed seal no longer matches (its postflight proves this): every catalogue `prepare_*` answers `CATALOG_SETUP_WRITE_ACTIVATION_REQUIRED` and every commit `CATALOG_SETUP_WRITE_EFFECT_POLICY_CHANGED`. Nothing can be written through these tools until step 5. A proposal already pending under the old seal can never commit, even after the reseal.
+3. **Fingerprint verification** (section F below).
+4. **Code**: merge `fix/catalog-override-level`, let Vercel deploy `main`, confirm READY. The approval preview parses the new proposal shape; with the tools dark there are no new proposals in between, so the order of steps 2 and 4 cannot surface a mismatched preview to an operator.
+5. **Reseal**, once, after both the migration and the code deploy:
+
+   ```sql
+   update private.agent_catalog_effect_policy
+      set effect_sha256 = private.agent_catalog_setup_write_effect_revision()
+    where revision = '2026-09-15.catalog-setup-write.v1';
+   ```
+
+   Then confirm `select effect_sha256 = private.agent_catalog_setup_write_effect_revision() from private.agent_catalog_effect_policy where revision = '2026-09-15.catalog-setup-write.v1';` returns `t`. The migration never writes this table.
+6. Release evidence in the bible (chapter 04) and the gap log.
+
+## Migration
+
+| # | File | md5 of file |
+|---|---|---|
+| 9 | `20260916090000_agent_catalog_setup_write_override_level.sql` | `e04da739127844127c417c3515eb3c93` |
+
+## F. Expected fingerprints after the migration (`md5(prosrc)`, from the local rehearsal)
+
+Changed or new rows are marked. Every other row is unchanged from section 2 above.
+
+| function | md5 | |
+|---|---|---|
+| private.agent_catalog_setup_amount_level | b82ea11c068505537117351be1e9ea52 | new |
+| private.agent_catalog_setup_bounded_object | a1ef1182b997bcf666de92bd0e9ccb8d | |
+| private.agent_catalog_setup_compile_create_option | 6bf2835822fe990670874aeb61b4974e | |
+| private.agent_catalog_setup_compile_create_variant | b0a5c5fc7d8512d31f699a705dde7d2d | changed |
+| private.agent_catalog_setup_compile_set_pricing | c504a193c60e4b244b3a092ae1de9ec0 | changed |
+| private.agent_catalog_setup_compile_set_supplier_cost | 1259c051e1f77ec261411e90d574f1f6 | changed |
+| private.agent_catalog_setup_compile_set_thresholds | 496e09a9c6f47ca7fd9667ea98cea0b2 | changed |
+| private.agent_catalog_setup_exact | aeabe475f20bb04dfd664f0d0d831aa1 | |
+| private.agent_catalog_setup_family_state | bb1586bd33ff5f60ca831b8c8b6f11d2 | |
+| private.agent_catalog_setup_money | b7588c2495cb5c2dc03d9fcbb4675b77 | |
+| private.agent_catalog_setup_option_projection | f4cea763564308839b14d70700ac454b | |
+| private.agent_catalog_setup_override_for | b8e34530ca950130e31f8f8fee83e3dc | new |
+| private.agent_catalog_setup_override_level_changes | 7b2138b6dccc6c35783ab764853b822a | new |
+| private.agent_catalog_setup_pricing_projection | 691c29e1dd19c95583411cd5a294b965 | changed |
+| private.agent_catalog_setup_supplier_cost_projection | ad913a43bc8fce759f61c0f1d983546f | changed |
+| private.agent_catalog_setup_threshold_level | 78e299f25fa95bd6e7116e96d7ec515b | |
+| private.agent_catalog_setup_threshold_projection | 8590f95ca81b266f6e1dec4ecbfcd05f | |
+| private.agent_catalog_setup_value_labels | af020c5a2f7285d43f2555989283c539 | |
+| private.agent_catalog_setup_variant_projection | b9f9d4f5521a76480be0c0465f6cc571 | changed |
+| private.agent_catalog_setup_whole | c544463f3a29d592a9e76a8278c4e2da | |
+| private.agent_catalog_setup_write_apply | f5fabc043b7f97e8dec7d614c03c2ac2 | |
+| private.agent_catalog_setup_write_assert_seal | 86f7b5d3d362e7db6e32e42a7879db6f | |
+| private.agent_catalog_setup_write_can_read | a8baab99dc27acff8c193c8d716cadcf | |
+| private.agent_catalog_setup_write_compile | 53eeda91ecdfedd98ee74062aa61fe53 | |
+| private.agent_catalog_setup_write_effect_revision | a56dcc88d2f1a917d48833066bd6eb32 | |
+| private.agent_catalog_setup_write_hash | 3c153b7e0f89bb29c71f3978b49a7469 | |
+| private.agent_catalog_setup_write_kind_capability | b6887e410ac06a3dbb874b3c4f8b1961 | |
+| private.agent_catalog_setup_write_kind_notice | 4f13d7112eeceecdb6b742fb84afec45 | |
+| private.agent_catalog_setup_write_kind_operation | ec0a33fa923bbb7e391fe6b09d4a5dd0 | |
+| private.agent_catalog_setup_write_kind_scopes | f5ffc480b1a53f4e15eb50043a34c3f8 | |
+| private.agent_catalog_setup_write_payload | 80e79a55e0c77b0e095d1ec7fceb4f08 | |
+| private.agent_catalog_setup_write_readback | ad8f149143d8a48b8d88253eb2dbb3e1 | |
+| private.agent_catalog_setup_write_reauthorize | cd622b68dc1547a58057075400c1556c | |
+| private.assert_agent_catalog_setup_write_authority | 4abc4740783122dcb1b9035dc0077004 | |
+| private.catalog_family_default_price_save | 06d241bdb8484870ff8fd1598bf29327 | |
+| private.catalog_supplier_cost_profile_save | 7d7008cf018fc16a80d2865e013b50bb | changed |
+| public.can_read_catalog_setup_write_action | d2d3401968ee0de3cef6118e8b07eb11 | |
+| public.catalog_setup_save | f5c4630d0282d999b5b691c22b63d84a | |
+| public.commit_catalog_setup_write_as_actor | 71c84921f77ba1e986f5877e6bf6103d | changed |
+| public.consume_catalog_setup_write_prepare_rate_limit_as_system | ea9b3e3d53748f0b2fdc42313516beae | |
+| public.filter_catalog_setup_write_actions_as_actor | 7d55cf2f245d3c8d67fbfc511db64efa | |
+| public.prepare_catalog_setup_write_as_system | 0410f802aaa0d10a9ba30317312c1c1b | |
+| public.reject_catalog_setup_write_as_actor | 8bf9b4f4e616f3d87969b5acc2457aff | |
+
+Also: before the reseal, `select effect_sha256 = private.agent_catalog_setup_write_effect_revision() from private.agent_catalog_effect_policy where revision = '2026-09-15.catalog-setup-write.v1'` returns `f`; `has_function_privilege` is false for `public`, `anon`, `authenticated` and `service_role` on the three new functions and on `catalog_supplier_cost_profile_save`, and true only for `service_role` on the commit.
+
+## Rollback
+
+Do not reseal: with the seal stale, prepare and commit both refuse, and nothing the tools could write is reachable. The previous bodies are the ones recorded in section 2; restoring them is a forward migration that re-creates those nine definitions and drops the three new functions, followed by a reseal against them. Code: revert the merge commit (the previous preview contract cannot parse proposals prepared after the migration, and the tools are dark until the reseal).

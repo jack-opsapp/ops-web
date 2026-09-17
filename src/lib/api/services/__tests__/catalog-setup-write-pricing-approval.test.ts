@@ -58,6 +58,17 @@ const readback = {
       sale_price_origin: "family",
     },
   ],
+  shadowing_variants: [
+    {
+      variant_ref: {
+        kind: "catalog_variant",
+        id: "44b1f59c-250e-464b-bc52-3e8d7e1e90ae",
+      },
+      value_labels: ["White"],
+      price_override: "7.5000",
+      redundant: true,
+    },
+  ],
 } as const;
 
 function receipt(replayed = false) {

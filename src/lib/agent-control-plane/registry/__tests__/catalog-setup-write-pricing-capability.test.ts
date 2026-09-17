@@ -124,6 +124,13 @@ describe("prepare_set_catalog_pricing on the shared manifest", () => {
     expect(description).toContain("prepare_set_supplier_cost");
     expect(description).toContain("company's own currency");
     expect(description).toContain("clears");
+    // A variant set to its family price keeps following the family, and a
+    // family price names the variants it cannot reach.
+    expect(description).toContain(
+      "an amount equal to the family default leaves the variant inheriting"
+    );
+    expect(description).toContain("never writes a variant override");
+    expect(description).toContain("keep their own price");
     // A pricing tool that quietly also wrote cost would be two decisions in one
     // approval, so the description says the boundary out loud.
     expect(description).not.toContain("unit_cost argument");
