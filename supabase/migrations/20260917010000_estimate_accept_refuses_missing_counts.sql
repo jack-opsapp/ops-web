@@ -1,5 +1,6 @@
--- Accepting an estimate to a job refuses when a count its recipe needs is
--- blank, and an integer count never carries a catalogue default again.
+-- Accepting an estimate to a job refuses when its recipe counts cannot be
+-- trusted: held outright for count-driven products until the iOS app stops
+-- inventing counts, and refused for any blank count once the hold lifts.
 --
 -- WHAT WAS WRONG. A product_materials row with scaled_by_option_id books
 -- quantity_per_unit x the line's count for that option (end posts per "Left
@@ -11,26 +12,37 @@
 -- shortage on site. The iOS app reported it as a green "SYS :: ACCEPTED"
 -- banner with "15 inventory warnings held for review."
 --
--- And the blank rarely reached acceptance, which was worse. Canpro's "Picket
--- Rail — Level" gives its five integer counts catalogue defaults (Left ends 1,
--- Right ends 1, Corners 0, 45° corners 0, Wall returns 0) and the editors
--- materialise defaults, so a 40 ft run with three corners booked one pair of
--- end posts and no corners, with no warning at all. A count is job geometry,
--- not a preference.
+-- And a blank rarely reached acceptance, which is worse. A count is job
+-- geometry, not a preference, but the iOS editors invent one: the line sheet
+-- seeds every integer option with `Int(opt.defaultValue ?? "0") ?? 0`
+-- (ops-ios LineItemEditSheet.swift:458) and the deck-design adapter falls back
+-- to `.integer(0)` (DesignToEstimateAdapter.swift:143). Canpro's "Picket Rail —
+-- Level" defaults are Left ends 1, Right ends 1, Corners 0, 45° corners 0, Wall
+-- returns 0, so a 40 ft run with three corners booked one pair of end posts and
+-- no corners, with no warning at all. iOS is the only client that accepts.
 --
--- THE RULE (product owner, 2026-09-17: "Block it.").
---   1. public.accept_estimate_to_job refuses, atomically, when any line it
---      would book has a count-scaled recipe line whose scaling option has no
---      numeric value in configured_options. An explicit 0 is a count and
---      passes. Nothing is left behind: no project, task, demand, stage
---      change, estimate status change, notification or acceptance request.
---   2. `select` options keep their defaults. `integer` count options carry
---      none: every default on an integer, recipe-affecting option of a product
---      with count-scaled recipe lines is cleared here (today exactly the five
---      above), and the web editor stops materialising integer defaults in the
---      same change. The two halves land together: a guard without the strip is
---      defeated by the defaults, and a strip without the guard books blanks as
---      zeros in silence.
+-- THE RELEASE, IN THREE STEPS (product owner, 2026-09-17).
+--   1. THIS FILE. Acceptance refuses blank counts, and — because a count that
+--      came from iOS cannot be told apart from one an estimator entered — a
+--      temporary hold refuses every estimate that carries a count-driven
+--      product at all. The catalogue defaults are NOT touched: clearing them
+--      now would make iOS write 0/0 end posts instead of 1/1. The web editor
+--      already stops filling integer counts from defaults.
+--   2. The iOS release that leaves counts blank, shows them blank and requires
+--      them before save.
+--   3. One migration, once Canpro's devices run that build: clears the integer
+--      count defaults and lifts the hold (see the switch below).
+--
+-- THE RULE, AS INSTALLED HERE. Both checks run only for a company whose
+-- inventory_mode is 'tracked', and only over the lines acceptance books.
+--   HOLD (first, while private.estimate_recipe_count_hold_active() is true):
+--     refuse when any booked line's product has a live count-scaled recipe
+--     line, whatever its counts say.
+--   COUNTS (once the hold is off): refuse when any booked line has a
+--     count-scaled recipe line whose scaling option has no numeric value in
+--     configured_options. An explicit 0 is a count and passes.
+-- Either refusal leaves nothing behind: no project, task, demand, snapshot,
+-- stage change, estimate status change, notification or acceptance request.
 --
 -- WHAT COUNTS AS MISSING. Exactly what the resolver books as 0 with a warning:
 -- the line's configured_options value for the option is absent, JSON null, a
@@ -41,25 +53,24 @@
 -- stock variant resolves — the count is an estimate input the user can enter;
 -- an unresolved variant is a separate catalogue gap that acceptance already
 -- reports through missing_mappings. A count option no recipe line scales by
--- books nothing, cannot short an order, and does not block; the editors'
--- required-option check covers it at save time.
+-- books nothing, cannot short an order, and neither holds nor blocks.
 --
--- PLACEMENT. A dedicated check, private.assert_estimate_accept_recipe_counts,
--- runs inside public.accept_estimate_to_job immediately after the idempotent
--- replay check and before private.sync_accepted_estimate_project_tasks. Before
--- that point the call has written one thing — the in_progress request row — and
--- the raise rolls it back with the transaction (PostgREST runs every RPC in its
--- own transaction and nothing catches the exception), so a retry with the same
+-- PLACEMENT. One check, private.assert_estimate_accept_recipe_counts, runs
+-- inside public.accept_estimate_to_job immediately after the idempotent replay
+-- check and before private.sync_accepted_estimate_project_tasks. Before that
+-- point the call has written one thing — the in_progress request row — and the
+-- raise rolls it back with the transaction (PostgREST runs every RPC in its own
+-- transaction and nothing catches the exception), so a retry with the same
 -- idempotency key, which the iOS app keeps per estimate, runs fresh instead of
 -- replaying the refusal. It sits after the replay check so an estimate that was
--- already accepted still replays its stored response untouched. It does not
--- parse the plan's warnings after the fact: the plan only reads lines once the
--- job exists (it needs an approved estimate and a project), which is after
--- every write this rule exists to prevent. The check reads the lines itself,
--- through private.estimate_recipe_count_gaps, with the resolver's predicate
--- and line filter restated verbatim; the SQL test proves the two agree case by
--- case. private.resolve_estimate_material_demand_plan is not changed: the plan
--- stays honest and still warns.
+-- already accepted — including one accepted before this file — still replays
+-- its stored response untouched. It does not parse the plan's warnings after
+-- the fact: the plan only reads lines once the job exists (it needs an approved
+-- estimate and a project), which is after every write this rule prevents. The
+-- check reads the lines itself, through private.estimate_recipe_count_lines,
+-- with the resolver's predicate and line filter restated verbatim; the SQL test
+-- proves the two agree case by case. private.resolve_estimate_material_demand_plan
+-- is not changed: the plan stays honest and still warns.
 --
 -- MODE SCOPE: TRACKED ONLY. The short order is a booked demand row, and
 -- private.persist_estimate_material_booking_projection books demand rows only
@@ -72,24 +83,26 @@
 -- resolver reads it: company_inventory_settings for the estimate's company,
 -- no row meaning 'off'.
 --
--- THE REFUSAL. SQLSTATE 22023, the code every other acceptance refusal uses.
---   MESSAGE  the banner, verbatim. supabase-swift 2.54.1 decodes PostgREST's
---            error body into PostgrestError, whose errorDescription is the
---            message, and the iOS view model shows error.localizedDescription
---            under "SYS :: ACCEPT FAILED". So the message is human copy:
---              Missing counts on Picket Rail — Level: Corners, Wall returns.
---              Open the estimate, enter the counts, accept again.
---            One product entry per product in line order, each count named
---            once in option order, "count" when exactly one is missing, at most
---            three products listed then "and N more product(s)".
---   HINT     estimate_accept_recipe_counts_missing — the stable machine code.
---            It is the one extra field supabase-swift decodes: PostgREST sends
---            `details`, PostgrestError declares `detail`, so DETAIL never
---            reaches the app. An app matches code 22023 + this hint, never the
---            copy.
---   DETAIL   {"code", "estimate_id", "lines": [{line_item_id, product_id,
---            product_name, missing_counts: [{product_option_id, name,
---            configured_value}]}]} for supabase-js, logs and support.
+-- THE REFUSALS. SQLSTATE 22023, the code every other acceptance refusal uses.
+-- supabase-swift 2.54.1 decodes PostgREST's error body into PostgrestError,
+-- whose errorDescription is the message, and the iOS view model shows
+-- error.localizedDescription under "SYS :: ACCEPT FAILED" — so MESSAGE is human
+-- copy. PostgREST sends `details` and PostgrestError declares `detail`, so
+-- DETAIL never reaches the app; HINT does, so HINT carries the stable machine
+-- code an app matches (with 22023), never the copy. Products are listed in
+-- line order, at most three by name, then "and N more product(s)".
+--   HOLD     HINT estimate_accept_recipe_counts_hold
+--            Picket Rail — Level can't be accepted from the app until the next
+--            OPS update. The estimate is safe to leave as is.
+--            DETAIL {"code", "estimate_id", "products": [{product_id,
+--            product_name, line_item_ids}]}
+--   COUNTS   HINT estimate_accept_recipe_counts_missing
+--            Missing counts on Picket Rail — Level: Corners, Wall returns.
+--            Open the estimate, enter the counts, accept again.
+--            ("count" when exactly one is missing; each count named once.)
+--            DETAIL {"code", "estimate_id", "lines": [{line_item_id,
+--            product_id, product_name, missing_counts: [{product_option_id,
+--            name, configured_value}]}]}
 --
 -- QUICKBOOKS IS DELIBERATELY UNCHANGED. public.accept_estimate_to_job_from_quickbooks
 -- reaches the same booking projection, but a refusal there is silent: the
@@ -99,19 +112,9 @@
 -- unconverted with the owner never told. Its fingerprint is asserted below so
 -- this file provably leaves it alone.
 --
--- THE DATA CHANGE IS LEDGERED AND REVERSIBLE. Every cleared default is
--- recorded, before value and all, in private.integer_option_defaults_cleared_20260917
--- (revoked from every app role). Reversal:
---   update public.product_options o
---      set default_value = l.default_value_before
---     from private.integer_option_defaults_cleared_20260917 l
---    where o.id = l.product_option_id and o.default_value is null;
--- product_options has no constraint or trigger that needs a default (asserted
--- below); its updated_at trigger bumps the rows, which is how the iOS sync
--- picks the change up.
---
--- NOT AN EFFECT CHANGE for the catalogue write vertical. Nothing here is
--- reachable from private.agent_catalog_setup_write_effect_revision(); the
+-- NO DATA CHANGES. No product_options row, default or catalogue row is
+-- written. NOT AN EFFECT CHANGE for the catalogue write vertical: nothing here
+-- is reachable from private.agent_catalog_setup_write_effect_revision(); the
 -- postflight proves the seal reads the same before and after.
 begin;
 set local lock_timeout = '5s';
@@ -121,7 +124,6 @@ do $prerequisites$
 declare
   v_missing text[];
   v_drifted text[];
-  v_data jsonb;
 begin
   if current_user <> 'postgres' then
     raise exception 'estimate_accept_missing_counts_owner_required' using errcode = '55000';
@@ -137,7 +139,6 @@ begin
       ('function', 'private.resolve_estimate_material_demand_plan(uuid,uuid)'),
       ('function', 'private.sync_accepted_estimate_project_tasks(uuid)'),
       ('function', 'private.agent_catalog_setup_write_effect_revision()'),
-      ('function', 'public.fn_set_updated_at()'),
       ('table', 'public.estimates'),
       ('table', 'public.line_items'),
       ('table', 'public.products'),
@@ -155,9 +156,9 @@ begin
       pg_catalog.array_to_string(v_missing, ',') using errcode = '55000';
   end if;
 
-  if pg_catalog.to_regprocedure('private.estimate_recipe_count_gaps(uuid)') is not null
-     or pg_catalog.to_regprocedure('private.assert_estimate_accept_recipe_counts(uuid)') is not null
-     or pg_catalog.to_regclass('private.integer_option_defaults_cleared_20260917') is not null then
+  if pg_catalog.to_regprocedure('private.estimate_recipe_count_lines(uuid)') is not null
+     or pg_catalog.to_regprocedure('private.estimate_recipe_count_hold_active()') is not null
+     or pg_catalog.to_regprocedure('private.assert_estimate_accept_recipe_counts(uuid)') is not null then
     raise exception 'estimate_accept_missing_counts_already_installed' using errcode = '55000';
   end if;
 
@@ -171,14 +172,12 @@ begin
       ('public.accept_estimate_to_job(uuid,text)', '3c61ba998d52ae3f42db9133a50fb27b'),
       -- Relied on, unchanged: the booking this rule protects, the plan whose
       -- predicate and line filter the check restates, the job writes the check
-      -- runs ahead of, the path deliberately left alone, the seal, and the
-      -- product_options trigger.
+      -- runs ahead of, the path deliberately left alone, and the seal.
       ('private.persist_estimate_material_booking_projection(uuid,uuid)', '45957758c5fd5bccb35f902e1cd589c3'),
       ('private.resolve_estimate_material_demand_plan(uuid,uuid)', '9541f4512b764ea867635c32baa899a8'),
       ('private.sync_accepted_estimate_project_tasks(uuid)', '7190e77637656ab408767cecc7b4b34a'),
       ('public.accept_estimate_to_job_from_quickbooks(uuid,uuid,uuid,text,text)', 'c8ada4851e5b2d7844c11eab5eb79d74'),
-      ('private.agent_catalog_setup_write_effect_revision()', 'a56dcc88d2f1a917d48833066bd6eb32'),
-      ('public.fn_set_updated_at()', '1c4318bee4240d4113d86fad7eb15623')
+      ('private.agent_catalog_setup_write_effect_revision()', 'a56dcc88d2f1a917d48833066bd6eb32')
   ) expected(signature, fingerprint)
   join pg_catalog.pg_proc proc on proc.oid = pg_catalog.to_regprocedure(expected.signature)
   where pg_catalog.md5(proc.prosrc) is distinct from expected.fingerprint;
@@ -187,123 +186,45 @@ begin
       pg_catalog.array_to_string(v_drifted, ',') using errcode = '55000';
   end if;
 
-  -- Nothing on product_options needs a default: no check constraint reads
-  -- default_value, and the only trigger is the updated_at stamp.
-  if exists (
-       select 1 from pg_catalog.pg_constraint con
-        where con.conrelid = 'public.product_options'::regclass
-          and pg_catalog.pg_get_constraintdef(con.oid) ~* 'default_value'
-     )
-     or (select pg_catalog.array_agg(tg.tgname::text || '->' || tg.tgfoid::regproc::text order by tg.tgname)
-           from pg_catalog.pg_trigger tg
-          where tg.tgrelid = 'public.product_options'::regclass
-            and not tg.tgisinternal)
-        is distinct from array['trg_product_options_updated_at->fn_set_updated_at'] then
-    raise exception 'estimate_accept_missing_counts_product_options_shape_drift'
-      using errcode = '55000';
-  end if;
-
-  -- The exact rows the strip clears, as production holds them on 2026-09-17.
-  select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-           'id', option_row.id,
-           'product_id', option_row.product_id,
-           'name', option_row.name,
-           'required', option_row.required,
-           'default_value', option_row.default_value,
-           'live', option_row.deleted_at is null
-         ) order by option_row.id), '[]'::jsonb)
-    into v_data
-    from public.product_options option_row
-   where option_row.kind = 'integer'
-     and option_row.affects_recipe
-     and option_row.default_value is not null
-     and exists (
-       select 1 from public.product_materials material_row
-        where material_row.product_id = option_row.product_id
-          and material_row.deleted_at is null
-          and material_row.scaled_by_option_id is not null
-     );
-  if v_data is distinct from '[
-    {"id": "20a023c9-500e-4cf9-96a3-f518d9cee078", "product_id": "3efc9582-ac59-4f13-919e-c1b3e3495cc3", "name": "Corners",      "required": true, "default_value": "0", "live": true},
-    {"id": "3b9c6b74-f889-4027-9752-fe1cd3f838de", "product_id": "3efc9582-ac59-4f13-919e-c1b3e3495cc3", "name": "Left ends",    "required": true, "default_value": "1", "live": true},
-    {"id": "97cc24bb-1035-45f1-b070-6100fce716f7", "product_id": "3efc9582-ac59-4f13-919e-c1b3e3495cc3", "name": "Right ends",   "required": true, "default_value": "1", "live": true},
-    {"id": "f1594fb3-92f2-4750-9f7c-c44ebfa49fe6", "product_id": "3efc9582-ac59-4f13-919e-c1b3e3495cc3", "name": "Wall returns", "required": true, "default_value": "0", "live": true},
-    {"id": "fc1bafc4-0fe8-4012-8b85-ef974e9d43b3", "product_id": "3efc9582-ac59-4f13-919e-c1b3e3495cc3", "name": "45° corners",  "required": true, "default_value": "0", "live": true}
-  ]'::jsonb then
-    raise exception 'estimate_accept_missing_counts_data_drift: %', v_data
-      using errcode = '55000';
-  end if;
-
   -- Recorded so the postflight can prove the catalogue write seal did not move.
   perform pg_catalog.set_config('ops.estimate_accept_missing_counts_effect_before',
     private.agent_catalog_setup_write_effect_revision(), true);
 end;
 $prerequisites$;
 
--- ── The ledger ─────────────────────────────────────────────────────────────
--- One row per default this migration clears. Nothing in the application reads
--- it: it exists so a human can audit or undo the strip.
-create table private.integer_option_defaults_cleared_20260917 (
-  product_option_id uuid primary key,
-  product_id uuid not null,
-  option_name text not null,
-  option_kind text not null,
-  default_value_before text not null,
-  updated_at_before timestamptz not null,
-  cleared_at timestamptz not null default clock_timestamp()
-);
-alter table private.integer_option_defaults_cleared_20260917 enable row level security;
-alter table private.integer_option_defaults_cleared_20260917 force row level security;
-revoke all on private.integer_option_defaults_cleared_20260917 from public, anon, authenticated, service_role;
-comment on table private.integer_option_defaults_cleared_20260917 is
-  'Audit trail for 20260917010000: catalogue defaults cleared from integer count options that recipes scale by. Reversing it is an UPDATE of product_options.default_value from default_value_before where the column is still null.';
+-- ── The temporary hold ─────────────────────────────────────────────────────
+-- STEP 1 OF 3. While this returns true, public.accept_estimate_to_job refuses
+-- every tracked-inventory estimate whose booked lines include a product with a
+-- live count-scaled recipe line, whatever its counts say: the iOS editors
+-- invent counts (LineItemEditSheet.swift:458 seeds `Int(defaultValue ?? "0")
+-- ?? 0`, DesignToEstimateAdapter.swift:143 falls back to `.integer(0)`), so no
+-- count on such a line can be trusted.
+--
+-- HOW AND WHEN IT IS LIFTED. Only by the step 3 migration, written after every
+-- Canpro device runs the iOS build that leaves counts blank, shows them blank
+-- and requires them before save (step 2). That migration clears the integer
+-- count defaults and replaces this body with `select false` in the same
+-- transaction; from then on the missing-count check alone decides. Nothing
+-- else lifts the hold — no setting, row or flag is read here.
+create function private.estimate_recipe_count_hold_active()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $function$
+  select true
+$function$;
 
--- ── The strip ──────────────────────────────────────────────────────────────
--- One statement: the rows are locked and read before they are cleared, and the
--- ledger records the values the update replaced.
-with target as (
-  select option_row.id,
-         option_row.product_id,
-         option_row.name,
-         option_row.kind,
-         option_row.default_value,
-         option_row.updated_at
-    from public.product_options option_row
-   where option_row.kind = 'integer'
-     and option_row.affects_recipe
-     and option_row.default_value is not null
-     and exists (
-       select 1 from public.product_materials material_row
-        where material_row.product_id = option_row.product_id
-          and material_row.deleted_at is null
-          and material_row.scaled_by_option_id is not null
-     )
-   for update of option_row
-), cleared as (
-  update public.product_options option_row
-     set default_value = null
-    from target
-   where option_row.id = target.id
-  returning option_row.id
-)
-insert into private.integer_option_defaults_cleared_20260917 (
-  product_option_id, product_id, option_name, option_kind,
-  default_value_before, updated_at_before
-)
-select target.id, target.product_id, target.name, target.kind,
-       target.default_value, target.updated_at
-  from target
-  join cleared on cleared.id = target.id;
-
--- ── The gaps ───────────────────────────────────────────────────────────────
--- Every count an estimate's booked lines are missing, per line. The line set
--- and the numeric test are restated verbatim from
--- private.resolve_estimate_material_demand_plan (md5 9541f451…), so this reads
--- "missing" exactly where the resolver books 0 and warns
+-- ── The lines ──────────────────────────────────────────────────────────────
+-- Every booked line of the estimate whose product has a live count-scaled
+-- recipe line, with the counts that line is missing (an empty array when every
+-- count is entered). The line set and the numeric test are restated verbatim
+-- from private.resolve_estimate_material_demand_plan (md5 9541f451…), so
+-- "missing" here is exactly where the resolver books 0 and warns
 -- scaled_option_value_missing. SECURITY INVOKER like the resolver, so both see
--- the same rows under the caller's RLS. Empty array when nothing is missing or
--- the estimate is not visible.
-create function private.estimate_recipe_count_gaps(p_estimate_id uuid)
+-- the same rows under the caller's RLS. Empty array when the estimate has no
+-- such line or is not visible.
+create function private.estimate_recipe_count_lines(p_estimate_id uuid)
 returns jsonb
 language sql
 stable
@@ -353,42 +274,45 @@ as $function$
        and material_row.deleted_at is null
        and material_row.scaled_by_option_id is not null
   ),
-  missing_counts as (
-    select scaled_counts.*
-      from scaled_counts
-     where case
+  judged_counts as (
+    select scaled_counts.*,
+           case
              when scaled_counts.configured_value is null then true
              when jsonb_typeof(scaled_counts.configured_value) = 'number' then false
              when jsonb_typeof(scaled_counts.configured_value) = 'string'
                   and (scaled_counts.configured_value #>> '{}') ~ '^\s*-?[0-9]+(\.[0-9]+)?\s*$'
                then false
              else true
-           end
+           end as is_missing
+      from scaled_counts
   ),
   per_line as (
-    select missing_counts.line_item_id,
-           missing_counts.product_id,
-           missing_counts.line_name,
-           missing_counts.sort_order,
-           missing_counts.product_name,
-           jsonb_agg(
-             jsonb_build_object(
-               'product_option_id', missing_counts.scaled_by_option_id,
-               'name', coalesce(nullif(btrim(option_row.name), ''), 'Unnamed count'),
-               'configured_value', missing_counts.configured_value
-             )
-             order by option_row.sort_order nulls last,
-                      option_row.name,
-                      missing_counts.scaled_by_option_id
+    select judged_counts.line_item_id,
+           judged_counts.product_id,
+           judged_counts.line_name,
+           judged_counts.sort_order,
+           judged_counts.product_name,
+           coalesce(
+             jsonb_agg(
+               jsonb_build_object(
+                 'product_option_id', judged_counts.scaled_by_option_id,
+                 'name', coalesce(nullif(btrim(option_row.name), ''), 'Unnamed count'),
+                 'configured_value', judged_counts.configured_value
+               )
+               order by option_row.sort_order nulls last,
+                        option_row.name,
+                        judged_counts.scaled_by_option_id
+             ) filter (where judged_counts.is_missing),
+             '[]'::jsonb
            ) as missing
-      from missing_counts
+      from judged_counts
       left join public.product_options option_row
-        on option_row.id = missing_counts.scaled_by_option_id
-     group by missing_counts.line_item_id,
-              missing_counts.product_id,
-              missing_counts.line_name,
-              missing_counts.sort_order,
-              missing_counts.product_name
+        on option_row.id = judged_counts.scaled_by_option_id
+     group by judged_counts.line_item_id,
+              judged_counts.product_id,
+              judged_counts.line_name,
+              judged_counts.sort_order,
+              judged_counts.product_name
   )
   select coalesce(
     jsonb_agg(
@@ -409,10 +333,9 @@ as $function$
   from per_line
 $function$;
 
--- ── The refusal ────────────────────────────────────────────────────────────
--- Raises when the estimate's company tracks inventory and a booked line is
--- missing a count its recipe scales by. Returns quietly otherwise. See the
--- header for the message, hint and detail contract.
+-- ── The refusals ───────────────────────────────────────────────────────────
+-- For a tracked-inventory estimate: the hold first, then the missing-count
+-- check. Returns quietly otherwise. See the header for the contract.
 create function private.assert_estimate_accept_recipe_counts(p_estimate_id uuid)
 returns void
 language plpgsql
@@ -421,7 +344,10 @@ set search_path = public, private, pg_temp
 as $function$
 declare
   v_inventory_mode text;
+  v_lines jsonb;
   v_gaps jsonb;
+  v_held jsonb;
+  v_names text[];
   v_product_total integer;
   v_count_total integer;
   v_listed text;
@@ -443,7 +369,71 @@ begin
     return;
   end if;
 
-  v_gaps := private.estimate_recipe_count_gaps(p_estimate_id);
+  v_lines := private.estimate_recipe_count_lines(p_estimate_id);
+
+  if jsonb_array_length(v_lines) = 0 then
+    return;
+  end if;
+
+  -- The hold: no count on a count-driven line is trusted yet.
+  if private.estimate_recipe_count_hold_active() then
+    with held as (
+      select line_item.value ->> 'product_id' as product_id,
+             min(line_item.value ->> 'product_name') as product_name,
+             min(line_item.ordinality) as first_line,
+             jsonb_agg(line_item.value -> 'line_item_id' order by line_item.ordinality) as line_item_ids
+        from jsonb_array_elements(v_lines) with ordinality as line_item(value, ordinality)
+       group by line_item.value ->> 'product_id'
+    ),
+    ranked as (
+      select held.*,
+             row_number() over (order by held.first_line, held.product_id) as product_rank
+        from held
+    )
+    select count(*)::integer,
+           array_agg(ranked.product_name order by ranked.product_rank)
+             filter (where ranked.product_rank <= 3),
+           jsonb_agg(
+             jsonb_build_object(
+               'product_id', ranked.product_id,
+               'product_name', ranked.product_name,
+               'line_item_ids', ranked.line_item_ids
+             )
+             order by ranked.product_rank
+           )
+      into v_product_total, v_names, v_held
+      from ranked;
+
+    v_listed := case v_product_total
+      when 1 then v_names[1]
+      when 2 then v_names[1] || ' and ' || v_names[2]
+      when 3 then v_names[1] || ', ' || v_names[2] || ' and ' || v_names[3]
+      else array_to_string(v_names, ', ') || format(
+        ' and %s more %s',
+        v_product_total - 3,
+        case when v_product_total - 3 = 1 then 'product' else 'products' end
+      )
+    end;
+
+    raise exception using
+      errcode = '22023',
+      message = format(
+        '%s can''t be accepted from the app until the next OPS update. The estimate is safe to leave as is.',
+        v_listed
+      ),
+      detail = jsonb_build_object(
+        'code', 'estimate_accept_recipe_counts_hold',
+        'estimate_id', p_estimate_id,
+        'products', v_held
+      )::text,
+      hint = 'estimate_accept_recipe_counts_hold';
+  end if;
+
+  -- The counts: every count a booked line's recipe scales by must be entered.
+  select coalesce(jsonb_agg(line_item.value order by line_item.ordinality), '[]'::jsonb)
+    into v_gaps
+    from jsonb_array_elements(v_lines) with ordinality as line_item(value, ordinality)
+   where jsonb_array_length(line_item.value -> 'missing_counts') > 0;
 
   if jsonb_array_length(v_gaps) = 0 then
     return;
@@ -621,9 +611,9 @@ begin
     );
   end if;
 
-  -- Refuse before any job work when a booked line is missing a count its
-  -- recipe scales by. Nothing but the request row above exists yet, and the
-  -- raise rolls it back, so a retry with the same key runs fresh.
+  -- Refuse before any job work when a booked line's recipe counts cannot be
+  -- trusted or are missing. Nothing but the request row above exists yet, and
+  -- the raise rolls it back, so a retry with the same key runs fresh.
   perform private.assert_estimate_accept_recipe_counts(p_estimate_id);
 
   v_project_result := private.sync_accepted_estimate_project_tasks(p_estimate_id);
@@ -686,9 +676,9 @@ end;
 $function$;
 
 -- ── Grants ─────────────────────────────────────────────────────────────────
--- accept_estimate_to_job and both checks run as the calling app role (the
--- iOS app reaches PostgREST as the Firebase-bridged anon or authenticated
--- role), exactly like the resolver and the booking projection:
+-- accept_estimate_to_job and everything it now calls run as the calling app
+-- role (the iOS app reaches PostgREST as the Firebase-bridged anon or
+-- authenticated role), exactly like the resolver and the booking projection:
 -- {postgres, anon, authenticated}. Nothing else.
 do $acl$
 declare f record;
@@ -696,7 +686,8 @@ begin
   for f in
     select * from (values
       ('public.accept_estimate_to_job(uuid,text)'),
-      ('private.estimate_recipe_count_gaps(uuid)'),
+      ('private.estimate_recipe_count_hold_active()'),
+      ('private.estimate_recipe_count_lines(uuid)'),
       ('private.assert_estimate_accept_recipe_counts(uuid)')
     ) target(signature)
   loop
@@ -707,25 +698,28 @@ begin
   end loop;
 end $acl$;
 
-comment on function private.estimate_recipe_count_gaps(uuid) is
-  'Counts an estimate''s booked lines are missing: live count-scaled recipe lines whose scaling option has no numeric configured value, per the resolver''s own predicate. JSON array per line.';
+comment on function private.estimate_recipe_count_hold_active() is
+  'Step 1 of 3: true holds acceptance of every tracked-inventory estimate carrying a count-driven product, because iOS invents counts. Lifted only by the step 3 migration (select false) once Canpro devices run the iOS build that leaves counts blank.';
+comment on function private.estimate_recipe_count_lines(uuid) is
+  'Booked estimate lines whose product has live count-scaled recipe lines, each with the counts it is missing per the resolver''s own predicate. JSON array per line.';
 comment on function private.assert_estimate_accept_recipe_counts(uuid) is
-  'Raises 22023 (hint estimate_accept_recipe_counts_missing) when a tracked-inventory estimate''s booked lines are missing recipe counts. Called by accept_estimate_to_job before any job work.';
+  'Raises 22023 for a tracked-inventory estimate: hint estimate_accept_recipe_counts_hold while the hold is active and a count-driven product is booked, else hint estimate_accept_recipe_counts_missing when a recipe count is blank. Called by accept_estimate_to_job before any job work.';
 
 do $postflight$
 declare
   f record;
   v_role text;
   v_accept text;
-  v_guard constant text := $guard$  -- Refuse before any job work when a booked line is missing a count its
-  -- recipe scales by. Nothing but the request row above exists yet, and the
-  -- raise rolls it back, so a retry with the same key runs fresh.
+  v_guard constant text := $guard$  -- Refuse before any job work when a booked line's recipe counts cannot be
+  -- trusted or are missing. Nothing but the request row above exists yet, and
+  -- the raise rolls it back, so a retry with the same key runs fresh.
   perform private.assert_estimate_accept_recipe_counts(p_estimate_id);
 
 $guard$;
+  v_assert text;
+  v_unproved text[];
   v_effect_before text;
   v_effect_after text;
-  v_ledger jsonb;
 begin
   -- Acceptance: production's body plus exactly the guard block, in place.
   select proc.prosrc into v_accept
@@ -742,21 +736,33 @@ begin
     raise exception 'estimate_accept_missing_counts_guard_misplaced' using errcode = '55000';
   end if;
 
+  -- The hold is decided before the counts.
+  select proc.prosrc into v_assert
+    from pg_catalog.pg_proc proc
+   where proc.oid = 'private.assert_estimate_accept_recipe_counts(uuid)'::regprocedure;
+  if pg_catalog.strpos(v_assert, 'private.estimate_recipe_count_hold_active()') = 0
+     or pg_catalog.strpos(v_assert, 'estimate_accept_recipe_counts_hold')
+       > pg_catalog.strpos(v_assert, 'estimate_accept_recipe_counts_missing') then
+    raise exception 'estimate_accept_missing_counts_hold_misplaced' using errcode = '55000';
+  end if;
+
   -- The bodies installed are the bodies proved locally
   -- (docs/artifacts/estimate-accept-missing-counts/local-proof.md).
-  for f in
-    select * from (values
-      ('public.accept_estimate_to_job(uuid,text)', '92a60638e181008cb875ac9ae02379dc'),
-      ('private.estimate_recipe_count_gaps(uuid)', '5338ead45ed9b05ae28e11b0df514a0b'),
-      ('private.assert_estimate_accept_recipe_counts(uuid)', '3e204df5599a030cab07b74176cd13ab')
+  select pg_catalog.array_agg(expected.signature || ' = ' || pg_catalog.md5(proc.prosrc)
+                              order by expected.signature)
+    into v_unproved
+    from (values
+      ('public.accept_estimate_to_job(uuid,text)', '9f533799f54d0fae2f5aa062038283d0'),
+      ('private.estimate_recipe_count_hold_active()', '12121c1c821d63ac9833861df2e81850'),
+      ('private.estimate_recipe_count_lines(uuid)', '1941e484c70701699fc6b0d7e770dfef'),
+      ('private.assert_estimate_accept_recipe_counts(uuid)', '5cb8912c66ab91417afcc9fb5c56b80c')
     ) expected(signature, fingerprint)
-  loop
-    if (select pg_catalog.md5(proc.prosrc) from pg_catalog.pg_proc proc
-         where proc.oid = f.signature::regprocedure) is distinct from f.fingerprint then
-      raise exception 'estimate_accept_missing_counts_body_unproved: %', f.signature
-        using errcode = '55000';
-    end if;
-  end loop;
+    join pg_catalog.pg_proc proc on proc.oid = expected.signature::regprocedure
+   where pg_catalog.md5(proc.prosrc) is distinct from expected.fingerprint;
+  if v_unproved is not null then
+    raise exception 'estimate_accept_missing_counts_body_unproved: %',
+      pg_catalog.array_to_string(v_unproved, ', ') using errcode = '55000';
+  end if;
 
   -- Everything else this rule leans on is untouched.
   for f in
@@ -782,13 +788,16 @@ begin
       from pg_catalog.pg_proc proc
      where proc.oid in (
        'public.accept_estimate_to_job(uuid,text)'::regprocedure,
-       'private.estimate_recipe_count_gaps(uuid)'::regprocedure,
+       'private.estimate_recipe_count_hold_active()'::regprocedure,
+       'private.estimate_recipe_count_lines(uuid)'::regprocedure,
        'private.assert_estimate_accept_recipe_counts(uuid)'::regprocedure
      )
   loop
     if f.prosecdef
        or f.owner <> 'postgres'
-       or f.proconfig is distinct from array['search_path=public, private, pg_temp']
+       or f.proconfig is distinct from (case f.proname
+            when 'estimate_recipe_count_hold_active' then array['search_path=""']
+            else array['search_path=public, private, pg_temp'] end)
        or (f.proname <> 'accept_estimate_to_job' and f.provolatile <> 's') then
       raise exception 'estimate_accept_missing_counts_posture_wrong: %', f.proname
         using errcode = '55000';
@@ -806,54 +815,15 @@ begin
     end if;
   end loop;
 
-  -- The checks answer quietly for an estimate that does not exist.
-  if private.estimate_recipe_count_gaps(gen_random_uuid()) is distinct from '[]'::jsonb then
-    raise exception 'estimate_accept_missing_counts_gaps_wrong' using errcode = '55000';
+  -- The hold is on, and the checks answer quietly for an estimate that does
+  -- not exist.
+  if private.estimate_recipe_count_hold_active() is distinct from true then
+    raise exception 'estimate_accept_missing_counts_hold_not_active' using errcode = '55000';
+  end if;
+  if private.estimate_recipe_count_lines(gen_random_uuid()) is distinct from '[]'::jsonb then
+    raise exception 'estimate_accept_missing_counts_lines_wrong' using errcode = '55000';
   end if;
   perform private.assert_estimate_accept_recipe_counts(gen_random_uuid());
-
-  -- The strip: the five defaults are gone, and the ledger holds exactly them.
-  select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-           'id', ledger.product_option_id,
-           'name', ledger.option_name,
-           'kind', ledger.option_kind,
-           'default_value_before', ledger.default_value_before,
-           'now', option_row.default_value
-         ) order by ledger.product_option_id), '[]'::jsonb)
-    into v_ledger
-    from private.integer_option_defaults_cleared_20260917 ledger
-    left join public.product_options option_row on option_row.id = ledger.product_option_id;
-  if v_ledger is distinct from '[
-    {"id": "20a023c9-500e-4cf9-96a3-f518d9cee078", "name": "Corners",      "kind": "integer", "default_value_before": "0", "now": null},
-    {"id": "3b9c6b74-f889-4027-9752-fe1cd3f838de", "name": "Left ends",    "kind": "integer", "default_value_before": "1", "now": null},
-    {"id": "97cc24bb-1035-45f1-b070-6100fce716f7", "name": "Right ends",   "kind": "integer", "default_value_before": "1", "now": null},
-    {"id": "f1594fb3-92f2-4750-9f7c-c44ebfa49fe6", "name": "Wall returns", "kind": "integer", "default_value_before": "0", "now": null},
-    {"id": "fc1bafc4-0fe8-4012-8b85-ef974e9d43b3", "name": "45° corners",  "kind": "integer", "default_value_before": "0", "now": null}
-  ]'::jsonb then
-    raise exception 'estimate_accept_missing_counts_ledger_wrong: %', v_ledger
-      using errcode = '55000';
-  end if;
-  if exists (
-    select 1 from public.product_options option_row
-     where option_row.kind = 'integer'
-       and option_row.affects_recipe
-       and option_row.default_value is not null
-       and exists (
-         select 1 from public.product_materials material_row
-          where material_row.product_id = option_row.product_id
-            and material_row.deleted_at is null
-            and material_row.scaled_by_option_id is not null
-       )
-  ) then
-    raise exception 'estimate_accept_missing_counts_default_remains' using errcode = '55000';
-  end if;
-  foreach v_role in array array['public', 'anon', 'authenticated', 'service_role'] loop
-    if pg_catalog.has_table_privilege(v_role,
-         'private.integer_option_defaults_cleared_20260917', 'select') then
-      raise exception 'estimate_accept_missing_counts_ledger_readable: %', v_role
-        using errcode = '42501';
-    end if;
-  end loop;
 
   -- The catalogue write seal reads exactly what it read before.
   v_effect_before := nullif(pg_catalog.current_setting(
@@ -863,7 +833,7 @@ begin
     raise exception 'estimate_accept_missing_counts_effect_moved' using errcode = '55000';
   end if;
 
-  raise notice 'estimate acceptance: missing recipe counts refused (tracked inventory), 5 integer defaults cleared and ledgered, catalogue write seal unchanged';
+  raise notice 'estimate acceptance: count-driven products held, missing recipe counts refused (tracked inventory), no data changed, catalogue write seal unchanged';
 end;
 $postflight$;
 
