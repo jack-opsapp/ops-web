@@ -13,7 +13,10 @@
 import {
   ExpenseBatchStatus,
   type ExpenseBatch,
+  type RecurringLineSummary,
 } from "@/lib/types/expense-approval";
+
+export type { RecurringLineSummary };
 
 /** The database accepts a first month within this many months of today. */
 export const RECURRING_MONTH_RANGE = 12;
@@ -172,16 +175,6 @@ export function placementPreview({
 }
 
 // ─── Lifecycle guards ─────────────────────────────────────────────────────────
-
-/** One month's line as returned by the recurring reimbursement commands. */
-export interface RecurringLineSummary {
-  expenseId: string;
-  period: string;
-  batchId: string | null;
-  status: string;
-  amount: number;
-  deleted: boolean;
-}
 
 /** Delete is for a setup made in error — refused once any month is paid. */
 export function canDeleteRecurring(lines: RecurringLineSummary[]): boolean {

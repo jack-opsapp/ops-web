@@ -309,6 +309,17 @@ export {
 } from "./use-expense-approval";
 export { useExpenseRealtime } from "./use-expense-realtime";
 
+// Recurring reimbursements (fixed monthly amounts paid with expenses)
+export {
+  useRecurringReimbursements,
+  useCreateRecurringReimbursement,
+  useUpdateRecurringReimbursement,
+  useEndRecurringReimbursement,
+  useDeleteRecurringReimbursement,
+  useSkipRecurringLine,
+  useRestoreRecurringLine,
+} from "./use-expense-recurring-reimbursements";
+
 // Notification Preferences
 export {
   useNotificationPreferences,

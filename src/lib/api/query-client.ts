@@ -551,6 +551,10 @@ export const queryKeys = {
       [...queryKeys.expenseBatches.all, "allExpenses", companyId] as const,
     autoApproveRules: (companyId: string) =>
       [...queryKeys.expenseBatches.all, "autoApproveRules", companyId] as const,
+    /** Recurring reimbursements live under the expense namespace so every
+     *  expense invalidation (approve, pay, realtime) refreshes them too. */
+    recurring: (companyId: string) =>
+      [...queryKeys.expenseBatches.all, "recurring", companyId] as const,
   },
 
   // Notifications

@@ -5,8 +5,9 @@
  * expense_batches or expenses rows (crew adds a line, an envelope auto-sends,
  * another approver clears a batch) invalidates the expenseBatches query
  * namespace so the queue, detail panel, and instrument row refresh without a
- * manual reload. Both tables are in the `supabase_realtime` publication with
- * REPLICA IDENTITY FULL (added for the iOS review hub).
+ * manual reload. All three tables (with expense_recurring_reimbursements, whose
+ * setups another approver may change) are in the `supabase_realtime`
+ * publication with REPLICA IDENTITY FULL.
  */
 
 import { useEffect } from "react";
@@ -47,6 +48,16 @@ export function useExpenseRealtime(): void {
           event: "*",
           schema: "public",
           table: "expenses",
+          filter: `company_id=eq.${companyId}`,
+        },
+        invalidate
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "expense_recurring_reimbursements",
           filter: `company_id=eq.${companyId}`,
         },
         invalidate
