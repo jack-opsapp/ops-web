@@ -30,7 +30,7 @@ export function useRecurringReimbursements() {
   });
 }
 
-function useExpenseCommand<TInput>(run: (input: TInput) => Promise<unknown>) {
+function useExpenseCommand<TInput, TResult>(run: (input: TInput) => Promise<TResult>) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: run,
