@@ -18,10 +18,9 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -80,12 +79,6 @@ type Stage = "form" | "end" | "delete";
 
 const LABEL = "block font-mono text-micro uppercase tracking-wider text-text-3";
 const TABULAR = { fontFeatureSettings: '"tnum" 1, "zero" 1' } as const;
-const BUTTON_BASE =
-  "flex items-center gap-1.5 rounded px-4 py-2 font-cakemono text-button-sm font-light uppercase transition-colors duration-150 ease-smooth focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40";
-const BUTTON_SECONDARY = cn(BUTTON_BASE, "border border-line text-text-2 hover:bg-surface-hover hover:text-text");
-const BUTTON_PRIMARY = cn(BUTTON_BASE, "border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black");
-const BUTTON_GHOST = cn(BUTTON_BASE, "px-2 text-text-3 hover:text-text-2");
-const BUTTON_DESTRUCTIVE = cn(BUTTON_BASE, "border border-rose-line bg-rose-soft text-rose hover:border-rose");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -347,6 +340,7 @@ export function RecurringReimbursementDialog({
                     autoComplete="off"
                     placeholder={t("expenses.recurring.field.namePlaceholder")}
                     onChange={(e) => setName(e.target.value)}
+                    className="py-0"
                     disabled={busy}
                   />
                 </div>
@@ -372,7 +366,8 @@ export function RecurringReimbursementDialog({
                         const parsed = parseAmount(amountText);
                         if (parsed != null) setAmountText(parsed.toFixed(2));
                       }}
-                      className="font-mono"
+                      // The 36px control ladder (DESIGN.md §9 inputs), level with the month select.
+                      className="py-0 font-mono"
                       style={TABULAR}
                       disabled={busy}
                     />
@@ -497,58 +492,68 @@ export function RecurringReimbursementDialog({
         <div className="flex items-center gap-1 border-t border-line pt-2">
           {stage === "form" && editing && (
             <>
-              <button type="button" onClick={openEnd} disabled={busy} className={BUTTON_GHOST}>
+              <Button type="button" variant="ghost" onClick={openEnd} disabled={busy}>
                 {t("expenses.recurring.action.end")}
-              </button>
+              </Button>
               {deletable && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => setStage("delete")}
                   disabled={busy}
-                  className={cn(BUTTON_GHOST, "hover:text-rose")}
+                  className="hover:text-rose"
                 >
                   {t("expenses.recurring.action.delete")}
-                </button>
+                </Button>
               )}
             </>
           )}
 
           <span className="min-w-0 flex-1" />
 
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => (stage === "form" ? onClose() : setStage("form"))}
             disabled={busy}
-            className={BUTTON_SECONDARY}
           >
             {t("expenses.recurring.action.cancel")}
-          </button>
+          </Button>
 
           {stage === "form" && (
-            <button type="button" onClick={submit} disabled={!canSubmit} className={BUTTON_PRIMARY}>
-              {(createMutation.isPending || updateMutation.isPending) && (
-                <Loader2 className="h-icon-16 w-icon-16 animate-spin motion-reduce:animate-none" />
-              )}
+            <Button
+              type="button"
+              variant="primary"
+              onClick={submit}
+              disabled={!canSubmit}
+              loading={createMutation.isPending || updateMutation.isPending}
+            >
               {t(mode.kind === "create" ? "expenses.recurring.action.add" : "expenses.recurring.action.save")}
-            </button>
+            </Button>
           )}
 
           {stage === "end" && (
-            <button type="button" onClick={confirmEnd} disabled={busy} className={BUTTON_PRIMARY}>
-              {endMutation.isPending && (
-                <Loader2 className="h-icon-16 w-icon-16 animate-spin motion-reduce:animate-none" />
-              )}
+            <Button
+              type="button"
+              variant="primary"
+              onClick={confirmEnd}
+              disabled={busy}
+              loading={endMutation.isPending}
+            >
               {t("expenses.recurring.action.endAfter", { month: formatRecurringMonth(lastPeriod) })}
-            </button>
+            </Button>
           )}
 
           {stage === "delete" && (
-            <button type="button" onClick={confirmDelete} disabled={busy} className={BUTTON_DESTRUCTIVE}>
-              {deleteMutation.isPending && (
-                <Loader2 className="h-icon-16 w-icon-16 animate-spin motion-reduce:animate-none" />
-              )}
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={busy}
+              loading={deleteMutation.isPending}
+            >
               {t("expenses.recurring.action.deleteConfirm")}
-            </button>
+            </Button>
           )}
         </div>
       </DialogContent>

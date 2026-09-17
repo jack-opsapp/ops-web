@@ -104,10 +104,11 @@ describe("formatting", () => {
     expect(formatRecurringMonth("2027-01-01")).toBe("JAN 2027");
   });
 
-  it("renders money en-US with the record's own currency", () => {
-    expect(formatRecurringMoney(350, "CAD")).toBe("CA$350.00");
+  it("renders money en-US in the record's currency, reading like the console", () => {
+    expect(formatRecurringMoney(350, "CAD")).toBe("$350.00");
     expect(formatRecurringMoney(1234.5, "USD")).toBe("$1,234.50");
     expect(formatRecurringMoney(85, null)).toBe("$85.00");
+    expect(formatRecurringMoney(40, "EUR")).toBe("€40.00");
   });
 });
 

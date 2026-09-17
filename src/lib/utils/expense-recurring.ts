@@ -102,11 +102,17 @@ export function formatRecurringMonth(period: string): string {
   return `${MONTH_ABBREVS[month - 1] ?? "—"} ${year}`;
 }
 
-/** Money Rendering Canon: en-US with the record's own ISO currency. */
+/**
+ * en-US money in the record's own currency, with the narrow symbol so it reads
+ * exactly like the expense console around it (`$350.00` for CAD and USD,
+ * `€` / `£` where they apply). The database's notification copy keeps the
+ * explicit `CA$` form the phone app renders.
+ */
 export function formatRecurringMoney(amount: number, currency: string | null | undefined): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency || "USD",
+    currencyDisplay: "narrowSymbol",
   }).format(amount);
 }
 

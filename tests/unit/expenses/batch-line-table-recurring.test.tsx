@@ -144,7 +144,7 @@ describe("recurring line", () => {
     renderTable([recurringLine]);
     fireEvent.click(screen.getByText("Vehicle advertising"));
 
-    expect(screen.getByText(/expenses\.recurring\.every .*"amount":"CA\$350\.00".*"since":"AUG 2026"/)).toBeInTheDocument();
+    expect(screen.getByText(/expenses\.recurring\.every .*"amount":"\$350\.00".*"since":"AUG 2026"/)).toBeInTheDocument();
     expect(screen.getByText(/expenses\.recurring\.covers .*"month":"AUG 2026"/)).toBeInTheDocument();
     expect(screen.queryByText("expenses.line.noReceipt")).not.toBeInTheDocument();
     expect(screen.queryByText("expenses.line.flagThis")).not.toBeInTheDocument();

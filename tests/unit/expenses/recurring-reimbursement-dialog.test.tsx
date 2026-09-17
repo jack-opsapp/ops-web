@@ -161,7 +161,7 @@ describe("create from a person's batch", () => {
     renderCreate();
     fireEvent.change(screen.getByLabelText("expenses.recurring.field.amount"), { target: { value: "350" } });
     expect(
-      screen.getByText(/expenses\.recurring\.preview\.now .*"amount":"CA\$350\.00".*"months":"AUG 2026, SEP 2026"/)
+      screen.getByText(/expenses\.recurring\.preview\.now .*"amount":"\$350\.00".*"months":"AUG 2026, SEP 2026"/)
     ).toBeInTheDocument();
     expect(screen.queryByText(/expenses\.recurring\.preview\.paidOut/)).not.toBeInTheDocument();
   });
