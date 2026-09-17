@@ -20,6 +20,7 @@ import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { AutoApproveRuleType } from "@/lib/types/expense-approval";
 import { AutoApproveRuleForm } from "@/components/expenses/auto-approve-rule-form";
+import { RecurringReimbursementsCard } from "@/components/settings/recurring-reimbursements-card";
 
 type ReviewFrequency = "daily" | "weekly" | "biweekly" | "monthly";
 
@@ -220,6 +221,9 @@ export function ExpenseSettingsTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Recurring reimbursements — full width, approvers only */}
+      <RecurringReimbursementsCard />
 
       {/* Auto-Approve Rules — full width */}
       <Card className="lg:col-span-2">
