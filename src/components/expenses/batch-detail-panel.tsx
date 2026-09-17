@@ -12,6 +12,11 @@
  *   paid    → paid stamp · UNDO PAID (mis-click recovery)
  *   filling → auto-send foresight line (no verbs — it's the crew's turn)
  *   returned→ review notes (waiting on fixes)
+ *
+ * Recurring reimbursements (fixed monthly amounts the office pays with this
+ * person's expenses) are managed here too: their lines open the setup, an
+ * unpaid month can be skipped (toast UNDO restores it), and a quiet action
+ * under the lines adds one — defaulting to this batch's month.
  */
 
 import { useState, useMemo, useCallback } from "react";
@@ -27,6 +32,10 @@ import {
   useUnflagExpense,
   useEarlyClearLine,
   useRejectWithRevisions,
+  useExpenseBatches,
+  useRecurringReimbursements,
+  useRestoreRecurringLine,
+  useSkipRecurringLine,
 } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -42,8 +51,15 @@ import {
   isBatchFilling,
   batchOwedAmount,
   type ExpenseBatch,
+  type ExpenseLineItem,
+  type ExpenseRecurringReimbursement,
 } from "@/lib/types/expense-approval";
+import { formatRecurringMonth, recurringErrorKey } from "@/lib/utils/expense-recurring";
 import { BatchLineTable } from "./batch-line-table";
+import {
+  RecurringReimbursementDialog,
+  type RecurringDialogMode,
+} from "./recurring-reimbursement-dialog";
 import { ReceiptLightbox } from "./receipt-lightbox";
 import { RejectConfirmationModal } from "./reject-confirmation-modal";
 import { SubmitterAvatar } from "./batch-list";
@@ -81,11 +97,24 @@ export function BatchDetailPanel({
   const unflagMutation = useUnflagExpense();
   const earlyClearMutation = useEarlyClearLine();
   const rejectMutation = useRejectWithRevisions();
+  const skipRecurringMutation = useSkipRecurringLine();
+  const restoreRecurringMutation = useRestoreRecurringLine();
+  const { data: recurring } = useRecurringReimbursements();
+  const { data: companyBatches = [] } = useExpenseBatches();
 
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
   const [localFlagComments, setLocalFlagComments] = useState<Record<string, string>>({});
+  const [recurringDialog, setRecurringDialog] = useState<RecurringDialogMode | null>(null);
+
+  const recurringById = useMemo(
+    () =>
+      new Map<string, ExpenseRecurringReimbursement>(
+        (recurring?.setups ?? []).map((setup) => [setup.id, setup])
+      ),
+    [recurring]
+  );
 
   const fmtMoney = (value: number) =>
     new Intl.NumberFormat(numLocale, { style: "currency", currency: "USD" }).format(value);
@@ -193,6 +222,36 @@ export function BatchDetailPanel({
     flaggedTotal,
     t,
   ]);
+
+  const handleRestoreRecurring = useCallback(
+    (expense: ExpenseLineItem) => {
+      const month = expense.recurringPeriod ? formatRecurringMonth(expense.recurringPeriod) : "";
+      restoreRecurringMutation.mutate(expense.id, {
+        onSuccess: () => toast.success(t("expenses.recurring.toast.restored", { month })),
+        onError: (error) =>
+          toast.error(t(`expenses.recurring.error.${recurringErrorKey(error.message)}`)),
+      });
+    },
+    [restoreRecurringMutation, t]
+  );
+
+  const handleSkipRecurring = useCallback(
+    (expense: ExpenseLineItem) => {
+      const month = expense.recurringPeriod ? formatRecurringMonth(expense.recurringPeriod) : "";
+      skipRecurringMutation.mutate(expense.id, {
+        onSuccess: () =>
+          toast.success(t("expenses.recurring.toast.skipped", { month }), {
+            action: {
+              label: t("expenses.toast.undo"),
+              onClick: () => handleRestoreRecurring(expense),
+            },
+          }),
+        onError: (error) =>
+          toast.error(t(`expenses.recurring.error.${recurringErrorKey(error.message)}`)),
+      });
+    },
+    [skipRecurringMutation, handleRestoreRecurring, t]
+  );
 
   const handleRemoveAllFlags = useCallback(() => {
     for (const e of flaggedExpenses) {
@@ -366,16 +425,45 @@ export function BatchDetailPanel({
             <Loader2 className="h-[20px] w-[20px] animate-spin text-text-mute motion-reduce:animate-none" />
           </div>
         ) : (
-          <BatchLineTable
-            expenses={expenses}
-            onFlag={handleFlag}
-            onUnflag={handleUnflag}
-            onEarlyClear={handleEarlyClear}
-            onReceiptClick={setReceiptUrl}
-            canReview={canReview && reviewable}
-            canEarlyClear={canReview}
-            isClearing={earlyClearMutation.isPending}
-          />
+          <>
+            <BatchLineTable
+              expenses={expenses}
+              onFlag={handleFlag}
+              onUnflag={handleUnflag}
+              onEarlyClear={handleEarlyClear}
+              onReceiptClick={setReceiptUrl}
+              canReview={canReview && reviewable}
+              canEarlyClear={canReview}
+              isClearing={earlyClearMutation.isPending}
+              recurringById={recurringById}
+              canEditRecurring={canReview}
+              canSkipRecurring={canReview && !paid}
+              onEditRecurring={(setup) => setRecurringDialog({ kind: "edit", setup })}
+              onSkipRecurring={handleSkipRecurring}
+              skippingId={
+                skipRecurringMutation.isPending ? (skipRecurringMutation.variables ?? null) : null
+              }
+            />
+
+            {/* Rare, person-level setup — a quiet action, never prime space */}
+            {canReview && !paid && batch.submittedBy && (
+              <div className="px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRecurringDialog({
+                      kind: "create",
+                      person: { id: batch.submittedBy as string, name: displayName },
+                      firstPeriod: batch.periodStart,
+                    })
+                  }
+                  className="font-mono text-micro uppercase tracking-wider text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent"
+                >
+                  {t("expenses.recurring.add")}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -486,6 +574,18 @@ export function BatchDetailPanel({
             {" ]"}
           </span>
         </div>
+      )}
+
+      {recurringDialog && (
+        <RecurringReimbursementDialog
+          open
+          mode={recurringDialog}
+          currency={recurring?.currency ?? "USD"}
+          timeZone={recurring?.timeZone ?? null}
+          batches={companyBatches}
+          people={[]}
+          onClose={() => setRecurringDialog(null)}
+        />
       )}
 
       {/* Receipt lightbox */}

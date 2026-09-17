@@ -7,6 +7,11 @@
  * expanding to the full record: project allocation (resolved title), payment
  * method, tax, notes, receipt (or the crew's no-receipt reason), flagging with
  * a required comment, and the approver's per-line early CLEAR.
+ *
+ * Recurring reimbursement lines (a fixed monthly amount the office set up) are
+ * office-owned: the receipt cell shows a neutral repeat mark instead of a
+ * missing-receipt alarm, the record shows the arrangement, and the verbs are
+ * EDIT (the setup) and SKIP (this unpaid month) — never flag or CLEAR.
  */
 
 import { useState } from "react";
@@ -18,11 +23,18 @@ import {
   FlagOff,
   Image as ImageIcon,
   ImageOff,
+  Loader2,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
-import type { ExpenseLineItem } from "@/lib/types/expense-approval";
+import {
+  isRecurringLine,
+  type ExpenseLineItem,
+  type ExpenseRecurringReimbursement,
+} from "@/lib/types/expense-approval";
+import { formatRecurringMoney, formatRecurringMonth } from "@/lib/utils/expense-recurring";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,6 +52,16 @@ interface BatchLineTableProps {
    */
   canEarlyClear: boolean;
   isClearing: boolean;
+  /** Recurring reimbursement setups by id, to describe recurring lines. */
+  recurringById?: Map<string, ExpenseRecurringReimbursement>;
+  /** Approver on a batch that is not yet paid — may skip an unpaid month. */
+  canSkipRecurring?: boolean;
+  /** Approver — may open a recurring line's setup. */
+  canEditRecurring?: boolean;
+  onEditRecurring?: (setup: ExpenseRecurringReimbursement) => void;
+  onSkipRecurring?: (expense: ExpenseLineItem) => void;
+  /** The recurring line whose skip is in flight. */
+  skippingId?: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -53,6 +75,12 @@ export function BatchLineTable({
   canReview,
   canEarlyClear,
   isClearing,
+  recurringById,
+  canSkipRecurring = false,
+  canEditRecurring = false,
+  onEditRecurring,
+  onSkipRecurring,
+  skippingId = null,
 }: BatchLineTableProps) {
   const { t } = useDictionary("books");
   const { locale } = useLocale();
@@ -115,10 +143,14 @@ export function BatchLineTable({
 
       {/* Rows */}
       {expenses.map((expense) => {
-        const isFlagged = !!expense.flagComment;
+        const recurring = isRecurringLine(expense);
+        const setup = recurring && expense.recurringReimbursementId
+          ? recurringById?.get(expense.recurringReimbursementId) ?? null
+          : null;
+        const isFlagged = !recurring && !!expense.flagComment;
         const isExpanded = expandedId === expense.id;
         // Clearable only while still submitted — never terminal or draft lines.
-        const lineClearable = expense.status === "submitted";
+        const lineClearable = !recurring && expense.status === "submitted";
 
         return (
           <div key={expense.id}>
@@ -184,9 +216,17 @@ export function BatchLineTable({
                 ) : null}
               </span>
 
-              {/* Receipt thumb / no-receipt reason */}
+              {/* Receipt thumb / no-receipt reason / recurring mark */}
               <span className="flex justify-end">
-                {expense.receiptThumbnailUrl || expense.receiptImageUrl ? (
+                {recurring ? (
+                  <span
+                    title={t("expenses.recurring.tag")}
+                    aria-label={t("expenses.recurring.tag")}
+                    className="flex h-[32px] w-[32px] items-center justify-center rounded border border-line"
+                  >
+                    <Repeat aria-hidden className="h-[12px] w-[12px] text-text-3" />
+                  </span>
+                ) : expense.receiptThumbnailUrl || expense.receiptImageUrl ? (
                   <span
                     role="button"
                     tabIndex={0}
@@ -225,8 +265,77 @@ export function BatchLineTable({
               </span>
             </button>
 
+            {/* Expanded record — recurring reimbursement */}
+            {isExpanded && recurring && (
+              <div className="border-b border-line bg-surface-input px-3 py-3">
+                <span className="block font-mono text-micro uppercase tracking-wider text-text-3">
+                  {t("expenses.recurring.tag")}
+                </span>
+                <span
+                  className="mt-0.5 block font-mono text-caption-sm text-text-2"
+                  style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+                >
+                  {setup
+                    ? setup.lastPeriod
+                      ? t("expenses.recurring.everyUntil", {
+                          amount: formatRecurringMoney(setup.amount, setup.currency),
+                          since: formatRecurringMonth(setup.firstPeriod),
+                          until: formatRecurringMonth(setup.lastPeriod),
+                        })
+                      : t("expenses.recurring.every", {
+                          amount: formatRecurringMoney(setup.amount, setup.currency),
+                          since: formatRecurringMonth(setup.firstPeriod),
+                        })
+                    : "—"}
+                </span>
+                {expense.recurringPeriod && (
+                  <span
+                    className="mt-0.5 block font-mono text-caption-sm text-text-3"
+                    style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+                  >
+                    {t("expenses.recurring.covers", {
+                      month: formatRecurringMonth(expense.recurringPeriod),
+                    })}
+                  </span>
+                )}
+
+                {((canEditRecurring && setup && onEditRecurring) ||
+                  (canSkipRecurring && onSkipRecurring && expense.status === "approved")) && (
+                  <div className="mt-2 flex items-center gap-3 border-t border-line pt-2">
+                    {canEditRecurring && setup && onEditRecurring && (
+                      <button
+                        type="button"
+                        onClick={() => onEditRecurring(setup)}
+                        className="font-mono text-micro uppercase tracking-wider text-text-2 transition-colors duration-150 ease-smooth hover:text-text"
+                      >
+                        {t("expenses.recurring.edit")}
+                      </button>
+                    )}
+                    {canSkipRecurring &&
+                      onSkipRecurring &&
+                      expense.status === "approved" &&
+                      expense.recurringPeriod && (
+                        <button
+                          type="button"
+                          onClick={() => onSkipRecurring(expense)}
+                          disabled={skippingId === expense.id}
+                          className="flex items-center gap-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2 disabled:opacity-40"
+                        >
+                          {skippingId === expense.id && (
+                            <Loader2 className="h-[10px] w-[10px] animate-spin motion-reduce:animate-none" />
+                          )}
+                          {t("expenses.recurring.skip", {
+                            month: formatRecurringMonth(expense.recurringPeriod),
+                          })}
+                        </button>
+                      )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Expanded record */}
-            {isExpanded && (
+            {isExpanded && !recurring && (
               <div className="border-b border-line bg-surface-input px-3 py-3">
                 <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <div>
