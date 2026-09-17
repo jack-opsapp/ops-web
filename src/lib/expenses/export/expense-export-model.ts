@@ -85,6 +85,7 @@ export interface ExportPersonInput {
 export interface ExportLabels {
   title: string;
   payableTo: string;
+  submittedBy: string;
   period: string;
   batch: string;
   status: string;
@@ -111,6 +112,7 @@ export interface ExportLabels {
 export const DEFAULT_EXPORT_LABELS: ExportLabels = {
   title: "EXPENSES",
   payableTo: "PAYABLE TO",
+  submittedBy: "SUBMITTED BY",
   period: "PERIOD",
   batch: "BATCH",
   status: "STATUS",
