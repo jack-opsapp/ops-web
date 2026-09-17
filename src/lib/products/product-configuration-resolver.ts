@@ -122,16 +122,20 @@ export function resolveProductConfiguration(
   );
 
   for (const option of sortedOptions) {
-    // An explicit value always wins; the catalog default applies only when the
-    // line carries nothing for this option. An explicit invalid value never
-    // falls back to the default.
+    // An explicit value always wins, and an explicit invalid value never falls
+    // back to anything. A select or boolean with nothing on the line takes the
+    // catalog default. An integer count never does: a count is the job's
+    // geometry (end posts, corners), the recipe books material per unit of it,
+    // and acceptance refuses a blank one — so a blank count stays blank and
+    // the estimator is asked for it, whatever default the catalog carries.
     const explicit = Object.prototype.hasOwnProperty.call(
       input.configuredOptions,
       option.id,
     )
       ? input.configuredOptions[option.id]
       : undefined;
-    const requested: unknown = explicit ?? option.defaultValue;
+    const requested: unknown =
+      option.kind === "integer" ? explicit : (explicit ?? option.defaultValue);
 
     switch (option.kind) {
       case "select": {

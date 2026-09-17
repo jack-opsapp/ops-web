@@ -151,7 +151,11 @@ const railingProduct = {
   pricingUnit: "linear_foot",
 };
 
-/** Canpro railing: four selects and five integer counts, defaults as configured in the catalog. */
+/**
+ * Canpro railing: four selects and five integer counts. The counts carry the
+ * catalogue defaults production held before 2026-09-17 (1, 1, 0, 0, 0) so every
+ * test below proves a count default is never used, whatever the data says.
+ */
 function canproOptions() {
   const select = (id: string, name: string, defaultValue: string, sortOrder: number) => ({
     id,
@@ -194,7 +198,7 @@ const canproValues = [
 ];
 
 describe("resolveProductConfiguration — every option kind", () => {
-  it("materializes all nine Canpro defaults: select value ids and integer counts as numbers", () => {
+  it("builds a new line with the four select defaults and every count left blank", () => {
     const result = resolveProductConfiguration({
       product: railingProduct,
       options: canproOptions(),
@@ -209,20 +213,20 @@ describe("resolveProductConfiguration — every option kind", () => {
       "opt-mount": "val-side",
       "opt-height": "val-42",
       "opt-lag": "val-lag-3",
-      "opt-left": 1,
-      "opt-right": 1,
-      "opt-corners": 0,
-      "opt-45": 0,
-      "opt-wall": 0,
     });
-    expect(Object.keys(result.configuredOptions)).toHaveLength(9);
-    expect(result.missingRequiredOptions).toEqual([]);
+    expect(result.missingRequiredOptions).toEqual([
+      "opt-left",
+      "opt-right",
+      "opt-corners",
+      "opt-45",
+      "opt-wall",
+    ]);
     expect(result.resolvedOptionsLabel).toBe(
-      'Color: Black · Mount Type: Side mount · Height: 42" · Lag length: 3" · Left ends: 1 · Right ends: 1 · Corners: 0 · 45° corners: 0 · Wall returns: 0',
+      'Color: Black · Mount Type: Side mount · Height: 42" · Lag length: 3"',
     );
   });
 
-  it("lets an explicit value win over the default for selects and integers", () => {
+  it("lets an explicit value win over the default for selects, and takes counts only as entered", () => {
     const result = resolveProductConfiguration({
       product: railingProduct,
       options: canproOptions(),
@@ -233,15 +237,69 @@ describe("resolveProductConfiguration — every option kind", () => {
         "opt-mount": "top mount",
         "opt-left": 2,
         "opt-corners": "3",
+        "opt-45": 0,
       },
       quantity: 20,
     });
 
     expect(result.configuredOptions["opt-color"]).toBe("val-white");
     expect(result.configuredOptions["opt-mount"]).toBe("val-top");
+    expect(result.configuredOptions["opt-height"]).toBe("val-42");
     expect(result.configuredOptions["opt-left"]).toBe(2);
     expect(result.configuredOptions["opt-corners"]).toBe(3);
+    // An entered 0 is a count, not a blank.
+    expect(result.configuredOptions["opt-45"]).toBe(0);
+    expect(result.configuredOptions).not.toHaveProperty("opt-right");
+    expect(result.configuredOptions).not.toHaveProperty("opt-wall");
+    expect(result.missingRequiredOptions).toEqual(["opt-right", "opt-wall"]);
+    expect(result.resolvedOptionsLabel).toBe(
+      'Color: White · Mount Type: Top mount · Height: 42" · Lag length: 3" · Left ends: 2 · Corners: 3 · 45° corners: 0',
+    );
+  });
+
+  it.each<[string | null, string]>([
+    ["1", "a whole count"],
+    ["0", "zero"],
+    [" 2 ", "a padded count"],
+    ["-1", "a negative count"],
+    ["abc", "text"],
+    ["1.5", "a decimal string"],
+    ["", "an empty string"],
+    [null, "no default"],
+  ])("never fills a count from default %j (%s)", (defaultValue) => {
+    const options = canproOptions().map((option) =>
+      option.id === "opt-left" ? { ...option, defaultValue } : option,
+    );
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options,
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: {},
+      quantity: 20,
+    });
+    expect(result.configuredOptions).not.toHaveProperty("opt-left");
+    expect(result.missingRequiredOptions).toContain("opt-left");
+    expect(result.resolvedOptionsLabel).not.toMatch(/Left ends/);
+  });
+
+  it("keeps a count blank rather than 0 when the stored snapshot carries null for it", () => {
+    const result = resolveProductConfiguration({
+      product: railingProduct,
+      options: canproOptions(),
+      values: canproValues,
+      modifiers: [],
+      configuredOptions: { "opt-left": null, "opt-right": 1 },
+      quantity: 20,
+    });
+    expect(result.configuredOptions).not.toHaveProperty("opt-left");
     expect(result.configuredOptions["opt-right"]).toBe(1);
+    expect(result.missingRequiredOptions).toEqual([
+      "opt-left",
+      "opt-corners",
+      "opt-45",
+      "opt-wall",
+    ]);
   });
 
   it("is idempotent when its own output is fed back in", () => {
@@ -264,43 +322,6 @@ describe("resolveProductConfiguration — every option kind", () => {
     expect(second).toStrictEqual(first);
   });
 
-  it("treats a bad integer default on a required option as missing, never as zero", () => {
-    const options = canproOptions().map((option) =>
-      option.id === "opt-wall" ? { ...option, defaultValue: "abc" } : option,
-    );
-    const result = resolveProductConfiguration({
-      product: railingProduct,
-      options,
-      values: canproValues,
-      modifiers: [],
-      configuredOptions: {},
-      quantity: 20,
-    });
-
-    expect(result.configuredOptions).not.toHaveProperty("opt-wall");
-    expect(result.missingRequiredOptions).toEqual(["opt-wall"]);
-  });
-
-  it.each([
-    ["1.5", "a decimal string"],
-    ["", "an empty string"],
-    ["2 posts", "trailing text"],
-  ])("rejects integer default %j (%s)", (defaultValue) => {
-    const options = canproOptions().map((option) =>
-      option.id === "opt-left" ? { ...option, defaultValue } : option,
-    );
-    const result = resolveProductConfiguration({
-      product: railingProduct,
-      options,
-      values: canproValues,
-      modifiers: [],
-      configuredOptions: {},
-      quantity: 20,
-    });
-    expect(result.configuredOptions).not.toHaveProperty("opt-left");
-    expect(result.missingRequiredOptions).toEqual(["opt-left"]);
-  });
-
   it("accepts integer strings with surrounding whitespace and negative counts", () => {
     const result = resolveProductConfiguration({
       product: railingProduct,
@@ -314,13 +335,19 @@ describe("resolveProductConfiguration — every option kind", () => {
     expect(result.configuredOptions["opt-right"]).toBe(-1);
   });
 
-  it("does not fall back to the default when an explicit integer is invalid", () => {
+  it("treats an invalid explicit count as blank, never as a default or zero", () => {
     const result = resolveProductConfiguration({
       product: railingProduct,
       options: canproOptions(),
       values: canproValues,
       modifiers: [],
-      configuredOptions: { "opt-left": 2.5, "opt-right": true },
+      configuredOptions: {
+        "opt-left": 2.5,
+        "opt-right": true,
+        "opt-corners": 0,
+        "opt-45": 0,
+        "opt-wall": 0,
+      },
       quantity: 20,
     });
     expect(result.configuredOptions).not.toHaveProperty("opt-left");
@@ -328,10 +355,13 @@ describe("resolveProductConfiguration — every option kind", () => {
     expect(result.missingRequiredOptions).toEqual(["opt-left", "opt-right"]);
   });
 
-  it("leaves an optional integer with no default unset and not missing", () => {
+  it.each<[string | null, string]>([
+    ["1", "with a default"],
+    [null, "without a default"],
+  ])("leaves an optional count %s unset and not missing", (defaultValue) => {
     const options = canproOptions().map((option) =>
-      option.id === "opt-wall"
-        ? { ...option, required: false, defaultValue: null }
+      option.kind === "integer"
+        ? { ...option, required: false, defaultValue }
         : option,
     );
     const result = resolveProductConfiguration({
@@ -343,6 +373,7 @@ describe("resolveProductConfiguration — every option kind", () => {
       quantity: 20,
     });
     expect(result.configuredOptions).not.toHaveProperty("opt-wall");
+    expect(result.configuredOptions).not.toHaveProperty("opt-left");
     expect(result.missingRequiredOptions).toEqual([]);
   });
 

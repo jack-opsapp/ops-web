@@ -171,53 +171,78 @@ describe("ProductConfigurationFields — integer and boolean options", () => {
     });
   });
 
-  it("shows every materialized default without an edit", async () => {
+  it("fills select and boolean defaults and leaves a count blank for the estimator", async () => {
     const onResolved = vi.fn();
     render(<FieldsHarness onResolved={onResolved} />);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Left ends")).toHaveValue(1),
+      expect(screen.getByLabelText("Color")).toHaveValue("val-black"),
     );
-    expect(screen.getByLabelText("Color")).toHaveValue("val-black");
     expect(screen.getByLabelText("Post lights")).toHaveValue("false");
-    expect(onResolved.mock.calls.at(-1)?.[0].configuredOptions).toStrictEqual({
+    // The catalogue says 1; a count is job geometry, so the field stays empty.
+    expect(screen.getByLabelText("Left ends")).toHaveValue(null);
+    const resolved = onResolved.mock.calls.at(-1)?.[0];
+    expect(resolved.configuredOptions).toStrictEqual({
       "opt-color": "val-black",
-      "opt-left": 1,
       "opt-lights": false,
     });
+    expect(resolved.missingRequiredOptions).toEqual(["opt-left"]);
   });
 
-  it("writes a typed count as a JSON number, even through a cleared field", async () => {
+  it("writes a typed count as a JSON number, 0 included, even through a cleared field", async () => {
     const user = userEvent.setup();
     const onResolved = vi.fn();
     render(<FieldsHarness onResolved={onResolved} />);
     const field = await screen.findByLabelText("Left ends");
-    await waitFor(() => expect(field).toHaveValue(1));
-
-    await user.clear(field);
-    // A cleared field is a draft, not an instruction to snap back to the default.
     expect(field).toHaveValue(null);
-    await user.type(field, "3");
 
+    await user.type(field, "3");
     expect(field).toHaveValue(3);
-    const resolved = onResolved.mock.calls.at(-1)?.[0];
+    let resolved = onResolved.mock.calls.at(-1)?.[0];
     expect(resolved.configuredOptions["opt-left"]).toBe(3);
     expect(resolved.resolvedOptionsLabel).toContain("Left ends: 3");
     expect(resolved.missingRequiredOptions).toEqual([]);
 
+    await user.clear(field);
+    // A cleared field is a draft, not an instruction to fall back to anything.
+    expect(field).toHaveValue(null);
+    await user.type(field, "0");
+
+    expect(field).toHaveValue(0);
+    resolved = onResolved.mock.calls.at(-1)?.[0];
+    expect(resolved.configuredOptions["opt-left"]).toBe(0);
+    expect(resolved.resolvedOptionsLabel).toContain("Left ends: 0");
+    expect(resolved.missingRequiredOptions).toEqual([]);
+
     await user.tab();
-    expect(field).toHaveValue(3);
+    expect(field).toHaveValue(0);
   });
 
   it("restores the committed count when the field is left empty", async () => {
     const user = userEvent.setup();
     render(<FieldsHarness onResolved={vi.fn()} />);
     const field = await screen.findByLabelText("Left ends");
-    await waitFor(() => expect(field).toHaveValue(1));
+    await user.type(field, "3");
+    await user.tab();
+    expect(field).toHaveValue(3);
 
     await user.clear(field);
     await user.tab();
-    expect(field).toHaveValue(1);
+    expect(field).toHaveValue(3);
+  });
+
+  it("keeps a count that was never entered blank after the field is touched", async () => {
+    const user = userEvent.setup();
+    const onResolved = vi.fn();
+    render(<FieldsHarness onResolved={onResolved} />);
+    const field = await screen.findByLabelText("Left ends");
+
+    await user.click(field);
+    await user.tab();
+    expect(field).toHaveValue(null);
+    expect(onResolved.mock.calls.at(-1)?.[0].missingRequiredOptions).toEqual([
+      "opt-left",
+    ]);
   });
 
   it("writes a boolean choice as a JSON boolean", async () => {
