@@ -80,7 +80,7 @@ function build(over: {
 
 describe("rows", () => {
   it("maps one row per line with real Date and number cells", () => {
-    const doc = build({ lines: [line({ amount: 78.34 })] });
+    const doc = build({ lines: [line({ amount: 60.40 })] });
     expect(doc.rows).toHaveLength(1);
     const row = doc.rows[0];
     expect(row.date).toBeInstanceOf(Date);
@@ -88,7 +88,7 @@ describe("rows", () => {
     expect(row.date?.getMonth()).toBe(7); // August
     expect(row.date?.getDate()).toBe(7);
     expect(typeof row.cost).toBe("number");
-    expect(row.cost).toBe(78.34);
+    expect(row.cost).toBe(60.40);
     expect(row.item).toBe("Sanding pads");
     expect(row.store).toBe("Harbour Supply");
   });
@@ -105,7 +105,7 @@ describe("rows", () => {
     const doc = build({
       lines: [
         line({
-          amount: 87.93,
+          amount: 64.20,
           allocations: [
             { projectId: "p1", projectTitle: "Deck 1 - 200 Alder St", percentage: 50 },
             { projectId: "p2", projectTitle: "Deck 2 - 200 Alder St", percentage: 50 },
@@ -115,8 +115,8 @@ describe("rows", () => {
     });
     expect(doc.rows).toHaveLength(1);
     expect(doc.rows[0].job).toBe("Deck 1 - 200 Alder St · Deck 2 - 200 Alder St");
-    expect(doc.rows[0].cost).toBe(87.93);
-    expect(doc.linesTotal).toBe(87.93);
+    expect(doc.rows[0].cost).toBe(64.20);
+    expect(doc.linesTotal).toBe(64.20);
   });
 
   it("shows an em dash for an overhead line with no job", () => {
@@ -260,12 +260,12 @@ describe("totals", () => {
 
   it("uses the reimbursement amount as the payable figure when it is set", () => {
     const doc = build({
-      batch: { totalAmount: 518.94, approvedAmount: 0, reimbursementAmount: 350 },
-      lines: [line({ id: "a", amount: 350 }), line({ id: "b", amount: 168.94 })],
+      batch: { totalAmount: 500, approvedAmount: 0, reimbursementAmount: 350 },
+      lines: [line({ id: "a", amount: 350 }), line({ id: "b", amount: 150 })],
     });
-    expect(doc.linesTotal).toBe(518.94);
+    expect(doc.linesTotal).toBe(500);
     expect(doc.payableTotal).toBe(350);
-    expect(doc.excludedTotal).toBe(168.94);
+    expect(doc.excludedTotal).toBe(150);
   });
 
   it("treats a zero reimbursement as company-funded with nothing owed", () => {

@@ -20,7 +20,7 @@ function line(over: Partial<ExportLineInput> = {}): ExportLineInput {
     expenseDate: "2026-08-07",
     merchantName: "Harbour Supply",
     description: "Sanding pads",
-    amount: 78.34,
+    amount: 60.40,
     taxAmount: null,
     currency: "CAD",
     status: "approved",
@@ -42,9 +42,9 @@ function doc(over: { lines?: ExportLineInput[]; batch?: Record<string, unknown> 
       periodStart: "2026-08-01",
       periodEnd: "2026-08-31",
       status: "approved",
-      totalAmount: 78.34,
+      totalAmount: 60.40,
       approvedAmount: 0,
-      reimbursementAmount: 78.34,
+      reimbursementAmount: 60.40,
       ...over.batch,
     },
     lines,
@@ -179,7 +179,7 @@ describe("the written workbook", () => {
     expect(row).not.toBeNull();
     const cost = row!.getCell(6);
     expect(typeof cost.value).toBe("number");
-    expect(cost.value).toBe(78.34);
+    expect(cost.value).toBe(60.40);
     expect(cost.numFmt).toBe('"$"#,##0.00');
   });
 
@@ -253,18 +253,18 @@ describe("the written workbook", () => {
   it("states one total when the whole envelope is owed", async () => {
     const wb = await reopen(await writeExpenseWorkbook(doc(), null));
     const ws = wb.worksheets[0];
-    expect(lastValue(findRow(ws, "TOTAL")!)).toBe(78.34);
+    expect(lastValue(findRow(ws, "TOTAL")!)).toBe(60.40);
     expect(findRow(ws, "NOT REIMBURSED")).toBeNull();
   });
 
   it("breaks out what is not reimbursed when the payable figure is lower", async () => {
     const d = doc({
-      lines: [line({ id: "a", amount: 350 }), line({ id: "b", amount: 168.94 })],
-      batch: { totalAmount: 518.94, reimbursementAmount: 350 },
+      lines: [line({ id: "a", amount: 350 }), line({ id: "b", amount: 150 })],
+      batch: { totalAmount: 500, reimbursementAmount: 350 },
     });
     const ws = (await reopen(await writeExpenseWorkbook(d, null))).worksheets[0];
-    expect(lastValue(findRow(ws, "TOTAL")!)).toBe(518.94);
-    expect(lastValue(findRow(ws, "NOT REIMBURSED")!)).toBe(168.94);
+    expect(lastValue(findRow(ws, "TOTAL")!)).toBe(500);
+    expect(lastValue(findRow(ws, "NOT REIMBURSED")!)).toBe(150);
     expect(lastValue(findRow(ws, "PAYABLE")!)).toBe(350);
   });
 
@@ -341,12 +341,12 @@ describe("the written workbook", () => {
   it("greys a rejected line and still shows what it cost", async () => {
     const d = doc({
       lines: [line({ status: "rejected", rejectionReason: "Personal purchase" })],
-      batch: { totalAmount: 78.34, reimbursementAmount: null, approvedAmount: 0, status: "partially_approved" },
+      batch: { totalAmount: 60.40, reimbursementAmount: null, approvedAmount: 0, status: "partially_approved" },
     });
     const ws = (await reopen(await writeExpenseWorkbook(d, null))).worksheets[0];
     const row = findRow(ws, "Sanding pads")!;
     expect(row.getCell(5).value).toBe("Rejected — Personal purchase");
-    expect(row.getCell(6).value).toBe(78.34);
+    expect(row.getCell(6).value).toBe(60.40);
     expect((row.getCell(3).font?.color as { argb: string }).argb).toBe("FF8A8A8A");
   });
 });

@@ -19,14 +19,14 @@ The workbook is a **customer-branded portable document**, not an OPS product sur
 
 - `batchOwedAmount` (`src/lib/types/expense-approval.ts:342`) is the console's number: `reimbursementAmount` wins when non-null (**including 0**) → `partially_approved` uses `approvedAmount ?? totalAmount` → `approvedAmount > 0` → else `totalAmount ?? 0`.
 - `reimbursementAmount === 0` means **company-funded**: nothing is owed to the person (`isBatchApprovedWithoutPayout`).
-- Real Canpro data (read-only, prod): `EXP-BATCH-0006` Aug 2026, approved, 8 lines, total **657.60**, reimbursement **657.60**. `EXP-BATCH-0008` Sep 2026, open, 4 lines, total **518.94**, reimbursement **350.00** — these differ, and the document must not print one number as if it were the other.
+- Verified against two real production batches (read-only). In one, the lines total and the reimbursement figure are equal; in the other they differ, because a recurring reimbursement is the only reimbursable part. The document must never print one of those numbers as if it were the other.
 - `batch_number` is **not unique across companies** — always scope queries by `company_id`.
 - `expense_project_allocations` is one-to-many with `percentage` + nullable `amount`; `project_id` is **TEXT with no FK**, so it cannot be PostgREST-joined — resolve titles in a second `projects` query (the existing service does this at `expense-approval-service.ts:55`).
-- The existing console collapses splits to `allocations[0]` (`expense-approval-service.ts:111`). The export must **not** — it needs the full set. Real example: one $87.93 line split 50/50 across "Deck 1 - 3934 Jean Pl" and "Deck 2- 3934 Jean Pl", which share one street address.
-- **Use `projects.title`, not `projects.address`**, for the job column. The two jobs above have identical addresses; only the title tells them apart, and the reference invoice's own "Address" column contains job nicknames ("ironclad", "Citygate"), not postal addresses. Column is labelled **JOB**.
+- The existing console collapses splits to `allocations[0]` (`expense-approval-service.ts:111`). The export must **not** — it needs the full set. Production has lines split 50/50 across two jobs that sit on one property, e.g. "Deck 1 - 200 Alder St" and "Deck 2 - 200 Alder St".
+- **Use `projects.title`, not `projects.address`**, for the job column. Two jobs on one property have identical addresses; only the title tells them apart, and the reference invoice's own "Address" column contains job nicknames rather than postal addresses. Column is labelled **JOB**.
 - `expenses` has **no** generic notes column. `description` = Item, `merchant_name` = Store.
-- `companies` for Canpro: name, address, phone, email, website, logo_url all set; `physical_address` is null. `portal_branding.logo_url` is null → fall back to `companies.logo_url`.
-- Logo is a **PNG** (1152×1152 RGBA) on S3 and fetches server-side: HTTP 200. No SVG rasterisation needed for this company, but the writer must still handle SVG and missing/failed logos.
+- `companies`: name, address, phone, email, website, logo_url are typically set while `physical_address` is often null. `portal_branding.logo_url` is usually null → fall back to `companies.logo_url`.
+- Logos live on S3 and fetch fine server-side. Real ones are large (1000px+) and both square and banner-shaped, so the writer must downsample, preserve aspect, and handle SVG and missing/failed logos.
 - Permission gate: the console uses `usePermissionStore().can("expenses.approve")`. Scopes on `expenses.view` are `all` | `own`.
 - Fonts: **Arial** throughout. Mohave/JetBrains Mono/Cake Mono are not installed on a bookkeeper's Excel and would substitute unpredictably; the portable equivalent of "tabular lining numerals" is a real currency/date **number format** on a right-aligned cell. Documented divergence.
 
@@ -91,18 +91,18 @@ export interface ExpenseExportDocument {
    `recalculate_expense_batch_total` does — the document must not disagree with
    the console. `payableTotal` is the figure that excludes them.
 1. Simple batch → one row per line, dates as `Date`, costs as `number`.
-2. Split line → job reads `"Deck 1 - 3934 Jean Pl · Deck 2- 3934 Jean Pl"`, cost stays the **full** line amount once (never double-counted).
+2. Split line → job reads `"Deck 1 - 200 Alder St · Deck 2 - 200 Alder St"`, cost stays the **full** line amount once (never double-counted).
 3. Overhead line (no allocation) → job is `"—"`.
 4. Recurring line → note reads the recurring label; still payable.
 5. Rejected line → `payable: false`, `muted: true`, **still inside** `linesTotal`, note carries the reason.
 6. Partial approval → `payableTotal === approvedAmount`, `excludedTotal` is the difference.
 7. `reimbursementAmount === 0` → `companyFunded: true`, `payableTotal === 0`.
-8. `reimbursementAmount = 350` with lines totalling 518.94 → `payableTotal === 350`, `excludedTotal === 168.94`.
+8. `reimbursementAmount = 350` with lines totalling 500 → `payableTotal === 350`, `excludedTotal === 150`.
 9. Missing person address/phone → fields are `null` (**no empty labels, no placeholders**).
 10. Missing receipt reason → note explains it.
 11. Mixed currencies → `currencies.length === 2`, no cross-currency sum.
 12. Tax present on any line → `taxTotal` set; all-null tax → `taxTotal === null`.
-13. Filename: `Canpro Deck and Rail - Expenses - Matthew Schure - August 2026.xlsx`, with `/ \ : * ? " < > |` stripped.
+13. Filename: `Northgate Decking - Expenses - Dana Whitfield - August 2026.xlsx`, with `/ \ : * ? " < > |` stripped.
 
 **All fixtures use invented companies/people/addresses/amounts** — ops-web is a PUBLIC repo.
 
