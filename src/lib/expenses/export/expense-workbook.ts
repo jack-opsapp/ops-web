@@ -38,6 +38,13 @@ const SIZE_VALUE = 12;
 const SIZE_BODY = 10;
 const SIZE_LABEL = 9;
 
+/**
+ * OOXML paper size 1 is US Letter. ExcelJS's `PaperSize` enum starts at Legal
+ * and has no Letter member, so the spec value is named here rather than left
+ * as a bare literal.
+ */
+const PAPER_LETTER = 1 as ExcelJS.PaperSize;
+
 const COLUMN_WIDTHS = [14, 36, 34, 22, 24, 13];
 const COL_COUNT = COLUMN_WIDTHS.length;
 const COL_COST = 6;
@@ -480,7 +487,7 @@ export async function writeExpenseWorkbook(
     views: [{ showGridLines: false }],
     pageSetup: {
       orientation: "landscape",
-      paperSize: 1, // Letter
+      paperSize: PAPER_LETTER,
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,

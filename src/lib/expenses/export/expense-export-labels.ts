@@ -26,5 +26,7 @@ export async function resolveExportLabels(locale: Locale): Promise<ExportLabels>
     })
   );
 
-  return Object.fromEntries(resolved) as ExportLabels;
+  const labels: ExportLabels = { ...DEFAULT_EXPORT_LABELS };
+  for (const [key, value] of resolved) labels[key] = value;
+  return labels;
 }
