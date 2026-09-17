@@ -866,6 +866,7 @@
   "batchPopover.untitled": "Sin título",
   "batchPopover.haveReceipts": "tienen recibos",
   "batchPopover.missingReceipts": "recibos faltantes",
+  "batchPopover.recurring": "Reembolso recurrente",
   "batchPopover.due": "PENDIENTE",
   "batchPopover.overdue": "VENCIDO",
 

@@ -5,7 +5,7 @@
 
 import type { ExpenseBatch, ExpenseLineItem } from "@/lib/types/expense-approval";
 import type { ExpenseSettings } from "@/lib/api/services/expense-settings-service";
-import { isBatchNeedsReview } from "@/lib/types/expense-approval";
+import { isBatchNeedsReview, isRecurringLine } from "@/lib/types/expense-approval";
 
 // ── Urgency ─────────────────────────────────────────────────────────
 
@@ -76,15 +76,21 @@ export interface BatchCompliance {
 
 /**
  * Compute receipt and project compliance for a batch's expenses.
+ *
+ * Recurring reimbursement lines are office-filed and carry neither a receipt
+ * nor a job by design, so they sit outside both counts: a batch whose every
+ * receipt is in reads complete even while it holds a monthly reimbursement.
  */
 export function computeBatchCompliance(
   expenses: ExpenseLineItem[],
 ): BatchCompliance {
   let receiptsMissing = 0;
   let projectsMissing = 0;
-  const total = expenses.length;
+  let total = 0;
 
   for (const e of expenses) {
+    if (isRecurringLine(e)) continue;
+    total++;
     if (!e.receiptImageUrl) receiptsMissing++;
     if (!e.projectId) projectsMissing++;
   }
