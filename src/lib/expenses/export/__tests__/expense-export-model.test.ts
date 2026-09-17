@@ -175,6 +175,24 @@ describe("notes", () => {
     expect(doc.rows[0].payable).toBe(false);
   });
 
+  it("stops repeating 'company card' once the whole envelope is company-funded", () => {
+    // The totals block already states it; stamping every row would be noise.
+    const doc = build({
+      batch: { reimbursementAmount: 0 },
+      lines: [line({ paymentMethod: "company_card" })],
+    });
+    expect(doc.companyFunded).toBe(true);
+    expect(doc.rows[0].note).toBe("");
+  });
+
+  it("still explains a rejection on a company-funded envelope", () => {
+    const doc = build({
+      batch: { reimbursementAmount: 0 },
+      lines: [line({ paymentMethod: "company_card", status: "rejected", rejectionReason: "Duplicate" })],
+    });
+    expect(doc.rows[0].note).toBe("Rejected — Duplicate");
+  });
+
   it("explains each missing-receipt reason in plain words", () => {
     const cases: Array<[string, string]> = [
       ["lost", "Receipt lost"],
@@ -349,16 +367,28 @@ describe("identity", () => {
 
   it("drops company contact fields that are missing", () => {
     const doc = build({ company: { phone: null, website: null, address: null } });
-    expect(doc.company.contactLines).toEqual(["office@northgatedecking.example"]);
+    expect(doc.company.address).toBeNull();
+    expect(doc.company.contactLine).toBe("office@northgatedecking.example");
   });
 
-  it("orders company contact lines address, phone, email, website", () => {
-    expect(build().company.contactLines).toEqual([
-      "88 Harbour Rd, Springfield, ST A1B 2C3",
-      "(555) 010-4477",
-      "office@northgatedecking.example",
-      "https://northgatedecking.example",
-    ]);
+  it("keeps the address on its own line and joins the ways to reach them", () => {
+    const doc = build();
+    expect(doc.company.address).toBe("88 Harbour Rd, Springfield, ST A1B 2C3");
+    expect(doc.company.contactLine).toBe(
+      "(555) 010-4477 · office@northgatedecking.example · northgatedecking.example"
+    );
+  });
+
+  it("prints a website without its protocol, www or trailing slash", () => {
+    const doc = build({
+      company: { phone: null, email: null, website: "https://www.northgatedecking.example/" },
+    });
+    expect(doc.company.contactLine).toBe("northgatedecking.example");
+  });
+
+  it("has no contact line at all when there is nothing to reach them by", () => {
+    const doc = build({ company: { phone: null, email: null, website: null } });
+    expect(doc.company.contactLine).toBeNull();
   });
 
   it("carries the batch number and a readable status", () => {

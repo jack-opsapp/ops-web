@@ -168,8 +168,9 @@ export interface ExpenseExportRow {
 export interface ExpenseExportDocument {
   company: {
     name: string;
-    /** Address, phone, email, website — present ones only, in that order. */
-    contactLines: string[];
+    address: string | null;
+    /** Phone · email · website, joined — the ways to reach them, on one line. */
+    contactLine: string | null;
     logoUrl: string | null;
   };
   person: { name: string; address: string | null; phone: string | null };
@@ -254,6 +255,12 @@ function formatPeriodLabel(
 const EM_DASH = "—";
 const EN_DASH = "–";
 const JOB_SEPARATOR = " · ";
+const CONTACT_SEPARATOR = " · ";
+
+/** A printed document wants "canprodeckandrail.com", not the full href. */
+function displayUrl(value: string | null | undefined): string {
+  return clean(value).replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
+}
 
 function clean(value: string | null | undefined): string {
   return (value ?? "").trim();
@@ -299,17 +306,28 @@ function receiptNote(line: ExportLineInput, labels: ExportLabels): string {
  * What the office needs to know about this line to trust the number — and
  * nothing more. A clean line says nothing.
  */
-function noteFor(line: ExportLineInput, labels: ExportLabels): string {
+function noteFor(
+  line: ExportLineInput,
+  labels: ExportLabels,
+  companyFunded: boolean
+): string {
   if (line.status === "rejected") {
     const reason = clean(line.rejectionReason);
     return reason ? `${labels.noteRejected} ${EM_DASH} ${reason}` : labels.noteRejected;
   }
   if (line.isRecurring) return labels.noteRecurring;
-  if (line.paymentMethod === "company_card") return labels.noteCompanyCard;
+  // On a company-funded envelope the totals already say nothing is owed, so
+  // stamping every row "Company card" would repeat it rather than inform.
+  if (line.paymentMethod === "company_card") return companyFunded ? "" : labels.noteCompanyCard;
   return receiptNote(line, labels);
 }
 
-function toRow(line: ExportLineInput, labels: ExportLabels, currency: string): ExpenseExportRow {
+function toRow(
+  line: ExportLineInput,
+  labels: ExportLabels,
+  currency: string,
+  companyFunded: boolean
+): ExpenseExportRow {
   const rejected = line.status === "rejected";
   return {
     id: line.id,
@@ -317,7 +335,7 @@ function toRow(line: ExportLineInput, labels: ExportLabels, currency: string): E
     job: jobLabel(line),
     item: clean(line.description),
     store: clean(line.merchantName),
-    note: noteFor(line, labels),
+    note: noteFor(line, labels, companyFunded),
     cost: roundMoney(line.amount),
     currency: clean(line.currency) || currency,
     payable: !rejected && line.paymentMethod !== "company_card",
@@ -352,7 +370,8 @@ export function buildExpenseExportDocument(input: BuildExportInput): ExpenseExpo
   const { batch, lines, company, person, accentColor, labels, locale } = input;
 
   const { currency, currencies } = resolveCurrencies(lines);
-  const rows = lines.map((l) => toRow(l, labels, currency)).sort(byDate);
+  const companyFunded = batch.reimbursementAmount === 0;
+  const rows = lines.map((l) => toRow(l, labels, currency, companyFunded)).sort(byDate);
 
   // Mirrors recalculate_expense_batch_total: every live line, whatever status.
   const linesTotal = sumMoney(rows.map((r) => r.cost));
@@ -385,9 +404,12 @@ export function buildExpenseExportDocument(input: BuildExportInput): ExpenseExpo
   return {
     company: {
       name: companyName,
-      contactLines: [company.address, company.phone, company.email, company.website]
-        .map(clean)
-        .filter(Boolean),
+      address: clean(company.address) || null,
+      contactLine:
+        [company.phone, company.email, displayUrl(company.website)]
+          .map(clean)
+          .filter(Boolean)
+          .join(CONTACT_SEPARATOR) || null,
       logoUrl: clean(company.logoUrl) || null,
     },
     person: {
@@ -402,7 +424,7 @@ export function buildExpenseExportDocument(input: BuildExportInput): ExpenseExpo
     linesTotal,
     payableTotal,
     excludedTotal,
-    companyFunded: batch.reimbursementAmount === 0,
+    companyFunded,
     taxTotal,
     currency,
     currencies,
