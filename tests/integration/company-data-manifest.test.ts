@@ -132,6 +132,22 @@ function readFinalMigrationFunction(name: string): string {
   return latest;
 }
 
+/**
+ * Just the final function definition — from its CREATE through the closing
+ * dollar quote — so an assertion cannot pass on a neighbouring function that
+ * the same migration file defines next.
+ */
+function readFinalMigrationFunctionDefinition(name: string): string {
+  const source = readFinalMigrationFunction(name);
+  const opening = source.match(/\bas\s+(\$[a-z_]*\$)/i);
+  expect(opening, `no dollar-quoted body found for ${name}`).not.toBeNull();
+  const tag = opening![1];
+  const bodyStart = opening!.index! + opening![0].length;
+  const bodyEnd = source.indexOf(tag, bodyStart);
+  expect(bodyEnd, `unterminated body for ${name}`).toBeGreaterThan(bodyStart);
+  return source.slice(0, bodyEnd + tag.length);
+}
+
 describe("company data manifest — PRIMARY guard: the live in-scope snapshot", () => {
   const manifestTables = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
   const outOfScope = new Set(OUT_OF_SCOPE_TABLES.map((e) => e.table));
@@ -501,6 +517,36 @@ describe("company data purge — side-effect delivery ordering", () => {
   });
 });
 
+/**
+ * Account closure runs public.purge_company_data inside the API's own session:
+ * PostgREST logs in as authenticator — never postgres — and the function clears
+ * request.jwt.claims for its transaction. Every expense authority trigger the
+ * closure fires must read empty claims as internal maintenance, or closing a
+ * company with an expense, an allocation or a recurring line is refused with
+ * 42501 and rolled back (the 2026-09-15 and 2026-09-17 triggers were).
+ */
+describe("company data purge — expense authority honours account closure", () => {
+  const EMPTY_CLAIMS_ARE_MAINTENANCE =
+    "coalesce(current_setting('request.jwt.claims',true),'')=''";
+
+  it.each([
+    "private.enforce_expense_accounting_authority",
+    "private.enforce_expense_accounting_related_authority",
+    "private.enforce_expense_recurring_line_authority",
+    "private.enforce_expense_edit_authority",
+  ])("%s treats empty claims as maintenance", (name) => {
+    const definition = readFinalMigrationFunctionDefinition(name).toLowerCase();
+    expect(definition).toContain(EMPTY_CLAIMS_ARE_MAINTENANCE);
+  });
+
+  it("keeps clearing the claims inside the closure transaction itself", () => {
+    const definition = readFinalMigrationFunctionDefinition(
+      "public.purge_company_data"
+    ).toLowerCase();
+    expect(definition).toContain("set_config('request.jwt.claims', '', true)");
+  });
+});
+
 describe("company data manifest — out-of-scope registry", () => {
   const generated = readGeneratedTypes();
   const manifestTables = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
@@ -582,7 +628,8 @@ describe("company data manifest — SECONDARY guard: the generated types", () =>
   });
 
   it("declares a manifest version and the tenant table", () => {
-    expect(MANIFEST_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // A date, plus `.N` for a further classification change on the same day.
+    expect(MANIFEST_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}(\.[2-9]|\.[1-9]\d+)?$/);
     expect(TENANT_TABLE).toBe("companies");
   });
 });
@@ -796,6 +843,139 @@ describe("company data manifest — supplier bill account lifecycle", () => {
     before("supplier_bill_payments", "supplier_bills");
     before("supplier_bill_intakes", "supplier_bills");
     before("supplier_bills", "suppliers");
+  });
+});
+
+describe("company data manifest — expense accounting account lifecycle", () => {
+  const byTable = manifestByTable();
+  const order = new Map(
+    COMPANY_SCOPED_DATA.map((entry, index) => [entry.table, index])
+  );
+  const definerPurged = new Set(DEFINER_PURGED_TABLES.map((e) => e.table));
+  // Bound to one accounting connection; service_role may delete them directly.
+  const connectionBound = [
+    "expense_accounting_category_mappings",
+    "expense_accounting_payee_mappings",
+    "expense_accounting_project_mappings",
+    "expense_accounting_settings",
+    "expense_accounting_tax_mappings",
+  ];
+  // Append-only: service_role may read them and nothing else.
+  const ledgers = ["expense_accounting_events", "expense_accounting_postings"];
+
+  it("purges every expense accounting table without exporting it", () => {
+    for (const table of [...connectionBound, ...ledgers]) {
+      expect(byTable.get(table), `${table} must be classified`).toMatchObject({
+        scope: "company",
+        companyColumn: "company_id",
+        companyColumnType: "uuid",
+        softDeletable: false,
+        deleteStrategy: "hard",
+        export: false,
+      });
+    }
+  });
+
+  it("routes only the append-only ledgers through the definer helper", () => {
+    for (const table of ledgers) {
+      expect(definerPurged.has(table), `${table} must be definer purged`).toBe(true);
+    }
+    for (const table of connectionBound) {
+      expect(definerPurged.has(table), `${table} needs no detour`).toBe(false);
+    }
+  });
+
+  it("erases postings and connection-bound rows before the connection and queue they reference", () => {
+    // Postings reference both without a delete action; deleting a connection
+    // also cascades into its queue, which postings reference.
+    for (const table of [...connectionBound, "expense_accounting_postings"]) {
+      for (const parent of ["accounting_connections", "accounting_sync_queue"]) {
+        expect(
+          order.get(table)!,
+          `${table} must be purged before ${parent}`
+        ).toBeLessThan(order.get(parent)!);
+      }
+    }
+  });
+
+  it("erases the event ledger only after expenses are tombstoned", () => {
+    // Tombstoning an approved expense appends reversal and review events, and
+    // deleting its allocations queues captures; the ledger step runs last.
+    const tables = deletionPlan().map((entry) => entry.table);
+    const events = tables.indexOf("expense_accounting_events");
+    expect(events).toBeGreaterThan(tables.indexOf("expenses"));
+    expect(events).toBeGreaterThan(tables.indexOf("expense_project_allocations"));
+    expect(events).toBeGreaterThan(tables.indexOf("expense_accounting_postings"));
+  });
+
+  it("flushes deferred allocation captures and erases private state before the ledger", () => {
+    const definition = readFinalMigrationFunctionDefinition(
+      "public.purge_company_rows"
+    ).toLowerCase();
+    const branch = definition.slice(
+      definition.indexOf("elsif p_table = 'expense_accounting_events' then")
+    );
+    const flush = branch.indexOf(
+      "set constraints public.zz_capture_expense_accounting_allocation immediate"
+    );
+    const state = branch.indexOf("delete from private.expense_accounting_state");
+    const ledger = branch.indexOf("'delete from public.%i where company_id = $1::%s'");
+
+    expect(flush, "deferred captures must be flushed").toBeGreaterThan(-1);
+    expect(state, "private accounting state must be erased").toBeGreaterThan(flush);
+    expect(ledger, "the ledger delete must follow").toBeGreaterThan(state);
+  });
+});
+
+describe("company data manifest — marketing measurement machinery", () => {
+  const byTable = manifestByTable();
+
+  it("purges the Google Ads outbox and Try OPS company records without exporting them", () => {
+    for (const table of [
+      "ads_conversion_events",
+      "tryops_demo_trials",
+      "tryops_outcomes",
+      "tryops_trial_links",
+    ]) {
+      expect(byTable.get(table), `${table} must be classified`).toMatchObject({
+        scope: "company",
+        companyColumn: "company_id",
+        companyColumnType: "uuid",
+        softDeletable: false,
+        deleteStrategy: "hard",
+        export: false,
+      });
+    }
+  });
+
+  it("reaches actor-keyed Try OPS bindings through the company's users", () => {
+    // tryops_signup_bindings.company_id stays null until attachment; the actor
+    // is always set, so the user chain is the complete scope.
+    for (const table of ["tryops_demo_bindings", "tryops_signup_bindings"]) {
+      expect(byTable.get(table), `${table} must be classified`).toMatchObject({
+        scope: "parent",
+        parentTable: "users",
+        parentColumn: "actor_id",
+        softDeletable: false,
+        deleteStrategy: "hard",
+        export: false,
+      });
+    }
+  });
+
+  it("erases Try OPS health receipts before the notifications they reference", () => {
+    expect(byTable.get("tryops_health_notifications")).toMatchObject({
+      scope: "parent",
+      parentTable: "notifications",
+      parentColumn: "notification_id",
+      softDeletable: false,
+      deleteStrategy: "hard",
+      export: false,
+    });
+    const tables = deletionPlan().map((entry) => entry.table);
+    expect(tables.indexOf("tryops_health_notifications")).toBeLessThan(
+      tables.indexOf("notifications")
+    );
   });
 });
 
