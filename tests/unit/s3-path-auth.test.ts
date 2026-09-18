@@ -137,6 +137,131 @@ describe("authorizeFolder", () => {
   });
 });
 
+// A generic folder may only mint keys inside namespaces no dedicated writer
+// owns. Every namespace below has a server-built key and (where it takes
+// caller input) its own permission check; letting the generic folder lane
+// reach it would bypass that check. Refusal, never a silent rewrite.
+describe("authorizeFolder — reserved namespaces", () => {
+  const VISIT_ID = "44444444-4444-4444-4444-444444444444";
+  const USER_ID = "55555555-5555-5555-5555-555555555555";
+  const EXPENSE_ID = "66666666-6666-6666-6666-666666666666";
+
+  it.each([
+    ["site visit media", `site-visits/${COMPANY_A}/${VISIT_ID}`],
+    ["site visit root (company appended)", "site-visits"],
+    ["site visit, mixed case", `Site-Visits/${COMPANY_A}/${VISIT_ID}`],
+    ["site visit, upper-case ids", `SITE-VISITS/${COMPANY_A.toUpperCase()}/x`],
+    ["site visit, stray slashes", `//site-visits//${COMPANY_A}/${VISIT_ID}/`],
+    ["site visit, padded", `  site-visits/${COMPANY_A}  `],
+    ["expense receipt tree", `expenses/${COMPANY_A}/${USER_ID}/${EXPENSE_ID}`],
+    ["expense subfolder", `expenses/${COMPANY_A}/anything`],
+    ["expense, upper-case root", `EXPENSES/${COMPANY_A}`],
+    ["expense, company-prefixed", `expenses/company-${COMPANY_A}`],
+    ["bug report screenshots", `bug-reports/${COMPANY_A}/r1`],
+    ["generated documents", `documents/${COMPANY_A}`],
+    ["blog images", "blog"],
+    ["journal images", "blog/weekly"],
+    ["shop images", "shop"],
+    ["social media assets", `social-media/${COMPANY_A}`],
+    ["intake quarantine", `quarantine/${COMPANY_A}`],
+    ["intake accepted originals", `accepted-original/${COMPANY_A}`],
+    ["intake safe derivatives", `safe-derivative/${COMPANY_A}`],
+    ["supplier bill documents", `${COMPANY_A}/supplier-bills/r1`],
+    ["supplier bills root", `${COMPANY_A}/supplier-bills`],
+    [
+      "supplier bills, mixed case",
+      `${COMPANY_A.toUpperCase()}/Supplier-Bills/r1`,
+    ],
+  ])("refuses %s", (_label, folder) => {
+    const result = authorizeFolder(folder, COMPANY_A);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/reserved/i);
+  });
+
+  it("refuses a dot segment that could resolve into a reserved namespace", () => {
+    const result = authorizeFolder(`./site-visits/${COMPANY_A}`, COMPANY_A);
+    expect(result.ok).toBe(false);
+  });
+
+  // App builds from before the typed receipt contract (2026-07-19) still
+  // upload receipts through the generic lane as exactly
+  // `expenses/{companyId}`. Those keys get a random suffix one level below
+  // the company, so they can never land in a user's receipt tree.
+  it("keeps the legacy receipt folder working", () => {
+    expect(authorizeFolder(`expenses/${COMPANY_A}`, COMPANY_A)).toEqual({
+      ok: true,
+      folder: `expenses/${COMPANY_A}`,
+    });
+    expect(authorizeFolder("expenses", COMPANY_A)).toEqual({
+      ok: true,
+      folder: `expenses/${COMPANY_A}`,
+    });
+  });
+
+  it.each([
+    ["web default", "uploads", `uploads/${COMPANY_A}`],
+    ["web profile", "profiles", `profiles/${COMPANY_A}`],
+    ["project photos", `projects/${COMPANY_A}/${PROJECT_ID}`, null],
+    ["lead photos", `projects/${COMPANY_A}/leads/${PROJECT_ID}`, null],
+    ["note photos", `notes/${COMPANY_A}/${PROJECT_ID}`, null],
+    ["client avatars", `client-images/${COMPANY_A}`, null],
+    ["profile images", `profiles/${COMPANY_A}`, null],
+    ["logos", `logos/${COMPANY_A}`, null],
+    ["measurements", `measurements/${COMPANY_A}/${PROJECT_ID}`, null],
+    ["annotations", `annotations/${COMPANY_A}/${PROJECT_ID}/strokes`, null],
+    ["entity photos", `photos/${COMPANY_A}/project/${PROJECT_ID}`, null],
+    ["deck designs", `deck_designs/${COMPANY_A}`, null],
+    [
+      "training data",
+      `training_data/deck_scanner/${COMPANY_A}/${USER_ID}/2026-04-30`,
+      null,
+    ],
+    ["signature logos", `company-${COMPANY_A}/logos`, null],
+    ["look-alike root", `site-visits-archive/${COMPANY_A}`, null],
+    ["reserved word below the root", `projects/${COMPANY_A}/site-visits`, null],
+  ])("still accepts %s", (_label, folder, expected) => {
+    expect(authorizeFolder(folder, COMPANY_A)).toEqual({
+      ok: true,
+      folder: expected ?? folder,
+    });
+  });
+});
+
+// Bare UUIDs are also entity ids (projects, visits, users), so a foreign
+// UUID alone can't be refused. But the first segment that claims a company
+// decides whose namespace the key lives in — it must be the caller's.
+describe("authorizeFolder — company segment order", () => {
+  it("refuses a foreign company that precedes the caller's", () => {
+    const result = authorizeFolder(
+      `projects/${COMPANY_B}/${COMPANY_A}`,
+      COMPANY_A
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/different company/i);
+  });
+
+  it("refuses a foreign company root that precedes the caller's", () => {
+    const result = authorizeFolder(`${COMPANY_B}/files/${COMPANY_A}`, COMPANY_A);
+    expect(result.ok).toBe(false);
+  });
+
+  it("refuses an explicit foreign company-prefixed claim anywhere", () => {
+    const result = authorizeFolder(
+      `company-${COMPANY_A}/logos/company-${COMPANY_B}`,
+      COMPANY_A
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("refuses a foreign company-prefixed root beside the caller's id", () => {
+    const result = authorizeFolder(
+      `company-${COMPANY_B}/logos/${COMPANY_A}`,
+      COMPANY_A
+    );
+    expect(result.ok).toBe(false);
+  });
+});
+
 describe("sanitizeFilename", () => {
   it("strips path components", () => {
     expect(sanitizeFilename("../../etc/passwd")).toBe("passwd");

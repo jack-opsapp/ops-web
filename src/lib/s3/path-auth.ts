@@ -22,12 +22,86 @@
  * bucket's established `company-{uuid}` form. Both are read as the same
  * claim: the caller's own is containment, anyone else's is a
  * cross-tenant write and fails closed.
+ *
+ *   4. The folder stays out of reserved namespaces — prefixes whose keys
+ *      only a dedicated writer mints, most behind their own permission
+ *      check (see `RESERVED_ROOT_SEGMENTS`). A generic folder that names
+ *      one is refused, never rewritten.
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COMPANY_PREFIXED_UUID_RE =
   /^company-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 const SAFE_SEGMENT_RE = /^[A-Za-z0-9._-]+$/;
+const DOT_ONLY_SEGMENT_RE = /^\.+$/;
+
+/**
+ * First key segments owned by a dedicated writer in the OPS bucket.
+ * Matched case-insensitively against the normalized folder.
+ *
+ *   site-visits        presign `targetType=site_visit` (visit read check)
+ *   expenses           presign `purpose=expense_receipt` (per-user tree);
+ *                      see `isLegacyReceiptFolder` for the one exception
+ *   bug-reports        /api/bug-reports/screenshot (private, signed reads)
+ *   documents          /api/documents/generate-pdf
+ *   blog               /api/admin/blog/upload + journal (`blog/weekly/`)
+ *   shop               /api/admin/shop/upload
+ *   social-media       social asset store
+ *   quarantine, accepted-original, safe-derivative
+ *                      external-intake pipeline (own bucket by config;
+ *                      reserved here so a shared bucket can't expose it)
+ */
+const RESERVED_ROOT_SEGMENTS: ReadonlySet<string> = new Set([
+  "site-visits",
+  "expenses",
+  "bug-reports",
+  "documents",
+  "blog",
+  "shop",
+  "social-media",
+  "quarantine",
+  "accepted-original",
+  "safe-derivative",
+]);
+
+/**
+ * Second segments under a bare company root (`{companyId}/…`) owned by a
+ * dedicated writer. `supplier-bills` is written by accounting
+ * document custody.
+ */
+const RESERVED_COMPANY_ROOT_SEGMENTS: ReadonlySet<string> = new Set([
+  "supplier-bills",
+]);
+
+/**
+ * App builds from before the typed receipt contract (2026-07-19) upload
+ * receipts through the generic lane as exactly `expenses/{companyId}`.
+ * The random suffix lands one level below the company, outside every
+ * user's `expenses/{companyId}/{userId}/…` tree, so this one shape stays
+ * open until those builds are gone.
+ */
+function isLegacyReceiptFolder(segments: string[], caller: string): boolean {
+  return (
+    segments.length === 2 &&
+    segments[0] === "expenses" &&
+    UUID_RE.test(segments[1]) &&
+    segments[1].toLowerCase() === caller
+  );
+}
+
+function isReservedFolder(segments: string[], caller: string): boolean {
+  const root = segments[0]?.toLowerCase();
+  if (root === undefined) return false;
+  if (RESERVED_ROOT_SEGMENTS.has(root)) {
+    return !isLegacyReceiptFolder(segments, caller);
+  }
+  const child = segments[1]?.toLowerCase();
+  return (
+    UUID_RE.test(segments[0]) &&
+    child !== undefined &&
+    RESERVED_COMPANY_ROOT_SEGMENTS.has(child)
+  );
+}
 
 /**
  * The company a single path segment lays claim to, or `null` if it
@@ -67,6 +141,9 @@ export type FolderAuthResult = FolderAuthSuccess | FolderAuthFailure;
  *                                    → fail (foreign company UUID)
  *   "company-00000000-0000-0000-0000-000000000000/logos"
  *                                    → fail (foreign company UUID)
+ *   "projects/{otherCo}/abc-123"     → fail (first company claim is foreign)
+ *   "site-visits/abc-123/{visitId}"  → fail (reserved namespace)
+ *   "expenses/abc-123"               → ok (legacy receipt folder only)
  *   "../etc/passwd"                  → fail (traversal)
  *   ""                               → ok, "abc-123"
  */
@@ -99,33 +176,50 @@ export function authorizeFolder(
         reason: `Folder segment ${JSON.stringify(seg)} contains illegal characters`,
       };
     }
+    // `.` never names a folder and a URL normalizer may collapse it,
+    // which would move the key somewhere this check never saw.
+    if (DOT_ONLY_SEGMENT_RE.test(seg)) {
+      return { ok: false, reason: "Folder contains illegal segments" };
+    }
   }
 
-  // If a UUID-shaped segment is present and isn't the caller's, this
-  // is almost certainly a cross-tenant attempt — refuse it. (Random
-  // projectIds and entity IDs are also UUIDs, but they're scoped under
-  // the caller's company segment if used legitimately. A stray UUID at
-  // any position that isn't ours fails closed.)
+  // Bare UUIDs are also entity ids (projects, visits, users), so a
+  // foreign bare UUID can't be refused on sight — but the FIRST segment
+  // that claims a company decides whose namespace the key lives in, and
+  // it must be the caller's. An explicit `company-{uuid}` claim is never
+  // an entity id, so a foreign one anywhere fails closed.
   const caller = callerCompanyId.toLowerCase();
-  const foreignUuid = segments.find((seg) => {
-    const claimed = segmentCompanyId(seg);
-    return claimed !== null && claimed !== caller;
+  const firstClaim = segments
+    .map(segmentCompanyId)
+    .find((claimed) => claimed !== null);
+  const foreignPrefixedClaim = segments.find((seg) => {
+    const prefixed = COMPANY_PREFIXED_UUID_RE.exec(seg);
+    return prefixed !== null && prefixed[1].toLowerCase() !== caller;
   });
-  const callerPresent = segments.some(
-    (seg) => segmentCompanyId(seg) === caller
-  );
-  if (foreignUuid && !callerPresent) {
+  const foreignClaim =
+    firstClaim !== undefined && firstClaim !== caller
+      ? firstClaim
+      : foreignPrefixedClaim;
+  if (foreignClaim) {
     return {
       ok: false,
-      reason: `Folder references a different company (${foreignUuid})`,
+      reason: `Folder references a different company (${foreignClaim})`,
     };
   }
+  const callerPresent = firstClaim === caller;
 
   if (!callerPresent) {
     // Legacy callers (e.g. web `image-service.ts` sending folder "uploads")
     // don't include the companyId. Append it so the resolved S3 key is
     // always company-scoped, even if the client forgot.
     segments.push(callerCompanyId);
+  }
+
+  if (isReservedFolder(segments, caller)) {
+    return {
+      ok: false,
+      reason: "Folder is in a reserved storage namespace",
+    };
   }
 
   return { ok: true, folder: segments.join("/") };
