@@ -3,15 +3,8 @@
 -- window as the OPS-Web release that adds it to src/lib/types/permissions.ts:
 -- replace_role_permissions_as_system requires the web registry to match
 -- private.lead_permission_editor_registry exactly, so either side alone breaks
--- web role saves until the other lands.
-
-do $guard$
-begin
-  if to_regprocedure('private.actor_is_site_visit_assignee(uuid,text,text[])') is null then
-    raise exception 'site_visits.capture: part A (site_visit_assignee_access) is not applied';
-  end if;
-end
-$guard$;
+-- web role saves until the other lands. Independent of part A (the permission
+-- only widens who may start a walk-up visit); every statement is idempotent.
 
 -- Registered for the editors, granted to every preset role that fields work,
 -- and governed by the pipeline feature flag.

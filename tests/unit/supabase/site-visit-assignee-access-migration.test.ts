@@ -66,9 +66,13 @@ describe("site-visit assignee access (part A)", () => {
 });
 
 describe("site_visits.capture permission (part B)", () => {
-  it("requires part A first", () => {
-    expect(read(partB)).toContain(
-      "to_regprocedure('private.actor_is_site_visit_assignee(uuid,text,text[])') is null"
+  it("is idempotent and independent of part A", () => {
+    const source = read(partB);
+    expect(source).not.toContain("do $guard$");
+    expect(source).toContain("on conflict (permission) do nothing");
+    expect(source).toContain("on conflict (role_id, permission) do nothing");
+    expect(source).toContain(
+      "and not ('site_visits.capture' = any(coalesce(permissions, '{}'::text[])))"
     );
   });
 

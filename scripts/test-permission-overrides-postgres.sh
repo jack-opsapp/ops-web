@@ -9,7 +9,8 @@
 #                   definition production ran from 2026-07-15.
 #   2. migration  — 20260918022722 installs production's live save exactly,
 #                   refuses a second run and refuses drift, changing nothing
-#                   either time.
+#                   either time; 20260918060000 then registers
+#                   site_visits.capture once, and a second run changes nothing.
 #   3. route      — tests/integration/permission-overrides-postgres-runtime.test.ts
 #                   drives the real route through supabase-js and PostgREST:
 #                   it reproduces the outage, installs the repair under the
@@ -59,6 +60,7 @@ unset PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD PGPASSFILE PGSERVICE PGSERVICEF
 
 fixture=tests/sql/permission-overrides-fixture.sql
 repair=supabase/migrations/20260918022722_permission_overrides_clear_alias.sql
+capture_permission=supabase/migrations/20260918060000_site_visits_capture_permission.sql
 save='public.apply_user_permission_overrides_as_system(uuid,uuid,jsonb,jsonb,text[],jsonb)'
 production_md5=8e1cb41e52232d3217024a68baed4e27
 
@@ -113,6 +115,17 @@ expect_rejection drift "$repair" 'drifted from the reviewed definition' drift-re
 [[ $(function_md5 drift "$save") == "$drift_md5" ]] \
   || { echo 'A refused repair changed a drifted save'; exit 1; }
 echo "repair installs production's live save exactly; refuses a second run and drift (nothing installed)"
+registration_state() {
+  "${task_psql[@]}" -d migration -c "select (select count(*) from private.lead_permission_editor_registry where permission = 'site_visits.capture' and scopes = array['all']) || '/' || (select count(*) from private.lead_permission_editor_registry) || '/' || (select count(*) from public.role_permissions where permission = 'site_visits.capture') || '/' || (select count(*) from public.feature_flags where slug = 'pipeline' and 'site_visits.capture' = any(permissions))"
+}
+run_files migration capture-permission.log "$capture_permission"
+first_state=$(registration_state)
+[[ ${first_state%%/*} == 1 && ${first_state##*/} == 1 ]] \
+  || { echo "site_visits.capture did not register: $first_state"; exit 1; }
+run_files migration capture-permission-rerun.log "$capture_permission"
+[[ $(registration_state) == "$first_state" ]] \
+  || { echo "A second site_visits.capture run changed state: $first_state -> $(registration_state)"; exit 1; }
+echo "site_visits.capture registers once (registry/total/grants/flag = $first_state); a second run changes nothing"
 
 # 3. The route, through supabase-js and PostgREST, one commit per save.
 copy_database overrides_runtime overrides_seeded
