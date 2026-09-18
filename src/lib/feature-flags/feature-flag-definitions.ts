@@ -48,6 +48,7 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
     "pipeline.convert",
     "pipeline.manage",
     "pipeline.configure_stages",
+    "site_visits.capture",
   ],
   accounting: [
     "accounting.view",
