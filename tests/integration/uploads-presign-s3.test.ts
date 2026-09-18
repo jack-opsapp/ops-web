@@ -692,6 +692,72 @@ describe("POST /api/uploads/presign — path authorization", () => {
     expect(res.status).toBe(403);
   });
 
+  // The dedicated site-visit branch checks the caller can read the visit;
+  // the generic folder lane must not be a way around that check.
+  it.each([
+    ["urlencoded (iOS)", "urlencoded"],
+    ["JSON (web)", "json"],
+  ])(
+    "%s: refuses a generic folder inside the site-visit namespace",
+    async (_label, shape) => {
+      const POST = await loadRoute();
+      const body = {
+        filename: "field-photo.jpg",
+        contentType: "image/jpeg",
+        folder: `site-visits/${COMPANY}/${SITE_VISIT}`,
+      };
+      const req =
+        shape === "json"
+          ? jsonRequest(body, { Authorization: "Bearer ok" })
+          : urlencodedRequest(body, { Authorization: "Bearer ok" });
+
+      const res = await POST(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.error).toMatch(/reserved/i);
+      expect(getSignedUrlMock).not.toHaveBeenCalled();
+      expect(getAccessTokenClientMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    `Site-Visits/${COMPANY}/${SITE_VISIT}`,
+    "site-visits",
+    `expenses/${COMPANY}/u-id/${EXPENSE}`,
+    `bug-reports/${COMPANY}`,
+    `${COMPANY}/supplier-bills/r1`,
+  ])("refuses reserved folder %s before presigning", async (folder) => {
+    const POST = await loadRoute();
+    const res = await POST(
+      urlencodedRequest(
+        { filename: "x.jpg", contentType: "image/jpeg", folder },
+        { Authorization: "Bearer ok" }
+      )
+    );
+
+    expect(res.status).toBe(403);
+    expect(getSignedUrlMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a reserved folder on the legacy storage backend too", async () => {
+    process.env.STORAGE_BACKEND = "supabase";
+    const POST = await loadRoute();
+    const res = await POST(
+      jsonRequest(
+        {
+          filename: "x.jpg",
+          contentType: "image/jpeg",
+          folder: `site-visits/${COMPANY}/${SITE_VISIT}`,
+        },
+        { Authorization: "Bearer ok" }
+      )
+    );
+
+    expect(res.status).toBe(403);
+    expect(supabaseSignedUrlMock).not.toHaveBeenCalled();
+  });
+
   it("rejects path-traversal in folder", async () => {
     const POST = await loadRoute();
     const req = urlencodedRequest(
