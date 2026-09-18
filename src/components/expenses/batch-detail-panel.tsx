@@ -21,7 +21,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Loader2, Flag } from "lucide-react";
+import { Loader2, Flag, FileSpreadsheet } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
@@ -68,6 +68,24 @@ import {
 import { ReceiptLightbox } from "./receipt-lightbox";
 import { RejectConfirmationModal } from "./reject-confirmation-modal";
 import { SubmitterAvatar } from "./batch-list";
+
+/**
+ * Pull the server's filename out of Content-Disposition. Prefers the RFC 5987
+ * `filename*` form so an accented name survives; falls back to the plain one.
+ */
+function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1]);
+    } catch {
+      // fall through to the ASCII form
+    }
+  }
+  const plain = /filename="([^"]+)"/i.exec(header);
+  return plain ? plain[1] : null;
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -118,6 +136,35 @@ export function BatchDetailPanel({
   const [reviewNotes, setReviewNotes] = useState("");
   const [localFlagComments, setLocalFlagComments] = useState<Record<string, string>>({});
   const [recurringDialog, setRecurringDialog] = useState<RecurringDialogMode | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  // The office can export anyone's envelope; a crew member only their own.
+  // The route enforces the same rule — this just avoids offering a dead button.
+  const canExport = canReview || (!!userId && batch.submittedBy === userId);
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const response = await fetch(`/api/expenses/batches/${batch.id}/export`);
+      if (!response.ok) throw new Error(`export failed: ${response.status}`);
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download =
+        filenameFromDisposition(response.headers.get("Content-Disposition")) ??
+        `${batch.batchNumber}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(t("expenses.toast.exportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  }, [batch.id, batch.batchNumber, t]);
 
   const recurringById = useMemo(
     () =>
@@ -329,15 +376,35 @@ export function BatchDetailPanel({
             </div>
           </div>
 
-          <span
-            className={cn(
-              "inline-flex shrink-0 items-center rounded-chip border px-1 py-[1px]",
-              "font-mono text-micro font-medium uppercase tracking-[0.12em]",
-              batchStatusTone(batch.status)
+          <div className="flex shrink-0 items-center gap-2">
+            {/* A quiet utility, not a lifecycle verb — the footer owns those. */}
+            {canExport && (
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting || expenses.length === 0}
+                title={expenses.length === 0 ? t("expenses.detail.exportEmpty") : undefined}
+                className="flex h-[28px] items-center gap-1 rounded px-2 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent disabled:cursor-not-allowed disabled:text-text-mute disabled:hover:text-text-mute"
+              >
+                {exporting ? (
+                  <Loader2 className="h-icon-16 w-icon-16 animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <FileSpreadsheet className="h-icon-16 w-icon-16" />
+                )}
+                {exporting ? t("expenses.detail.exporting") : t("expenses.detail.export")}
+              </button>
             )}
-          >
-            {batchStatusDisplay(batch.status)}
-          </span>
+
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center rounded-chip border px-1 py-[1px]",
+                "font-mono text-micro font-medium uppercase tracking-[0.12em]",
+                batchStatusTone(batch.status)
+              )}
+            >
+              {batchStatusDisplay(batch.status)}
+            </span>
+          </div>
         </div>
 
         {/* Lifecycle stamps */}
