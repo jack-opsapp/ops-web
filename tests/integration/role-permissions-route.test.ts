@@ -130,6 +130,66 @@ describe("PUT /api/roles/[id]/permissions", () => {
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
+  it("accepts a shipped app's payload that predates site_visits.capture, keeping its current value", async () => {
+    // App builds released before 2026-09-18 send the 104-entry registry.
+    const legacy = newPermissions.filter(
+      (entry) => entry.permission !== "site_visits.capture"
+    );
+    expect(legacy).toHaveLength(newPermissions.length - 1);
+
+    const unset = await PUT(makeReq({ ...validBody, newPermissions: legacy }), ctx);
+    expect(unset.status).toBe(200);
+    const sentUnset = rpcMock.mock.calls[0][1].p_new_permissions as Array<{
+      permission: string;
+      scope: string | null;
+    }>;
+    expect(sentUnset.map((entry) => entry.permission)).toEqual(
+      PERMISSION_EDITOR_REGISTRY.map((action) => action.id)
+    );
+    expect(sentUnset.find((entry) => entry.permission === "site_visits.capture")).toEqual({
+      permission: "site_visits.capture",
+      scope: null,
+    });
+
+    rpcMock.mockClear();
+    const granted = await PUT(
+      makeReq({
+        ...validBody,
+        expectedPermissions: [
+          ...validBody.expectedPermissions,
+          { permission: "site_visits.capture", scope: "all" },
+        ],
+        newPermissions: legacy,
+      }),
+      ctx
+    );
+    expect(granted.status).toBe(200);
+    const sentGranted = rpcMock.mock.calls[0][1].p_new_permissions as Array<{
+      permission: string;
+      scope: string | null;
+    }>;
+    expect(sentGranted.find((entry) => entry.permission === "site_visits.capture")).toEqual({
+      permission: "site_visits.capture",
+      scope: "all",
+    });
+    // The optimistic snapshot is forwarded untouched.
+    expect(rpcMock.mock.calls[0][1].p_expected_permissions).toEqual([
+      ...validBody.expectedPermissions,
+      { permission: "site_visits.capture", scope: "all" },
+    ]);
+  });
+
+  it("still rejects a payload missing any permission older apps already knew", async () => {
+    const missingOld = newPermissions.filter(
+      (entry) =>
+        entry.permission !== "site_visits.capture" &&
+        entry.permission !== "pipeline.view"
+    );
+    const res = await PUT(makeReq({ ...validBody, newPermissions: missingOld }), ctx);
+    expect(res.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
   it("validates exact snake-case assignment snapshots", async () => {
     const res = await PUT(
       makeReq({

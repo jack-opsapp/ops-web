@@ -105,30 +105,58 @@ function validateExpectedPermissions(
   return true;
 }
 
-function validateNewPermissions(
-  value: unknown
-): value is PermissionReplacementEntry[] {
-  if (
-    !Array.isArray(value) ||
-    value.length !== PERMISSION_EDITOR_REGISTRY.length
-  ) {
-    return false;
+/**
+ * Permissions registered after app builds that are still in the field. A
+ * shipped build sends the registry it was compiled with; a permission it has
+ * never heard of is left exactly as the role holds it (the expected snapshot),
+ * never silently revoked and never refused. Nothing else may be omitted.
+ */
+const PERMISSIONS_ADDED_AFTER_SHIPPED_CLIENTS: ReadonlySet<string> = new Set([
+  "site_visits.capture", // 2026-09-18, CREW SITE VISITS P1
+]);
+
+/**
+ * The registry-complete desired state, in registry order, or null when the
+ * payload is not the full registry (optionally minus permissions a shipped
+ * build predates).
+ */
+function completeNewPermissions(
+  value: unknown,
+  expected: PermissionSnapshotEntry[]
+): PermissionReplacementEntry[] | null {
+  if (!Array.isArray(value)) return null;
+
+  const current = new Map(expected.map((entry) => [entry.permission, entry.scope]));
+  const completed: PermissionReplacementEntry[] = [];
+  let next = 0;
+
+  for (const registered of PERMISSION_EDITOR_REGISTRY) {
+    const item: unknown = value[next];
+    if (isRecord(item) && item.permission === registered.id) {
+      if (
+        !hasExactKeys(item, ENTRY_KEYS) ||
+        !(
+          item.scope === null ||
+          registered.scopes.includes(item.scope as PermissionScope)
+        )
+      ) {
+        return null;
+      }
+      completed.push({
+        permission: registered.id,
+        scope: item.scope as PermissionScope | null,
+      });
+      next += 1;
+      continue;
+    }
+    if (!PERMISSIONS_ADDED_AFTER_SHIPPED_CLIENTS.has(registered.id)) return null;
+    completed.push({
+      permission: registered.id,
+      scope: current.get(registered.id) ?? null,
+    });
   }
 
-  return value.every((item, index) => {
-    const registered = PERMISSION_EDITOR_REGISTRY[index];
-    if (
-      !isRecord(item) ||
-      !hasExactKeys(item, ENTRY_KEYS) ||
-      item.permission !== registered.id
-    ) {
-      return false;
-    }
-    return (
-      item.scope === null ||
-      registered.scopes.includes(item.scope as PermissionScope)
-    );
-  });
+  return next === value.length ? completed : null;
 }
 
 function validateAssignmentResolutions(
@@ -165,12 +193,20 @@ function parseBody(value: unknown): GuardedRequestBody | null {
   if (!isRecord(value) || !hasExactKeys(value, BODY_KEYS)) return null;
   if (
     !validateExpectedPermissions(value.expectedPermissions) ||
-    !validateNewPermissions(value.newPermissions) ||
     !validateAssignmentResolutions(value.assignmentResolutions)
   ) {
     return null;
   }
-  return value as unknown as GuardedRequestBody;
+  const newPermissions = completeNewPermissions(
+    value.newPermissions,
+    value.expectedPermissions
+  );
+  if (!newPermissions) return null;
+  return {
+    expectedPermissions: value.expectedPermissions,
+    newPermissions,
+    assignmentResolutions: value.assignmentResolutions,
+  };
 }
 
 function parseDetails(
