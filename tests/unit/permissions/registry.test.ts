@@ -106,7 +106,7 @@ describe("permission registry", () => {
     );
   });
 
-  it("uses action-level editing only for Agent, Pipeline and Inbox", () => {
+  it("uses action-level editing only for Accounting, Agent, Inbox, Pipeline and Site Visits", () => {
     const actionLevelModules = PERMISSION_CATEGORIES.flatMap(
       (category) => category.modules
     )
@@ -114,6 +114,12 @@ describe("permission registry", () => {
       .map((module) => module.id)
       .sort();
 
-    expect(actionLevelModules).toEqual(["agent", "inbox", "pipeline"]);
+    expect(actionLevelModules).toEqual([
+      "accounting",
+      "agent",
+      "inbox",
+      "pipeline",
+      "site_visits",
+    ]);
   });
 });

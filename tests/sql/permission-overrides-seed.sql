@@ -160,6 +160,25 @@ values
   ('6e000000-0000-4000-8000-00000000a112', '6e000000-0000-4000-8000-00000000a000', 'spec.admin', 'all', true);
 commit;
 
+-- The pipeline feature flag's permission list. Not on the save path itself,
+-- but migrations that register a permission under the pipeline flag (e.g.
+-- 20260918060000_site_visits_capture_permission) write here. Mirrors
+-- production's table shape and pipeline row as of 2026-09-18.
+create table if not exists public.feature_flags (
+  slug text primary key,
+  label text not null,
+  description text,
+  enabled boolean not null default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  routes text[] default '{}'::text[],
+  permissions text[] default '{}'::text[]
+);
+insert into public.feature_flags (slug, label, description, enabled, routes, permissions)
+values ('pipeline', 'Pipeline', 'Sales pipeline and opportunity management', false,
+        array['/pipeline'], array['pipeline.view', 'pipeline.manage', 'pipeline.configure_stages'])
+on conflict (slug) do nothing;
+
 do $seed_check$
 begin
   if (select count(*) from public.opportunities where assigned_to is not null and assignment_version = 1) <> 7 then

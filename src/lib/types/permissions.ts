@@ -258,6 +258,19 @@ const pipelineModule: PermissionModule = {
   ],
 };
 
+// Walk-up site visits: starting a new visit with no lead attached. Visits a
+// user is assigned to need no permission (assignment is the grant, enforced
+// server-side); this bit only unlocks starting a fresh visit. The DB grants it
+// to every preset that fields work and also honours any-scope pipeline.convert.
+const siteVisitsModule: PermissionModule = {
+  id: "site_visits",
+  label: "Site Visits",
+  editorMode: "action",
+  actions: [
+    { id: "site_visits.capture", label: "Start site visits", scopes: ["all"] },
+  ],
+};
+
 const productsModule: PermissionModule = {
   id: "products",
   label: "Products",
@@ -564,6 +577,7 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
       estimatesModule,
       invoicesModule,
       pipelineModule,
+      siteVisitsModule,
       productsModule,
       catalogModule,
       expensesModule,

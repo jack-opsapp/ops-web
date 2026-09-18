@@ -76,6 +76,9 @@ const ENV: NodeJS.ProcessEnv = {
 
 const REPAIR =
   "supabase/migrations/20260918022722_permission_overrides_clear_alias.sql";
+/** Registers site_visits.capture; chained after the repair (CREW SITE VISITS P1). */
+const CAPTURE_PERMISSION =
+  "supabase/migrations/20260918060000_site_visits_capture_permission.sql";
 const RPC =
   "public.apply_user_permission_overrides_as_system(uuid,uuid,jsonb,jsonb,text[],jsonb)";
 /** Production's save from 2026-07-15 until the repair. */
@@ -394,6 +397,27 @@ describe.skipIf(!RUN)("individual permission saves through the real route (dispo
       ["-h", PG_HOST, "-p", PG_PORT, "-U", "postgres", "-d", DATABASE, "-X", "-q", "-v", "ON_ERROR_STOP=1", "-f", join(ROOT, REPAIR)],
       { env: ENV, timeout: TIMEOUT_MS }
     );
+    expect(await saveFunctionMd5()).toBe(PRODUCTION_MD5);
+  });
+
+  it("registers site_visits.capture under the running API, once", async () => {
+    const install = () =>
+      execFileAsync(
+        PSQL,
+        ["-h", PG_HOST, "-p", PG_PORT, "-U", "postgres", "-d", DATABASE, "-X", "-q", "-v", "ON_ERROR_STOP=1", "-f", join(ROOT, CAPTURE_PERMISSION)],
+        { env: ENV, timeout: TIMEOUT_MS }
+      );
+    const registration = () =>
+      sqlJson(`select json_build_object(
+        'registry', (select json_agg(scopes) from private.lead_permission_editor_registry where permission = 'site_visits.capture'),
+        'grants', (select count(*) from public.role_permissions where permission = 'site_visits.capture'),
+        'flag', (select 'site_visits.capture' = any(permissions) from public.feature_flags where slug = 'pipeline')
+      )`);
+    await install();
+    const first = await registration();
+    expect(first).toMatchObject({ registry: [["all"]], flag: true });
+    await install();
+    expect(await registration()).toEqual(first);
     expect(await saveFunctionMd5()).toBe(PRODUCTION_MD5);
   });
 
