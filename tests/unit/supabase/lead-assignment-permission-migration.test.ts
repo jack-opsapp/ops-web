@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { PERMISSION_EDITOR_REGISTRY } from "@/lib/types/permissions";
@@ -133,17 +133,35 @@ describe("lead assignment permission migration", () => {
     expect(registry).not.toContain("'inbox.view_company'");
     expect(registry).not.toContain("'spec.admin'");
 
-    const sqlRegistry = Array.from(
-      registry?.matchAll(/\('([^']+)',\s*array\[([^\]]+)\]\)/g) ?? [],
-      (match) => ({
-        id: match[1],
-        scopes: Array.from(
-          match[2].matchAll(/'([^']+)'/g),
-          (scope) => scope[1]
-        ),
-      })
-    ).sort((left, right) => left.id.localeCompare(right.id));
-    expect(sqlRegistry).toEqual(
+    // The route validates against the editor registry and the save against
+    // the database registry, so the two must match. Later migrations extend
+    // what this one created: fold every registry write in migration order.
+    const migrationsDir = path.join(process.cwd(), "supabase/migrations");
+    const databaseRegistry = new Map<string, string[]>();
+    for (const file of readdirSync(migrationsDir).filter((name) => name.endsWith(".sql")).sort()) {
+      const sql = readFileSync(path.join(migrationsDir, file), "utf8");
+      expect(
+        sql,
+        `${file} changes the registry in a way this test does not model`
+      ).not.toMatch(/(delete\s+from|update|truncate(\s+table)?)\s+private\.lead_permission_editor_registry/i);
+      for (const write of sql.matchAll(
+        /insert into private\.lead_permission_editor_registry[\s\S]*?;/gi
+      )) {
+        const replaces = /on conflict \(permission\) do update set scopes = excluded\.scopes/i.test(write[0]);
+        for (const row of write[0].matchAll(/\('([^']+)',\s*array\[([^\]]+)\]\)/g)) {
+          if (databaseRegistry.has(row[1]) && !replaces) continue;
+          databaseRegistry.set(
+            row[1],
+            Array.from(row[2].matchAll(/'([^']+)'/g), (scope) => scope[1])
+          );
+        }
+      }
+    }
+    expect(
+      [...databaseRegistry]
+        .map(([id, scopes]) => ({ id, scopes }))
+        .sort((left, right) => left.id.localeCompare(right.id))
+    ).toEqual(
       PERMISSION_EDITOR_REGISTRY.map((action) => ({
         id: action.id,
         scopes: action.scopes,
